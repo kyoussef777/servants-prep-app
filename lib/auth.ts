@@ -43,6 +43,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          mustChangePassword: user.mustChangePassword,
         }
       }
     })
@@ -52,6 +53,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role
         token.id = user.id
+        token.mustChangePassword = user.mustChangePassword
       }
       return token
     },
@@ -59,6 +61,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.role = token.role as UserRole
         session.user.id = token.id as string
+        session.user.mustChangePassword = token.mustChangePassword as boolean
       }
       return session
     }

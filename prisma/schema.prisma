@@ -15,7 +15,7 @@ enum UserRole {
   SUPER_ADMIN
   PRIEST
   SERVANT_PREP
-  SERVANT
+  MENTOR
   STUDENT
 }
 
@@ -36,7 +36,7 @@ enum ExamSectionType {
   COMPARATIVE_THEOLOGY
   RITUAL_THEOLOGY_SACRAMENTS
   CHURCH_HISTORY_COPTIC_HERITAGE
-  SPIRITUALITY_OF_SERVANT
+  SPIRITUALITY_OF_MENTOR
   PSYCHOLOGY_METHODOLOGY
 }
 
@@ -59,14 +59,15 @@ enum ExamYearLevel {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      UserRole
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String
+  password           String
+  role               UserRole
+  phone              String?
+  mustChangePassword Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relations
   enrollments           StudentEnrollment[] @relation("StudentEnrollments")

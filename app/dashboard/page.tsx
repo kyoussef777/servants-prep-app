@@ -12,13 +12,19 @@ export default function DashboardPage() {
     if (status === 'unauthenticated') {
       router.push('/login')
     } else if (status === 'authenticated') {
+      // Check if user must change password first
+      if (session?.user?.mustChangePassword) {
+        router.push('/change-password')
+        return
+      }
+
       // Redirect based on role
       switch (session?.user?.role) {
         case 'STUDENT':
           router.push('/dashboard/student')
           break
-        case 'SERVANT':
-          router.push('/dashboard/servant')
+        case 'MENTOR':
+          router.push('/dashboard/mentor')
           break
         case 'SERVANT_PREP':
         case 'PRIEST':

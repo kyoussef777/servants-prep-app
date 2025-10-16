@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-
+import { UserRole } from "@prisma/client"
 import { isAdmin } from "@/lib/roles"
 
-// GET /api/attendance - List attendance records
+// GET /api/attendance - List attendance records (Admins see all, Mentors see only their mentees)
 export async function GET(request: Request) {
   try {
-    await requireAuth()
+    const user = await requireAuth()
 
     const { searchParams } = new URL(request.url)
     const lessonId = searchParams.get('lessonId')
@@ -16,6 +16,17 @@ export async function GET(request: Request) {
     const where: any = {}
     if (lessonId) where.lessonId = lessonId
     if (studentId) where.studentId = studentId
+
+    // If MENTOR role, restrict to only their mentees
+    if (user.role === UserRole.MENTOR) {
+      where.student = {
+        enrollments: {
+          some: {
+            mentorId: user.id
+          }
+        }
+      }
+    }
 
     const records = await prisma.attendanceRecord.findMany({
       where,

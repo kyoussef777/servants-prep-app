@@ -3,32 +3,53 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
-import { isAdmin, canManageUsers, canManageAllUsers } from "@/lib/roles"
+import { isAdmin, canManageUsers, canManageAllUsers, canViewStudents } from "@/lib/roles"
 
-// GET /api/users - List all users (Admin only)
+// GET /api/users - List all users (Admin only, or MENTOR role can view students)
 // Optional query params: ?role=STUDENT to filter by role
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    const { searchParams } = new URL(request.url)
+    const roleFilter = searchParams.get('role')
+
+    // MENTOR role can only view their assigned STUDENT mentees
+    if (user.role === UserRole.MENTOR) {
+      if (roleFilter && roleFilter !== UserRole.STUDENT) {
+        return NextResponse.json(
+          { error: "Forbidden: Mentors can only view students" },
+          { status: 403 }
+        )
+      }
+      // MENTOR can only see students assigned to them as mentees
+    } else if (!isAdmin(user.role)) {
+      // Non-admin, non-mentor roles are forbidden
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
       )
     }
 
-    const { searchParams } = new URL(request.url)
-    const roleFilter = searchParams.get('role')
-
-    // SERVANT_PREP can only see STUDENT and SERVANT users
+    // SERVANT_PREP can only see STUDENT and MENTOR users
+    // MENTOR can only see their assigned STUDENT mentees
     let whereClause: Record<string, unknown> | undefined = roleFilter ? { role: roleFilter as UserRole } : undefined
 
     if (user.role === UserRole.SERVANT_PREP) {
       whereClause = {
         ...whereClause,
-        role: roleFilter ? (roleFilter as UserRole) : { in: [UserRole.STUDENT, UserRole.SERVANT] }
+        role: roleFilter ? (roleFilter as UserRole) : { in: [UserRole.STUDENT, UserRole.MENTOR] }
+      }
+    } else if (user.role === UserRole.MENTOR) {
+      // Filter to only students where this mentor is assigned
+      whereClause = {
+        ...whereClause,
+        role: UserRole.STUDENT,
+        enrollments: {
+          some: {
+            mentorId: user.id
+          }
+        }
       }
     }
 

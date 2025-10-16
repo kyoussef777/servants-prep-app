@@ -44,16 +44,16 @@ async function updateDisplayNames() {
 
     // Create the new section if it doesn't exist
     await prisma.examSection.upsert({
-      where: { name: 'SPIRITUALITY_OF_SERVANT' },
-      update: { displayName: 'The Spirituality of the Servant' },
+      where: { name: 'SPIRITUALITY_OF_MENTOR' },
+      update: { displayName: 'The Spirituality of the Mentor' },
       create: {
-        name: 'SPIRITUALITY_OF_SERVANT',
-        displayName: 'The Spirituality of the Servant',
+        name: 'SPIRITUALITY_OF_MENTOR',
+        displayName: 'The Spirituality of the Mentor',
         passingScore: 60,
         averageRequirement: 75
       }
     })
-    console.log('✅ Created/Updated SPIRITUALITY_OF_SERVANT → The Spirituality of the Servant')
+    console.log('✅ Created/Updated SPIRITUALITY_OF_MENTOR → The Spirituality of the Mentor')
 
     console.log('\n✅ All section display names updated!')
 

@@ -174,7 +174,7 @@ export default function UsersPage() {
   // SERVANT_PREP can only create STUDENT users, SUPER_ADMIN can create all
   const roleOptions: UserRole[] = session?.user?.role === 'SERVANT_PREP'
     ? ['STUDENT']
-    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'SERVANT', 'STUDENT']
+    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT']
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -316,7 +316,7 @@ export default function UsersPage() {
                               user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
                               user.role === 'PRIEST' ? 'bg-blue-600' :
                               user.role === 'SERVANT_PREP' ? 'bg-green-600' :
-                              user.role === 'SERVANT' ? 'bg-yellow-600' :
+                              user.role === 'MENTOR' ? 'bg-yellow-600' :
                               'bg-gray-600'
                             }
                           >
@@ -324,7 +324,7 @@ export default function UsersPage() {
                           </Badge>
                         </td>
                         <td className="p-2 text-center">
-                          {user.role === 'SERVANT' || user.role === 'SERVANT_PREP' ? (
+                          {user.role === 'MENTOR' || user.role === 'SERVANT_PREP' ? (
                             <span className="font-medium">{user._count?.mentoredStudents || 0}</span>
                           ) : (
                             <span className="text-gray-400">-</span>

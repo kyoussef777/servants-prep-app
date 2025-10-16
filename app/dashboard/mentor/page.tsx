@@ -7,14 +7,14 @@ import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
-export default function ServantDashboard() {
+export default function MentorDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'SERVANT') {
+    } else if (status === 'authenticated' && session?.user?.role !== 'MENTOR') {
       router.push('/dashboard')
     }
   }, [status, session, router])
@@ -32,9 +32,9 @@ export default function ServantDashboard() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">Servant Dashboard</h1>
+          <h1 className="text-3xl font-bold">Mentor Dashboard</h1>
           <p className="text-gray-600 mt-1">Welcome, {session?.user?.name}</p>
-          <p className="text-sm text-gray-500">Manage your mentees and view their progress</p>
+          <p className="text-sm text-gray-500">View your mentees and their progress</p>
         </div>
 
         {/* Quick Actions */}
@@ -43,12 +43,12 @@ export default function ServantDashboard() {
             <CardHeader>
               <CardTitle>My Mentees</CardTitle>
               <CardDescription>
-                View and manage your assigned students (max 3)
+                View your assigned students
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href="/dashboard/servant/my-mentees">
-                <Button className="w-full">Manage My Mentees</Button>
+              <Link href="/dashboard/mentor/my-mentees">
+                <Button className="w-full">View My Mentees</Button>
               </Link>
             </CardContent>
           </Card>
@@ -61,7 +61,7 @@ export default function ServantDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href="/dashboard/servant/analytics">
+              <Link href="/dashboard/mentor/analytics">
                 <Button className="w-full">View Analytics</Button>
               </Link>
             </CardContent>
@@ -75,14 +75,18 @@ export default function ServantDashboard() {
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-gray-600">
-              As a <strong>Servant</strong>, you can:
+              As a <strong>Mentor</strong>, you have read-only access to:
             </p>
             <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-              <li>Assign yourself up to <strong>3 mentees</strong></li>
-              <li>View detailed analytics for your assigned mentees</li>
-              <li>Track their attendance and exam performance</li>
-              <li>Monitor their graduation eligibility</li>
+              <li>View your assigned mentees</li>
+              <li>View detailed analytics for your mentees</li>
+              <li>Track their attendance records</li>
+              <li>Monitor their exam scores and performance</li>
+              <li>Check their graduation eligibility</li>
             </ul>
+            <p className="text-sm text-gray-600 pt-2">
+              <strong>Note:</strong> To request changes to mentee assignments, please contact an administrator.
+            </p>
           </CardContent>
         </Card>
 
@@ -102,7 +106,7 @@ export default function ServantDashboard() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Role:</span>
-              <span className="font-medium">Servant</span>
+              <span className="font-medium">Mentor</span>
             </div>
           </CardContent>
         </Card>

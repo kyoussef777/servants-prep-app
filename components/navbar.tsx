@@ -15,7 +15,7 @@ export function Navbar() {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  if (!session?.user || pathname === '/login') {
+  if (!session?.user || pathname === '/login' || pathname === '/change-password') {
     return null
   }
 
@@ -31,7 +31,7 @@ export function Navbar() {
 
     // For sub-routes, check if pathname starts with path + '/'
     // but exclude the base dashboard path to prevent it from always being active
-    if (path === '/dashboard/admin' || path === '/dashboard/servant' || path === '/dashboard/student') {
+    if (path === '/dashboard/admin' || path === '/dashboard/mentor' || path === '/dashboard/student') {
       return pathname === path
     }
 
@@ -48,11 +48,11 @@ export function Navbar() {
       ]
     }
 
-    if (role === 'SERVANT') {
+    if (role === 'MENTOR') {
       return [
-        { href: '/dashboard/servant', label: 'Dashboard' },
-        { href: '/dashboard/servant/my-mentees', label: 'My Mentees' },
-        { href: '/dashboard/servant/analytics', label: 'Analytics' }
+        { href: '/dashboard/mentor', label: 'Dashboard' },
+        { href: '/dashboard/mentor/my-mentees', label: 'My Mentees' },
+        { href: '/dashboard/mentor/analytics', label: 'Analytics' }
       ]
     }
 
@@ -158,6 +158,11 @@ export function Navbar() {
                 <DropdownMenuItem asChild>
                   <Link href="/settings" className="cursor-pointer">
                     Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/change-password" className="cursor-pointer">
+                    Change Password
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

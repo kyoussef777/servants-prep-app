@@ -1,16 +1,16 @@
-# Servants Preparation Program
+# Mentors Preparation Program
 
-A web-based application for managing a 2-year Coptic church servants preparation program, tracking attendance, exams, and student progress with role-based access control.
+A web-based application for managing a 2-year Coptic church mentors preparation program, tracking attendance, exams, and student progress with role-based access control.
 
 ## Features
 
-- **Role-Based Access Control**: Priest, Servant, and Student roles with specific permissions
+- **Role-Based Access Control**: Priest, Mentor, and Student roles with specific permissions
 - **Academic Year Management**: Track multiple academic years with enrollment management
 - **Lesson Scheduling**: Weekly Friday lessons (7:00 PM EST) with curriculum planning
 - **Attendance Tracking**: Mark students as Present, Late, or Absent with automatic calculations
 - **Exam Management**: Five exam sections (Bible, Dogma, Church History, Comparative Theology, Sacraments)
 - **Graduation Requirements**: Real-time validation of 75% attendance and exam requirements
-- **Mentor-Student System**: Each student assigned to a servant mentor for guidance
+- **Mentor-Student System**: Each student assigned to a mentor mentor for guidance
 - **Analytics Dashboard**: Track student progress, at-risk students, and graduation eligibility
 
 ## Tech Stack
@@ -38,7 +38,7 @@ npm install
 Create a `.env` file in the root directory:
 
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/servants_prep?schema=public"
+DATABASE_URL="postgresql://user:password@localhost:5432/mentors_prep?schema=public"
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-secret-key-change-this-in-production"
 ```
@@ -79,7 +79,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - View all analytics and reports
 - Manage curriculum and lessons
 
-### Servant/Teacher
+### Mentor/Teacher
 - Take attendance for lessons
 - Enter and edit exam scores
 - View assigned mentees and their progress
@@ -177,7 +177,7 @@ npm run lint
 ## Project Structure
 
 ```
-servants-prep-app/
+mentors-prep-app/
 ├── app/
 │   ├── api/              # API routes
 │   ├── dashboard/        # Dashboard pages

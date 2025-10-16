@@ -60,11 +60,11 @@ async function main() {
       },
     }),
     prisma.examSection.upsert({
-      where: { name: 'SPIRITUALITY_OF_SERVANT' },
-      update: { displayName: 'The Spirituality of the Servant' },
+      where: { name: 'SPIRITUALITY_OF_MENTOR' },
+      update: { displayName: 'The Spirituality of the Mentor' },
       create: {
-        name: 'SPIRITUALITY_OF_SERVANT',
-        displayName: 'The Spirituality of the Servant',
+        name: 'SPIRITUALITY_OF_MENTOR',
+        displayName: 'The Spirituality of the Mentor',
         passingScore: 60,
         averageRequirement: 75,
       },
@@ -98,25 +98,25 @@ async function main() {
     },
   })
 
-  const servant1 = await prisma.user.upsert({
-    where: { email: 'servant1@church.com' },
+  const mentor1 = await prisma.user.upsert({
+    where: { email: 'mentor1@church.com' },
     update: {},
     create: {
-      email: 'servant1@church.com',
+      email: 'mentor1@church.com',
       name: 'Abouna Peter',
       password: hashedPassword,
-      role: 'SERVANT',
+      role: 'MENTOR',
     },
   })
 
-  const servant2 = await prisma.user.upsert({
-    where: { email: 'servant2@church.com' },
+  const mentor2 = await prisma.user.upsert({
+    where: { email: 'mentor2@church.com' },
     update: {},
     create: {
-      email: 'servant2@church.com',
+      email: 'mentor2@church.com',
       name: 'Abouna John',
       password: hashedPassword,
-      role: 'SERVANT',
+      role: 'MENTOR',
     },
   })
 
@@ -180,7 +180,7 @@ async function main() {
     create: {
       studentId: student1.id,
       yearLevel: 'YEAR_1',
-      mentorId: servant1.id,
+      mentorId: mentor1.id,
       isActive: true,
     },
   })
@@ -193,7 +193,7 @@ async function main() {
     create: {
       studentId: student2.id,
       yearLevel: 'YEAR_2',
-      mentorId: servant1.id,
+      mentorId: mentor1.id,
       isActive: true,
     },
   })
@@ -206,7 +206,7 @@ async function main() {
     create: {
       studentId: student3.id,
       yearLevel: 'YEAR_1',
-      mentorId: servant2.id,
+      mentorId: mentor2.id,
       isActive: true,
     },
   })

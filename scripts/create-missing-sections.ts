@@ -11,7 +11,7 @@ async function main() {
     { name: ExamSectionType.COMPARATIVE_THEOLOGY, displayName: 'Comparative Theology' },
     { name: ExamSectionType.RITUAL_THEOLOGY_SACRAMENTS, displayName: 'Ritual Theology & Sacraments' },
     { name: ExamSectionType.CHURCH_HISTORY_COPTIC_HERITAGE, displayName: 'Church History & Coptic Heritage' },
-    { name: ExamSectionType.SPIRITUALITY_OF_SERVANT, displayName: 'The Spirituality of the Servant' },
+    { name: ExamSectionType.SPIRITUALITY_OF_MENTOR, displayName: 'The Spirituality of the Mentor' },
     { name: ExamSectionType.PSYCHOLOGY_METHODOLOGY, displayName: 'Psychology & Methodology' },
   ]
 

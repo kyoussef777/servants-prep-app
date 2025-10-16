@@ -1,28 +1,41 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
+import { UserRole } from "@prisma/client"
 import { isAdmin } from "@/lib/roles"
 
 
-// GET /api/exams/[id]/scores - Get scores for an exam
+// GET /api/exams/[id]/scores - Get scores for an exam (Admins see all, Mentors see only their mentees)
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth()
+    const { id } = await params
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    // Build where clause based on role
+    const where: any = { examId: id }
+
+    // If MENTOR role, restrict to only their mentees
+    if (user.role === UserRole.MENTOR) {
+      where.student = {
+        enrollments: {
+          some: {
+            mentorId: user.id
+          }
+        }
+      }
+    } else if (!isAdmin(user.role)) {
+      // Non-admin, non-mentor roles are forbidden
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
       )
     }
-    const { id } = await params
 
     const scores = await prisma.examScore.findMany({
-      where: { examId: id },
+      where,
       include: {
         student: {
           select: {

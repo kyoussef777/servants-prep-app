@@ -28,9 +28,9 @@ export async function isPriest() {
   return user?.role === UserRole.PRIEST
 }
 
-export async function isServant() {
+export async function isMentor() {
   const user = await getCurrentUser()
-  return user?.role === UserRole.SERVANT
+  return user?.role === UserRole.MENTOR
 }
 
 export async function isStudent() {

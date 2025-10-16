@@ -10,24 +10,11 @@ interface Student {
   id: string
   name: string
   email: string
-  enrollment: {
+  enrollments?: Array<{
     id: string
     yearLevel: 'YEAR_1' | 'YEAR_2'
     isActive: boolean
     mentorId?: string
-    _count?: {
-      attendances: number
-    }
-  }
-  attendances?: Array<{
-    status: 'PRESENT' | 'LATE' | 'ABSENT'
-  }>
-  examScores?: Array<{
-    score: number
-    exam: {
-      totalPoints: number
-      section: string
-    }
   }>
 }
 
@@ -45,7 +32,7 @@ interface AnalyticsData {
   absentCount: number
 }
 
-export default function ServantAnalyticsPage() {
+export default function MentorAnalyticsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [students, setStudents] = useState<Student[]>([])
@@ -56,7 +43,7 @@ export default function ServantAnalyticsPage() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'SERVANT') {
+    } else if (status === 'authenticated' && session?.user?.role !== 'MENTOR') {
       router.push('/dashboard')
     }
   }, [status, session, router])
@@ -71,20 +58,17 @@ export default function ServantAnalyticsPage() {
     try {
       setLoading(true)
 
-      // Fetch all students
+      // Fetch students assigned to me (API now filters automatically)
       const studentsRes = await fetch('/api/users?role=STUDENT')
       if (!studentsRes.ok) throw new Error('Failed to fetch students')
-      const allStudents: Student[] = await studentsRes.json()
+      const myMentees: Student[] = await studentsRes.json()
 
-      // Filter to only my mentees
-      const myMentees = allStudents.filter(s => s.enrollment?.mentorId === session?.user?.id)
-
-      // Fetch attendance for my mentees
+      // Fetch attendance for my mentees (API now filters automatically)
       const attendanceRes = await fetch('/api/attendance')
       if (!attendanceRes.ok) throw new Error('Failed to fetch attendance')
       const allAttendance = await attendanceRes.json()
 
-      // Fetch exam scores for my mentees
+      // Fetch exam scores for my mentees (API now filters automatically)
       const scoresRes = await fetch('/api/exam-scores')
       if (!scoresRes.ok) throw new Error('Failed to fetch exam scores')
       const allScores = await scoresRes.json()
@@ -107,23 +91,26 @@ export default function ServantAnalyticsPage() {
 
         // Calculate exam averages
         const sectionAverages: { [section: string]: number } = {}
-        const sections = ['BIBLE', 'DOGMA', 'CHURCH_HISTORY', 'COMPARATIVE_THEOLOGY', 'SACRAMENTS']
+        const sections = ['BIBLE_STUDIES', 'DOGMA', 'CHURCH_HISTORY_COPTIC_HERITAGE', 'COMPARATIVE_THEOLOGY', 'RITUAL_THEOLOGY_SACRAMENTS', 'SPIRITUALITY_OF_MENTOR', 'PSYCHOLOGY_METHODOLOGY']
 
         for (const section of sections) {
-          const sectionScores = studentScores.filter((s: any) => s.exam.section === section)
+          const sectionScores = studentScores.filter((s: any) => s.exam?.examSection?.name === section)
           if (sectionScores.length > 0) {
             const sectionTotal = sectionScores.reduce((sum: number, s: any) => {
               const percentage = (s.score / s.exam.totalPoints) * 100
               return sum + percentage
             }, 0)
             sectionAverages[section] = sectionTotal / sectionScores.length
-          } else {
-            sectionAverages[section] = 0
           }
+          // Don't add the section to averages if no scores exist
         }
 
-        const allSectionsMet = Object.values(sectionAverages).every(avg => avg >= 60)
-        const examAverage = Object.values(sectionAverages).reduce((sum, avg) => sum + avg, 0) / 5
+        // Only check sections that have scores
+        const sectionsWithScores = Object.values(sectionAverages)
+        const allSectionsMet = sectionsWithScores.length > 0 ? sectionsWithScores.every(avg => avg >= 60) : false
+        const examAverage = sectionsWithScores.length > 0
+          ? sectionsWithScores.reduce((sum, avg) => sum + avg, 0) / sectionsWithScores.length
+          : 0
         const examAverageMet = examAverage >= 75
 
         const graduationEligible = attendanceMet && examAverageMet && allSectionsMet
@@ -163,11 +150,13 @@ export default function ServantAnalyticsPage() {
 
   const getSectionName = (section: string) => {
     const names: { [key: string]: string } = {
-      BIBLE: 'Bible',
+      BIBLE_STUDIES: 'Bible Studies',
       DOGMA: 'Dogma',
-      CHURCH_HISTORY: 'Church History',
+      CHURCH_HISTORY_COPTIC_HERITAGE: 'Church History & Coptic Heritage',
       COMPARATIVE_THEOLOGY: 'Comparative Theology',
-      SACRAMENTS: 'Sacraments'
+      RITUAL_THEOLOGY_SACRAMENTS: 'Ritual Theology & Sacraments',
+      SPIRITUALITY_OF_MENTOR: 'Spirituality of the Mentor',
+      PSYCHOLOGY_METHODOLOGY: 'Psychology & Methodology'
     }
     return names[section] || section
   }
@@ -194,7 +183,7 @@ export default function ServantAnalyticsPage() {
             <CardContent className="py-8">
               <p className="text-center text-gray-500">
                 You have not assigned any mentees yet. Go to{' '}
-                <a href="/dashboard/servant/my-mentees" className="text-blue-600 hover:underline">
+                <a href="/dashboard/mentor/my-mentees" className="text-blue-600 hover:underline">
                   My Mentees
                 </a>{' '}
                 to assign students.
@@ -217,7 +206,7 @@ export default function ServantAnalyticsPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge variant="outline">
-                          {student.enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+                          {student.enrollments?.[0]?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
                         </Badge>
                         {data.graduationEligible ? (
                           <Badge className="bg-green-600">✓ Graduation Eligible</Badge>

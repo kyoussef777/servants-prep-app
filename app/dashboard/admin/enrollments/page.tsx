@@ -24,7 +24,7 @@ interface Enrollment {
   } | null
 }
 
-interface Servant {
+interface Mentor {
   id: string
   name: string
   email: string
@@ -34,7 +34,7 @@ export default function EnrollmentsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
-  const [servants, setServants] = useState<Servant[]>([])
+  const [mentors, setMentors] = useState<Mentor[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -61,17 +61,17 @@ export default function EnrollmentsPage() {
           : []
         setEnrollments(activeEnrollments)
 
-        // Fetch servants (all SERVANT roles - regular servants who can be assigned as mentors)
-        const usersRes = await fetch('/api/users?role=SERVANT')
+        // Fetch mentors (all MENTOR roles - who can be assigned as mentors)
+        const usersRes = await fetch('/api/users?role=MENTOR')
         if (!usersRes.ok) {
-          throw new Error('Failed to fetch servants')
+          throw new Error('Failed to fetch mentors')
         }
-        const servantsData = await usersRes.json()
-        setServants(Array.isArray(servantsData) ? servantsData : [])
+        const mentorsData = await usersRes.json()
+        setMentors(Array.isArray(mentorsData) ? mentorsData : [])
       } catch (error) {
         console.error('Failed to fetch data:', error)
         setEnrollments([])
-        setServants([])
+        setMentors([])
       } finally {
         setLoading(false)
       }
@@ -114,13 +114,13 @@ export default function EnrollmentsPage() {
     )
   }
 
-  // Calculate workload per servant
-  const servantWorkload = new Map()
+  // Calculate workload per mentor
+  const mentorWorkload = new Map()
   if (Array.isArray(enrollments)) {
     enrollments.forEach(enrollment => {
       if (enrollment.mentor) {
-        const count = servantWorkload.get(enrollment.mentor.id) || 0
-        servantWorkload.set(enrollment.mentor.id, count + 1)
+        const count = mentorWorkload.get(enrollment.mentor.id) || 0
+        mentorWorkload.set(enrollment.mentor.id, count + 1)
       }
     })
   }
@@ -134,18 +134,18 @@ export default function EnrollmentsPage() {
           <p className="text-gray-600 mt-1">Assign mentors to students</p>
         </div>
 
-        {/* Servant Workload */}
+        {/* Mentor Workload */}
         <Card>
           <CardHeader>
-            <CardTitle>Servant Workload</CardTitle>
+            <CardTitle>Mentor Workload</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-3 gap-4">
-              {servants.map(servant => (
-                <div key={servant.id} className="p-4 border rounded-lg">
-                  <div className="font-medium">{servant.name}</div>
+              {mentors.map(mentor => (
+                <div key={mentor.id} className="p-4 border rounded-lg">
+                  <div className="font-medium">{mentor.name}</div>
                   <div className="text-2xl font-bold text-blue-600">
-                    {servantWorkload.get(servant.id) || 0}
+                    {mentorWorkload.get(mentor.id) || 0}
                   </div>
                   <div className="text-sm text-gray-600">mentees</div>
                 </div>
@@ -175,9 +175,9 @@ export default function EnrollmentsPage() {
                       onChange={(e) => handleMentorChange(enrollment.id, e.target.value)}
                     >
                       <option value="">No mentor assigned</option>
-                      {servants.map(servant => (
-                        <option key={servant.id} value={servant.id}>
-                          {servant.name}
+                      {mentors.map(mentor => (
+                        <option key={mentor.id} value={mentor.id}>
+                          {mentor.name}
                         </option>
                       ))}
                     </select>

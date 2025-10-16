@@ -18,8 +18,8 @@ export const isServantPrep = (role: UserRole) => {
   return role === 'SERVANT_PREP'
 }
 
-export const isServant = (role: UserRole) => {
-  return role === 'SERVANT'
+export const isMentor = (role: UserRole) => {
+  return role === 'MENTOR'
 }
 
 export const isStudent = (role: UserRole) => {
@@ -56,9 +56,14 @@ export const canAssignMentors = (role: UserRole) => {
   return ['SUPER_ADMIN', 'PRIEST'].includes(role)
 }
 
-// Can self-assign mentees (regular servants)
+// Can self-assign mentees (mentors)
 export const canSelfAssignMentees = (role: UserRole) => {
-  return role === 'SERVANT'
+  return role === 'MENTOR'
+}
+
+// Can view students (admins and mentors)
+export const canViewStudents = (role: UserRole) => {
+  return ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR'].includes(role)
 }
 
 // Display names for roles
@@ -66,8 +71,8 @@ export const getRoleDisplayName = (role: UserRole): string => {
   const displayNames: Record<UserRole, string> = {
     SUPER_ADMIN: 'Super Admin',
     PRIEST: 'Priest',
-    SERVANT_PREP: 'Servants Prep Servant',
-    SERVANT: 'Servant',
+    SERVANT_PREP: 'Servants Prep Leader',
+    MENTOR: 'Mentor',
     STUDENT: 'Student'
   }
   return displayNames[role]
