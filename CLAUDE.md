@@ -390,6 +390,9 @@ NEXTAUTH_SECRET="<generate-with-openssl-rand-base64-32>"
 - **`/api/dashboard`** - Dashboard data aggregation
   - Provides aggregated statistics for dashboards
 
+- **`/api/health`** - System health check
+  - `GET /api/health` - Verify database connectivity and environment configuration
+
 ### UI Components
 
 **shadcn/ui Components in Use:**
@@ -509,3 +512,65 @@ This project was migrated from npm to Bun for improved performance:
 - Bun reads `.npmrc` configuration files
 - Works with all existing Node.js packages
 - node_modules structure remains the same
+
+## Production Deployment (Vercel)
+
+**Deployment URL:** `https://servants-prep-app.vercel.app`
+
+### Required Vercel Environment Variables
+
+Configure these in Vercel Project Settings > Environment Variables:
+
+```env
+# Database (Neon with SP_ prefix)
+SP_DATABASE_URL="postgresql://..."  # Pooled connection
+SP_DATABASE_URL_UNPOOLED="postgresql://..."  # Direct connection for migrations
+
+# NextAuth.js
+NEXTAUTH_URL="https://servants-prep-app.vercel.app"  # Must match production URL
+NEXTAUTH_SECRET="<secure-random-string>"  # Generate with: openssl rand -base64 32
+
+# Additional Neon variables (if using Vercel Neon integration)
+SP_POSTGRES_PRISMA_URL="postgresql://..."
+SP_POSTGRES_URL="postgresql://..."
+SP_POSTGRES_URL_NON_POOLING="postgresql://..."
+SP_POSTGRES_USER="..."
+SP_POSTGRES_PASSWORD="..."
+SP_POSTGRES_DATABASE="..."
+SP_POSTGRES_HOST="..."
+```
+
+### Vercel Deployment Checklist
+
+1. **Environment Variables**: Verify all required env vars are set in Vercel dashboard
+2. **Bun Auto-Detection**: Vercel automatically detects Bun via `bun.lockb` file (no config needed)
+3. **Database Connection**: Production uses `SP_DATABASE_URL` from Vercel env vars (not local .env)
+4. **Redeploy After Env Changes**: Always redeploy after updating environment variables
+5. **Health Check**: After deployment, visit `/api/health` to verify database connectivity
+
+### Troubleshooting Production Issues
+
+**Login Issues (401 Unauthorized):**
+- Verify `NEXTAUTH_SECRET` matches between local and Vercel
+- Check `NEXTAUTH_URL` is set to correct production URL
+- Ensure database connection works via `/api/health` endpoint
+- Password changes must target production database (use Vercel env vars)
+- Redeploy after changing authentication-related env vars
+
+**Database Connection Issues:**
+- Visit `/api/health` endpoint to check connectivity status
+- Verify `SP_DATABASE_URL` is correctly set in Vercel
+- Check Neon database is not in sleep mode (free tier)
+- Ensure database allows connections from Vercel IP ranges
+
+**Debug Commands:**
+```bash
+# Verify production database user (connect with Vercel env vars)
+bun scripts/verify-password.ts <email> <password>
+
+# Reset password on production database
+bun scripts/set-simple-password.ts <email> <password>
+
+# Check database stats
+bun scripts/admin.ts db-stats
+```
