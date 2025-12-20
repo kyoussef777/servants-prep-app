@@ -299,11 +299,30 @@ bun scripts/admin.ts db-stats
 
 **Environment Variables Required:**
 ```env
-DATABASE_URL="postgresql://..."
-DIRECT_URL="postgresql://..."  # For Prisma migrations (if using connection pooling)
-NEXTAUTH_URL="http://localhost:3000"
+# Database Configuration (Neon with SP_ prefix)
+SP_DATABASE_URL="postgresql://..."  # Primary database URL with connection pooling
+SP_DATABASE_URL_UNPOOLED="postgresql://..."  # Direct connection for Prisma migrations
+SP_POSTGRES_PRISMA_URL="postgresql://..."  # Optimized Prisma connection string
+SP_POSTGRES_URL="postgresql://..."  # Additional Neon URLs
+SP_POSTGRES_URL_NON_POOLING="postgresql://..."
+SP_POSTGRES_URL_NO_SSL="postgresql://..."
+SP_POSTGRES_USER="..."
+SP_POSTGRES_PASSWORD="..."
+SP_POSTGRES_DATABASE="..."
+SP_POSTGRES_HOST="..."
+SP_PGHOST="..."
+SP_PGHOST_UNPOOLED="..."
+SP_PGUSER="..."
+SP_PGDATABASE="..."
+SP_PGPASSWORD="..."
+SP_NEON_PROJECT_ID="..."
+
+# NextAuth.js Configuration
+NEXTAUTH_URL="http://localhost:3000"  # or your production URL
 NEXTAUTH_SECRET="<generate-with-openssl-rand-base64-32>"
 ```
+
+**Note:** The `SP_` prefix is used for all Servants Prep database-related environment variables to maintain consistency with the Vercel/Neon integration.
 
 ## Current Implementation Status
 
