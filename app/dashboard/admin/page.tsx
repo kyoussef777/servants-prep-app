@@ -2,12 +2,12 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { isAdmin, canAssignMentors, canManageUsers, getRoleDisplayName } from '@/lib/roles'
+import { isAdmin, canAssignMentors, canManageUsers } from '@/lib/roles'
+import { useDashboardStats } from '@/lib/swr'
 import {
   Users,
   Calendar,
@@ -15,101 +15,25 @@ import {
   GraduationCap,
   BookOpen,
   UserCheck,
-  AlertCircle,
-  TrendingUp,
-  Clock,
-  CheckCircle2
+  Clock
 } from 'lucide-react'
-
-interface DashboardStats {
-  totalStudents: number
-  activeStudents: number
-  totalLessons: number
-  upcomingLessons: number
-  completedLessons: number
-  totalExams: number
-  unassignedStudents: number
-}
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
+
+  // Use SWR for caching - automatically revalidates and caches
+  const { data: stats, isLoading } = useDashboardStats()
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
     } else if (status === 'authenticated' && session?.user?.role && !isAdmin(session.user.role)) {
       router.push('/dashboard')
-    } else if (status === 'authenticated') {
-      fetchDashboardStats()
     }
   }, [status, session, router])
 
-  const fetchDashboardStats = async () => {
-    try {
-      // First fetch active academic year
-      const yearsRes = await fetch('/api/academic-years')
-      if (!yearsRes.ok) {
-        setLoading(false)
-        return
-      }
-      const years = await yearsRes.json()
-      const activeYear = years.find((y: any) => y.isActive)
-
-      if (!activeYear) {
-        setLoading(false)
-        return
-      }
-
-      // Fetch all necessary data in parallel
-      const [studentsRes, lessonsRes, examsRes, enrollmentsRes] = await Promise.all([
-        fetch('/api/users?role=STUDENT'),
-        fetch('/api/lessons'),
-        fetch('/api/exams'),
-        fetch('/api/enrollments')
-      ])
-
-      const students = await studentsRes.json()
-      const lessons = await lessonsRes.json()
-      const exams = await examsRes.json()
-      const enrollments = await enrollmentsRes.json()
-
-      const now = new Date()
-      const activeStudents = students.filter((s: any) =>
-        s.enrollments?.some((e: any) => e.isActive)
-      )
-
-      const upcomingLessons = lessons.filter((l: any) =>
-        new Date(l.scheduledDate) > now && l.status === 'SCHEDULED'
-      )
-
-      const completedLessons = lessons.filter((l: any) =>
-        l.status === 'COMPLETED'
-      )
-
-      const unassignedStudents = enrollments.filter((e: any) =>
-        e.isActive && !e.mentorId
-      ).length
-
-      setStats({
-        totalStudents: students.length,
-        activeStudents: activeStudents.length,
-        totalLessons: lessons.length,
-        upcomingLessons: upcomingLessons.length,
-        completedLessons: completedLessons.length,
-        totalExams: exams.length,
-        unassignedStudents
-      })
-    } catch (error) {
-      console.error('Failed to fetch dashboard stats:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (status === 'loading' || loading) {
+  if (status === 'loading' || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>

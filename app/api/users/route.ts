@@ -6,13 +6,19 @@ import bcrypt from "bcryptjs"
 import { isAdmin, canManageUsers, canManageAllUsers, canViewStudents } from "@/lib/roles"
 
 // GET /api/users - List all users (Admin only, or MENTOR role can view students)
-// Optional query params: ?role=STUDENT to filter by role
+// Query params:
+//   ?role=STUDENT - filter by role
+//   ?page=1&limit=50 - pagination (default: all results for backwards compatibility)
+//   ?search=john - search by name
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
 
     const { searchParams } = new URL(request.url)
     const roleFilter = searchParams.get('role')
+    const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : null
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
+    const search = searchParams.get('search')
 
     // MENTOR role can only view their assigned STUDENT mentees
     if (user.role === UserRole.MENTOR) {
@@ -33,7 +39,15 @@ export async function GET(request: Request) {
 
     // SERVANT_PREP can only see STUDENT and MENTOR users
     // MENTOR can only see their assigned STUDENT mentees
-    let whereClause: Record<string, unknown> | undefined = roleFilter ? { role: roleFilter as UserRole } : undefined
+    let whereClause: Record<string, unknown> = {}
+
+    if (roleFilter) {
+      whereClause.role = roleFilter as UserRole
+    }
+
+    if (search) {
+      whereClause.name = { contains: search, mode: 'insensitive' }
+    }
 
     if (user.role === UserRole.SERVANT_PREP) {
       whereClause = {
@@ -53,7 +67,14 @@ export async function GET(request: Request) {
       }
     }
 
-    const users = await prisma.user.findMany({
+    // Build query options
+    const queryOptions: {
+      where: Record<string, unknown>
+      select: Record<string, unknown>
+      orderBy: { name: 'asc' }
+      skip?: number
+      take?: number
+    } = {
       where: whereClause,
       select: {
         id: true,
@@ -86,8 +107,34 @@ export async function GET(request: Request) {
       orderBy: {
         name: 'asc'
       }
-    })
+    }
 
+    // Add pagination if requested
+    if (page !== null) {
+      queryOptions.skip = (page - 1) * limit
+      queryOptions.take = limit
+    }
+
+    // If pagination requested, also get total count
+    if (page !== null) {
+      const [users, total] = await Promise.all([
+        prisma.user.findMany(queryOptions),
+        prisma.user.count({ where: whereClause })
+      ])
+
+      return NextResponse.json({
+        data: users,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      })
+    }
+
+    // No pagination - return all (backwards compatible)
+    const users = await prisma.user.findMany(queryOptions)
     return NextResponse.json(users)
   } catch (error: unknown) {
     return NextResponse.json(
@@ -98,7 +145,7 @@ export async function GET(request: Request) {
 }
 
 // POST /api/users - Create a new user
-// SUPER_ADMIN can create any user, SERVANT_PREP can only create STUDENT users
+// SUPER_ADMIN can create any user, SERVANT_PREP can only create STUDENT and MENTOR users
 export async function POST(request: Request) {
   try {
     const currentUser = await requireAuth()
@@ -121,10 +168,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // SERVANT_PREP can only create STUDENT users
-    if (currentUser.role === UserRole.SERVANT_PREP && role !== UserRole.STUDENT) {
+    // SERVANT_PREP can only create STUDENT and MENTOR users
+    if (currentUser.role === UserRole.SERVANT_PREP && role !== UserRole.STUDENT && role !== UserRole.MENTOR) {
       return NextResponse.json(
-        { error: "Servants Prep can only create Student users" },
+        { error: "Servants Prep can only create Student and Mentor users" },
         { status: 403 }
       )
     }

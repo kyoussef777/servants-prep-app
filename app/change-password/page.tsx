@@ -70,15 +70,17 @@ export default function ChangePasswordPage() {
         throw new Error(data.error || 'Failed to change password')
       }
 
-      toast.success('Password changed successfully! Please sign in with your new password.')
+      // Update the session to reflect mustChangePassword = false
+      // This keeps the user logged in without requiring re-authentication
+      await update({ mustChangePassword: false })
 
-      // Sign out and redirect to login with the new password
-      await signOut({ redirect: false })
+      toast.success('Password changed successfully!')
 
-      // Small delay to show the success message
+      // Redirect to dashboard after a short delay
       setTimeout(() => {
-        router.push('/login')
-      }, 1500)
+        router.push('/dashboard')
+        router.refresh()
+      }, 1000)
     } catch (error: unknown) {
       if (error instanceof Error) {
         toast.error(error.message)

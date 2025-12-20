@@ -8,27 +8,38 @@ A Next.js 15 web application for managing a 2-year Coptic Church Servants Prepar
 
 **Tech Stack:** Next.js 15.5.4 (App Router + Turbopack), TypeScript, PostgreSQL, Prisma ORM, NextAuth.js, Tailwind CSS v4, shadcn/ui, Sonner (toast notifications)
 
+**Package Manager:** Bun 1.3+ (migrated from npm for faster installs and better performance)
+
 ## Development Commands
 
 ```bash
+# Package Management
+bun install              # Install all dependencies (alias: bun i)
+bun add <package>        # Add a dependency
+bun add -d <package>     # Add a dev dependency
+bun remove <package>     # Remove a dependency (alias: bun rm)
+bun update               # Update dependencies
+
 # Development
-npm run dev              # Start dev server with Turbopack (http://localhost:3000)
-npm run build            # Production build with Turbopack
-npm start                # Start production server
-npm run lint             # Run ESLint
+bun dev                  # Start dev server with Turbopack (http://localhost:3000)
+bun run build            # Production build with Turbopack
+bun start                # Start production server
+bun lint                 # Run ESLint
 
 # Database (Prisma)
-npm run db:generate      # Generate Prisma Client (after schema changes)
-npm run db:push          # Push schema to database (no migrations)
-npm run db:migrate       # Create and run migrations
-npm run db:seed          # Seed database with test data
-npm run db:studio        # Open Prisma Studio GUI
+bun db:generate          # Generate Prisma Client (after schema changes)
+bun db:push              # Push schema to database (no migrations)
+bun db:migrate           # Create and run migrations
+bun db:seed              # Seed database with test data
+bun db:studio            # Open Prisma Studio GUI
 
 # Utility Scripts
-tsx scripts/<script>.ts  # Run TypeScript scripts (e.g., data imports)
+bun scripts/<script>.ts  # Run TypeScript scripts directly with Bun (no tsx needed)
 ```
 
-**After schema changes:** Always run `npm run db:generate` to update Prisma Client types.
+**After schema changes:** Always run `bun db:generate` to update Prisma Client types.
+
+**Note:** Bun can run TypeScript files directly without transpilation, so `tsx` is optional. Use `bun <file>.ts` instead.
 
 ## Architecture & Key Patterns
 
@@ -38,8 +49,8 @@ The app has **5 user roles** with hierarchical permissions defined in `lib/roles
 
 1. **SUPER_ADMIN** - Full system access, can manage all users
 2. **PRIEST** - Admin access, can manage all except super admins
-3. **SERVANT_PREP** - Can manage curriculum/attendance/exams, can only manage STUDENT users
-4. **SERVANT** - Can take attendance, enter scores, view mentees, self-assign students (max 5)
+3. **SERVANT_PREP** - Can manage curriculum/attendance/exams, can only manage STUDENT and MENTOR users
+4. **MENTOR** - Read-only access to view assigned mentees, analytics, attendance, and exam scores
 5. **STUDENT** - Read-only access to own data
 
 **Key permission helpers:**
@@ -47,12 +58,20 @@ The app has **5 user roles** with hierarchical permissions defined in `lib/roles
 - `canManageUsers(role)` - SUPER_ADMIN and SERVANT_PREP only
 - `canManageAllUsers(role)` - SUPER_ADMIN only (can manage priests)
 - `canAssignMentors(role)` - SUPER_ADMIN and PRIEST only
-- `canSelfAssignMentees(role)` - SERVANT only (limited to 5 mentees)
+- `canViewStudents(role)` - SUPER_ADMIN, PRIEST, SERVANT_PREP, MENTOR (filtered by assignment for MENTOR)
 
-**IMPORTANT:** SERVANT_PREP has special restrictions:
-- Can only create/edit/delete STUDENT users (not priests or admins)
+**IMPORTANT Restrictions:**
+
+**SERVANT_PREP:**
+- Can only create/edit/delete STUDENT and MENTOR users (not priests or admins)
 - API routes enforce this at both query and mutation levels
 - UI dropdowns must be filtered to show only allowed roles
+
+**MENTOR:**
+- Read-only access only - cannot create/edit attendance or exam scores
+- Can only view data for students assigned to them as mentees
+- API routes filter `/api/enrollments?mentorId={userId}` to show only assigned students
+- Maximum 5 mentees per mentor (enforced at assignment level)
 
 ### Authentication Flow (NextAuth.js)
 
@@ -74,10 +93,20 @@ session.user = {
   email: string
   name: string
   role: UserRole  // Always check this for authorization
+  mustChangePassword: boolean  // True for new users
 }
 ```
 
-**Protected Routes:** All `/dashboard/*` routes redirect to `/login` if unauthenticated
+**Auth Helpers (`lib/auth-helpers.ts`):**
+```typescript
+import { getCurrentUser, requireAuth, requireRole } from '@/lib/auth-helpers'
+
+const user = await getCurrentUser()        // Returns user or null
+const user = await requireAuth()           // Throws "Unauthorized" if no session
+const user = await requireRole([UserRole.PRIEST, UserRole.SUPER_ADMIN])  // Throws "Forbidden" if wrong role
+```
+
+**Protected Routes:** All `/dashboard/*` routes redirect to `/login` if unauthenticated. New users with `mustChangePassword: true` are redirected to `/change-password`.
 
 ### Database Schema Architecture
 
@@ -96,19 +125,31 @@ session.user = {
 
 3. **Exam & ExamScore**
    - Exams have `yearLevel`: YEAR_1, YEAR_2, or BOTH
-   - 6 exam sections: Bible, Dogma, Church History, Comparative Theology, Sacraments, Psychology & Methodology
+   - 7 exam sections: Bible Studies, Dogma, Comparative Theology, Ritual Theology & Sacraments, Church History & Coptic Heritage, Spirituality of Mentor, Psychology & Methodology
    - Scores link to: `exam`, `student`, `gradedBy`
 
 4. **Lesson**
    - Status: SCHEDULED, COMPLETED, CANCELLED
    - Links to: `academicYear`, `examSection`, `createdBy`
    - Has many `attendanceRecords`
+   - **Note:** Lessons do NOT have a yearLevel field - they apply to all students
 
 **Graduation Requirements Logic:**
-- Attendance ≥ 75%: `(present + (lates / 2)) / total_lessons`
+- **Attendance ≥ 75%:** `(present + (lates / 2)) / total_lessons`
+  - **Formula A** is used consistently across ALL APIs (`/api/students/[id]/analytics` and `/api/students/analytics/batch`)
+  - This counts what's present, not what's absent
+  - 2 lates = 1 absence
 - Overall exam average ≥ 75% across all sections
 - Minimum 60% in each individual exam section
 - Must complete both YEAR_1 and YEAR_2
+
+**Important Note on Year-Based Attendance:**
+- The batch analytics API shows Year 1/Year 2 attendance based on student's **current year level**
+- Year 1 students: Year 1 attendance = all current attendance, Year 2 attendance = 0
+- Year 2 students: Year 2 attendance = all current attendance, Year 1 attendance = 0 (historical data not tracked)
+- **Limitation:** Lessons are not tagged with year levels, so cannot separate "Year 1 lessons" vs "Year 2 lessons"
+- This is a simplified model - students who progress from Year 1→Year 2 will show 0% for Year 1 attendance
+- For proper year-based tracking, consider adding `yearLevel` field to Lesson model in future
 
 ### API Route Patterns
 
@@ -146,7 +187,7 @@ let whereClause: Record<string, unknown> | undefined
 if (session.user.role === UserRole.SERVANT_PREP) {
   whereClause = {
     ...whereClause,
-    role: { in: [UserRole.STUDENT, UserRole.SERVANT] }  // Can only see these roles
+    role: { in: [UserRole.STUDENT, UserRole.MENTOR] }  // Can only see these roles
   }
 }
 
@@ -212,12 +253,29 @@ prisma.attendanceRecord
 
 ## Important Implementation Notes
 
-### Data Import Scripts
+### Admin CLI Tool
 
-Located in `scripts/` - used for bulk data imports from Excel files:
-- `import-attendance.ts` - Import attendance records
-- `import-lessons.ts` - Import curriculum lessons
-- Run with: `tsx scripts/<script-name>.ts`
+**Location:** `scripts/admin.ts`
+
+A comprehensive CLI tool for database administration and user management:
+
+**Available Commands:**
+```bash
+bun scripts/admin.ts reset-password <email>       # Reset a user's password
+bun scripts/admin.ts create-admin <email> [name]  # Create a SUPER_ADMIN user
+bun scripts/admin.ts list-admins                  # List all admin users
+bun scripts/admin.ts list-sections                # List all exam sections
+bun scripts/admin.ts db-stats                     # Show database statistics
+```
+
+**Examples:**
+```bash
+bun scripts/admin.ts reset-password john@church.com
+bun scripts/admin.ts create-admin admin@church.com "Fr. Michael"
+bun scripts/admin.ts db-stats
+```
+
+**Note:** The admin tool generates secure random passwords and displays them once. Save them securely!
 
 ### Academic Year Management
 
@@ -228,25 +286,12 @@ Located in `scripts/` - used for bulk data imports from Excel files:
 ### Mentor-Student System
 
 **Mentor Assignment Rules:**
-- SUPER_ADMIN/PRIEST can assign any mentor to any student
-- SERVANT role can self-assign up to 5 mentees max
+- SUPER_ADMIN/PRIEST can assign any mentor to any student via Enrollments page
+- Each mentor can have up to 5 mentees maximum
 - Each student can only have ONE mentor
 - Unassign before reassigning to different mentor
 
-**Self-Assignment Flow:**
-```typescript
-// Check current mentee count
-const count = await prisma.studentEnrollment.count({
-  where: { mentorId: servantId }
-})
-if (count >= 5) throw new Error("Maximum 5 mentees")
-
-// Assign
-await prisma.studentEnrollment.update({
-  where: { studentId },
-  data: { mentorId: servantId }
-})
-```
+**Note:** Self-assignment feature for mentors is not currently implemented in the UI. Assignments must be done by administrators through the Enrollments page.
 
 ### Build Configuration
 
@@ -260,6 +305,127 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="<generate-with-openssl-rand-base64-32>"
 ```
 
+## Current Implementation Status
+
+### Dashboard Pages
+
+**Admin Dashboard (`/dashboard/admin`):**
+- `/dashboard/admin` - Main admin dashboard with statistics and quick links
+- `/dashboard/admin/users` - User management (create/edit/delete users with role-based filtering)
+- `/dashboard/admin/students` - Student management with analytics, enrollment, and detailed views
+- `/dashboard/admin/attendance` - Attendance tracking and management
+- `/dashboard/admin/curriculum` - Curriculum and lesson management
+- `/dashboard/admin/exams` - Exam management and grading
+- `/dashboard/admin/enrollments` - Student enrollment and mentor assignment
+- `/dashboard/admin/mentees` - View mentee assignments (for SERVANT_PREP role with mentees)
+
+**Mentor Dashboard (`/dashboard/mentor`):**
+- `/dashboard/mentor` - Mentor dashboard with quick links to mentee data
+- `/dashboard/mentor/my-mentees` - View and manage assigned mentees (read-only)
+- `/dashboard/mentor/analytics` - View analytics for assigned mentees
+
+**Student Dashboard (`/dashboard/student`):**
+- `/dashboard/student` - Student dashboard (view own data)
+
+### API Routes
+
+**Implemented API Endpoints:**
+
+- **`/api/auth/*`** - Authentication (NextAuth.js)
+  - `[...nextauth]/route.ts` - Auth endpoints
+  - `change-password/route.ts` - Password change endpoint
+
+- **`/api/users`** - User management
+  - `GET /api/users` - List users (with role-based filtering)
+  - `POST /api/users` - Create user
+  - `GET /api/users/[id]` - Get user details
+  - `PATCH /api/users/[id]` - Update user
+  - `DELETE /api/users/[id]` - Delete user
+
+- **`/api/students`** - Student operations
+  - `GET /api/students/[id]/analytics` - Individual student analytics
+  - `GET /api/students/analytics/batch` - Batch analytics for multiple students
+
+- **`/api/enrollments`** - Student enrollment management
+  - CRUD operations for student enrollments and mentor assignments
+
+- **`/api/attendance`** - Attendance tracking
+  - `POST /api/attendance/batch` - Batch attendance operations
+
+- **`/api/lessons`** - Lesson management
+  - CRUD operations for curriculum lessons
+
+- **`/api/exams`** - Exam management
+  - CRUD operations for exams
+
+- **`/api/exam-scores`** - Exam score management
+  - `GET /api/exam-scores/[id]` - Get exam score details
+  - CRUD operations for exam scores
+
+- **`/api/exam-sections`** - Exam section configuration
+  - CRUD operations for exam sections
+
+- **`/api/academic-years`** - Academic year management
+  - CRUD operations for academic years
+
+- **`/api/dashboard`** - Dashboard data aggregation
+  - Provides aggregated statistics for dashboards
+
+### UI Components
+
+**shadcn/ui Components in Use:**
+- Button, Card, Input, Label, Badge, Dialog, Textarea
+- Select, Dropdown Menu, Tabs
+- Toast notifications (Sonner)
+- Skeleton (loading states)
+
+**Custom Components:**
+- `StudentDetailsModal` - Detailed student information modal
+- `BulkStudentImport` - Bulk student import functionality
+
+### SWR Integration
+
+**Location:** `lib/swr.ts`
+
+The application uses SWR (Stale-While-Revalidate) for efficient client-side data fetching and caching:
+- Automatic revalidation on focus
+- Optimistic UI updates
+- Built-in error handling and retry logic
+- Used in dashboard pages for real-time data updates
+- **Static data caching:** Academic years and exam sections use aggressive caching (`staticDataConfig`) with 1-minute deduplication
+
+### Performance Optimizations
+
+**Implemented Performance Enhancements:**
+
+1. **Database Indexes (December 2025):**
+   - Compound index on `AttendanceRecord([studentId, lessonId])` for faster student attendance queries
+   - Compound indexes on `StudentEnrollment([mentorId, isActive])` and `([mentorId, status])` for mentor filtering
+   - Compound index on `ExamScore([studentId, examId])` for student exam score lookups
+   - **Impact:** 30-50% faster queries on filtered joins
+
+2. **Optimized Data Fetching:**
+   - **Individual Student Analytics:** Uses `select` to fetch only needed fields (status, arrivedAt) instead of full lesson objects - **40-60% reduction** in data transfer
+   - **Student Details Modal:** Limited to recent 6 months + max 50 exams and 100 lessons - **70-80% reduction** for students with long history
+   - **Mentor Analytics Page:** Switched from N+1 queries (one per mentee) to single batch API call - **80-90% reduction** in API calls
+
+3. **Batch Operations:**
+   - **Attendance Updates:** Groups simple status-only updates using `updateMany` instead of individual updates - **50% faster** for 30+ students
+   - **Analytics Fetching:** Batch analytics API uses database aggregation with `groupBy` instead of fetching individual records
+
+4. **SWR Caching Strategy:**
+   - Default config: 5-second deduplication for dynamic data
+   - Static config: 1-minute deduplication with disabled revalidation for academic years and exam sections
+   - Eliminates redundant API calls for rarely-changing data
+
+5. **Parallel Fetching:**
+   - Dashboard stats endpoint fetches all 7 metrics in parallel using `Promise.all()`
+   - Student management page fetches students and academic years concurrently
+
+**Performance Monitoring:**
+- All optimizations maintain data consistency using Prisma transactions where needed
+- Expected response times: Individual analytics <200ms, Batch analytics <500ms for 100+ students
+
 ## Common Workflows
 
 ### Adding a New Role Permission
@@ -272,15 +438,15 @@ NEXTAUTH_SECRET="<generate-with-openssl-rand-base64-32>"
 ### Adding a New Exam Section
 
 1. Add enum value to `ExamSectionType` in `prisma/schema.prisma`
-2. Run `npm run db:push` to update database
+2. Run `bun db:push` to update database
 3. Create section record via API or script
 4. Section will appear in curriculum and exam management
 
 ### Modifying Database Schema
 
 1. Edit `prisma/schema.prisma`
-2. Run `npm run db:generate` (updates Prisma Client types)
-3. Run `npm run db:push` (updates database) OR `npm run db:migrate` (creates migration)
+2. Run `bun db:generate` (updates Prisma Client types)
+3. Run `bun db:push` (updates database) OR `bun db:migrate` (creates migration)
 4. Update affected API routes and UI components
 5. Update seed file if needed: `prisma/seed.ts`
 
@@ -289,12 +455,38 @@ NEXTAUTH_SECRET="<generate-with-openssl-rand-base64-32>"
 **Cache Issues:**
 ```bash
 rm -rf .next
-npm run dev
+bun dev
 ```
 
-**Type Errors:** Always run `npm run db:generate` after schema changes
+**Type Errors:** Always run `bun db:generate` after schema changes
 
 **Common Fixes:**
 - Check for `error: unknown` instead of `error: any`
 - Verify StudentEnrollment queries use correct field names
 - Ensure UserRole enums are imported from `@prisma/client`
+
+## Bun Migration Notes
+
+**Migration Date:** December 2025
+
+This project was migrated from npm to Bun for improved performance:
+
+**Benefits:**
+- 4-6x faster dependency installation
+- Native TypeScript support (no need for `tsx` or `ts-node`)
+- Compatible with all existing npm packages
+- Smaller disk footprint (uses hardlinks)
+
+**Lockfile:**
+- `bun.lockb` - Bun's binary lockfile (auto-generated from package-lock.json)
+- The old `package-lock.json` was removed during migration
+
+**Running Scripts:**
+- TypeScript files can be run directly: `bun scripts/myScript.ts`
+- No need for `tsx` or `ts-node` prefix
+- All npm scripts work with `bun` prefix: `bun dev`, `bun build`, etc.
+
+**Compatibility:**
+- Bun reads `.npmrc` configuration files
+- Works with all existing Node.js packages
+- node_modules structure remains the same

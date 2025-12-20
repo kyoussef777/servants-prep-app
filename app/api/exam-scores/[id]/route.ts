@@ -30,6 +30,22 @@ export async function PATCH(
       )
     }
 
+    // Validate score is a number
+    if (typeof score !== 'number' || isNaN(score)) {
+      return NextResponse.json(
+        { error: "Score must be a valid number" },
+        { status: 400 }
+      )
+    }
+
+    // Validate score is not negative
+    if (score < 0) {
+      return NextResponse.json(
+        { error: "Score cannot be negative" },
+        { status: 400 }
+      )
+    }
+
     // Get the exam score with exam details
     const examScore = await prisma.examScore.findUnique({
       where: { id },
@@ -45,9 +61,22 @@ export async function PATCH(
       )
     }
 
+    // Validate score doesn't exceed total points
+    if (score > examScore.exam.totalPoints) {
+      return NextResponse.json(
+        { error: `Score cannot exceed total points (${examScore.exam.totalPoints})` },
+        { status: 400 }
+      )
+    }
+
     const percentage = (score / examScore.exam.totalPoints) * 100
 
-    const updateData: any = {
+    const updateData: {
+      score: number
+      percentage: number
+      gradedBy: string
+      notes?: string | null
+    } = {
       score,
       percentage,
       gradedBy: user.id,

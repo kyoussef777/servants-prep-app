@@ -119,6 +119,8 @@ model StudentEnrollment {
   @@index([mentorId])
   @@index([isActive])
   @@index([status])
+  @@index([mentorId, isActive]) // Compound index for mentor filtering with active status
+  @@index([mentorId, status]) // Compound index for mentor filtering with enrollment status
 }
 
 model ExamSection {
@@ -181,6 +183,7 @@ model AttendanceRecord {
   @@index([lessonId])
   @@index([studentId])
   @@index([status])
+  @@index([studentId, lessonId]) // Compound index for student+lesson queries
 }
 
 model Exam {
@@ -222,4 +225,5 @@ model ExamScore {
   @@unique([examId, studentId])
   @@index([examId])
   @@index([studentId])
+  @@index([studentId, examId]) // Compound index for student exam score lookups
 }

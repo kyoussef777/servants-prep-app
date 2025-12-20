@@ -5,6 +5,11 @@ import { isAdmin } from "@/lib/roles"
 
 
 // GET /api/lessons - List lessons
+// Query params:
+//   ?academicYearId=xxx - filter by academic year
+//   ?examSectionId=xxx - filter by exam section
+//   ?status=COMPLETED - filter by status
+//   ?page=1&limit=50 - pagination (default: all results for backwards compatibility)
 export async function GET(request: Request) {
   try {
     await requireAuth()
@@ -13,13 +18,21 @@ export async function GET(request: Request) {
     const academicYearId = searchParams.get('academicYearId')
     const examSectionId = searchParams.get('examSectionId')
     const status = searchParams.get('status')
+    const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : null
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
 
-    const where: any = {}
+    const where: Record<string, unknown> = {}
     if (academicYearId) where.academicYearId = academicYearId
     if (examSectionId) where.examSectionId = examSectionId
     if (status) where.status = status
 
-    const lessons = await prisma.lesson.findMany({
+    const queryOptions: {
+      where: Record<string, unknown>
+      include: Record<string, unknown>
+      orderBy: { scheduledDate: 'asc' }
+      skip?: number
+      take?: number
+    } = {
       where,
       include: {
         examSection: true,
@@ -44,8 +57,31 @@ export async function GET(request: Request) {
       orderBy: {
         scheduledDate: 'asc'
       }
-    })
+    }
 
+    // Add pagination if requested
+    if (page !== null) {
+      queryOptions.skip = (page - 1) * limit
+      queryOptions.take = limit
+
+      const [lessons, total] = await Promise.all([
+        prisma.lesson.findMany(queryOptions),
+        prisma.lesson.count({ where })
+      ])
+
+      return NextResponse.json({
+        data: lessons,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      })
+    }
+
+    // No pagination - return all (backwards compatible)
+    const lessons = await prisma.lesson.findMany(queryOptions)
     return NextResponse.json(lessons)
   } catch (error: unknown) {
     return NextResponse.json(

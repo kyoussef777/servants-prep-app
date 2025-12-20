@@ -49,12 +49,20 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = user.role
         token.id = user.id
         token.mustChangePassword = user.mustChangePassword
       }
+
+      // Handle session update (e.g., after password change)
+      if (trigger === 'update' && session) {
+        if (session.mustChangePassword !== undefined) {
+          token.mustChangePassword = session.mustChangePassword
+        }
+      }
+
       return token
     },
     async session({ session, token }) {

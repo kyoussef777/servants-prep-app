@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
 
 // GET /api/students/analytics/batch - Get analytics for all students efficiently
+// OPTIMIZED: Uses database aggregations instead of fetching all records
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
@@ -26,12 +27,14 @@ export async function GET(request: Request) {
       )
     }
 
-    // Get all active enrollments
+    // Get all active enrollments with student IDs (minimal data)
     const enrollments = await prisma.studentEnrollment.findMany({
       where: {
         isActive: true
       },
-      include: {
+      select: {
+        studentId: true,
+        yearLevel: true,
         student: {
           select: {
             id: true,
@@ -41,100 +44,92 @@ export async function GET(request: Request) {
       }
     })
 
-    // Get all lessons for this academic year grouped by year level
-    const allLessons = await prisma.lesson.findMany({
-      where: {
-        academicYearId,
-        status: {
-          in: ['SCHEDULED', 'COMPLETED']
-        }
-      },
-      include: {
-        examSection: true
-      }
-    })
+    const studentIds = enrollments.map(e => e.studentId)
 
-    // Get all attendance records for this academic year
-    const attendanceRecords = await prisma.attendanceRecord.findMany({
-      where: {
-        lesson: {
+    // Run all queries in parallel for better performance
+    const [totalLessonsCount, attendanceAggregates, examAggregates] = await Promise.all([
+      // Count lessons (don't fetch all lesson data, just count)
+      prisma.lesson.count({
+        where: {
           academicYearId,
-          status: {
-            in: ['SCHEDULED', 'COMPLETED']
-          }
+          status: { in: ['SCHEDULED', 'COMPLETED'] }
         }
-      },
-      include: {
-        lesson: {
-          include: {
-            examSection: true
-          }
-        }
-      }
-    })
+      }),
 
-    // Get all exam scores for this academic year
-    const examScores = await prisma.examScore.findMany({
-      where: {
-        exam: {
-          academicYearId
-        }
-      },
-      include: {
-        exam: {
-          include: {
-            examSection: true
+      // Get attendance counts grouped by student and status
+      // Much more efficient than fetching all records and filtering in JS
+      prisma.attendanceRecord.groupBy({
+        by: ['studentId', 'status'],
+        where: {
+          studentId: { in: studentIds },
+          lesson: {
+            academicYearId,
+            status: { in: ['SCHEDULED', 'COMPLETED'] }
           }
-        }
-      }
-    })
+        },
+        _count: { status: true }
+      }),
 
-    // Calculate stats for each student
+      // Get exam score averages per student using DB aggregation
+      prisma.examScore.groupBy({
+        by: ['studentId'],
+        where: {
+          studentId: { in: studentIds },
+          exam: { academicYearId }
+        },
+        _avg: { percentage: true },
+        _count: { id: true }
+      })
+    ])
+
+    // Build lookup maps for O(1) access
+    const attendanceByStudent = new Map<string, { present: number; late: number; absent: number }>()
+    for (const agg of attendanceAggregates) {
+      if (!attendanceByStudent.has(agg.studentId)) {
+        attendanceByStudent.set(agg.studentId, { present: 0, late: 0, absent: 0 })
+      }
+      const record = attendanceByStudent.get(agg.studentId)!
+      if (agg.status === 'PRESENT') record.present = agg._count.status
+      else if (agg.status === 'LATE') record.late = agg._count.status
+      else if (agg.status === 'ABSENT') record.absent = agg._count.status
+    }
+
+    const examsByStudent = new Map<string, { avg: number; count: number }>()
+    for (const agg of examAggregates) {
+      examsByStudent.set(agg.studentId, {
+        avg: agg._avg.percentage || 0,
+        count: agg._count.id
+      })
+    }
+
+    // Calculate stats for each student using pre-aggregated data
     const studentAnalytics = enrollments.map(enrollment => {
       const studentId = enrollment.studentId
-      const studentAttendance = attendanceRecords.filter(r => r.studentId === studentId)
+      const attendance = attendanceByStudent.get(studentId) || { present: 0, late: 0, absent: 0 }
+      const exams = examsByStudent.get(studentId) || { avg: 0, count: 0 }
 
-      // Calculate attendance based on student's current year level
-      // Start at 100% and deduct for absences (late = 0.5 absence)
+      // Calculate attendance using Formula A: (Present + Late/2) / Total * 100
       const isYear1Student = enrollment.yearLevel === 'YEAR_1'
       const isYear2Student = enrollment.yearLevel === 'YEAR_2'
 
-      // Year 1 attendance calculation
-      const year1Absent = isYear1Student ? studentAttendance.filter(r => r.status === 'ABSENT').length : 0
-      const year1Late = isYear1Student ? studentAttendance.filter(r => r.status === 'LATE').length : 0
-      const year1EffectiveAbsent = year1Absent + (year1Late / 2)
-      const year1AttendancePercentage = isYear1Student && allLessons.length > 0
-        ? Math.max(0, 100 - (year1EffectiveAbsent / allLessons.length) * 100)
-        : 100
+      const totalPresent = attendance.present
+      const totalLate = attendance.late
 
-      // Year 2 attendance calculation
-      const year2Absent = isYear2Student ? studentAttendance.filter(r => r.status === 'ABSENT').length : 0
-      const year2Late = isYear2Student ? studentAttendance.filter(r => r.status === 'LATE').length : 0
-      const year2EffectiveAbsent = year2Absent + (year2Late / 2)
-      const year2AttendancePercentage = isYear2Student && allLessons.length > 0
-        ? Math.max(0, 100 - (year2EffectiveAbsent / allLessons.length) * 100)
-        : 100
-
-      // Calculate overall attendance
-      const totalAbsent = studentAttendance.filter(r => r.status === 'ABSENT').length
-      const totalLate = studentAttendance.filter(r => r.status === 'LATE').length
-      const totalEffectiveAbsent = totalAbsent + (totalLate / 2)
-      const overallAttendancePercentage = allLessons.length > 0
-        ? Math.max(0, 100 - (totalEffectiveAbsent / allLessons.length) * 100)
-        : 100
-
-      // Calculate effective present for display purposes
-      const totalPresent = studentAttendance.filter(r => r.status === 'PRESENT').length
+      // Overall attendance calculation
       const totalEffectivePresent = totalPresent + (totalLate / 2)
-      const year1Present = isYear1Student ? studentAttendance.filter(r => r.status === 'PRESENT').length : 0
-      const year1EffectivePresent = year1Present + (year1Late / 2)
-      const year2Present = isYear2Student ? studentAttendance.filter(r => r.status === 'PRESENT').length : 0
-      const year2EffectivePresent = year2Present + (year2Late / 2)
+      const overallAttendancePercentage = totalLessonsCount > 0
+        ? (totalEffectivePresent / totalLessonsCount) * 100
+        : 0
 
-      // Calculate exam average
-      const studentExamScores = examScores.filter(s => s.studentId === studentId)
-      const avgExamScore = studentExamScores.length > 0
-        ? studentExamScores.reduce((sum, s) => sum + s.percentage, 0) / studentExamScores.length
+      // Year-based attendance (simplified - current year only)
+      const year1EffectivePresent = isYear1Student ? totalEffectivePresent : 0
+      const year1AttendancePercentage = isYear1Student && totalLessonsCount > 0
+        ? (year1EffectivePresent / totalLessonsCount) * 100
+        : 0
+
+      const year2EffectivePresent = isYear2Student ? totalEffectivePresent : 0
+      const year2AttendancePercentage = isYear2Student && totalLessonsCount > 0
+        ? (year2EffectivePresent / totalLessonsCount) * 100
         : 0
 
       return {
@@ -144,14 +139,14 @@ export async function GET(request: Request) {
         attendancePercentage: Math.round(overallAttendancePercentage * 10) / 10,
         year1AttendancePercentage: Math.round(year1AttendancePercentage * 10) / 10,
         year2AttendancePercentage: Math.round(year2AttendancePercentage * 10) / 10,
-        avgExamScore: Math.round(avgExamScore * 10) / 10,
-        totalLessons: allLessons.length,
-        year1TotalLessons: isYear1Student ? allLessons.length : 0,
-        year2TotalLessons: isYear2Student ? allLessons.length : 0,
+        avgExamScore: Math.round(exams.avg * 10) / 10,
+        totalLessons: totalLessonsCount,
+        year1TotalLessons: isYear1Student ? totalLessonsCount : 0,
+        year2TotalLessons: isYear2Student ? totalLessonsCount : 0,
         attendedLessons: Math.round(totalEffectivePresent * 10) / 10,
         year1AttendedLessons: Math.round(year1EffectivePresent * 10) / 10,
         year2AttendedLessons: Math.round(year2EffectivePresent * 10) / 10,
-        examCount: studentExamScores.length
+        examCount: exams.count
       }
     })
 

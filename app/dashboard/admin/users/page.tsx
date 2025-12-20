@@ -171,9 +171,9 @@ export default function UsersPage() {
     )
   }
 
-  // SERVANT_PREP can only create STUDENT users, SUPER_ADMIN can create all
+  // SERVANT_PREP can only create STUDENT and MENTOR users, SUPER_ADMIN can create all
   const roleOptions: UserRole[] = session?.user?.role === 'SERVANT_PREP'
-    ? ['STUDENT']
+    ? ['STUDENT', 'MENTOR']
     : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT']
 
   return (

@@ -6,21 +6,20 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
-interface Student {
+interface Enrollment {
   id: string
-  name: string
-  email: string
-  enrollments?: Array<{
+  yearLevel: 'YEAR_1' | 'YEAR_2'
+  student: {
     id: string
-    yearLevel: 'YEAR_1' | 'YEAR_2'
-    mentorId: string | null
-  }>
+    name: string
+    email: string
+  }
 }
 
 export default function MyMenteesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [myMentees, setMyMentees] = useState<Student[]>([])
+  const [myMentees, setMyMentees] = useState<Enrollment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -41,14 +40,15 @@ export default function MyMenteesPage() {
   const fetchStudents = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/users?role=STUDENT')
-      if (!res.ok) throw new Error('Failed to fetch students')
+      // Fetch only enrollments where this mentor is assigned
+      const res = await fetch(`/api/enrollments?mentorId=${session?.user?.id}`)
+      if (!res.ok) throw new Error('Failed to fetch mentees')
 
-      const students: Student[] = await res.json()
-      setMyMentees(students)
+      const enrollments: Enrollment[] = await res.json()
+      setMyMentees(enrollments)
       setError('')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load students')
+      setError(err instanceof Error ? err.message : 'Failed to load mentees')
     } finally {
       setLoading(false)
     }
@@ -105,25 +105,18 @@ export default function MyMenteesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {myMentees.map((student, index) => {
-                      const enrollment = student.enrollments?.[0]
-                      return (
-                        <tr key={student.id} className="border-b hover:bg-gray-50">
-                          <td className="p-2 text-gray-500">{index + 1}</td>
-                          <td className="p-2 font-medium">{student.name}</td>
-                          <td className="p-2 text-gray-600">{student.email}</td>
-                          <td className="p-2 text-center">
-                            {enrollment ? (
-                              <Badge variant="outline">
-                                {enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">N/A</Badge>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {myMentees.map((enrollment, index) => (
+                      <tr key={enrollment.id} className="border-b hover:bg-gray-50">
+                        <td className="p-2 text-gray-500">{index + 1}</td>
+                        <td className="p-2 font-medium">{enrollment.student.name}</td>
+                        <td className="p-2 text-gray-600">{enrollment.student.email}</td>
+                        <td className="p-2 text-center">
+                          <Badge variant="outline">
+                            {enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

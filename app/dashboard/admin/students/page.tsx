@@ -159,21 +159,24 @@ export default function StudentsManagementPage() {
 
   const fetchStudents = async () => {
     try {
-      // Fetch students
-      const res = await fetch('/api/users?role=STUDENT')
-      if (res.ok) {
-        const data = await res.json()
+      // Fetch students and academic years in parallel (much faster!)
+      const [studentsRes, yearsRes] = await Promise.all([
+        fetch('/api/users?role=STUDENT'),
+        fetch('/api/academic-years')
+      ])
+
+      if (studentsRes.ok) {
+        const data = await studentsRes.json()
         setStudents(data)
       }
 
-      // Fetch active academic year and analytics
-      const yearsRes = await fetch('/api/academic-years')
       if (yearsRes.ok) {
         const years = await yearsRes.json()
-        const activeYear = years.find((y: any) => y.isActive)
+        const activeYear = years.find((y: { isActive: boolean }) => y.isActive)
 
         if (activeYear) {
           setAcademicYearId(activeYear.id)
+          // Fetch analytics (this depends on academic year, so can't be parallelized with above)
           const analyticsRes = await fetch(`/api/students/analytics/batch?academicYearId=${activeYear.id}`)
           if (analyticsRes.ok) {
             const analyticsData = await analyticsRes.json()

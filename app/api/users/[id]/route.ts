@@ -82,10 +82,10 @@ export async function PATCH(
       )
     }
 
-    // SERVANT_PREP can only update STUDENT users
-    if (currentUser.role === UserRole.SERVANT_PREP && targetUser.role !== UserRole.STUDENT) {
+    // SERVANT_PREP can only update STUDENT and MENTOR users
+    if (currentUser.role === UserRole.SERVANT_PREP && targetUser.role !== UserRole.STUDENT && targetUser.role !== UserRole.MENTOR) {
       return NextResponse.json(
-        { error: "Servants Prep can only update Student users" },
+        { error: "Servants Prep can only update Student and Mentor users" },
         { status: 403 }
       )
     }
@@ -126,7 +126,7 @@ export async function PATCH(
 }
 
 // DELETE /api/users/[id] - Delete a user
-// SUPER_ADMIN can delete anyone, SERVANT_PREP can only delete STUDENT users
+// SUPER_ADMIN can delete anyone, SERVANT_PREP can only delete STUDENT and MENTOR users
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -161,10 +161,10 @@ export async function DELETE(
       )
     }
 
-    // SERVANT_PREP can only delete STUDENT users
-    if (currentUser.role === UserRole.SERVANT_PREP && targetUser.role !== UserRole.STUDENT) {
+    // SERVANT_PREP can only delete STUDENT and MENTOR users
+    if (currentUser.role === UserRole.SERVANT_PREP && targetUser.role !== UserRole.STUDENT && targetUser.role !== UserRole.MENTOR) {
       return NextResponse.json(
-        { error: "Servants Prep can only delete Student users" },
+        { error: "Servants Prep can only delete Student and Mentor users" },
         { status: 403 }
       )
     }

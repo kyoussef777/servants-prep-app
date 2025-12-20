@@ -69,7 +69,7 @@ export async function GET(
       }
     })
 
-    // Get attendance records
+    // Get attendance records - only fetch needed fields for performance
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,
@@ -80,8 +80,14 @@ export async function GET(
           }
         }
       },
-      include: {
-        lesson: true
+      select: {
+        status: true,
+        arrivedAt: true,
+        lesson: {
+          select: {
+            status: true
+          }
+        }
       }
     })
 

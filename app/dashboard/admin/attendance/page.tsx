@@ -203,55 +203,48 @@ export default function AttendancePage() {
 
     setSaving(true)
     try {
-      // Save attendance for all filtered students (not just marked ones)
-      for (const student of filteredStudents) {
+      // Prepare batch payload - all students in one request (much faster!)
+      const records = filteredStudents.map(student => {
         const record = attendance.get(student.id)
-        const existingRecord = existingAttendance.get(student.id)
-
-        // Default to ABSENT if not marked
-        const status = record?.status || 'ABSENT'
-
-        if (existingRecord) {
-          await fetch(`/api/attendance/${existingRecord.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              status: status,
-              arrivedAt: record?.arrivedAt || null,
-              notes: record?.notes || null,
-            })
-          })
-        } else {
-          await fetch('/api/attendance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              lessonId: selectedLesson.id,
-              studentId: student.id,
-              status: status,
-              arrivedAt: record?.arrivedAt || null,
-              notes: record?.notes || null,
-            })
-          })
+        return {
+          studentId: student.id,
+          status: record?.status || 'ABSENT',
+          arrivedAt: record?.arrivedAt || null,
+          notes: record?.notes || null,
         }
+      })
+
+      const res = await fetch('/api/attendance/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lessonId: selectedLesson.id,
+          records
+        })
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to save attendance')
       }
 
+      const result = await res.json()
       const now = new Date()
       setLastSaved(now)
       toast.success('Attendance saved successfully!', {
-        description: now.toLocaleString('en-US', {
+        description: `${result.created} created, ${result.updated} updated • ${now.toLocaleString('en-US', {
           month: 'short',
           day: 'numeric',
           year: 'numeric',
           hour: 'numeric',
           minute: '2-digit'
-        })
+        })}`
       })
       setSelectedLesson(null)
     } catch (error) {
       console.error('Failed to save attendance:', error)
       toast.error('Failed to save attendance', {
-        description: 'Please try again.'
+        description: error instanceof Error ? error.message : 'Please try again.'
       })
     } finally {
       setSaving(false)

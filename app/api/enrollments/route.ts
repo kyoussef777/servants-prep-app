@@ -1,31 +1,61 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-
+import { UserRole } from "@prisma/client"
 import { isAdmin } from "@/lib/roles"
 
 // GET /api/enrollments - List enrollments
+// Query params:
+//   ?studentId=xxx - filter by student
+//   ?mentorId=xxx - filter by mentor (also works for MENTOR role to get their mentees)
+//   ?isActive=true - filter by active status
+//   ?yearLevel=YEAR_1 - filter by year level
+//   ?page=1&limit=50 - pagination (default: all results for backwards compatibility)
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    const { searchParams } = new URL(request.url)
+    const studentId = searchParams.get('studentId')
+    const mentorId = searchParams.get('mentorId')
+    const isActive = searchParams.get('isActive')
+    const yearLevel = searchParams.get('yearLevel')
+    const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : null
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
+
+    // MENTOR role can only view their own mentees
+    if (user.role === UserRole.MENTOR) {
+      if (mentorId && mentorId !== user.id) {
+        return NextResponse.json(
+          { error: "Forbidden: Can only view your own mentees" },
+          { status: 403 }
+        )
+      }
+    } else if (!isAdmin(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
       )
     }
 
-    const { searchParams } = new URL(request.url)
-    const studentId = searchParams.get('studentId')
-    const mentorId = searchParams.get('mentorId')
-
-    const where: any = {}
+    const where: Record<string, unknown> = {}
     if (studentId) where.studentId = studentId
     if (mentorId) where.mentorId = mentorId
+    if (isActive !== null) where.isActive = isActive === 'true'
+    if (yearLevel) where.yearLevel = yearLevel
 
-    const enrollments = await prisma.studentEnrollment.findMany({
+    // For MENTOR role, always filter by their ID
+    if (user.role === UserRole.MENTOR) {
+      where.mentorId = user.id
+    }
+
+    const queryOptions: {
+      where: Record<string, unknown>
+      include: Record<string, unknown>
+      orderBy: { enrolledAt: 'desc' }
+      skip?: number
+      take?: number
+    } = {
       where,
       include: {
         student: {
@@ -46,8 +76,31 @@ export async function GET(request: Request) {
       orderBy: {
         enrolledAt: 'desc'
       }
-    })
+    }
 
+    // Add pagination if requested
+    if (page !== null) {
+      queryOptions.skip = (page - 1) * limit
+      queryOptions.take = limit
+
+      const [enrollments, total] = await Promise.all([
+        prisma.studentEnrollment.findMany(queryOptions),
+        prisma.studentEnrollment.count({ where })
+      ])
+
+      return NextResponse.json({
+        data: enrollments,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      })
+    }
+
+    // No pagination - return all (backwards compatible)
+    const enrollments = await prisma.studentEnrollment.findMany(queryOptions)
     return NextResponse.json(enrollments)
   } catch (error: unknown) {
     return NextResponse.json(

@@ -110,6 +110,10 @@ export async function GET(
     })
 
     // Get all exams for this academic year (to show missing scores)
+    // Limited to recent 6 months for performance
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
     const allExams = await prisma.exam.findMany({
       where: {
         academicYearId,
@@ -117,6 +121,9 @@ export async function GET(
           in: student.enrollments?.[0]?.yearLevel ?
             ['BOTH', student.enrollments[0].yearLevel] :
             ['BOTH']
+        },
+        examDate: {
+          gte: sixMonthsAgo
         }
       },
       include: {
@@ -124,15 +131,20 @@ export async function GET(
       },
       orderBy: {
         examDate: 'desc'
-      }
+      },
+      take: 50 // Limit to 50 most recent exams
     })
 
     // Get all lessons for this academic year (to show missing attendance)
+    // Limited to recent 6 months for performance
     const allLessons = await prisma.lesson.findMany({
       where: {
         academicYearId,
         status: {
           in: ['SCHEDULED', 'COMPLETED']
+        },
+        scheduledDate: {
+          gte: sixMonthsAgo
         }
       },
       include: {
@@ -140,7 +152,8 @@ export async function GET(
       },
       orderBy: {
         scheduledDate: 'desc'
-      }
+      },
+      take: 100 // Limit to 100 most recent lessons
     })
 
     return NextResponse.json({
