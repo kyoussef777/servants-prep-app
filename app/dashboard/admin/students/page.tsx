@@ -7,11 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { isAdmin } from '@/lib/roles'
 import { toast } from 'sonner'
-import { GraduationCap, ChevronUp, ChevronDown, Save, Users, FileText, ChevronRight, Trash2, UserPlus, Pencil } from 'lucide-react'
+import { GraduationCap, ChevronUp, ChevronDown, ChevronRight, Trash2, UserPlus, Pencil } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
 import { BulkStudentImport } from '@/components/bulk-student-import'
 
@@ -134,8 +133,6 @@ export default function StudentsManagementPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterYearLevel, setFilterYearLevel] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [editingNotes, setEditingNotes] = useState<string | null>(null)
-  const [notesText, setNotesText] = useState('')
   const [showGraduateDialog, setShowGraduateDialog] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null)
@@ -306,37 +303,6 @@ export default function StudentsManagementPage() {
       setShowGraduateDialog(false)
     } catch (error) {
       toast.error('Failed to update enrollment status')
-    }
-  }
-
-  const saveNotes = async (studentId: string) => {
-    try {
-      const student = students.find(s => s.id === studentId)
-      if (!student?.enrollments?.[0]) return
-
-      await fetch(`/api/enrollments/${student.enrollments[0].id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: notesText })
-      })
-
-      const now = new Date()
-      setLastSaved(now)
-      toast.success('Notes saved successfully!', {
-        description: now.toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        })
-      })
-
-      await fetchStudents()
-      setEditingNotes(null)
-      setNotesText('')
-    } catch (error) {
-      toast.error('Failed to save notes')
     }
   }
 
@@ -727,18 +693,6 @@ export default function StudentsManagementPage() {
                             >
                               <Pencil className="h-3 w-3" />
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setEditingNotes(student.id)
-                                setNotesText(student.enrollments?.[0]?.notes || '')
-                              }}
-                              className="gap-1"
-                              title="Edit Notes"
-                            >
-                              <FileText className="h-3 w-3" />
-                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -861,7 +815,7 @@ export default function StudentsManagementPage() {
                               <span className="ml-2 font-medium">{student.enrollments[0].mentor.name}</span>
                             </div>
                           )}
-                          <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div className="mt-2">
                             <Button
                               size="sm"
                               variant="outline"
@@ -869,19 +823,7 @@ export default function StudentsManagementPage() {
                               className="w-full gap-1"
                             >
                               <Pencil className="h-3 w-3" />
-                              Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingNotes(student.id)
-                                setNotesText(student.enrollments?.[0]?.notes || '')
-                              }}
-                              className="w-full gap-1"
-                            >
-                              <FileText className="h-3 w-3" />
-                              Notes
+                              Edit Student
                             </Button>
                           </div>
                         </div>
@@ -900,36 +842,6 @@ export default function StudentsManagementPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Notes Dialog */}
-      <Dialog open={editingNotes !== null} onOpenChange={(open) => !open && setEditingNotes(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Student Notes</DialogTitle>
-            <DialogDescription>
-              Add notes for {students.find(s => s.id === editingNotes)?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              value={notesText}
-              onChange={(e) => setNotesText(e.target.value)}
-              placeholder="Add notes about this student..."
-              rows={6}
-              className="w-full"
-            />
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setEditingNotes(null)}>
-                Cancel
-              </Button>
-              <Button onClick={() => editingNotes && saveNotes(editingNotes)} className="gap-1">
-                <Save className="h-4 w-4" />
-                Save Notes
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Graduate Confirmation Dialog */}
       <Dialog open={showGraduateDialog} onOpenChange={setShowGraduateDialog}>

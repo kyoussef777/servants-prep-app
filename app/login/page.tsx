@@ -74,28 +74,28 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md bg-[#5c1a1a] border-[#5c1a1a]">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
             <Image
               src="/sp-logo.avif"
               alt="Servants Prep Logo"
-              width={80}
-              height={80}
+              width={150}
+              height={150}
               className="rounded-lg"
             />
           </div>
-          <CardTitle className="text-2xl font-bold text-center">
+          <CardTitle className="text-2xl font-bold text-center text-white">
             Servants Preparation Program
           </CardTitle>
-          <CardDescription className="text-center">
+          <CardDescription className="text-center text-gray-200">
             Enter your credentials to access the system
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-white">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -104,10 +104,11 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
+                className="bg-white text-black"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-white">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -115,10 +116,11 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
+                className="bg-white text-black"
               />
             </div>
             {error && (
-              <div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+              <div className="text-sm text-red-100 bg-red-900/50 p-3 rounded border border-red-800">
                 {error}
               </div>
             )}

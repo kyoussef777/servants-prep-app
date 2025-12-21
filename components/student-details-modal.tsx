@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -9,7 +10,21 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Edit, Check, X } from 'lucide-react'
+import { Edit, Check, X, Trash2, Send } from 'lucide-react'
+import { UserRole } from '@prisma/client'
+import { getRoleDisplayName } from '@/lib/roles'
+
+interface StudentNote {
+  id: string
+  content: string
+  createdAt: string | Date
+  updatedAt: string | Date
+  author: {
+    id: string
+    name: string
+    role: UserRole
+  }
+}
 
 interface ExamScore {
   id: string
@@ -114,6 +129,7 @@ export function StudentDetailsModal({
   onClose,
   onRefresh
 }: StudentDetailsModalProps) {
+  const { data: session } = useSession()
   const [editingScoreId, setEditingScoreId] = useState<string | null>(null)
   const [editingScore, setEditingScore] = useState<number>(0)
   const [editingScoreNotes, setEditingScoreNotes] = useState<string>('')
@@ -125,6 +141,108 @@ export function StudentDetailsModal({
   const [profileEmail, setProfileEmail] = useState(studentEmail)
   const [profilePhone, setProfilePhone] = useState(studentPhone)
   const [savingProfile, setSavingProfile] = useState(false)
+
+  // Notes state
+  const [notes, setNotes] = useState<StudentNote[]>([])
+  const [notesLoading, setNotesLoading] = useState(false)
+  const [newNoteContent, setNewNoteContent] = useState('')
+  const [submittingNote, setSubmittingNote] = useState(false)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editingNoteContent, setEditingNoteContent] = useState('')
+
+  // Fetch notes when student changes
+  useEffect(() => {
+    if (studentId) {
+      fetchNotes()
+    } else {
+      setNotes([])
+    }
+  }, [studentId])
+
+  const fetchNotes = async () => {
+    if (!studentId) return
+    setNotesLoading(true)
+    try {
+      const res = await fetch(`/api/students/${studentId}/notes`)
+      if (res.ok) {
+        const data = await res.json()
+        setNotes(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch notes:', error)
+    } finally {
+      setNotesLoading(false)
+    }
+  }
+
+  const addNote = async () => {
+    if (!studentId || !newNoteContent.trim()) return
+    setSubmittingNote(true)
+    try {
+      const res = await fetch(`/api/students/${studentId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newNoteContent.trim() })
+      })
+      if (res.ok) {
+        const note = await res.json()
+        setNotes([note, ...notes])
+        setNewNoteContent('')
+        toast.success('Note added successfully!')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to add note')
+      }
+    } catch (error) {
+      console.error('Failed to add note:', error)
+      toast.error('Failed to add note')
+    } finally {
+      setSubmittingNote(false)
+    }
+  }
+
+  const updateNote = async (noteId: string) => {
+    if (!editingNoteContent.trim()) return
+    try {
+      const res = await fetch(`/api/student-notes/${noteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editingNoteContent.trim() })
+      })
+      if (res.ok) {
+        const updatedNote = await res.json()
+        setNotes(notes.map(n => n.id === noteId ? updatedNote : n))
+        setEditingNoteId(null)
+        setEditingNoteContent('')
+        toast.success('Note updated successfully!')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to update note')
+      }
+    } catch (error) {
+      console.error('Failed to update note:', error)
+      toast.error('Failed to update note')
+    }
+  }
+
+  const deleteNote = async (noteId: string) => {
+    if (!confirm('Are you sure you want to delete this note?')) return
+    try {
+      const res = await fetch(`/api/student-notes/${noteId}`, {
+        method: 'DELETE'
+      })
+      if (res.ok) {
+        setNotes(notes.filter(n => n.id !== noteId))
+        toast.success('Note deleted successfully!')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to delete note')
+      }
+    } catch (error) {
+      console.error('Failed to delete note:', error)
+      toast.error('Failed to delete note')
+    }
+  }
 
   // Reset profile form when student changes
   const resetProfileForm = () => {
@@ -293,9 +411,10 @@ export function StudentDetailsModal({
           <div className="py-8 text-center text-gray-500">Loading...</div>
         ) : (
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="scores">Exam Scores</TabsTrigger>
+              <TabsTrigger value="notes">Notes</TabsTrigger>
+              <TabsTrigger value="scores">Exams</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
             </TabsList>
 
@@ -398,6 +517,133 @@ export function StudentDetailsModal({
                         <span className="text-gray-600">Mentor</span>
                         <span className="font-medium">{mentor?.name || 'Not assigned'}</span>
                       </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="notes" className="space-y-4">
+              {/* Add New Note */}
+              <Card>
+                <CardContent className="pt-6">
+                  <h3 className="font-semibold mb-3">Add a Note</h3>
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="Write a note about this student..."
+                      value={newNoteContent}
+                      onChange={(e) => setNewNoteContent(e.target.value)}
+                      className="flex-1"
+                      rows={2}
+                    />
+                    <Button
+                      onClick={addNote}
+                      disabled={submittingNote || !newNoteContent.trim()}
+                      className="self-end"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notes List */}
+              <Card>
+                <CardContent className="pt-6">
+                  <h3 className="font-semibold mb-3">
+                    Comments ({notes.length})
+                  </h3>
+                  {notesLoading ? (
+                    <div className="py-4 text-center text-gray-500">Loading notes...</div>
+                  ) : notes.length === 0 ? (
+                    <div className="py-4 text-center text-gray-500">No notes yet. Add the first one!</div>
+                  ) : (
+                    <div className="space-y-3 max-h-80 overflow-y-auto">
+                      {notes.map((note) => {
+                        const isAuthor = session?.user?.id === note.author.id
+                        const isEditing = editingNoteId === note.id
+
+                        return (
+                          <div key={note.id} className="p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium text-sm">{note.author.name}</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {getRoleDisplayName(note.author.role)}
+                                  </Badge>
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(note.createdAt).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                </div>
+                                {isEditing ? (
+                                  <div className="space-y-2">
+                                    <Textarea
+                                      value={editingNoteContent}
+                                      onChange={(e) => setEditingNoteContent(e.target.value)}
+                                      className="text-sm"
+                                      rows={2}
+                                    />
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => updateNote(note.id)}
+                                        disabled={!editingNoteContent.trim()}
+                                      >
+                                        <Check className="h-3 w-3 mr-1" />
+                                        Save
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setEditingNoteId(null)
+                                          setEditingNoteContent('')
+                                        }}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.content}</p>
+                                )}
+                              </div>
+                              {!isEditing && (isAuthor || session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'PRIEST' || session?.user?.role === 'SERVANT_PREP') && (
+                                <div className="flex gap-1">
+                                  {isAuthor && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setEditingNoteId(note.id)
+                                        setEditingNoteContent(note.content)
+                                      }}
+                                      className="h-7 w-7 p-0"
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => deleteNote(note.id)}
+                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </CardContent>

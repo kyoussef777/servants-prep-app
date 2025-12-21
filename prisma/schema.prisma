@@ -77,6 +77,8 @@ model User {
   examScores            ExamScore[]
   examScoresGradedBy    ExamScore[]         @relation("GradedBy")
   lessonsCreated        Lesson[]            @relation("CreatedBy")
+  studentNotes          StudentNote[]       @relation("StudentNotes")
+  authoredNotes         StudentNote[]       @relation("AuthoredNotes")
 
   @@index([email])
   @@index([role])
@@ -226,4 +228,21 @@ model ExamScore {
   @@index([examId])
   @@index([studentId])
   @@index([studentId, examId]) // Compound index for student exam score lookups
+}
+
+model StudentNote {
+  id        String   @id @default(cuid())
+  studentId String
+  authorId  String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  student User @relation("StudentNotes", fields: [studentId], references: [id], onDelete: Cascade)
+  author  User @relation("AuthoredNotes", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([authorId])
+  @@index([createdAt])
 }
