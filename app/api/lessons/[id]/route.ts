@@ -26,7 +26,7 @@ export async function PATCH(
     const updateData: any = {}
     if (title) updateData.title = title
     if (subtitle !== undefined) updateData.subtitle = subtitle || null
-    if (description) updateData.description = description
+    if (description !== undefined) updateData.description = description || null
     if (scheduledDate) updateData.scheduledDate = new Date(scheduledDate)
     if (examSectionId) updateData.examSectionId = examSectionId
     if (status) updateData.status = status

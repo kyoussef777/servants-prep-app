@@ -15,7 +15,7 @@ interface Lesson {
   id: string
   title: string
   subtitle?: string
-  description: string
+  description?: string
   scheduledDate: string
   lessonNumber: number
   status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
@@ -113,11 +113,20 @@ export default function CurriculumPage() {
 
   const handleEdit = (lesson: Lesson) => {
     setEditingId(lesson.id)
+    // Fix timezone issue: Keep the date in local timezone instead of converting to UTC
+    const localDate = new Date(lesson.scheduledDate)
+    const year = localDate.getFullYear()
+    const month = String(localDate.getMonth() + 1).padStart(2, '0')
+    const day = String(localDate.getDate()).padStart(2, '0')
+    const hours = String(localDate.getHours()).padStart(2, '0')
+    const minutes = String(localDate.getMinutes()).padStart(2, '0')
+    const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`
+
     setFormData({
       title: lesson.title,
       subtitle: lesson.subtitle || '',
-      description: lesson.description,
-      scheduledDate: new Date(lesson.scheduledDate).toISOString().slice(0, 16),
+      description: lesson.description || '',
+      scheduledDate: formattedDate,
       examSectionId: lesson.examSection.id,
       status: lesson.status,
       cancellationReason: lesson.cancellationReason || ''
@@ -251,7 +260,7 @@ export default function CurriculumPage() {
   const filteredLessons = lessons
     .filter(lesson => {
       if (searchTerm && !lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-          !lesson.description.toLowerCase().includes(searchTerm.toLowerCase())) {
+          !(lesson.description || '').toLowerCase().includes(searchTerm.toLowerCase())) {
         return false
       }
       if (filterSection !== 'all' && lesson.examSection.name !== filterSection) {
@@ -329,7 +338,7 @@ export default function CurriculumPage() {
                 </div>
                 <div></div>
                 <div className="md:col-span-2">
-                  <label className="text-sm font-medium">Description</label>
+                  <label className="text-sm font-medium">Description (optional)</label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -485,7 +494,7 @@ export default function CurriculumPage() {
                             />
                           ) : (
                             <div className="text-sm text-gray-600 max-w-md truncate">
-                              {lesson.description}
+                              {lesson.description || '—'}
                             </div>
                           )}
                         </td>
@@ -660,7 +669,7 @@ export default function CurriculumPage() {
 
                     {/* Description */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Description</label>
+                      <label className="text-sm font-medium text-gray-700">Description (optional)</label>
                       {isEditing ? (
                         <Textarea
                           value={formData.description}
@@ -669,7 +678,7 @@ export default function CurriculumPage() {
                           rows={3}
                         />
                       ) : (
-                        <p className="text-sm text-gray-600">{lesson.description}</p>
+                        <p className="text-sm text-gray-600">{lesson.description || '—'}</p>
                       )}
                     </div>
 

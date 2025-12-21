@@ -82,6 +82,30 @@ export async function GET(request: Request) {
 
     // No pagination - return all (backwards compatible)
     const lessons = await prisma.lesson.findMany(queryOptions)
+
+    // Auto-complete lessons that have passed their scheduled date
+    const now = new Date()
+    const lessonsToComplete = lessons.filter(
+      lesson => lesson.status === 'SCHEDULED' && new Date(lesson.scheduledDate) < now
+    )
+
+    if (lessonsToComplete.length > 0) {
+      // Update lessons in background (don't await to avoid slowing response)
+      Promise.all(
+        lessonsToComplete.map(lesson =>
+          prisma.lesson.update({
+            where: { id: lesson.id },
+            data: { status: 'COMPLETED' }
+          })
+        )
+      ).catch(err => console.error('Failed to auto-complete lessons:', err))
+
+      // Update the lessons array to reflect the new status
+      lessonsToComplete.forEach(lesson => {
+        lesson.status = 'COMPLETED'
+      })
+    }
+
     return NextResponse.json(lessons)
   } catch (error: unknown) {
     return NextResponse.json(
@@ -107,7 +131,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { academicYearId, examSectionId, title, subtitle, description, scheduledDate, lessonNumber } = body
 
-    if (!academicYearId || !examSectionId || !title || !description || !scheduledDate || !lessonNumber) {
+    if (!academicYearId || !examSectionId || !title || !scheduledDate || !lessonNumber) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -120,7 +144,7 @@ export async function POST(request: Request) {
         examSectionId,
         title,
         subtitle: subtitle || null,
-        description,
+        description: description || null,
         scheduledDate: new Date(scheduledDate),
         lessonNumber,
         createdBy: user.id,

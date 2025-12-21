@@ -141,7 +141,7 @@ model Lesson {
   examSectionId      String
   title              String
   subtitle           String?
-  description        String       @db.Text
+  description        String?      @db.Text
   scheduledDate      DateTime
   status             LessonStatus @default(SCHEDULED)
   cancellationReason String?      @db.Text
