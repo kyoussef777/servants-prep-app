@@ -80,6 +80,7 @@ export async function GET(request: Request) {
         id: true,
         email: true,
         name: true,
+        phone: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -159,7 +160,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { email, name, password, role } = body
+    const { email, name, phone, password, role } = body
 
     if (!email || !name || !password || !role) {
       return NextResponse.json(
@@ -196,6 +197,7 @@ export async function POST(request: Request) {
       data: {
         email,
         name,
+        phone: phone || null,
         password: hashedPassword,
         role,
       },
@@ -203,6 +205,7 @@ export async function POST(request: Request) {
         id: true,
         email: true,
         name: true,
+        phone: true,
         role: true,
         createdAt: true,
       }

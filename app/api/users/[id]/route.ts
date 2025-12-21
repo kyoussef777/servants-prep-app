@@ -28,6 +28,7 @@ export async function GET(
         id: true,
         email: true,
         name: true,
+        phone: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -59,7 +60,7 @@ export async function PATCH(
     const currentUser = await requireAuth()
     const { id } = await params
     const body = await request.json()
-    const { email, name, password, role } = body
+    const { email, name, phone, password, role } = body
 
     // Get the user being updated
     const targetUser = await prisma.user.findUnique({ where: { id } })
@@ -94,10 +95,21 @@ export async function PATCH(
 
     if (email) updateData.email = email
     if (name) updateData.name = name
+    if (phone !== undefined) updateData.phone = phone || null
 
-    // Only SUPER_ADMIN can change roles
-    if (role && canManageAllUsers(currentUser.role)) {
-      updateData.role = role
+    // Role change permissions:
+    // - SUPER_ADMIN: Can change any role
+    // - SERVANT_PREP: Can only change between STUDENT and MENTOR
+    if (role) {
+      if (canManageAllUsers(currentUser.role)) {
+        // SUPER_ADMIN can change any role
+        updateData.role = role
+      } else if (currentUser.role === UserRole.SERVANT_PREP) {
+        // SERVANT_PREP can only set STUDENT or MENTOR roles
+        if (role === UserRole.STUDENT || role === UserRole.MENTOR) {
+          updateData.role = role
+        }
+      }
     }
 
     if (password) {

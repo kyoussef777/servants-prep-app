@@ -16,6 +16,7 @@ interface User {
   id: string
   name: string
   email: string
+  phone?: string
   role: UserRole
   _count?: {
     mentoredStudents: number
@@ -34,6 +35,7 @@ export default function UsersPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     role: 'STUDENT' as UserRole
   })
@@ -86,7 +88,7 @@ export default function UsersPage() {
 
       await fetchUsers()
       setShowCreateForm(false)
-      setFormData({ name: '', email: '', password: '', role: 'STUDENT' })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
     } catch (err: any) {
       setFormError(err.message || 'Failed to create user')
     }
@@ -104,6 +106,7 @@ export default function UsersPage() {
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
+          phone: formData.phone || null,
           role: formData.role
         })
       })
@@ -116,7 +119,7 @@ export default function UsersPage() {
 
       await fetchUsers()
       setEditingUser(null)
-      setFormData({ name: '', email: '', password: '', role: 'STUDENT' })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
     } catch (err: any) {
       setFormError(err.message || 'Failed to update user')
     }
@@ -149,6 +152,7 @@ export default function UsersPage() {
     setFormData({
       name: user.name,
       email: user.email,
+      phone: user.phone || '',
       password: '',
       role: user.role
     })
@@ -159,7 +163,7 @@ export default function UsersPage() {
   const cancelForm = () => {
     setShowCreateForm(false)
     setEditingUser(null)
-    setFormData({ name: '', email: '', password: '', role: 'STUDENT' })
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
     setFormError('')
   }
 
@@ -189,7 +193,7 @@ export default function UsersPage() {
             onClick={() => {
               setShowCreateForm(true)
               setEditingUser(null)
-              setFormData({ name: '', email: '', password: '', role: 'STUDENT' })
+              setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
             }}
             disabled={showCreateForm || editingUser !== null}
           >
@@ -231,6 +235,17 @@ export default function UsersPage() {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone">Phone (optional)</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="(555) 123-4567"
                     />
                   </div>
 
@@ -284,13 +299,15 @@ export default function UsersPage() {
             <CardTitle>All Users ({users.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            {/* Desktop View */}
+            <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="text-left p-2 w-8">#</th>
                     <th className="text-left p-2">Name</th>
                     <th className="text-left p-2">Email</th>
+                    <th className="text-left p-2">Phone</th>
                     <th className="text-center p-2 w-40">Role</th>
                     <th className="text-center p-2 w-24">Mentees</th>
                     <th className="text-center p-2 w-40">Actions</th>
@@ -310,6 +327,7 @@ export default function UsersPage() {
                           )}
                         </td>
                         <td className="p-2 text-gray-600">{user.email}</td>
+                        <td className="p-2 text-gray-600">{user.phone || '-'}</td>
                         <td className="p-2 text-center">
                           <Badge
                             className={
@@ -354,6 +372,77 @@ export default function UsersPage() {
                   })}
                 </tbody>
               </table>
+
+              {users.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No users found
+                </div>
+              )}
+            </div>
+
+            {/* Mobile View */}
+            <div className="lg:hidden space-y-3">
+              {users.map((user) => {
+                const isCurrentUser = user.id === session?.user?.id
+
+                return (
+                  <Card key={user.id} className="overflow-hidden">
+                    <div className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900 truncate">{user.name}</span>
+                            {isCurrentUser && (
+                              <Badge variant="outline" className="text-xs">You</Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 truncate">{user.email}</div>
+                          {user.phone && (
+                            <div className="text-sm text-gray-500">{user.phone}</div>
+                          )}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <Badge
+                              className={
+                                user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
+                                user.role === 'PRIEST' ? 'bg-blue-600' :
+                                user.role === 'SERVANT_PREP' ? 'bg-green-600' :
+                                user.role === 'MENTOR' ? 'bg-yellow-600' :
+                                'bg-gray-600'
+                              }
+                            >
+                              {getRoleDisplayName(user.role)}
+                            </Badge>
+                            {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && (
+                              <Badge variant="outline" className="text-xs">
+                                {user._count?.mentoredStudents || 0} mentees
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-3 pt-3 border-t">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startEdit(user)}
+                          className="flex-1"
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={isCurrentUser}
+                          className="flex-1"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )
+              })}
 
               {users.length === 0 && (
                 <div className="text-center py-8 text-gray-500">

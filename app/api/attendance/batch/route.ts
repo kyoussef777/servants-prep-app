@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       status: 'PRESENT' | 'LATE' | 'ABSENT'
       arrivedAt: Date | null
       notes: string | null
-      recordedById: string
+      recordedBy: string
     }> = []
 
     const toUpdate: Array<{
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
           status: record.status,
           arrivedAt,
           notes: record.notes || null,
-          recordedById: user.id
+          recordedBy: user.id
         })
       }
     }

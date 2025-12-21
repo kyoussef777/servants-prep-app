@@ -19,6 +19,7 @@ interface Student {
   id: string
   name: string
   email: string
+  phone?: string
   enrollments?: Array<{
     id: string
     yearLevel: 'YEAR_1' | 'YEAR_2'
@@ -649,6 +650,9 @@ export default function StudentsManagementPage() {
                         <td className="p-3">
                           <div className="font-medium">{student.name}</div>
                           <div className="text-xs text-gray-500">{student.email}</div>
+                          {student.phone && (
+                            <div className="text-xs text-gray-500">{student.phone}</div>
+                          )}
                         </td>
                         <td className="p-3">
                           {student.enrollments?.[0] ? (
@@ -773,6 +777,9 @@ export default function StudentsManagementPage() {
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-gray-900 truncate">{student.name}</div>
                             <div className="text-sm text-gray-500 truncate">{student.email}</div>
+                            {student.phone && (
+                              <div className="text-sm text-gray-500">{student.phone}</div>
+                            )}
                             <div className="flex flex-wrap gap-2 mt-2">
                               {student.enrollments?.[0] && (
                                 <Badge variant="outline" className="text-xs">

@@ -159,18 +159,23 @@ export default function EnrollmentsPage() {
           {enrollments.map(enrollment => (
             <Card key={enrollment.id}>
               <CardContent className="pt-6">
-                <div className="flex justify-between items-center gap-4">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                   <div className="flex-1">
-                    <div className="font-semibold">{enrollment.student.name}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">{enrollment.student.name}</span>
+                      <Badge variant={enrollment.isActive ? 'default' : 'secondary'} className="md:hidden">
+                        {enrollment.isActive ? 'ACTIVE' : 'INACTIVE'}
+                      </Badge>
+                    </div>
                     <div className="text-sm text-gray-600">
                       {enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'} | {enrollment.student.email}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                     <div className="text-sm text-gray-600">Mentor:</div>
                     <select
-                      className="h-10 px-3 rounded-md border border-input bg-background"
+                      className="h-10 px-3 rounded-md border border-input bg-background w-full sm:w-auto"
                       value={enrollment.mentor?.id || ''}
                       onChange={(e) => handleMentorChange(enrollment.id, e.target.value)}
                     >
@@ -183,7 +188,7 @@ export default function EnrollmentsPage() {
                     </select>
                   </div>
 
-                  <Badge variant={enrollment.isActive ? 'default' : 'secondary'}>
+                  <Badge variant={enrollment.isActive ? 'default' : 'secondary'} className="hidden md:inline-flex">
                     {enrollment.isActive ? 'ACTIVE' : 'INACTIVE'}
                   </Badge>
                 </div>
