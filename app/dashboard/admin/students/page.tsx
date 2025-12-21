@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { isAdmin } from '@/lib/roles'
 import { toast } from 'sonner'
-import { GraduationCap, ChevronUp, ChevronDown, Save, Users, FileText, ChevronRight, Eye, Trash2, UserPlus } from 'lucide-react'
+import { GraduationCap, ChevronUp, ChevronDown, Save, Users, FileText, ChevronRight, Trash2, UserPlus, Pencil } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
 import { BulkStudentImport } from '@/components/bulk-student-import'
 
@@ -723,9 +723,9 @@ export default function StudentsManagementPage() {
                               variant="ghost"
                               onClick={() => openStudentDetails(student.id)}
                               className="gap-1"
-                              title="View Details"
+                              title="Edit Student"
                             >
-                              <Eye className="h-3 w-3" />
+                              <Pencil className="h-3 w-3" />
                             </Button>
                             <Button
                               size="sm"
@@ -868,8 +868,8 @@ export default function StudentsManagementPage() {
                               onClick={() => openStudentDetails(student.id)}
                               className="w-full gap-1"
                             >
-                              <Eye className="h-3 w-3" />
-                              Details
+                              <Pencil className="h-3 w-3" />
+                              Edit
                             </Button>
                             <Button
                               size="sm"
@@ -960,6 +960,8 @@ export default function StudentsManagementPage() {
       <StudentDetailsModal
         studentId={viewingStudent}
         studentName={students.find(s => s.id === viewingStudent)?.name || ''}
+        studentEmail={students.find(s => s.id === viewingStudent)?.email || ''}
+        studentPhone={students.find(s => s.id === viewingStudent)?.phone || ''}
         yearLevel={studentDetails?.student?.enrollments?.[0]?.yearLevel}
         mentor={studentDetails?.student?.enrollments?.[0]?.mentor}
         examScores={studentDetails?.examScores || []}

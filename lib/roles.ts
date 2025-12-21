@@ -53,7 +53,7 @@ export const canManageData = (role: UserRole) => {
 
 // Can assign mentors to students
 export const canAssignMentors = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.PRIEST
+  return role === UserRole.SUPER_ADMIN || role === UserRole.PRIEST || role === UserRole.SERVANT_PREP
 }
 
 // Can self-assign mentees (mentors)

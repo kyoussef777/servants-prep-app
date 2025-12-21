@@ -86,6 +86,8 @@ interface Mentor {
 interface StudentDetailsModalProps {
   studentId: string | null
   studentName: string
+  studentEmail?: string
+  studentPhone?: string
   yearLevel?: string
   mentor?: Mentor | null
   examScores: ExamScore[]
@@ -100,6 +102,8 @@ interface StudentDetailsModalProps {
 export function StudentDetailsModal({
   studentId,
   studentName,
+  studentEmail = '',
+  studentPhone = '',
   yearLevel,
   mentor,
   examScores,
@@ -114,6 +118,51 @@ export function StudentDetailsModal({
   const [editingScore, setEditingScore] = useState<number>(0)
   const [editingScoreNotes, setEditingScoreNotes] = useState<string>('')
   const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null)
+
+  // Profile editing state
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [profileName, setProfileName] = useState(studentName)
+  const [profileEmail, setProfileEmail] = useState(studentEmail)
+  const [profilePhone, setProfilePhone] = useState(studentPhone)
+  const [savingProfile, setSavingProfile] = useState(false)
+
+  // Reset profile form when student changes
+  const resetProfileForm = () => {
+    setProfileName(studentName)
+    setProfileEmail(studentEmail)
+    setProfilePhone(studentPhone)
+    setEditingProfile(false)
+  }
+
+  const updateStudentProfile = async () => {
+    if (!studentId) return
+    setSavingProfile(true)
+    try {
+      const res = await fetch(`/api/users/${studentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profileName,
+          email: profileEmail,
+          phone: profilePhone || null
+        })
+      })
+
+      if (res.ok) {
+        toast.success('Student profile updated successfully!')
+        setEditingProfile(false)
+        onRefresh()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to update profile')
+      }
+    } catch (error) {
+      console.error('Failed to update profile:', error)
+      toast.error('Failed to update profile')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
 
   const updateExamScore = async (scoreId: string, newScore: number, notes?: string) => {
     try {
@@ -243,11 +292,117 @@ export function StudentDetailsModal({
         {loading ? (
           <div className="py-8 text-center text-gray-500">Loading...</div>
         ) : (
-          <Tabs defaultValue="scores" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs defaultValue="profile" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="scores">Exam Scores</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="profile" className="space-y-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold">Student Information</h3>
+                    {!editingProfile ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setProfileName(studentName)
+                          setProfileEmail(studentEmail)
+                          setProfilePhone(studentPhone)
+                          setEditingProfile(true)
+                        }}
+                        className="gap-1"
+                      >
+                        <Edit className="h-4 w-4" />
+                        Edit
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={resetProfileForm}
+                          disabled={savingProfile}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={updateStudentProfile}
+                          disabled={savingProfile}
+                          className="gap-1"
+                        >
+                          <Check className="h-4 w-4" />
+                          {savingProfile ? 'Saving...' : 'Save'}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {editingProfile ? (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Full Name</label>
+                        <Input
+                          value={profileName}
+                          onChange={(e) => setProfileName(e.target.value)}
+                          placeholder="Full Name"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Email</label>
+                        <Input
+                          type="email"
+                          value={profileEmail}
+                          onChange={(e) => setProfileEmail(e.target.value)}
+                          placeholder="Email"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Phone (optional)</label>
+                        <Input
+                          type="tel"
+                          value={profilePhone}
+                          onChange={(e) => setProfilePhone(e.target.value)}
+                          placeholder="Phone number"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-gray-600">Name</span>
+                        <span className="font-medium">{studentName}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-gray-600">Email</span>
+                        <span className="font-medium">{studentEmail || '-'}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-gray-600">Phone</span>
+                        <span className="font-medium">{studentPhone || '-'}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-gray-600">Year Level</span>
+                        <span className="font-medium">
+                          {yearLevel === 'YEAR_1' ? 'Year 1' : yearLevel === 'YEAR_2' ? 'Year 2' : '-'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-gray-600">Mentor</span>
+                        <span className="font-medium">{mentor?.name || 'Not assigned'}</span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="scores" className="space-y-4">
               {/* Score Summary */}
