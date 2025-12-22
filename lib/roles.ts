@@ -61,6 +61,11 @@ export const canSelfAssignMentees = (role: UserRole) => {
   return role === UserRole.MENTOR
 }
 
+// Can be assigned as a mentor (have mentees)
+export const canBeMentor = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP || role === UserRole.MENTOR
+}
+
 // Can view students (admins and mentors)
 export const canViewStudents = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.PRIEST || role === UserRole.SERVANT_PREP || role === UserRole.MENTOR

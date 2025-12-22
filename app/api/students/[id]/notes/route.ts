@@ -21,8 +21,9 @@ export async function GET(
       )
     }
 
-    // If mentor, verify they are assigned to this student
-    if (user.role === UserRole.MENTOR) {
+    // If non-admin user, verify they are assigned as this student's mentor
+    // Admins (SUPER_ADMIN, PRIEST, SERVANT_PREP) have access to all students
+    if (!isAdmin(user.role) && user.role === UserRole.MENTOR) {
       const enrollment = await prisma.studentEnrollment.findUnique({
         where: { studentId },
         select: { mentorId: true }
@@ -76,8 +77,9 @@ export async function POST(
       )
     }
 
-    // If mentor, verify they are assigned to this student
-    if (user.role === UserRole.MENTOR) {
+    // If non-admin user, verify they are assigned as this student's mentor
+    // Admins (SUPER_ADMIN, PRIEST, SERVANT_PREP) have access to all students
+    if (!isAdmin(user.role) && user.role === UserRole.MENTOR) {
       const enrollment = await prisma.studentEnrollment.findUnique({
         where: { studentId },
         select: { mentorId: true }

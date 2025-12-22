@@ -24,6 +24,7 @@ export async function GET(request: Request) {
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
 
     // MENTOR role can only view their own mentees
+    // SUPER_ADMIN and SERVANT_PREP can view all or their own mentees
     if (user.role === UserRole.MENTOR) {
       if (mentorId && mentorId !== user.id) {
         return NextResponse.json(
@@ -44,8 +45,8 @@ export async function GET(request: Request) {
     if (isActive !== null) where.isActive = isActive === 'true'
     if (yearLevel) where.yearLevel = yearLevel
 
-    // For MENTOR role, always filter by their ID
-    if (user.role === UserRole.MENTOR) {
+    // For MENTOR role (not admins), always filter by their ID when no mentorId is specified
+    if (user.role === UserRole.MENTOR && !mentorId) {
       where.mentorId = user.id
     }
 

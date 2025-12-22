@@ -61,13 +61,22 @@ export default function EnrollmentsPage() {
           : []
         setEnrollments(activeEnrollments)
 
-        // Fetch mentors (all MENTOR roles - who can be assigned as mentors)
-        const usersRes = await fetch('/api/users?role=MENTOR')
+        // Fetch all users who can be mentors (SUPER_ADMIN, SERVANT_PREP, MENTOR)
+        const usersRes = await fetch('/api/users')
         if (!usersRes.ok) {
-          throw new Error('Failed to fetch mentors')
+          throw new Error('Failed to fetch users')
         }
-        const mentorsData = await usersRes.json()
-        setMentors(Array.isArray(mentorsData) ? mentorsData : [])
+        const usersData = await usersRes.json()
+
+        // Filter to only users who can be mentors
+        const mentorsData = Array.isArray(usersData)
+          ? usersData.filter((user: any) =>
+              user.role === 'SUPER_ADMIN' ||
+              user.role === 'SERVANT_PREP' ||
+              user.role === 'MENTOR'
+            )
+          : []
+        setMentors(mentorsData)
       } catch (error) {
         console.error('Failed to fetch data:', error)
         setEnrollments([])
