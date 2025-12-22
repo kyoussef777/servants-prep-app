@@ -26,7 +26,10 @@ export default function MyMenteesPage() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'MENTOR') {
+    } else if (status === 'authenticated' && session?.user?.role &&
+               session.user.role !== 'MENTOR' &&
+               session.user.role !== 'SUPER_ADMIN' &&
+               session.user.role !== 'SERVANT_PREP') {
       router.push('/dashboard')
     }
   }, [status, session, router])

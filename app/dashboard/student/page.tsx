@@ -9,15 +9,27 @@ import { Badge } from '@/components/ui/badge'
 
 interface Analytics {
   enrollment: {
-    yearLevel: string
-    mentorServant: { name: string; email: string }
-    academicYear: { name: string }
+    id: string
+    yearLevel: 'YEAR_1' | 'YEAR_2'
+    isActive: boolean
+    status: string
+    mentor: {
+      id: string
+      name: string
+      email: string
+    } | null
+    student: {
+      id: string
+      name: string
+      email: string
+    }
   }
   attendance: {
     totalLessons: number
     presentCount: number
     lateCount: number
     absentCount: number
+    effectivePresent: number
     percentage: number
     met: boolean
     required: number
@@ -26,6 +38,7 @@ interface Analytics {
     sectionAverages: Array<{
       section: string
       average: number
+      scores: number[]
       passingMet: boolean
     }>
     overallAverage: number
@@ -48,6 +61,7 @@ export default function StudentDashboard() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [academicYearId, setAcademicYearId] = useState<string | null>(null)
+  const [academicYearName, setAcademicYearName] = useState<string>('')
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -69,6 +83,7 @@ export default function StudentDashboard() {
 
         if (activeYear) {
           setAcademicYearId(activeYear.id)
+          setAcademicYearName(activeYear.name)
 
           // Fetch analytics
           const analyticsRes = await fetch(
@@ -111,11 +126,13 @@ export default function StudentDashboard() {
   }
 
   const sectionDisplayNames: { [key: string]: string } = {
-    BIBLE: 'Bible',
+    BIBLE_STUDIES: 'Bible Studies',
     DOGMA: 'Dogma',
-    CHURCH_HISTORY: 'Church History',
     COMPARATIVE_THEOLOGY: 'Comparative Theology',
-    SACRAMENTS: 'Sacraments'
+    RITUAL_THEOLOGY_SACRAMENTS: 'Ritual Theology & Sacraments',
+    CHURCH_HISTORY_COPTIC_HERITAGE: 'Church History & Coptic Heritage',
+    SPIRITUALITY_OF_MENTOR: 'Spirituality of Mentor',
+    PSYCHOLOGY_METHODOLOGY: 'Psychology & Methodology',
   }
 
   return (
@@ -125,11 +142,13 @@ export default function StudentDashboard() {
         <div>
           <h1 className="text-3xl font-bold">Welcome, {session?.user?.name}</h1>
           <p className="text-gray-600 mt-1">
-            Year {analytics.enrollment.yearLevel === 'YEAR_1' ? '1' : '2'} Student - {analytics.enrollment.academicYear.name}
+            Year {analytics.enrollment.yearLevel === 'YEAR_1' ? '1' : '2'} Student{academicYearName ? ` - ${academicYearName}` : ''}
           </p>
-          <p className="text-gray-600">
-            Mentor: {analytics.enrollment.mentorServant.name}
-          </p>
+          {analytics.enrollment.mentor && (
+            <p className="text-gray-600">
+              Mentor: {analytics.enrollment.mentor.name}
+            </p>
+          )}
         </div>
 
         {/* Graduation Status */}
