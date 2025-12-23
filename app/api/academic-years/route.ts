@@ -5,18 +5,12 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
 
 // GET /api/academic-years - List all academic years
+// All authenticated users can view academic years (needed for dashboard display)
 export async function GET() {
   try {
-    const user = await requireAuth()
+    await requireAuth()
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
-    }
-
+    // All authenticated users can read academic years
     const academicYears = await prisma.academicYear.findMany({
       orderBy: {
         startDate: 'desc'
