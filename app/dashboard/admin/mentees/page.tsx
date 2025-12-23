@@ -59,12 +59,12 @@ export default function MenteesPage() {
           if (menteesRes.ok) {
             const data = await menteesRes.json()
 
-            // Fetch analytics for each mentee
+            // Fetch analytics for each mentee (no academicYearId filter - aggregate across ALL years)
             const menteesWithAnalytics = await Promise.all(
               data.map(async (mentee: Mentee) => {
                 try {
                   const analyticsRes = await fetch(
-                    `/api/students/${mentee.student.id}/analytics?academicYearId=${activeYear.id}`
+                    `/api/students/${mentee.student.id}/analytics`
                   )
 
                   if (analyticsRes.ok) {

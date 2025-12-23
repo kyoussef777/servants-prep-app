@@ -58,6 +58,7 @@ export default function MentorAnalyticsPage() {
     } else if (status === 'authenticated' && session?.user?.role &&
                session.user.role !== 'MENTOR' &&
                session.user.role !== 'SUPER_ADMIN' &&
+               session.user.role !== 'PRIEST' &&
                session.user.role !== 'SERVANT_PREP') {
       router.push('/dashboard')
     }
@@ -81,8 +82,12 @@ export default function MentorAnalyticsPage() {
       if (!activeYear) throw new Error('No active academic year')
       setAcademicYearId(activeYear.id)
 
-      // Fetch only my assigned mentees
-      const enrollmentRes = await fetch(`/api/enrollments?mentorId=${session?.user?.id}`)
+      // PRIEST role sees ALL students; others see only their assigned mentees
+      const isPriest = session?.user?.role === 'PRIEST'
+      const enrollmentUrl = isPriest
+        ? '/api/enrollments'
+        : `/api/enrollments?mentorId=${session?.user?.id}`
+      const enrollmentRes = await fetch(enrollmentUrl)
       if (!enrollmentRes.ok) throw new Error('Failed to fetch mentees')
       const myEnrollments: Enrollment[] = await enrollmentRes.json()
       setEnrollments(myEnrollments)
@@ -119,14 +124,18 @@ export default function MentorAnalyticsPage() {
     )
   }
 
+  const isPriest = session?.user?.role === 'PRIEST'
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">Mentee Analytics</h1>
+          <h1 className="text-3xl font-bold">{isPriest ? 'Student Analytics' : 'Mentee Analytics'}</h1>
           <p className="text-gray-600 mt-1">
-            Detailed performance analytics for your {enrollments.length} assigned mentees
+            {isPriest
+              ? `Detailed performance analytics for all ${enrollments.length} enrolled students`
+              : `Detailed performance analytics for your ${enrollments.length} assigned mentees`}
           </p>
         </div>
 
@@ -140,7 +149,9 @@ export default function MentorAnalyticsPage() {
           <Card>
             <CardContent className="pt-6">
               <p className="text-gray-500 text-center">
-                You do not have any mentees assigned to you yet. Contact an administrator to get students assigned.
+                {isPriest
+                  ? 'No students are currently enrolled in the program.'
+                  : 'You do not have any mentees assigned to you yet. Contact an administrator to get students assigned.'}
               </p>
             </CardContent>
           </Card>

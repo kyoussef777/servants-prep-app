@@ -29,6 +29,7 @@ export default function MyMenteesPage() {
     } else if (status === 'authenticated' && session?.user?.role &&
                session.user.role !== 'MENTOR' &&
                session.user.role !== 'SUPER_ADMIN' &&
+               session.user.role !== 'PRIEST' &&
                session.user.role !== 'SERVANT_PREP') {
       router.push('/dashboard')
     }
@@ -43,8 +44,12 @@ export default function MyMenteesPage() {
   const fetchStudents = async () => {
     try {
       setLoading(true)
-      // Fetch only enrollments where this mentor is assigned
-      const res = await fetch(`/api/enrollments?mentorId=${session?.user?.id}`)
+      // PRIEST role sees ALL students; others see only their assigned mentees
+      const isPriest = session?.user?.role === 'PRIEST'
+      const url = isPriest
+        ? '/api/enrollments'
+        : `/api/enrollments?mentorId=${session?.user?.id}`
+      const res = await fetch(url)
       if (!res.ok) throw new Error('Failed to fetch mentees')
 
       const enrollments: Enrollment[] = await res.json()
@@ -66,15 +71,18 @@ export default function MyMenteesPage() {
   }
 
   const menteeCount = myMentees.length
+  const isPriest = session?.user?.role === 'PRIEST'
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">My Mentees</h1>
+          <h1 className="text-3xl font-bold">{isPriest ? 'All Students' : 'My Mentees'}</h1>
           <p className="text-gray-600 mt-1">
-            View your assigned students ({menteeCount} total)
+            {isPriest
+              ? `View all enrolled students (${menteeCount} total)`
+              : `View your assigned students (${menteeCount} total)`}
           </p>
         </div>
 
@@ -88,13 +96,15 @@ export default function MyMenteesPage() {
         <Card>
           <CardHeader>
             <CardTitle>
-              Your Assigned Mentees ({menteeCount})
+              {isPriest ? `All Enrolled Students (${menteeCount})` : `Your Assigned Mentees (${menteeCount})`}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {myMentees.length === 0 ? (
               <p className="text-gray-500 text-sm">
-                You do not have any mentees assigned to you yet. Contact an administrator to get students assigned.
+                {isPriest
+                  ? 'No students are currently enrolled in the program.'
+                  : 'You do not have any mentees assigned to you yet. Contact an administrator to get students assigned.'}
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -131,8 +141,9 @@ export default function MyMenteesPage() {
         <Card className="bg-blue-50 border-blue-200">
           <CardContent className="pt-6">
             <p className="text-sm text-gray-700">
-              <strong>Note:</strong> You have read-only access to view your assigned mentees' attendance, grades, and analytics.
-              To request changes to your mentee assignments, please contact an administrator.
+              <strong>Note:</strong> {isPriest
+                ? 'You have read-only access to view all students\' attendance, grades, and analytics.'
+                : 'You have read-only access to view your assigned mentees\' attendance, grades, and analytics. To request changes to your mentee assignments, please contact an administrator.'}
             </p>
           </CardContent>
         </Card>
