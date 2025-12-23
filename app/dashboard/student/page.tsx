@@ -84,16 +84,16 @@ export default function StudentDashboard() {
         if (activeYear) {
           setAcademicYearId(activeYear.id)
           setAcademicYearName(activeYear.name)
+        }
 
-          // Fetch analytics
-          const analyticsRes = await fetch(
-            `/api/students/${session.user.id}/analytics?academicYearId=${activeYear.id}`
-          )
+        // Fetch analytics (no academicYearId filter - aggregate across ALL years for graduation tracking)
+        const analyticsRes = await fetch(
+          `/api/students/${session.user.id}/analytics`
+        )
 
-          if (analyticsRes.ok) {
-            const data = await analyticsRes.json()
-            setAnalytics(data)
-          }
+        if (analyticsRes.ok) {
+          const data = await analyticsRes.json()
+          setAnalytics(data)
         }
       } catch (error) {
         console.error('Failed to fetch data:', error)
