@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { LessonStatus, ExamYearLevel } from "@prisma/client"
+import { LessonStatus, ExamYearLevel, UserRole } from "@prisma/client"
+import { canViewStudents } from "@/lib/roles"
 
 // GET /api/students/[id]/analytics - Get student analytics including graduation status
 // NOTE: academicYearId parameter is optional. If not provided, aggregates across ALL academic years.
@@ -14,7 +15,16 @@ export async function GET(
     const { id: studentId } = await params
 
     // Students can only view their own analytics
-    if (user.role === 'STUDENT' && user.id !== studentId) {
+    // Admins and mentors can view any student's analytics (mentor restriction handled elsewhere)
+    if (user.role === UserRole.STUDENT && user.id !== studentId) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
+      )
+    }
+
+    // Non-students must have permission to view students
+    if (user.role !== UserRole.STUDENT && !canViewStudents(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
