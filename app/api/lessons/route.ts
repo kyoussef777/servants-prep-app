@@ -50,7 +50,11 @@ export async function GET(request: Request) {
         },
         _count: {
           select: {
-            attendanceRecords: true
+            attendanceRecords: {
+              where: {
+                status: { in: ['PRESENT', 'LATE'] }
+              }
+            }
           }
         }
       },
@@ -159,7 +163,11 @@ export async function POST(request: Request) {
         },
         _count: {
           select: {
-            attendanceRecords: true
+            attendanceRecords: {
+              where: {
+                status: { in: ['PRESENT', 'LATE'] }
+              }
+            }
           }
         }
       }
