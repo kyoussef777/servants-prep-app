@@ -2,8 +2,10 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
+import { LessonStatus } from "@prisma/client"
 
 // GET /api/students/[id]/details - Get detailed student data for editing
+// NOTE: academicYearId parameter is optional. If not provided, returns data across ALL academic years.
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -23,12 +25,7 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const academicYearId = searchParams.get('academicYearId')
 
-    if (!academicYearId) {
-      return NextResponse.json(
-        { error: "Academic year ID is required" },
-        { status: 400 }
-      )
-    }
+    // academicYearId is now optional - if not provided, return data across all years
 
     // Get student with enrollment
     const student = await prisma.user.findUnique({
@@ -55,18 +52,26 @@ export async function GET(
       )
     }
 
+    // Build exam filter - if academicYearId provided, filter by it; otherwise include all
+    const examFilter = academicYearId ? { academicYearId } : {}
+
+    // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
+    const validStatuses: LessonStatus[] = [LessonStatus.SCHEDULED, LessonStatus.COMPLETED]
+    const lessonFilter = academicYearId
+      ? { academicYearId, status: { in: validStatuses } }
+      : { status: { in: validStatuses } }
+
     // Get all exam scores with exam and section details
     const examScores = await prisma.examScore.findMany({
       where: {
         studentId,
-        exam: {
-          academicYearId
-        }
+        exam: examFilter
       },
       include: {
         exam: {
           include: {
-            examSection: true
+            examSection: true,
+            academicYear: true
           }
         },
         grader: {
@@ -85,14 +90,13 @@ export async function GET(
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,
-        lesson: {
-          academicYearId
-        }
+        lesson: lessonFilter
       },
       include: {
         lesson: {
           include: {
-            examSection: true
+            examSection: true,
+            academicYear: true
           }
         },
         recorder: {
@@ -109,14 +113,14 @@ export async function GET(
       }
     })
 
-    // Get all exams for this academic year (to show missing scores)
+    // Get all exams (to show missing scores)
     // Limited to recent 6 months for performance
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
     const allExams = await prisma.exam.findMany({
       where: {
-        academicYearId,
+        ...examFilter,
         yearLevel: {
           in: student.enrollments?.[0]?.yearLevel ?
             ['BOTH', student.enrollments[0].yearLevel] :
@@ -127,7 +131,8 @@ export async function GET(
         }
       },
       include: {
-        examSection: true
+        examSection: true,
+        academicYear: true
       },
       orderBy: {
         examDate: 'desc'
@@ -135,20 +140,18 @@ export async function GET(
       take: 50 // Limit to 50 most recent exams
     })
 
-    // Get all lessons for this academic year (to show missing attendance)
+    // Get all lessons (to show missing attendance)
     // Limited to recent 6 months for performance
     const allLessons = await prisma.lesson.findMany({
       where: {
-        academicYearId,
-        status: {
-          in: ['SCHEDULED', 'COMPLETED']
-        },
+        ...lessonFilter,
         scheduledDate: {
           gte: sixMonthsAgo
         }
       },
       include: {
-        examSection: true
+        examSection: true,
+        academicYear: true
       },
       orderBy: {
         scheduledDate: 'desc'

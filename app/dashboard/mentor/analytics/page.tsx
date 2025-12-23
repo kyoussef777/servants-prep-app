@@ -94,9 +94,10 @@ export default function MentorAnalyticsPage() {
       }
 
       // Get analytics for all students using batch API for better performance
+      // No academicYearId filter - aggregate across ALL academic years for graduation tracking
       const studentIds = myEnrollments.map(e => e.student.id).join(',')
       const res = await fetch(
-        `/api/students/analytics/batch?studentIds=${studentIds}&academicYearId=${activeYear.id}`
+        `/api/students/analytics/batch?studentIds=${studentIds}`
       )
 
       if (!res.ok) throw new Error('Failed to fetch analytics')

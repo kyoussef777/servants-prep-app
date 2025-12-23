@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
+import { LessonStatus, ExamYearLevel } from "@prisma/client"
 
 // GET /api/students/[id]/analytics - Get student analytics including graduation status
+// NOTE: academicYearId parameter is optional. If not provided, aggregates across ALL academic years.
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -22,12 +24,7 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const academicYearId = searchParams.get('academicYearId')
 
-    if (!academicYearId) {
-      return NextResponse.json(
-        { error: "Academic year ID is required" },
-        { status: 400 }
-      )
-    }
+    // academicYearId is now optional - if not provided, aggregate across all years
 
     // Get enrollment
     const enrollment = await prisma.studentEnrollment.findUnique({
@@ -59,26 +56,22 @@ export async function GET(
       )
     }
 
-    // Get all lessons for this academic year (only SCHEDULED and COMPLETED count)
+    // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
+    const validStatuses: LessonStatus[] = [LessonStatus.SCHEDULED, LessonStatus.COMPLETED]
+    const lessonFilter = academicYearId
+      ? { academicYearId, status: { in: validStatuses } }
+      : { status: { in: validStatuses } }
+
+    // Get all lessons (only SCHEDULED and COMPLETED count)
     const totalLessons = await prisma.lesson.count({
-      where: {
-        academicYearId,
-        status: {
-          in: ['SCHEDULED', 'COMPLETED']
-        }
-      }
+      where: lessonFilter
     })
 
     // Get attendance records - only fetch needed fields for performance
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,
-        lesson: {
-          academicYearId,
-          status: {
-            in: ['SCHEDULED', 'COMPLETED']
-          }
-        }
+        lesson: lessonFilter
       },
       select: {
         status: true,
@@ -101,17 +94,30 @@ export async function GET(
     const attendancePercentage = totalLessons > 0 ? (effectivePresent / totalLessons) * 100 : 0
     const attendanceMet = attendancePercentage >= 75
 
-    // Get exam scores by section
-    const examScores = await prisma.examScore.findMany({
-      where: {
-        studentId,
-        exam: {
-          academicYearId,
-          yearLevel: {
-            in: ['BOTH', enrollment.yearLevel]
+    // Build exam filter - if academicYearId provided, filter by it; otherwise include all
+    // Map yearLevel to ExamYearLevel (BOTH is always included, plus the student's current year)
+    const validYearLevels: ExamYearLevel[] = [
+      ExamYearLevel.BOTH,
+      enrollment.yearLevel === 'YEAR_1' ? ExamYearLevel.YEAR_1 : ExamYearLevel.YEAR_2
+    ]
+    const examWhereClause = academicYearId
+      ? {
+          studentId,
+          exam: {
+            academicYearId,
+            yearLevel: { in: validYearLevels }
           }
         }
-      },
+      : {
+          studentId,
+          exam: {
+            yearLevel: { in: validYearLevels }
+          }
+        }
+
+    // Get exam scores by section
+    const examScores = await prisma.examScore.findMany({
+      where: examWhereClause,
       include: {
         exam: {
           include: {

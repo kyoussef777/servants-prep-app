@@ -174,13 +174,15 @@ export default function StudentsManagementPage() {
 
         if (activeYear) {
           setAcademicYearId(activeYear.id)
-          // Fetch analytics (this depends on academic year, so can't be parallelized with above)
-          const analyticsRes = await fetch(`/api/students/analytics/batch?academicYearId=${activeYear.id}`)
-          if (analyticsRes.ok) {
-            const analyticsData = await analyticsRes.json()
-            setAnalytics(analyticsData)
-          }
         }
+      }
+
+      // Fetch analytics without filtering by year - aggregate across ALL academic years
+      // This is needed for graduation tracking since students take exams across both Year 1 and Year 2
+      const analyticsRes = await fetch('/api/students/analytics/batch')
+      if (analyticsRes.ok) {
+        const analyticsData = await analyticsRes.json()
+        setAnalytics(analyticsData)
       }
     } catch (error) {
       console.error('Failed to fetch students:', error)
@@ -190,13 +192,12 @@ export default function StudentsManagementPage() {
   }
 
   const openStudentDetails = async (studentId: string) => {
-    if (!academicYearId) return
-
     setViewingStudent(studentId)
     setDetailsLoading(true)
 
     try {
-      const res = await fetch(`/api/students/${studentId}/details?academicYearId=${academicYearId}`)
+      // Fetch details without filtering by year - aggregate across ALL academic years
+      const res = await fetch(`/api/students/${studentId}/details`)
       if (res.ok) {
         const data = await res.json()
         setStudentDetails(data)
@@ -212,7 +213,7 @@ export default function StudentsManagementPage() {
   }
 
   const refreshStudentDetails = async () => {
-    if (viewingStudent && academicYearId) {
+    if (viewingStudent) {
       await openStudentDetails(viewingStudent)
       await fetchStudents()
     }

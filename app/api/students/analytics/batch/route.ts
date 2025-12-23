@@ -2,9 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
+import { LessonStatus } from "@prisma/client"
 
 // GET /api/students/analytics/batch - Get analytics for all students efficiently
 // OPTIMIZED: Uses database aggregations instead of fetching all records
+// NOTE: academicYearId parameter is optional. If not provided, aggregates across ALL academic years.
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
@@ -20,12 +22,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const academicYearId = searchParams.get('academicYearId')
 
-    if (!academicYearId) {
-      return NextResponse.json(
-        { error: "Academic year ID is required" },
-        { status: 400 }
-      )
-    }
+    // academicYearId is now optional - if not provided, aggregate across all years
 
     // Get all active enrollments with student IDs (minimal data)
     const enrollments = await prisma.studentEnrollment.findMany({
@@ -46,14 +43,22 @@ export async function GET(request: Request) {
 
     const studentIds = enrollments.map(e => e.studentId)
 
+    // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
+    const validStatuses: LessonStatus[] = [LessonStatus.SCHEDULED, LessonStatus.COMPLETED]
+    const lessonFilter = academicYearId
+      ? { academicYearId, status: { in: validStatuses } }
+      : { status: { in: validStatuses } }
+
+    // Build exam filter - if academicYearId provided, filter by it; otherwise include all
+    const examFilter = academicYearId
+      ? { exam: { academicYearId } }
+      : {}
+
     // Run all queries in parallel for better performance
     const [totalLessonsCount, attendanceAggregates, examAggregates] = await Promise.all([
       // Count lessons (don't fetch all lesson data, just count)
       prisma.lesson.count({
-        where: {
-          academicYearId,
-          status: { in: ['SCHEDULED', 'COMPLETED'] }
-        }
+        where: lessonFilter
       }),
 
       // Get attendance counts grouped by student and status
@@ -62,10 +67,7 @@ export async function GET(request: Request) {
         by: ['studentId', 'status'],
         where: {
           studentId: { in: studentIds },
-          lesson: {
-            academicYearId,
-            status: { in: ['SCHEDULED', 'COMPLETED'] }
-          }
+          lesson: lessonFilter
         },
         _count: { status: true }
       }),
@@ -75,7 +77,7 @@ export async function GET(request: Request) {
         by: ['studentId'],
         where: {
           studentId: { in: studentIds },
-          exam: { academicYearId }
+          ...examFilter
         },
         _avg: { percentage: true },
         _count: { id: true }
