@@ -9,6 +9,7 @@
  *   list-admins                List all admin users (SUPER_ADMIN, PRIEST, SERVANT_PREP)
  *   list-sections              List all exam sections
  *   db-stats                   Show database statistics
+ *   migrate-academic-years     Migrate existing enrollments to active academic year
  */
 
 import { PrismaClient, UserRole } from '@prisma/client'
@@ -193,6 +194,176 @@ async function dbStats() {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 }
 
+async function migrateEnrollmentsToAcademicYear() {
+  // Get all academic years sorted by start date
+  const academicYears = await prisma.academicYear.findMany({
+    orderBy: { startDate: 'desc' }
+  })
+
+  if (academicYears.length === 0) {
+    console.error('❌ No academic years found. Please create them first.')
+    process.exit(1)
+  }
+
+  const activeYear = academicYears.find(y => y.isActive)
+  if (!activeYear) {
+    console.error('❌ No active academic year found. Please set one as active.')
+    process.exit(1)
+  }
+
+  // Find the previous academic year (for Year 2 students who started last year)
+  const activeYearIndex = academicYears.findIndex(y => y.id === activeYear.id)
+  const previousYear = academicYears[activeYearIndex + 1] // Previous year (older)
+
+  console.log('\n📅 Academic Year Migration')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(`  Active Year:   ${activeYear.name}`)
+  console.log(`  Previous Year: ${previousYear?.name || 'Not found'}`)
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+
+  // Year 1 students: enrolled in the current active year
+  const year1Result = await prisma.studentEnrollment.updateMany({
+    where: {
+      yearLevel: 'YEAR_1',
+      status: 'ACTIVE'
+    },
+    data: { academicYearId: activeYear.id }
+  })
+  console.log(`✅ Year 1 students: ${year1Result.count} enrollment(s) set to "${activeYear.name}"`)
+
+  // Year 2 students: enrolled in the previous year (they started last year)
+  if (previousYear) {
+    const year2Result = await prisma.studentEnrollment.updateMany({
+      where: {
+        yearLevel: 'YEAR_2',
+        status: 'ACTIVE'
+      },
+      data: { academicYearId: previousYear.id }
+    })
+    console.log(`✅ Year 2 students: ${year2Result.count} enrollment(s) set to "${previousYear.name}"`)
+  } else {
+    console.log('⚠️  No previous academic year found - Year 2 students not updated')
+    console.log('   Create a previous year (e.g., 2023-2024) and run this command again')
+  }
+
+  // Graduated students: graduation year is when they graduated (active year if not set)
+  const graduatedResult = await prisma.studentEnrollment.updateMany({
+    where: {
+      status: 'GRADUATED',
+      graduatedAcademicYearId: null
+    },
+    data: { graduatedAcademicYearId: activeYear.id }
+  })
+  console.log(`✅ Graduated students: ${graduatedResult.count} enrollment(s) graduation year set to "${activeYear.name}"`)
+
+  console.log('\n📋 Summary:')
+  console.log('   - Year 1 (Active) students enrolled in the current active year')
+  console.log('   - Year 2 (Active) students enrolled in the previous year')
+  console.log('   - Graduated students have graduation year set to active year\n')
+}
+
+async function listAcademicYears() {
+  const years = await prisma.academicYear.findMany({
+    orderBy: { startDate: 'desc' }
+  })
+
+  console.log('\n📅 Academic Years:\n')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+  if (years.length === 0) {
+    console.log('  No academic years found. Create one with:')
+    console.log('  bun scripts/admin.ts create-academic-year "2024-2025" 2024-09-01 2025-06-30')
+  } else {
+    for (const year of years) {
+      const activeMarker = year.isActive ? ' (ACTIVE)' : ''
+      // Count enrollments for this year
+      const enrollments = await prisma.studentEnrollment.count({
+        where: { academicYearId: year.id }
+      })
+      const graduated = await prisma.studentEnrollment.count({
+        where: { graduatedAcademicYearId: year.id }
+      })
+      console.log(`  ${year.name}${activeMarker}`)
+      console.log(`     Start: ${year.startDate.toLocaleDateString()}`)
+      console.log(`     End:   ${year.endDate.toLocaleDateString()}`)
+      console.log(`     Enrollments: ${enrollments} | Graduated: ${graduated}`)
+      console.log('')
+    }
+  }
+
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+}
+
+async function createAcademicYear(name: string, startDate: string, endDate: string, setActive: boolean = false) {
+  // Check if year with this name already exists
+  const existing = await prisma.academicYear.findUnique({ where: { name } })
+  if (existing) {
+    console.error(`❌ Academic year "${name}" already exists`)
+    process.exit(1)
+  }
+
+  // Parse dates
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    console.error('❌ Invalid date format. Use YYYY-MM-DD format (e.g., 2024-09-01)')
+    process.exit(1)
+  }
+
+  if (start >= end) {
+    console.error('❌ Start date must be before end date')
+    process.exit(1)
+  }
+
+  // If setting as active, deactivate all others
+  if (setActive) {
+    await prisma.academicYear.updateMany({
+      where: { isActive: true },
+      data: { isActive: false }
+    })
+  }
+
+  const year = await prisma.academicYear.create({
+    data: {
+      name,
+      startDate: start,
+      endDate: end,
+      isActive: setActive
+    }
+  })
+
+  console.log('\n✅ Academic year created successfully!\n')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log(`  Name:   ${year.name}`)
+  console.log(`  Start:  ${year.startDate.toLocaleDateString()}`)
+  console.log(`  End:    ${year.endDate.toLocaleDateString()}`)
+  console.log(`  Active: ${year.isActive ? 'Yes' : 'No'}`)
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+}
+
+async function setActiveAcademicYear(name: string) {
+  const year = await prisma.academicYear.findUnique({ where: { name } })
+  if (!year) {
+    console.error(`❌ Academic year "${name}" not found`)
+    process.exit(1)
+  }
+
+  // Deactivate all others
+  await prisma.academicYear.updateMany({
+    where: { isActive: true },
+    data: { isActive: false }
+  })
+
+  // Activate the specified year
+  await prisma.academicYear.update({
+    where: { id: year.id },
+    data: { isActive: true }
+  })
+
+  console.log(`\n✅ Academic year "${name}" is now active!\n`)
+}
+
 function showHelp() {
   console.log(`
 Admin CLI Tool for Servants Prep App
@@ -205,6 +376,12 @@ Commands:
   list-admins                  List all admin users (SUPER_ADMIN, PRIEST, SERVANT_PREP)
   list-sections                List all exam sections
   db-stats                     Show database statistics
+
+  Academic Year Commands:
+  list-years                   List all academic years
+  create-year <name> <start> <end> [--active]  Create a new academic year
+  set-active-year <name>       Set an academic year as active
+  migrate-academic-years       Migrate enrollments to academic years based on year level
   help                         Show this help message
 
 Examples:
@@ -212,6 +389,13 @@ Examples:
   bun scripts/admin.ts create-admin newadmin@church.com "Fr. John"
   bun scripts/admin.ts list-admins
   bun scripts/admin.ts db-stats
+
+  # Academic year examples:
+  bun scripts/admin.ts list-years
+  bun scripts/admin.ts create-year "2023-2024" 2023-09-01 2024-06-30
+  bun scripts/admin.ts create-year "2024-2025" 2024-09-01 2025-06-30 --active
+  bun scripts/admin.ts set-active-year "2024-2025"
+  bun scripts/admin.ts migrate-academic-years
 `)
 }
 
@@ -255,6 +439,33 @@ async function main() {
 
     case 'db-stats':
       await dbStats()
+      break
+
+    case 'migrate-academic-years':
+      await migrateEnrollmentsToAcademicYear()
+      break
+
+    case 'list-years':
+      await listAcademicYears()
+      break
+
+    case 'create-year':
+      if (!args[1] || !args[2] || !args[3]) {
+        console.error('❌ Usage: bun scripts/admin.ts create-year <name> <start-date> <end-date> [--active]')
+        console.error('   Example: bun scripts/admin.ts create-year "2023-2024" 2023-09-01 2024-06-30')
+        process.exit(1)
+      }
+      const setActive = args.includes('--active')
+      await createAcademicYear(args[1], args[2], args[3], setActive)
+      break
+
+    case 'set-active-year':
+      if (!args[1]) {
+        console.error('❌ Usage: bun scripts/admin.ts set-active-year <name>')
+        console.error('   Example: bun scripts/admin.ts set-active-year "2024-2025"')
+        process.exit(1)
+      }
+      await setActiveAcademicYear(args[1])
       break
 
     default:

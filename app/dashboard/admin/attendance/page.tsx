@@ -11,6 +11,12 @@ import { isAdmin } from '@/lib/roles'
 import { ChevronDown, ChevronRight, Calendar, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
+interface AcademicYear {
+  id: string
+  name: string
+  isActive: boolean
+}
+
 interface Lesson {
   id: string
   title: string
@@ -48,6 +54,8 @@ export default function AttendancePage() {
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
   const [students, setStudents] = useState<Student[]>([])
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
+  const [selectedYearId, setSelectedYearId] = useState<string>('')
   const [attendance, setAttendance] = useState<Map<string, AttendanceRecord>>(new Map())
   const [existingAttendance, setExistingAttendance] = useState<Map<string, any>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -67,78 +75,88 @@ export default function AttendancePage() {
     }
   }, [status, session, router])
 
+  // Fetch academic years and students on mount
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       try {
-        const yearsRes = await fetch('/api/academic-years')
-        if (!yearsRes.ok) {
-          // Silently handle - set empty data
+        const [yearsRes, enrollmentsRes] = await Promise.all([
+          fetch('/api/academic-years'),
+          fetch('/api/enrollments')
+        ])
+
+        if (!yearsRes.ok || !enrollmentsRes.ok) {
           setStudents([])
-          setLessons([])
+          setAcademicYears([])
           setLoading(false)
           return
         }
 
-        const years = await yearsRes.json()
-        if (!Array.isArray(years)) {
-          setStudents([])
-          setLessons([])
-          setLoading(false)
-          return
-        }
+        const [yearsData, enrollmentsData] = await Promise.all([
+          yearsRes.json(),
+          enrollmentsRes.json()
+        ])
 
-        const activeYear = years.find((y: any) => y.isActive)
+        const years = Array.isArray(yearsData) ? yearsData : []
+        setAcademicYears(years)
 
-        if (activeYear) {
-          const lessonsRes = await fetch(`/api/lessons?academicYearId=${activeYear.id}`)
-          if (!lessonsRes.ok) {
-            setLessons([])
-          } else {
-            const lessonsData = await lessonsRes.json()
-            setLessons(Array.isArray(lessonsData) ? lessonsData : [])
-          }
+        // Default to "all" to show all lessons
+        setSelectedYearId('all')
 
-          const enrollmentsRes = await fetch('/api/enrollments')
-          if (!enrollmentsRes.ok) {
-            setStudents([])
-          } else {
-            const enrollmentsData = await enrollmentsRes.json()
-
-            const studentMap = new Map()
-            if (Array.isArray(enrollmentsData)) {
-              for (const enrollment of enrollmentsData) {
-                if (enrollment.isActive) {
-                  const student = enrollment.student
-                  if (!studentMap.has(student.id)) {
-                    studentMap.set(student.id, {
-                      ...student,
-                      enrollments: []
-                    })
-                  }
-                  studentMap.get(student.id).enrollments.push({
-                    yearLevel: enrollment.yearLevel,
-                    mentorId: enrollment.mentor?.id
-                  })
-                }
+        // Build student map from enrollments
+        const studentMap = new Map()
+        if (Array.isArray(enrollmentsData)) {
+          for (const enrollment of enrollmentsData) {
+            if (enrollment.isActive) {
+              const student = enrollment.student
+              if (!studentMap.has(student.id)) {
+                studentMap.set(student.id, {
+                  ...student,
+                  enrollments: []
+                })
               }
+              studentMap.get(student.id).enrollments.push({
+                yearLevel: enrollment.yearLevel,
+                mentorId: enrollment.mentor?.id
+              })
             }
-
-            setStudents(Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name)))
           }
         }
+        setStudents(Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name)))
       } catch (error) {
-        // Silently handle errors - just set empty data
         setStudents([])
-        setLessons([])
+        setAcademicYears([])
       } finally {
         setLoading(false)
       }
     }
 
     if (session?.user) {
-      fetchData()
+      fetchInitialData()
     }
   }, [session])
+
+  // Fetch lessons when selected year changes
+  useEffect(() => {
+    const fetchLessons = async () => {
+      try {
+        // If "all" is selected, fetch all lessons
+        const url = selectedYearId && selectedYearId !== 'all'
+          ? `/api/lessons?academicYearId=${selectedYearId}`
+          : '/api/lessons'
+        const lessonsRes = await fetch(url)
+        if (!lessonsRes.ok) {
+          setLessons([])
+          return
+        }
+        const lessonsData = await lessonsRes.json()
+        setLessons(Array.isArray(lessonsData) ? lessonsData : [])
+      } catch (error) {
+        setLessons([])
+      }
+    }
+
+    fetchLessons()
+  }, [selectedYearId])
 
   useEffect(() => {
     const fetchAttendance = async () => {
@@ -312,16 +330,32 @@ export default function AttendancePage() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold">Take Attendance</h1>
             <p className="text-sm text-gray-600">Mark student attendance for lessons</p>
           </div>
-          {selectedLesson && (
-            <Button variant="outline" onClick={() => setSelectedLesson(null)}>
-              Change Lesson
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            {!selectedLesson && (
+              <select
+                value={selectedYearId}
+                onChange={(e) => setSelectedYearId(e.target.value)}
+                className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+              >
+                <option value="all">All Academic Years</option>
+                {academicYears.map(year => (
+                  <option key={year.id} value={year.id}>
+                    {year.name}{year.isActive ? ' (Active)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedLesson && (
+              <Button variant="outline" onClick={() => setSelectedLesson(null)}>
+                Change Lesson
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Lesson Selection */}

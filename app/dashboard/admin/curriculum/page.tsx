@@ -36,17 +36,25 @@ interface Section {
   displayName: string
 }
 
+interface AcademicYear {
+  id: string
+  name: string
+  isActive: boolean
+}
+
 export default function CurriculumPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [sections, setSections] = useState<Section[]>([])
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterSection, setFilterSection] = useState<string>('all')
+  const [selectedYearId, setSelectedYearId] = useState<string>('')
   const [showAddForm, setShowAddForm] = useState(false)
-  const [academicYearId, setAcademicYearId] = useState<string>('')
+  const [formAcademicYearId, setFormAcademicYearId] = useState<string>('')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
   // Form state for add/edit
@@ -66,26 +74,22 @@ export default function CurriculumPage() {
     }
   }, [status, router])
 
+  // Fetch academic years and sections on mount
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       try {
-        // Fetch academic year
+        // Fetch academic years
         const yearsRes = await fetch('/api/academic-years')
         if (!yearsRes.ok) throw new Error('Failed to fetch years')
         const years = await yearsRes.json()
-        const activeYear = Array.isArray(years) ? years.find((y: any) => y.isActive) : null
+        const yearsArray = Array.isArray(years) ? years : []
+        setAcademicYears(yearsArray)
 
+        // Default to active year for filtering, but show "all" initially
+        const activeYear = yearsArray.find((y: AcademicYear) => y.isActive)
         if (activeYear) {
-          setAcademicYearId(activeYear.id)
-
-          // Fetch lessons
-          const lessonsRes = await fetch(`/api/lessons?academicYearId=${activeYear.id}`)
-          if (!lessonsRes.ok) {
-            const errorData = await lessonsRes.json()
-            throw new Error(errorData.error || 'Failed to fetch lessons')
-          }
-          const lessonsData = await lessonsRes.json()
-          setLessons(Array.isArray(lessonsData) ? lessonsData : [])
+          setSelectedYearId('all') // Show all years by default
+          setFormAcademicYearId(activeYear.id) // Default new lessons to active year
         }
 
         // Fetch sections
@@ -98,18 +102,45 @@ export default function CurriculumPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch data:', error)
+        console.error('Failed to fetch initial data:', error)
+      }
+    }
+
+    if (session?.user) {
+      fetchInitialData()
+    }
+  }, [session])
+
+  // Fetch lessons when selected year changes
+  useEffect(() => {
+    const fetchLessons = async () => {
+      if (!selectedYearId) return
+
+      setLoading(true)
+      try {
+        const url = selectedYearId && selectedYearId !== 'all'
+          ? `/api/lessons?academicYearId=${selectedYearId}`
+          : '/api/lessons'
+
+        const lessonsRes = await fetch(url)
+        if (!lessonsRes.ok) {
+          const errorData = await lessonsRes.json()
+          throw new Error(errorData.error || 'Failed to fetch lessons')
+        }
+        const lessonsData = await lessonsRes.json()
+        setLessons(Array.isArray(lessonsData) ? lessonsData : [])
+      } catch (error) {
+        console.error('Failed to fetch lessons:', error)
         setLessons([])
-        setSections([])
       } finally {
         setLoading(false)
       }
     }
 
-    if (session?.user) {
-      fetchData()
+    if (session?.user && selectedYearId) {
+      fetchLessons()
     }
-  }, [session])
+  }, [session, selectedYearId])
 
   const handleEdit = (lesson: Lesson) => {
     setEditingId(lesson.id)
@@ -174,6 +205,11 @@ export default function CurriculumPage() {
   }
 
   const handleAdd = async () => {
+    if (!formAcademicYearId) {
+      toast.error('Please select an academic year')
+      return
+    }
+
     try {
       const nextLessonNumber = lessons.length > 0
         ? Math.max(...lessons.map(l => l.lessonNumber)) + 1
@@ -188,7 +224,7 @@ export default function CurriculumPage() {
           description: formData.description,
           scheduledDate: new Date(formData.scheduledDate).toISOString(),
           examSectionId: formData.examSectionId,
-          academicYearId,
+          academicYearId: formAcademicYearId,
           lessonNumber: nextLessonNumber,
           status: 'SCHEDULED'
         })
@@ -336,7 +372,20 @@ export default function CurriculumPage() {
                     onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
                   />
                 </div>
-                <div></div>
+                <div>
+                  <label className="text-sm font-medium">Academic Year</label>
+                  <select
+                    value={formAcademicYearId}
+                    onChange={(e) => setFormAcademicYearId(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    {academicYears.map(year => (
+                      <option key={year.id} value={year.id}>
+                        {year.name} {year.isActive ? '(Active)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="md:col-span-2">
                   <label className="text-sm font-medium">Description (optional)</label>
                   <Textarea
@@ -393,6 +442,18 @@ export default function CurriculumPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="max-w-xs"
               />
+              <select
+                value={selectedYearId}
+                onChange={(e) => setSelectedYearId(e.target.value)}
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="all">All Academic Years</option>
+                {academicYears.map(year => (
+                  <option key={year.id} value={year.id}>
+                    {year.name} {year.isActive ? '(Active)' : ''}
+                  </option>
+                ))}
+              </select>
               <select
                 value={filterSection}
                 onChange={(e) => setFilterSection(e.target.value)}

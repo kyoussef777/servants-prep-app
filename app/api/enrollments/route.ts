@@ -10,6 +10,8 @@ import { isAdmin } from "@/lib/roles"
 //   ?mentorId=xxx - filter by mentor (also works for MENTOR role to get their mentees)
 //   ?isActive=true - filter by active status
 //   ?yearLevel=YEAR_1 - filter by year level
+//   ?academicYearId=xxx - filter by academic year (enrollment year)
+//   ?status=ACTIVE|GRADUATED|WITHDRAWN - filter by enrollment status
 //   ?page=1&limit=50 - pagination (default: all results for backwards compatibility)
 export async function GET(request: Request) {
   try {
@@ -20,6 +22,8 @@ export async function GET(request: Request) {
     const mentorId = searchParams.get('mentorId')
     const isActive = searchParams.get('isActive')
     const yearLevel = searchParams.get('yearLevel')
+    const academicYearId = searchParams.get('academicYearId')
+    const status = searchParams.get('status')
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : null
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
 
@@ -44,6 +48,8 @@ export async function GET(request: Request) {
     if (mentorId) where.mentorId = mentorId
     if (isActive !== null) where.isActive = isActive === 'true'
     if (yearLevel) where.yearLevel = yearLevel
+    if (academicYearId) where.academicYearId = academicYearId
+    if (status) where.status = status
 
     // For MENTOR role (not admins), always filter by their ID when no mentorId is specified
     if (user.role === UserRole.MENTOR && !mentorId) {
@@ -71,6 +77,18 @@ export async function GET(request: Request) {
             id: true,
             name: true,
             email: true,
+          }
+        },
+        academicYear: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        graduatedAcademicYear: {
+          select: {
+            id: true,
+            name: true,
           }
         }
       },
@@ -125,7 +143,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { studentId, yearLevel, mentorId, isActive } = body
+    const { studentId, yearLevel, mentorId, isActive, academicYearId } = body
 
     if (!studentId || !yearLevel) {
       return NextResponse.json(
@@ -146,12 +164,24 @@ export async function POST(request: Request) {
       )
     }
 
+    // If no academicYearId provided, use the active academic year
+    let enrollmentAcademicYearId = academicYearId
+    if (!enrollmentAcademicYearId) {
+      const activeYear = await prisma.academicYear.findFirst({
+        where: { isActive: true }
+      })
+      if (activeYear) {
+        enrollmentAcademicYearId = activeYear.id
+      }
+    }
+
     const enrollment = await prisma.studentEnrollment.create({
       data: {
         studentId,
         yearLevel,
         mentorId: mentorId || null,
         isActive: isActive !== undefined ? isActive : true,
+        academicYearId: enrollmentAcademicYearId || null,
       },
       include: {
         student: {
@@ -162,6 +192,12 @@ export async function POST(request: Request) {
           }
         },
         mentor: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        academicYear: {
           select: {
             id: true,
             name: true,

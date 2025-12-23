@@ -13,6 +13,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
 
+interface AcademicYear {
+  id: string
+  name: string
+  isActive: boolean
+}
+
 interface ExamSection {
   id: string
   name: string
@@ -58,6 +64,8 @@ export default function ExamsPage() {
   const router = useRouter()
   const [exams, setExams] = useState<Exam[]>([])
   const [examSections, setExamSections] = useState<ExamSection[]>([])
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
+  const [selectedYearId, setSelectedYearId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [showCreateExam, setShowCreateExam] = useState(false)
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null)
@@ -69,7 +77,6 @@ export default function ExamsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMentees, setFilterMentees] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [activeYearId, setActiveYearId] = useState<string | null>(null)
 
   // New exam form
   const [newExam, setNewExam] = useState({
@@ -87,41 +94,38 @@ export default function ExamsPage() {
     }
   }, [status, session, router])
 
+  // Fetch academic years, sections, and enrollments on mount
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       try {
-        const yearsRes = await fetch('/api/academic-years')
+        const [yearsRes, sectionsRes, enrollmentsRes] = await Promise.all([
+          fetch('/api/academic-years'),
+          fetch('/api/exam-sections'),
+          fetch('/api/enrollments')
+        ])
+
         if (!yearsRes.ok) throw new Error('Failed to fetch years')
-        const years = await yearsRes.json()
-        const activeYear = Array.isArray(years) ? years.find((y: any) => y.isActive) : null
+        if (!sectionsRes.ok) throw new Error('Failed to fetch sections')
+        if (!enrollmentsRes.ok) throw new Error('Failed to fetch enrollments')
 
-        if (activeYear) {
-          setActiveYearId(activeYear.id)
+        const [yearsData, sectionsData, enrollmentsData] = await Promise.all([
+          yearsRes.json(),
+          sectionsRes.json(),
+          enrollmentsRes.json()
+        ])
 
-          // Fetch exams, sections, and enrollments in parallel for better performance
-          const [examsRes, sectionsRes, enrollmentsRes] = await Promise.all([
-            fetch(`/api/exams?academicYearId=${activeYear.id}`),
-            fetch('/api/exam-sections'),
-            fetch('/api/enrollments')
-          ])
+        const years = Array.isArray(yearsData) ? yearsData : []
+        setAcademicYears(years)
+        setExamSections(Array.isArray(sectionsData) ? sectionsData : [])
 
-          if (!examsRes.ok) throw new Error('Failed to fetch exams')
-          if (!sectionsRes.ok) throw new Error('Failed to fetch sections')
-          if (!enrollmentsRes.ok) throw new Error('Failed to fetch enrollments')
+        // Default to "all" to show all exams
+        setSelectedYearId('all')
 
-          const [examsData, sectionsData, enrollmentsData] = await Promise.all([
-            examsRes.json(),
-            sectionsRes.json(),
-            enrollmentsRes.json()
-          ])
-
-          setExams(Array.isArray(examsData) ? examsData : [])
-          setExamSections(Array.isArray(sectionsData) ? sectionsData : [])
-
-          const studentMap = new Map()
-          if (Array.isArray(enrollmentsData)) {
-            for (const enrollment of enrollmentsData) {
-              if (enrollment.isActive) {
+        // Build student map from enrollments
+        const studentMap = new Map()
+        if (Array.isArray(enrollmentsData)) {
+          for (const enrollment of enrollmentsData) {
+            if (enrollment.isActive) {
               const student = enrollment.student
               if (!studentMap.has(student.id)) {
                 studentMap.set(student.id, {
@@ -132,41 +136,62 @@ export default function ExamsPage() {
               studentMap.get(student.id).enrollments.push({
                 yearLevel: enrollment.yearLevel,
                 mentorId: enrollment.mentor?.id
-                })
-              }
+              })
             }
           }
-
-          setStudents(Array.from(studentMap.values()))
         }
+        setStudents(Array.from(studentMap.values()))
       } catch (error) {
-        console.error('Failed to fetch data:', error)
+        console.error('Failed to fetch initial data:', error)
       } finally {
         setLoading(false)
       }
     }
 
     if (session?.user) {
-      fetchData()
+      fetchInitialData()
     }
   }, [session])
 
+  // Fetch exams when selected year changes
+  useEffect(() => {
+    const fetchExams = async () => {
+      try {
+        // If "all" is selected or no year selected, fetch all exams
+        const url = selectedYearId && selectedYearId !== 'all'
+          ? `/api/exams?academicYearId=${selectedYearId}`
+          : '/api/exams'
+        const examsRes = await fetch(url)
+        if (!examsRes.ok) throw new Error('Failed to fetch exams')
+        const examsData = await examsRes.json()
+        setExams(Array.isArray(examsData) ? examsData : [])
+      } catch (error) {
+        console.error('Failed to fetch exams:', error)
+        setExams([])
+      }
+    }
+
+    fetchExams()
+  }, [selectedYearId])
+
   const createExam = async () => {
     try {
-      const yearsRes = await fetch('/api/academic-years')
-      const years = await yearsRes.json()
-      const activeYear = years.find((y: any) => y.isActive)
-
-      if (!activeYear) {
-        toast.error('No active academic year found')
-        return
+      // When creating, use the selected year or default to active year
+      let yearIdForCreate = selectedYearId
+      if (!selectedYearId || selectedYearId === 'all') {
+        const activeYear = academicYears.find(y => y.isActive)
+        if (!activeYear) {
+          toast.error('No active academic year found. Please select a year.')
+          return
+        }
+        yearIdForCreate = activeYear.id
       }
 
       const res = await fetch('/api/exams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          academicYearId: activeYear.id,
+          academicYearId: yearIdForCreate,
           ...newExam
         })
       })
@@ -342,15 +367,8 @@ export default function ExamsPage() {
 
       toast.success('Exam deleted successfully!')
 
-      // Refresh exams list
-      const yearsRes = await fetch('/api/academic-years')
-      const years = await yearsRes.json()
-      const activeYear = years.find((y: any) => y.isActive)
-      if (activeYear) {
-        const examsRes = await fetch(`/api/exams?academicYearId=${activeYear.id}`)
-        const examsData = await examsRes.json()
-        setExams(examsData)
-      }
+      // Remove the deleted exam from state
+      setExams(exams.filter(exam => exam.id !== examId))
     } catch (error) {
       console.error('Failed to delete exam:', error)
       toast.error('Failed to delete exam')
@@ -394,7 +412,7 @@ export default function ExamsPage() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold">Exam Management</h1>
             <p className="text-sm text-gray-600">Create exams and enter scores</p>
@@ -410,16 +428,32 @@ export default function ExamsPage() {
               </p>
             )}
           </div>
-          {!selectedExam && (
-            <Button onClick={() => setShowCreateExam(true)}>
-              Create New Exam
-            </Button>
-          )}
-          {selectedExam && (
-            <Button variant="outline" onClick={() => setSelectedExam(null)}>
-              Back to Exams
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            {!selectedExam && (
+              <>
+                <select
+                  value={selectedYearId}
+                  onChange={(e) => setSelectedYearId(e.target.value)}
+                  className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                >
+                  <option value="all">All Academic Years</option>
+                  {academicYears.map(year => (
+                    <option key={year.id} value={year.id}>
+                      {year.name}{year.isActive ? ' (Active)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button onClick={() => setShowCreateExam(true)}>
+                  Create New Exam
+                </Button>
+              </>
+            )}
+            {selectedExam && (
+              <Button variant="outline" onClick={() => setSelectedExam(null)}>
+                Back to Exams
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Exam List or Score Entry */}

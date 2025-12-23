@@ -392,7 +392,7 @@ export function StudentDetailsModal({
     <Dialog open={!!studentId} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle className="flex items-center justify-between pr-8">
             <span>{studentName} - Details</span>
             <div className="flex items-center gap-2 text-sm font-normal">
               {yearLevel && (

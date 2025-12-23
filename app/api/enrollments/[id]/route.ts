@@ -24,17 +24,39 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { yearLevel, mentorId, isActive, status, notes } = body
+    const { yearLevel, mentorId, isActive, status, notes, academicYearId } = body
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (yearLevel) updateData.yearLevel = yearLevel
     // Only SUPER_ADMIN/PRIEST can change mentor assignment
     if (mentorId !== undefined && canAssignMentors(user.role)) {
       updateData.mentorId = mentorId || null
     }
     if (isActive !== undefined) updateData.isActive = isActive
-    if (status !== undefined) updateData.status = status
     if (notes !== undefined) updateData.notes = notes
+    if (academicYearId !== undefined) updateData.academicYearId = academicYearId || null
+
+    // Handle graduation status change
+    if (status !== undefined) {
+      updateData.status = status
+
+      // When marking as GRADUATED, set the graduation academic year and date
+      if (status === 'GRADUATED') {
+        updateData.graduatedAt = new Date()
+
+        // Use the active academic year as the graduation year
+        const activeYear = await prisma.academicYear.findFirst({
+          where: { isActive: true }
+        })
+        if (activeYear) {
+          updateData.graduatedAcademicYearId = activeYear.id
+        }
+      } else if (status === 'ACTIVE') {
+        // If reactivating, clear graduation data
+        updateData.graduatedAt = null
+        updateData.graduatedAcademicYearId = null
+      }
+    }
 
     const enrollment = await prisma.studentEnrollment.update({
       where: { id },
@@ -48,6 +70,18 @@ export async function PATCH(
           }
         },
         mentor: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        academicYear: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        graduatedAcademicYear: {
           select: {
             id: true,
             name: true,

@@ -94,33 +94,42 @@ model AcademicYear {
   updatedAt DateTime @updatedAt
 
   // Relations
-  lessons Lesson[]
-  exams   Exam[]
+  lessons              Lesson[]
+  exams                Exam[]
+  enrollments          StudentEnrollment[] @relation("EnrollmentYear")
+  graduatedEnrollments StudentEnrollment[] @relation("GraduationYear")
 
   @@index([isActive])
 }
 
 model StudentEnrollment {
-  id              String             @id @default(cuid())
-  studentId       String             @unique
-  yearLevel       YearLevel
-  mentorId        String?
-  mentorName      String?
-  mentorPhone     String?
-  isActive        Boolean            @default(true)
-  status          EnrollmentStatus   @default(ACTIVE)
-  notes           String?            @db.Text
-  enrolledAt      DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt @default(now())
+  id                      String             @id @default(cuid())
+  studentId               String             @unique
+  academicYearId          String?            // The academic year this enrollment started in
+  graduatedAcademicYearId String?            // The academic year the student graduated in (if graduated)
+  yearLevel               YearLevel
+  mentorId                String?
+  mentorName              String?
+  mentorPhone             String?
+  isActive                Boolean            @default(true)
+  status                  EnrollmentStatus   @default(ACTIVE)
+  notes                   String?            @db.Text
+  enrolledAt              DateTime           @default(now())
+  graduatedAt             DateTime?          // When the student graduated
+  updatedAt               DateTime           @updatedAt @default(now())
 
   // Relations
-  student User  @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
-  mentor  User? @relation("MentorServant", fields: [mentorId], references: [id])
+  student               User          @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+  mentor                User?         @relation("MentorServant", fields: [mentorId], references: [id])
+  academicYear          AcademicYear? @relation("EnrollmentYear", fields: [academicYearId], references: [id])
+  graduatedAcademicYear AcademicYear? @relation("GraduationYear", fields: [graduatedAcademicYearId], references: [id])
 
   @@index([studentId])
   @@index([mentorId])
   @@index([isActive])
   @@index([status])
+  @@index([academicYearId])
+  @@index([graduatedAcademicYearId])
   @@index([mentorId, isActive]) // Compound index for mentor filtering with active status
   @@index([mentorId, status]) // Compound index for mentor filtering with enrollment status
 }
