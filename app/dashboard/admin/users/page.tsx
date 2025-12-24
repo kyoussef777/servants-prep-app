@@ -100,15 +100,22 @@ export default function UsersPage() {
     setFormError('')
 
     try {
+      const updatePayload: Record<string, unknown> = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || null,
+        role: formData.role
+      }
+
+      // Include password only if provided (SUPER_ADMIN only)
+      if (formData.password) {
+        updatePayload.password = formData.password
+      }
+
       const res = await fetch(`/api/users/${editingUser.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone || null,
-          role: formData.role
-        })
+        body: JSON.stringify(updatePayload)
       })
 
       const data = await res.json()
@@ -118,6 +125,16 @@ export default function UsersPage() {
       }
 
       await fetchUsers()
+
+      // Show appropriate success message
+      if (formData.password) {
+        toast.success('User updated with new password', {
+          description: 'User will be prompted to change password on next login'
+        })
+      } else {
+        toast.success('User updated successfully')
+      }
+
       setEditingUser(null)
       setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
     } catch (err: any) {
@@ -249,7 +266,7 @@ export default function UsersPage() {
                     />
                   </div>
 
-                  {!editingUser && (
+                  {!editingUser ? (
                     <div>
                       <Label htmlFor="password">Password</Label>
                       <Input
@@ -259,6 +276,20 @@ export default function UsersPage() {
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         required
                       />
+                    </div>
+                  ) : session?.user?.role === 'SUPER_ADMIN' && (
+                    <div>
+                      <Label htmlFor="password">New Password (optional)</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder="Leave blank to keep current"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        User will be prompted to change password on next login
+                      </p>
                     </div>
                   )}
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { isAdmin } from '@/lib/roles'
-import { ChevronDown, ChevronRight, Calendar, Users } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Users, Settings2, Check, Clock, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface AcademicYear {
@@ -66,6 +66,9 @@ export default function AttendancePage() {
   const [showPastLessons, setShowPastLessons] = useState(false)
   const [showCompletedLessons, setShowCompletedLessons] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [compactMode, setCompactMode] = useState(true)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -200,6 +203,7 @@ export default function AttendancePage() {
       ...record,
       [field]: value
     })))
+    setHasUnsavedChanges(true)
   }
 
   const handleMarkAllPresent = () => {
@@ -214,6 +218,7 @@ export default function AttendancePage() {
       })
     })
     setAttendance(newAttendance)
+    setHasUnsavedChanges(true)
   }
 
   const saveAttendance = async () => {
@@ -249,6 +254,7 @@ export default function AttendancePage() {
       const result = await res.json()
       const now = new Date()
       setLastSaved(now)
+      setHasUnsavedChanges(false)
       toast.success('Attendance saved successfully!', {
         description: `${result.created} created, ${result.updated} updated • ${now.toLocaleString('en-US', {
           month: 'short',
@@ -526,46 +532,56 @@ export default function AttendancePage() {
                 Mark All Present
               </Button>
               <Button
-                onClick={saveAttendance}
-                disabled={saving}
+                variant="outline"
                 size="sm"
-                className="ml-auto"
+                onClick={() => setCompactMode(!compactMode)}
+                className="gap-1"
               >
-                {saving ? 'Saving...' : 'Save Attendance'}
+                <Settings2 className="h-4 w-4" />
+                {compactMode ? 'Show Details' : 'Compact'}
               </Button>
             </div>
 
-            {lastSaved && (
-              <p className="text-xs text-gray-500 mt-2">
-                Last saved {lastSaved.toLocaleString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })}
-              </p>
-            )}
+            {/* Status bar */}
+            <div className="flex items-center gap-4 text-sm">
+              {hasUnsavedChanges && (
+                <span className="text-orange-600 font-medium">• Unsaved changes</span>
+              )}
+              {lastSaved && (
+                <span className="text-gray-500">
+                  Last saved {lastSaved.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}
+                </span>
+              )}
+            </div>
 
             {/* Excel-like Table - Desktop */}
-            <Card className="hidden md:block">
+            <Card className="hidden md:block mb-20">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b">
                     <tr>
                       <th className="text-left p-2 font-medium text-gray-700 w-8">#</th>
                       <th className="text-left p-2 font-medium text-gray-700">Name</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-20">Year</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-24">Present</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-24">Late</th>
-                      <th className="text-left p-2 font-medium text-gray-700 w-32">Arrived</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Notes</th>
+                      <th className="text-center p-2 font-medium text-gray-700 w-16">Year</th>
+                      <th className="text-center p-2 font-medium text-gray-700 w-36">Status</th>
+                      {!compactMode && (
+                        <>
+                          <th className="text-left p-2 font-medium text-gray-700 w-28">Arrived</th>
+                          <th className="text-left p-2 font-medium text-gray-700">Notes</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredStudents.map((student, index) => {
                       const record = attendance.get(student.id)
                       const yearBadge = student.enrollments[0]?.yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'
+                      const currentStatus = record?.status || 'ABSENT'
 
                       return (
                         <tr key={student.id} className="border-b hover:bg-gray-50">
@@ -576,39 +592,67 @@ export default function AttendancePage() {
                               {yearBadge}
                             </Badge>
                           </td>
-                          <td className="p-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={record?.status === 'PRESENT'}
-                              onChange={(e) => updateAttendance(student.id, 'status', e.target.checked ? 'PRESENT' : 'ABSENT')}
-                              className="h-4 w-4 cursor-pointer"
-                            />
-                          </td>
-                          <td className="p-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={record?.status === 'LATE'}
-                              onChange={(e) => updateAttendance(student.id, 'status', e.target.checked ? 'LATE' : 'ABSENT')}
-                              className="h-4 w-4 cursor-pointer"
-                            />
-                          </td>
                           <td className="p-2">
-                            <Input
-                              type="time"
-                              value={record?.arrivedAt || ''}
-                              onChange={(e) => updateAttendance(student.id, 'arrivedAt', e.target.value)}
-                              className="h-8 text-xs"
-                            />
+                            <div className="flex justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
+                                className={`p-1.5 rounded transition-colors ${
+                                  currentStatus === 'PRESENT'
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-gray-100 text-gray-400 hover:bg-green-100 hover:text-green-600'
+                                }`}
+                                title="Present"
+                              >
+                                <Check className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateAttendance(student.id, 'status', 'LATE')}
+                                className={`p-1.5 rounded transition-colors ${
+                                  currentStatus === 'LATE'
+                                    ? 'bg-yellow-500 text-white'
+                                    : 'bg-gray-100 text-gray-400 hover:bg-yellow-100 hover:text-yellow-600'
+                                }`}
+                                title="Late"
+                              >
+                                <Clock className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
+                                className={`p-1.5 rounded transition-colors ${
+                                  currentStatus === 'ABSENT'
+                                    ? 'bg-red-500 text-white'
+                                    : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600'
+                                }`}
+                                title="Absent"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
                           </td>
-                          <td className="p-2">
-                            <Input
-                              type="text"
-                              placeholder="Notes..."
-                              value={record?.notes || ''}
-                              onChange={(e) => updateAttendance(student.id, 'notes', e.target.value)}
-                              className="h-8 text-xs"
-                            />
-                          </td>
+                          {!compactMode && (
+                            <>
+                              <td className="p-2">
+                                <Input
+                                  type="time"
+                                  value={record?.arrivedAt || ''}
+                                  onChange={(e) => updateAttendance(student.id, 'arrivedAt', e.target.value)}
+                                  className="h-7 text-xs"
+                                />
+                              </td>
+                              <td className="p-2">
+                                <Input
+                                  type="text"
+                                  placeholder="Notes..."
+                                  value={record?.notes || ''}
+                                  onChange={(e) => updateAttendance(student.id, 'notes', e.target.value)}
+                                  className="h-7 text-xs"
+                                />
+                              </td>
+                            </>
+                          )}
                         </tr>
                       )
                     })}
@@ -617,91 +661,128 @@ export default function AttendancePage() {
               </div>
             </Card>
 
-            {/* Mobile Card Layout */}
-            <div className="md:hidden space-y-3">
+            {/* Mobile Card Layout - Compact */}
+            <div className="md:hidden space-y-2 pb-20">
               {filteredStudents.map((student, index) => {
                 const record = attendance.get(student.id)
                 const yearLevel = student.enrollments[0]?.yearLevel
+                const currentStatus = record?.status || 'ABSENT'
+                const isExpanded = expandedStudentId === student.id
 
                 return (
-                  <Card key={student.id}>
-                    <CardContent className="p-4 space-y-3">
-                      {/* Student Header */}
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                  <Card key={student.id} className="overflow-hidden">
+                    <CardContent className="p-3">
+                      {/* Compact Row - Always Visible */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-400 w-5">{index + 1}</span>
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-500">#{index + 1}</span>
-                            <h3 className="font-semibold">{student.name}</h3>
+                            <span className="font-medium truncate">{student.name}</span>
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
+                            </Badge>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
-                        </Badge>
-                      </div>
-
-                      {/* Status Selection */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Status</label>
-                        <div className="flex gap-2">
-                          <label className="flex-1 flex items-center justify-center gap-2 p-2 border rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input
-                              type="radio"
-                              name={`status-${student.id}`}
-                              checked={record?.status === 'PRESENT'}
-                              onChange={() => updateAttendance(student.id, 'status', 'PRESENT')}
-                              className="h-4 w-4"
-                            />
-                            <span className="text-sm font-medium">Present</span>
-                          </label>
-                          <label className="flex-1 flex items-center justify-center gap-2 p-2 border rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input
-                              type="radio"
-                              name={`status-${student.id}`}
-                              checked={record?.status === 'LATE'}
-                              onChange={() => updateAttendance(student.id, 'status', 'LATE')}
-                              className="h-4 w-4"
-                            />
-                            <span className="text-sm font-medium">Late</span>
-                          </label>
-                          <label className="flex-1 flex items-center justify-center gap-2 p-2 border rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input
-                              type="radio"
-                              name={`status-${student.id}`}
-                              checked={!record?.status || record?.status === 'ABSENT'}
-                              onChange={() => updateAttendance(student.id, 'status', 'ABSENT')}
-                              className="h-4 w-4"
-                            />
-                            <span className="text-sm font-medium">Absent</span>
-                          </label>
+                        {/* Status Buttons */}
+                        <div className="flex gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
+                            className={`p-2 rounded transition-colors ${
+                              currentStatus === 'PRESENT'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-100 text-gray-400'
+                            }`}
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateAttendance(student.id, 'status', 'LATE')}
+                            className={`p-2 rounded transition-colors ${
+                              currentStatus === 'LATE'
+                                ? 'bg-yellow-500 text-white'
+                                : 'bg-gray-100 text-gray-400'
+                            }`}
+                          >
+                            <Clock className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
+                            className={`p-2 rounded transition-colors ${
+                              currentStatus === 'ABSENT'
+                                ? 'bg-red-500 text-white'
+                                : 'bg-gray-100 text-gray-400'
+                            }`}
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
                         </div>
+                        {/* Expand button for details */}
+                        {!compactMode && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
+                            className="p-1 text-gray-400 hover:text-gray-600"
+                          >
+                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </button>
+                        )}
                       </div>
 
-                      {/* Arrival Time */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Arrival Time (Optional)</label>
-                        <Input
-                          type="time"
-                          value={record?.arrivedAt || ''}
-                          onChange={(e) => updateAttendance(student.id, 'arrivedAt', e.target.value)}
-                          className="w-full"
-                        />
-                      </div>
-
-                      {/* Notes */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Notes (Optional)</label>
-                        <Input
-                          type="text"
-                          placeholder="Add notes..."
-                          value={record?.notes || ''}
-                          onChange={(e) => updateAttendance(student.id, 'notes', e.target.value)}
-                          className="w-full"
-                        />
-                      </div>
+                      {/* Expanded Details */}
+                      {!compactMode && isExpanded && (
+                        <div className="mt-3 pt-3 border-t space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs text-gray-500">Arrival Time</label>
+                              <Input
+                                type="time"
+                                value={record?.arrivedAt || ''}
+                                onChange={(e) => updateAttendance(student.id, 'arrivedAt', e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-500">Notes</label>
+                              <Input
+                                type="text"
+                                placeholder="Add notes..."
+                                value={record?.notes || ''}
+                                onChange={(e) => updateAttendance(student.id, 'notes', e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )
               })}
+            </div>
+
+            {/* Sticky Footer - Save Button */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-50">
+              <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-gray-600">
+                    {attendance.size} / {filteredStudents.length} marked
+                  </span>
+                  {hasUnsavedChanges && (
+                    <span className="text-orange-600 font-medium">• Unsaved</span>
+                  )}
+                </div>
+                <Button
+                  onClick={saveAttendance}
+                  disabled={saving}
+                  size="lg"
+                  className="px-8"
+                >
+                  {saving ? 'Saving...' : 'Save Attendance'}
+                </Button>
+              </div>
             </div>
           </>
         )}

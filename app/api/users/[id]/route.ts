@@ -112,8 +112,17 @@ export async function PATCH(
       }
     }
 
+    // Password change: Only SUPER_ADMIN can change other users' passwords
     if (password) {
+      if (currentUser.role !== UserRole.SUPER_ADMIN) {
+        return NextResponse.json(
+          { error: "Only Super Admins can change user passwords" },
+          { status: 403 }
+        )
+      }
       updateData.password = await bcrypt.hash(password, 10)
+      // Set mustChangePassword so the user is prompted to set their own password
+      updateData.mustChangePassword = true
     }
 
     const user = await prisma.user.update({
