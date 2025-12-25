@@ -23,6 +23,7 @@ interface Lesson {
   scheduledDate: string
   lessonNumber: number
   status: string
+  academicYearId: string
   examSection: {
     displayName: string
   }
@@ -102,8 +103,9 @@ export default function AttendancePage() {
         const years = Array.isArray(yearsData) ? yearsData : []
         setAcademicYears(years)
 
-        // Default to "all" to show all lessons
-        setSelectedYearId('all')
+        // Default to active academic year for focused view
+        const activeYear = years.find((y: AcademicYear) => y.isActive)
+        setSelectedYearId(activeYear?.id || 'all')
 
         // Build student map from enrollments
         const studentMap = new Map()
@@ -295,6 +297,16 @@ export default function AttendancePage() {
     return true
   })
 
+  // Create a map of academic year IDs to names for quick lookup
+  const yearNameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    academicYears.forEach(y => map.set(y.id, y.name))
+    return map
+  }, [academicYears])
+
+  // Check if we're showing all years
+  const showingAllYears = selectedYearId === 'all'
+
   // Categorize lessons
   const now = new Date()
   const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -339,7 +351,11 @@ export default function AttendancePage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold">Take Attendance</h1>
-            <p className="text-sm text-gray-600">Mark student attendance for lessons</p>
+            <p className="text-sm text-gray-600">
+              {selectedYearId === 'all'
+                ? 'Showing lessons from all academic years'
+                : `${academicYears.find(y => y.id === selectedYearId)?.name || 'Selected year'} • ${lessons.length} lessons`}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             {!selectedLesson && (
@@ -381,6 +397,8 @@ export default function AttendancePage() {
                       lesson={lesson}
                       onClick={() => setSelectedLesson(lesson)}
                       highlight="upcoming"
+                      showYear={showingAllYears}
+                      yearName={yearNameMap.get(lesson.academicYearId)}
                     />
                   ))}
                 </div>
@@ -401,6 +419,8 @@ export default function AttendancePage() {
                       lesson={lesson}
                       onClick={() => setSelectedLesson(lesson)}
                       highlight="recent"
+                      showYear={showingAllYears}
+                      yearName={yearNameMap.get(lesson.academicYearId)}
                     />
                   ))}
                 </div>
@@ -420,6 +440,8 @@ export default function AttendancePage() {
                       key={lesson.id}
                       lesson={lesson}
                       onClick={() => setSelectedLesson(lesson)}
+                      showYear={showingAllYears}
+                      yearName={yearNameMap.get(lesson.academicYearId)}
                     />
                   ))}
                   {futureLessons.length > 3 && (
@@ -450,6 +472,8 @@ export default function AttendancePage() {
                         lesson={lesson}
                         onClick={() => setSelectedLesson(lesson)}
                         highlight="completed"
+                        showYear={showingAllYears}
+                        yearName={yearNameMap.get(lesson.academicYearId)}
                       />
                     ))}
                   </div>
@@ -476,6 +500,8 @@ export default function AttendancePage() {
                         lesson={lesson}
                         onClick={() => setSelectedLesson(lesson)}
                         highlight="past"
+                        showYear={showingAllYears}
+                        yearName={yearNameMap.get(lesson.academicYearId)}
                       />
                     ))}
                   </div>
@@ -491,8 +517,11 @@ export default function AttendancePage() {
                 <div className="flex justify-between items-center">
                   <div>
                     <div className="font-semibold">Lesson {selectedLesson.lessonNumber}: {selectedLesson.title}</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-600 flex items-center gap-2">
                       {new Date(selectedLesson.scheduledDate).toLocaleDateString()} | {selectedLesson.examSection.displayName}
+                      <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                        {yearNameMap.get(selectedLesson.academicYearId) || 'Unknown Year'}
+                      </Badge>
                     </div>
                   </div>
                   <div className="text-sm text-gray-600">
@@ -794,11 +823,15 @@ export default function AttendancePage() {
 function LessonCard({
   lesson,
   onClick,
-  highlight
+  highlight,
+  showYear,
+  yearName
 }: {
   lesson: Lesson
   onClick: () => void
   highlight?: 'upcoming' | 'recent' | 'past' | 'completed'
+  showYear?: boolean
+  yearName?: string
 }) {
   const bgColor =
     highlight === 'upcoming' ? 'bg-blue-50 border-blue-200' :
@@ -833,6 +866,11 @@ function LessonCard({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {showYear && yearName && (
+              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                {yearName}
+              </Badge>
+            )}
             <Badge>{lesson.examSection.displayName}</Badge>
             {highlight === 'upcoming' && (
               <Badge className="bg-blue-600">This Week</Badge>

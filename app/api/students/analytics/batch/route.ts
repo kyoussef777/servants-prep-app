@@ -66,8 +66,27 @@ export async function GET(request: Request) {
       ? { exam: { academicYearId } }
       : {}
 
+    // Get academic years to map to program years (Year 1 vs Year 2)
+    // Academic years are ordered by start date - first year of program = Year 1, second = Year 2
+    const academicYears = await prisma.academicYear.findMany({
+      orderBy: { startDate: 'asc' },
+      select: { id: true, name: true }
+    })
+
+    // Create mapping: academic year ID -> program year (1 or 2)
+    // 2024-2025 = Year 1 curriculum, 2025-2026 = Year 2 curriculum
+    const yearMapping = new Map<string, number>()
+    academicYears.forEach((ay, index) => {
+      // Skip 2023-2024 (index 0), 2024-2025 (index 1) = Year 1, 2025-2026 (index 2) = Year 2
+      if (ay.name.includes('2024-2025')) {
+        yearMapping.set(ay.id, 1)
+      } else if (ay.name.includes('2025-2026')) {
+        yearMapping.set(ay.id, 2)
+      }
+    })
+
     // Run all queries in parallel for better performance
-    const [totalLessonsCount, attendanceAggregates, examAggregates, examScoresWithSections] = await Promise.all([
+    const [totalLessonsCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear] = await Promise.all([
       // Count lessons (don't fetch all lesson data, just count)
       prisma.lesson.count({
         where: lessonFilter
@@ -114,6 +133,23 @@ export async function GET(request: Request) {
             }
           }
         }
+      }),
+
+      // Get attendance with academic year info for year-based breakdown
+      prisma.attendanceRecord.findMany({
+        where: {
+          studentId: { in: studentIds },
+          lesson: lessonFilter
+        },
+        select: {
+          studentId: true,
+          status: true,
+          lesson: {
+            select: {
+              academicYearId: true
+            }
+          }
+        }
       })
     ])
 
@@ -151,16 +187,56 @@ export async function GET(request: Request) {
       studentSections.get(sectionName)!.push(score.percentage)
     }
 
+    // Build year-based attendance by student (based on academic year, not student's current year level)
+    // Year 1 = 2024-2025 academic year lessons, Year 2 = 2025-2026 academic year lessons
+    const attendanceByStudentByYear = new Map<string, { year1: { present: number; late: number; absent: number }; year2: { present: number; late: number; absent: number } }>()
+    for (const record of attendanceWithYear) {
+      if (!attendanceByStudentByYear.has(record.studentId)) {
+        attendanceByStudentByYear.set(record.studentId, {
+          year1: { present: 0, late: 0, absent: 0 },
+          year2: { present: 0, late: 0, absent: 0 }
+        })
+      }
+      const studentRecord = attendanceByStudentByYear.get(record.studentId)!
+      const programYear = yearMapping.get(record.lesson.academicYearId) || 0
+
+      if (programYear === 1) {
+        if (record.status === 'PRESENT') studentRecord.year1.present++
+        else if (record.status === 'LATE') studentRecord.year1.late++
+        else if (record.status === 'ABSENT') studentRecord.year1.absent++
+      } else if (programYear === 2) {
+        if (record.status === 'PRESENT') studentRecord.year2.present++
+        else if (record.status === 'LATE') studentRecord.year2.late++
+        else if (record.status === 'ABSENT') studentRecord.year2.absent++
+      }
+    }
+
+    // Count lessons per program year
+    const lessonsByYear = await prisma.lesson.groupBy({
+      by: ['academicYearId'],
+      where: lessonFilter,
+      _count: true
+    })
+
+    let year1LessonsCount = 0
+    let year2LessonsCount = 0
+    for (const l of lessonsByYear) {
+      const programYear = yearMapping.get(l.academicYearId)
+      if (programYear === 1) year1LessonsCount = l._count
+      else if (programYear === 2) year2LessonsCount = l._count
+    }
+
     // Calculate stats for each student using pre-aggregated data
     const studentAnalytics = enrollments.map(enrollment => {
       const studentId = enrollment.studentId
       const attendance = attendanceByStudent.get(studentId) || { present: 0, late: 0, absent: 0 }
       const exams = examsByStudent.get(studentId) || { avg: 0, count: 0 }
+      const yearAttendance = attendanceByStudentByYear.get(studentId) || {
+        year1: { present: 0, late: 0, absent: 0 },
+        year2: { present: 0, late: 0, absent: 0 }
+      }
 
       // Calculate attendance using Formula A: (Present + Late/2) / Total * 100
-      const isYear1Student = enrollment.yearLevel === 'YEAR_1'
-      const isYear2Student = enrollment.yearLevel === 'YEAR_2'
-
       const presentCount = attendance.present
       const lateCount = attendance.late
       const absentCount = attendance.absent
@@ -171,15 +247,17 @@ export async function GET(request: Request) {
         ? (totalEffectivePresent / totalLessonsCount) * 100
         : 0
 
-      // Year-based attendance (simplified - current year only)
-      const year1EffectivePresent = isYear1Student ? totalEffectivePresent : 0
-      const year1AttendancePercentage = isYear1Student && totalLessonsCount > 0
-        ? (year1EffectivePresent / totalLessonsCount) * 100
+      // Year-based attendance (based on academic year, not student's current year level)
+      // Year 1 attendance = attendance in 2024-2025 lessons
+      // Year 2 attendance = attendance in 2025-2026 lessons
+      const year1EffectivePresent = yearAttendance.year1.present + (yearAttendance.year1.late / 2)
+      const year1AttendancePercentage = year1LessonsCount > 0
+        ? (year1EffectivePresent / year1LessonsCount) * 100
         : 0
 
-      const year2EffectivePresent = isYear2Student ? totalEffectivePresent : 0
-      const year2AttendancePercentage = isYear2Student && totalLessonsCount > 0
-        ? (year2EffectivePresent / totalLessonsCount) * 100
+      const year2EffectivePresent = yearAttendance.year2.present + (yearAttendance.year2.late / 2)
+      const year2AttendancePercentage = year2LessonsCount > 0
+        ? (year2EffectivePresent / year2LessonsCount) * 100
         : 0
 
       // Calculate section averages for this student
@@ -222,11 +300,11 @@ export async function GET(request: Request) {
         allSectionsMet,
         // Graduation
         graduationEligible,
-        // Year-based (for admin page)
+        // Year-based (for admin page) - based on academic year, not student's current year level
         year1AttendancePercentage: Math.round(year1AttendancePercentage * 10) / 10,
         year2AttendancePercentage: Math.round(year2AttendancePercentage * 10) / 10,
-        year1TotalLessons: isYear1Student ? totalLessonsCount : 0,
-        year2TotalLessons: isYear2Student ? totalLessonsCount : 0,
+        year1TotalLessons: year1LessonsCount,
+        year2TotalLessons: year2LessonsCount,
         year1AttendedLessons: Math.round(year1EffectivePresent * 10) / 10,
         year2AttendedLessons: Math.round(year2EffectivePresent * 10) / 10
       }
