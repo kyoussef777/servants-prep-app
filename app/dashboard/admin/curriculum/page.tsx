@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { isAdmin } from '@/lib/roles'
 import { toast } from 'sonner'
+import { formatDateUTC } from '@/lib/utils'
 
 interface Lesson {
   id: string
@@ -507,16 +508,11 @@ export default function CurriculumPage() {
                           ) : (
                             <div>
                               <div className="font-medium">
-                                {new Date(lesson.scheduledDate).toLocaleDateString('en-US', {
+                                {formatDateUTC(lesson.scheduledDate, {
+                                  weekday: undefined,
                                   month: 'short',
                                   day: 'numeric',
                                   year: 'numeric'
-                                })}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(lesson.scheduledDate).toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit'
                                 })}
                               </div>
                             </div>
@@ -713,16 +709,11 @@ export default function CurriculumPage() {
                         />
                       ) : (
                         <div className="text-sm">
-                          {new Date(lesson.scheduledDate).toLocaleDateString('en-US', {
+                          {formatDateUTC(lesson.scheduledDate, {
                             weekday: 'long',
                             month: 'long',
                             day: 'numeric',
                             year: 'numeric'
-                          })}
-                          {' at '}
-                          {new Date(lesson.scheduledDate).toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit'
                           })}
                         </div>
                       )}

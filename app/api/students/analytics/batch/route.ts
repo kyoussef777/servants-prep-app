@@ -66,24 +66,41 @@ export async function GET(request: Request) {
       ? { exam: { academicYearId } }
       : {}
 
-    // Get academic years to map to program years (Year 1 vs Year 2)
-    // Academic years are ordered by start date - first year of program = Year 1, second = Year 2
+    // Get academic years for reference
     const academicYears = await prisma.academicYear.findMany({
       orderBy: { startDate: 'asc' },
       select: { id: true, name: true }
     })
 
-    // Create mapping: academic year ID -> program year (1 or 2)
-    // 2024-2025 = Year 1 curriculum, 2025-2026 = Year 2 curriculum
-    const yearMapping = new Map<string, number>()
-    academicYears.forEach((ay, index) => {
-      // Skip 2023-2024 (index 0), 2024-2025 (index 1) = Year 1, 2025-2026 (index 2) = Year 2
+    // Create academic year ID lookup by name
+    const academicYearIdByName = new Map<string, string>()
+    academicYears.forEach(ay => {
       if (ay.name.includes('2024-2025')) {
-        yearMapping.set(ay.id, 1)
+        academicYearIdByName.set('2024-2025', ay.id)
       } else if (ay.name.includes('2025-2026')) {
-        yearMapping.set(ay.id, 2)
+        academicYearIdByName.set('2025-2026', ay.id)
       }
     })
+
+    // Year mapping is now PER-STUDENT based on their current year level:
+    // - Year 2 students: Year 1 = 2024-2025, Year 2 = 2025-2026
+    // - Year 1 students: Year 1 = 2025-2026, Year 2 = N/A (not started yet)
+    // We'll create a function to get the year mapping for each student
+    const getStudentYearMapping = (studentYearLevel: string) => {
+      if (studentYearLevel === 'YEAR_2') {
+        // Year 2 students started in 2024-2025
+        return {
+          year1AcademicYearId: academicYearIdByName.get('2024-2025'),
+          year2AcademicYearId: academicYearIdByName.get('2025-2026')
+        }
+      } else {
+        // Year 1 students started in 2025-2026
+        return {
+          year1AcademicYearId: academicYearIdByName.get('2025-2026'),
+          year2AcademicYearId: null // Not in Year 2 yet
+        }
+      }
+    }
 
     // Run all queries in parallel for better performance
     const [totalLessonsCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear] = await Promise.all([
@@ -187,43 +204,35 @@ export async function GET(request: Request) {
       studentSections.get(sectionName)!.push(score.percentage)
     }
 
-    // Build year-based attendance by student (based on academic year, not student's current year level)
-    // Year 1 = 2024-2025 academic year lessons, Year 2 = 2025-2026 academic year lessons
-    const attendanceByStudentByYear = new Map<string, { year1: { present: number; late: number; absent: number }; year2: { present: number; late: number; absent: number } }>()
+    // Build attendance by student by academic year (raw data, will be mapped per-student later)
+    const attendanceByStudentByAcademicYear = new Map<string, Map<string, { present: number; late: number; absent: number }>>()
     for (const record of attendanceWithYear) {
-      if (!attendanceByStudentByYear.has(record.studentId)) {
-        attendanceByStudentByYear.set(record.studentId, {
-          year1: { present: 0, late: 0, absent: 0 },
-          year2: { present: 0, late: 0, absent: 0 }
-        })
+      if (!attendanceByStudentByAcademicYear.has(record.studentId)) {
+        attendanceByStudentByAcademicYear.set(record.studentId, new Map())
       }
-      const studentRecord = attendanceByStudentByYear.get(record.studentId)!
-      const programYear = yearMapping.get(record.lesson.academicYearId) || 0
+      const studentYearMap = attendanceByStudentByAcademicYear.get(record.studentId)!
+      const academicYearId = record.lesson.academicYearId
 
-      if (programYear === 1) {
-        if (record.status === 'PRESENT') studentRecord.year1.present++
-        else if (record.status === 'LATE') studentRecord.year1.late++
-        else if (record.status === 'ABSENT') studentRecord.year1.absent++
-      } else if (programYear === 2) {
-        if (record.status === 'PRESENT') studentRecord.year2.present++
-        else if (record.status === 'LATE') studentRecord.year2.late++
-        else if (record.status === 'ABSENT') studentRecord.year2.absent++
+      if (!studentYearMap.has(academicYearId)) {
+        studentYearMap.set(academicYearId, { present: 0, late: 0, absent: 0 })
       }
+      const yearRecord = studentYearMap.get(academicYearId)!
+
+      if (record.status === 'PRESENT') yearRecord.present++
+      else if (record.status === 'LATE') yearRecord.late++
+      else if (record.status === 'ABSENT') yearRecord.absent++
     }
 
-    // Count lessons per program year
-    const lessonsByYear = await prisma.lesson.groupBy({
+    // Count lessons per academic year
+    const lessonsByAcademicYear = await prisma.lesson.groupBy({
       by: ['academicYearId'],
       where: lessonFilter,
       _count: true
     })
 
-    let year1LessonsCount = 0
-    let year2LessonsCount = 0
-    for (const l of lessonsByYear) {
-      const programYear = yearMapping.get(l.academicYearId)
-      if (programYear === 1) year1LessonsCount = l._count
-      else if (programYear === 2) year2LessonsCount = l._count
+    const lessonsCountByAcademicYear = new Map<string, number>()
+    for (const l of lessonsByAcademicYear) {
+      lessonsCountByAcademicYear.set(l.academicYearId, l._count)
     }
 
     // Calculate stats for each student using pre-aggregated data
@@ -231,10 +240,28 @@ export async function GET(request: Request) {
       const studentId = enrollment.studentId
       const attendance = attendanceByStudent.get(studentId) || { present: 0, late: 0, absent: 0 }
       const exams = examsByStudent.get(studentId) || { avg: 0, count: 0 }
-      const yearAttendance = attendanceByStudentByYear.get(studentId) || {
-        year1: { present: 0, late: 0, absent: 0 },
-        year2: { present: 0, late: 0, absent: 0 }
-      }
+
+      // Get per-student year mapping based on their current year level
+      const studentYearMapping = getStudentYearMapping(enrollment.yearLevel)
+      const studentAcademicYearAttendance = attendanceByStudentByAcademicYear.get(studentId)
+
+      // Get Year 1 attendance for this student
+      const year1AcademicYearId = studentYearMapping.year1AcademicYearId
+      const year1Attendance = year1AcademicYearId && studentAcademicYearAttendance
+        ? studentAcademicYearAttendance.get(year1AcademicYearId) || { present: 0, late: 0, absent: 0 }
+        : { present: 0, late: 0, absent: 0 }
+      const year1LessonsCount = year1AcademicYearId
+        ? lessonsCountByAcademicYear.get(year1AcademicYearId) || 0
+        : 0
+
+      // Get Year 2 attendance for this student (null if not in Year 2 yet)
+      const year2AcademicYearId = studentYearMapping.year2AcademicYearId
+      const year2Attendance = year2AcademicYearId && studentAcademicYearAttendance
+        ? studentAcademicYearAttendance.get(year2AcademicYearId) || { present: 0, late: 0, absent: 0 }
+        : null // null means not in Year 2 yet
+      const year2LessonsCount = year2AcademicYearId
+        ? lessonsCountByAcademicYear.get(year2AcademicYearId) || 0
+        : 0
 
       // Calculate attendance using Formula A: (Present + Late/2) / Total * 100
       const presentCount = attendance.present
@@ -247,18 +274,19 @@ export async function GET(request: Request) {
         ? (totalEffectivePresent / totalLessonsCount) * 100
         : 0
 
-      // Year-based attendance (based on academic year, not student's current year level)
-      // Year 1 attendance = attendance in 2024-2025 lessons
-      // Year 2 attendance = attendance in 2025-2026 lessons
-      const year1EffectivePresent = yearAttendance.year1.present + (yearAttendance.year1.late / 2)
+      // Year 1 attendance
+      const year1EffectivePresent = year1Attendance.present + (year1Attendance.late / 2)
       const year1AttendancePercentage = year1LessonsCount > 0
         ? (year1EffectivePresent / year1LessonsCount) * 100
         : 0
 
-      const year2EffectivePresent = yearAttendance.year2.present + (yearAttendance.year2.late / 2)
-      const year2AttendancePercentage = year2LessonsCount > 0
-        ? (year2EffectivePresent / year2LessonsCount) * 100
+      // Year 2 attendance (null if student is still in Year 1)
+      const year2EffectivePresent = year2Attendance
+        ? year2Attendance.present + (year2Attendance.late / 2)
         : 0
+      const year2AttendancePercentage = year2Attendance && year2LessonsCount > 0
+        ? (year2EffectivePresent / year2LessonsCount) * 100
+        : null // null indicates not applicable (Year 1 student)
 
       // Calculate section averages for this student
       const studentSections = sectionScoresByStudent.get(studentId)
@@ -300,13 +328,19 @@ export async function GET(request: Request) {
         allSectionsMet,
         // Graduation
         graduationEligible,
-        // Year-based (for admin page) - based on academic year, not student's current year level
+        // Year-based (for admin page) - based on student's enrollment year
+        // Year 1 students: Year 1 = current year, Year 2 = null (not started)
+        // Year 2 students: Year 1 = last year, Year 2 = current year
         year1AttendancePercentage: Math.round(year1AttendancePercentage * 10) / 10,
-        year2AttendancePercentage: Math.round(year2AttendancePercentage * 10) / 10,
+        year2AttendancePercentage: year2AttendancePercentage !== null
+          ? Math.round(year2AttendancePercentage * 10) / 10
+          : null,
         year1TotalLessons: year1LessonsCount,
-        year2TotalLessons: year2LessonsCount,
+        year2TotalLessons: year2AcademicYearId ? year2LessonsCount : null,
         year1AttendedLessons: Math.round(year1EffectivePresent * 10) / 10,
-        year2AttendedLessons: Math.round(year2EffectivePresent * 10) / 10
+        year2AttendedLessons: year2Attendance !== null
+          ? Math.round(year2EffectivePresent * 10) / 10
+          : null
       }
     })
 

@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
+import { formatDateUTC } from '@/lib/utils'
 
 interface AcademicYear {
   id: string
@@ -323,15 +324,25 @@ export default function ExamsPage() {
         })
       })
 
-      // Refresh only the scores for this exam
+      // Refresh all score state from the server to ensure consistency
       const scoresRes = await fetch(`/api/exams/${selectedExam.id}/scores`)
       const scoresData = await scoresRes.json()
 
-      const scoresMap = new Map()
+      const existingScoresMap = new Map()
+      const enteredScoresMap = new Map()
+      const notesMap = new Map()
+
       scoresData.forEach((score: ExamScore) => {
-        scoresMap.set(score.student.id, score)
+        existingScoresMap.set(score.student.id, score)
+        enteredScoresMap.set(score.student.id, score.score)
+        if (score.notes) {
+          notesMap.set(score.student.id, score.notes)
+        }
       })
-      setExistingScores(scoresMap)
+
+      setExistingScores(existingScoresMap)
+      setScores(enteredScoresMap)
+      setNotes(notesMap)
 
       // Update exam count locally without full refetch
       setExams(exams.map(exam =>
@@ -490,7 +501,7 @@ export default function ExamsPage() {
                                   </Badge>
                                 </div>
                                 <div className="text-sm text-gray-600">
-                                  {new Date(exam.examDate).toLocaleDateString()} | {exam.totalPoints} points
+                                  {formatDateUTC(exam.examDate, { weekday: undefined })} | {exam.totalPoints} points
                                 </div>
                               </div>
                               <div className="flex items-center gap-4">
@@ -525,7 +536,7 @@ export default function ExamsPage() {
                   <div>
                     <div className="font-semibold">{selectedExam.examSection.displayName} Exam</div>
                     <div className="text-sm text-gray-600">
-                      {new Date(selectedExam.examDate).toLocaleDateString()} | Out of {selectedExam.totalPoints} points
+                      {formatDateUTC(selectedExam.examDate, { weekday: undefined })} | Out of {selectedExam.totalPoints} points
                     </div>
                   </div>
                   <div className="text-sm text-gray-600">
@@ -612,7 +623,7 @@ export default function ExamsPage() {
                                 className="w-20 px-2 py-1 text-center border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 min={0}
                                 max={selectedExam?.totalPoints}
-                                step="0.5"
+                                step="any"
                               />
                               <span className="text-gray-500">/ {selectedExam.totalPoints}</span>
                             </div>
@@ -705,7 +716,7 @@ export default function ExamsPage() {
                               className="flex-1 px-3 py-2 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                               min={0}
                               max={selectedExam?.totalPoints}
-                              step="0.5"
+                              step="any"
                             />
                             <span className="text-gray-600">/ {selectedExam.totalPoints}</span>
                           </div>

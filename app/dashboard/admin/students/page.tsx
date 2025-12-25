@@ -38,14 +38,14 @@ interface StudentAnalytics {
   yearLevel: 'YEAR_1' | 'YEAR_2'
   attendancePercentage: number
   year1AttendancePercentage: number
-  year2AttendancePercentage: number
+  year2AttendancePercentage: number | null  // null for Year 1 students (not in Year 2 yet)
   avgExamScore: number
   totalLessons: number
   year1TotalLessons: number
-  year2TotalLessons: number
+  year2TotalLessons: number | null  // null for Year 1 students
   attendedLessons: number
   year1AttendedLessons: number
-  year2AttendedLessons: number
+  year2AttendedLessons: number | null  // null for Year 1 students
   examCount: number
 }
 
@@ -597,7 +597,7 @@ export default function StudentsManagementPage() {
                     const year1Color = !studentAnalytics ? 'text-gray-400' :
                       studentAnalytics.year1AttendancePercentage >= 75 ? 'text-green-700' :
                       studentAnalytics.year1AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
-                    const year2Color = !studentAnalytics ? 'text-gray-400' :
+                    const year2Color = !studentAnalytics || studentAnalytics.year2AttendancePercentage === null ? 'text-gray-400' :
                       studentAnalytics.year2AttendancePercentage >= 75 ? 'text-green-700' :
                       studentAnalytics.year2AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
                     const examColor = !studentAnalytics ? 'text-gray-400' :
@@ -646,14 +646,18 @@ export default function StudentsManagementPage() {
                         </td>
                         <td className="p-3">
                           {studentAnalytics ? (
-                            <div>
-                              <div className={`font-semibold ${year2Color}`}>
-                                {studentAnalytics.year2AttendancePercentage.toFixed(1)}%
+                            studentAnalytics.year2AttendancePercentage !== null ? (
+                              <div>
+                                <div className={`font-semibold ${year2Color}`}>
+                                  {studentAnalytics.year2AttendancePercentage.toFixed(1)}%
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {studentAnalytics.year2AttendedLessons}/{studentAnalytics.year2TotalLessons} lessons
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500">
-                                {studentAnalytics.year2AttendedLessons}/{studentAnalytics.year2TotalLessons} lessons
-                              </div>
-                            </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )
                           ) : (
                             <span className="text-gray-400 text-sm">N/A</span>
                           )}
@@ -711,7 +715,7 @@ export default function StudentsManagementPage() {
                 const year1Color = !studentAnalytics ? 'text-gray-400' :
                   studentAnalytics.year1AttendancePercentage >= 75 ? 'text-green-700' :
                   studentAnalytics.year1AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
-                const year2Color = !studentAnalytics ? 'text-gray-400' :
+                const year2Color = !studentAnalytics || studentAnalytics.year2AttendancePercentage === null ? 'text-gray-400' :
                   studentAnalytics.year2AttendancePercentage >= 75 ? 'text-green-700' :
                   studentAnalytics.year2AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
                 const examColor = !studentAnalytics ? 'text-gray-400' :
@@ -775,7 +779,9 @@ export default function StudentsManagementPage() {
                           <div>
                             <div className="text-xs text-gray-500">Year 2</div>
                             <div className={`text-base font-semibold ${year2Color}`}>
-                              {studentAnalytics.year2AttendancePercentage.toFixed(1)}%
+                              {studentAnalytics.year2AttendancePercentage !== null
+                                ? `${studentAnalytics.year2AttendancePercentage.toFixed(1)}%`
+                                : '—'}
                             </div>
                           </div>
                           <div>
@@ -801,7 +807,9 @@ export default function StudentsManagementPage() {
                               <div className="text-sm">
                                 <span className="text-gray-600">Year 2 lessons:</span>
                                 <span className="ml-2 font-medium">
-                                  {studentAnalytics.year2AttendedLessons}/{studentAnalytics.year2TotalLessons}
+                                  {studentAnalytics.year2AttendedLessons !== null
+                                    ? `${studentAnalytics.year2AttendedLessons}/${studentAnalytics.year2TotalLessons}`
+                                    : '—'}
                                 </span>
                               </div>
                               <div className="text-sm">

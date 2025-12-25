@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { Edit, Check, X, Trash2, Send } from 'lucide-react'
 import { UserRole } from '@prisma/client'
 import { getRoleDisplayName } from '@/lib/roles'
+import { formatDateUTC } from '@/lib/utils'
 
 interface StudentNote {
   id: string
@@ -687,7 +688,8 @@ export function StudentDetailsModal({
                                     {score.exam.examSection.displayName} Exam
                                   </div>
                                   <div className="text-xs text-gray-500">
-                                    {new Date(score.exam.examDate).toLocaleDateString('en-US', {
+                                    {formatDateUTC(score.exam.examDate, {
+                                      weekday: undefined,
                                       month: 'short',
                                       day: 'numeric',
                                       year: 'numeric'
@@ -788,7 +790,8 @@ export function StudentDetailsModal({
                             <div>
                               <div className="font-medium text-sm">{exam.examSection.displayName}</div>
                               <div className="text-xs text-gray-500">
-                                {new Date(exam.examDate).toLocaleDateString('en-US', {
+                                {formatDateUTC(exam.examDate, {
+                                  weekday: undefined,
                                   month: 'short',
                                   day: 'numeric',
                                   year: 'numeric'
@@ -905,7 +908,8 @@ export function StudentDetailsModal({
                       <div className="flex-1">
                         <div className="font-medium text-sm">{record.lesson.title}</div>
                         <div className="text-xs text-gray-500">
-                          {new Date(record.lesson.scheduledDate).toLocaleDateString('en-US', {
+                          {formatDateUTC(record.lesson.scheduledDate, {
+                            weekday: undefined,
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'

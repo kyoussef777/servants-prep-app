@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { isAdmin } from '@/lib/roles'
 import { ChevronDown, ChevronRight, Calendar, Users, Settings2, Check, Clock, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatDateUTC } from '@/lib/utils'
 
 interface AcademicYear {
   id: string
@@ -518,7 +519,7 @@ export default function AttendancePage() {
                   <div>
                     <div className="font-semibold">Lesson {selectedLesson.lessonNumber}: {selectedLesson.title}</div>
                     <div className="text-sm text-gray-600 flex items-center gap-2">
-                      {new Date(selectedLesson.scheduledDate).toLocaleDateString()} | {selectedLesson.examSection.displayName}
+                      {formatDateUTC(selectedLesson.scheduledDate)} | {selectedLesson.examSection.displayName}
                       <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
                         {yearNameMap.get(selectedLesson.academicYearId) || 'Unknown Year'}
                       </Badge>
@@ -852,12 +853,7 @@ function LessonCard({
           <div className="flex-1">
             <div className="font-semibold">Lesson {lesson.lessonNumber}: {lesson.title}</div>
             <div className="text-sm text-gray-600 flex items-center gap-2">
-              {new Date(lesson.scheduledDate).toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })}
+              {formatDateUTC(lesson.scheduledDate)}
               {attendanceCount > 0 && (
                 <Badge variant="outline" className="text-xs">
                   {attendanceCount} attended
