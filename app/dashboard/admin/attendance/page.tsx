@@ -65,7 +65,6 @@ export default function AttendancePage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterYearLevel, setFilterYearLevel] = useState<string>('all')
   const [filterMentees, setFilterMentees] = useState(false)
-  const [showPastLessons, setShowPastLessons] = useState(false)
   const [showCompletedLessons, setShowCompletedLessons] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [compactMode, setCompactMode] = useState(true)
@@ -308,34 +307,16 @@ export default function AttendancePage() {
   // Check if we're showing all years
   const showingAllYears = selectedYearId === 'all'
 
-  // Categorize lessons
-  const now = new Date()
-  const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  // Categorize lessons by whether attendance has been taken
+  // "Scheduled" = no attendance records yet (needs attendance)
+  // "Completed" = has attendance records
+  const scheduledLessons = lessons
+    .filter(l => (l._count?.attendanceRecords || 0) === 0)
+    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
 
-  const upcomingLessons = lessons.filter(l => {
-    const date = new Date(l.scheduledDate)
-    return date >= now && date <= oneWeekFromNow
-  })
-
-  const futureLessons = lessons.filter(l => {
-    const date = new Date(l.scheduledDate)
-    return date > oneWeekFromNow
-  })
-
-  const recentPastLessons = lessons.filter(l => {
-    const date = new Date(l.scheduledDate)
-    return date < now && date >= oneWeekAgo
-  })
-
-  const olderPastLessons = lessons.filter(l => {
-    const date = new Date(l.scheduledDate)
-    return date < oneWeekAgo
-  })
-
-  const completedLessons = lessons.filter(l =>
-    l.status === 'COMPLETED' && (l._count?.attendanceRecords || 0) > 0
-  )
+  const completedLessons = lessons
+    .filter(l => (l._count?.attendanceRecords || 0) > 0)
+    .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()) // Most recent first
 
   if (loading || status === 'loading') {
     return (
@@ -383,16 +364,16 @@ export default function AttendancePage() {
 
         {/* Lesson Selection */}
         {!selectedLesson ? (
-          <div className="space-y-4">
-            {/* Upcoming Lessons (This Week) */}
-            {upcomingLessons.length > 0 && (
+          <div className="space-y-6">
+            {/* Scheduled Lessons (No attendance yet) - At the top */}
+            {scheduledLessons.length > 0 && (
               <div>
-                <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-blue-600" />
-                  Upcoming This Week
+                  Needs Attendance ({scheduledLessons.length})
                 </h2>
                 <div className="grid gap-2">
-                  {upcomingLessons.map(lesson => (
+                  {scheduledLessons.map(lesson => (
                     <LessonCard
                       key={lesson.id}
                       lesson={lesson}
@@ -406,64 +387,16 @@ export default function AttendancePage() {
               </div>
             )}
 
-            {/* Recent Past Lessons (Last 7 days) */}
-            {recentPastLessons.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-orange-600" />
-                  Recent Past (Last 7 Days)
-                </h2>
-                <div className="grid gap-2">
-                  {recentPastLessons.map(lesson => (
-                    <LessonCard
-                      key={lesson.id}
-                      lesson={lesson}
-                      onClick={() => setSelectedLesson(lesson)}
-                      highlight="recent"
-                      showYear={showingAllYears}
-                      yearName={yearNameMap.get(lesson.academicYearId)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Future Lessons (More than 1 week away) */}
-            {futureLessons.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-gray-600" />
-                  Future Lessons
-                </h2>
-                <div className="grid gap-2">
-                  {futureLessons.slice(0, 3).map(lesson => (
-                    <LessonCard
-                      key={lesson.id}
-                      lesson={lesson}
-                      onClick={() => setSelectedLesson(lesson)}
-                      showYear={showingAllYears}
-                      yearName={yearNameMap.get(lesson.academicYearId)}
-                    />
-                  ))}
-                  {futureLessons.length > 3 && (
-                    <p className="text-sm text-gray-500 pl-2">
-                      +{futureLessons.length - 3} more future lessons
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Completed Lessons (Collapsible) */}
+            {/* Completed Lessons (Has attendance) - At the bottom, collapsible */}
             {completedLessons.length > 0 && (
               <div>
                 <button
                   onClick={() => setShowCompletedLessons(!showCompletedLessons)}
-                  className="flex items-center gap-2 text-lg font-semibold mb-2 hover:text-gray-700"
+                  className="flex items-center gap-2 text-lg font-semibold mb-3 hover:text-gray-700"
                 >
                   {showCompletedLessons ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                  <Users className="w-5 h-5 text-green-600" />
-                  Completed Lessons ({completedLessons.length})
+                  <Check className="w-5 h-5 text-green-600" />
+                  Attendance Completed ({completedLessons.length})
                 </button>
                 {showCompletedLessons && (
                   <div className="grid gap-2">
@@ -473,34 +406,6 @@ export default function AttendancePage() {
                         lesson={lesson}
                         onClick={() => setSelectedLesson(lesson)}
                         highlight="completed"
-                        showYear={showingAllYears}
-                        yearName={yearNameMap.get(lesson.academicYearId)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Older Past Lessons (Collapsible) */}
-            {olderPastLessons.length > 0 && (
-              <div>
-                <button
-                  onClick={() => setShowPastLessons(!showPastLessons)}
-                  className="flex items-center gap-2 text-lg font-semibold mb-2 hover:text-gray-700"
-                >
-                  {showPastLessons ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                  <Calendar className="w-5 h-5 text-gray-400" />
-                  Older Past Lessons ({olderPastLessons.length})
-                </button>
-                {showPastLessons && (
-                  <div className="grid gap-2">
-                    {olderPastLessons.map(lesson => (
-                      <LessonCard
-                        key={lesson.id}
-                        lesson={lesson}
-                        onClick={() => setSelectedLesson(lesson)}
-                        highlight="past"
                         showYear={showingAllYears}
                         yearName={yearNameMap.get(lesson.academicYearId)}
                       />

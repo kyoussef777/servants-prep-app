@@ -18,7 +18,8 @@ export function formatDateUTC(dateStr: string | Date, options?: Intl.DateTimeFor
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-    timeZone: 'UTC'
   }
-  return date.toLocaleDateString('en-US', { ...defaultOptions, ...options })
+  // Always force UTC timezone to prevent server/client hydration mismatches
+  // and ensure consistent date display regardless of where the code runs
+  return date.toLocaleDateString('en-US', { ...defaultOptions, ...options, timeZone: 'UTC' })
 }

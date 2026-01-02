@@ -50,9 +50,10 @@ export async function GET(request: Request) {
     }
 
     if (user.role === UserRole.SERVANT_PREP) {
+      // SERVANT_PREP can see STUDENT, MENTOR, and other SERVANT_PREP users (for mentor assignment)
       whereClause = {
         ...whereClause,
-        role: roleFilter ? (roleFilter as UserRole) : { in: [UserRole.STUDENT, UserRole.MENTOR] }
+        role: roleFilter ? (roleFilter as UserRole) : { in: [UserRole.STUDENT, UserRole.MENTOR, UserRole.SERVANT_PREP] }
       }
     } else if (user.role === UserRole.MENTOR) {
       // Filter to only students where this mentor is assigned
