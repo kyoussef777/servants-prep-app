@@ -107,12 +107,21 @@ export async function POST(request: Request) {
       )
     }
 
+    // Validate arrivedAt - only set if it's a valid date
+    let validArrivedAt: Date | null = null
+    if (arrivedAt && typeof arrivedAt === 'string' && arrivedAt.trim()) {
+      const parsedDate = new Date(arrivedAt)
+      if (!isNaN(parsedDate.getTime())) {
+        validArrivedAt = parsedDate
+      }
+    }
+
     const record = await prisma.attendanceRecord.create({
       data: {
         lessonId,
         studentId,
         status,
-        arrivedAt: arrivedAt ? new Date(arrivedAt) : null,
+        arrivedAt: validArrivedAt,
         notes,
         recordedBy: user.id,
       },

@@ -42,7 +42,15 @@ export async function PATCH(
 
     const updateData: any = {}
     if (status) updateData.status = status
-    if (arrivedAt !== undefined) updateData.arrivedAt = arrivedAt ? new Date(arrivedAt) : null
+    if (arrivedAt !== undefined) {
+      // Validate arrivedAt - only set if it's a valid date
+      if (arrivedAt && typeof arrivedAt === 'string' && arrivedAt.trim()) {
+        const parsedDate = new Date(arrivedAt)
+        updateData.arrivedAt = !isNaN(parsedDate.getTime()) ? parsedDate : null
+      } else {
+        updateData.arrivedAt = null
+      }
+    }
     if (notes !== undefined) updateData.notes = notes
 
     const updatedRecord = await prisma.attendanceRecord.update({

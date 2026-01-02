@@ -79,7 +79,15 @@ export async function POST(request: Request) {
 
     for (const record of records) {
       const existingId = existingByStudent.get(record.studentId)
-      const arrivedAt = record.arrivedAt ? new Date(`1970-01-01T${record.arrivedAt}`) : null
+      // Validate arrivedAt - must be a non-empty string that creates a valid date
+      let arrivedAt: Date | null = null
+      if (record.arrivedAt && record.arrivedAt.trim()) {
+        const parsedDate = new Date(`1970-01-01T${record.arrivedAt}`)
+        // Only use the date if it's valid
+        if (!isNaN(parsedDate.getTime())) {
+          arrivedAt = parsedDate
+        }
+      }
 
       if (existingId) {
         toUpdate.push({
