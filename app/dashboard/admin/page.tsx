@@ -126,19 +126,19 @@ export default function AdminDashboard() {
             )}
 
             {stats && stats.upcomingLessons > 0 && (
-              <Card className="border-blue-200 bg-blue-50">
+              <Card className="border-maroon-200 bg-maroon-50">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-blue-600" />
-                    <CardTitle className="text-blue-900">Upcoming Lessons</CardTitle>
+                    <Clock className="h-5 w-5 text-maroon-600" />
+                    <CardTitle className="text-maroon-900">Upcoming Lessons</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-blue-800 mb-3">
+                  <p className="text-sm text-maroon-800 mb-3">
                     {stats.upcomingLessons} lesson{stats.upcomingLessons !== 1 ? 's' : ''} scheduled
                   </p>
                   <Link href="/dashboard/admin/curriculum">
-                    <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
+                    <Button size="sm" variant="outline" className="border-maroon-300 text-maroon-700 hover:bg-maroon-100">
                       View Schedule
                     </Button>
                   </Link>
@@ -154,7 +154,7 @@ export default function AdminDashboard() {
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
-                  <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                  <ClipboardCheck className="h-5 w-5 text-maroon-600" />
                   <CardTitle className="text-base">Take Attendance</CardTitle>
                 </div>
               </CardHeader>

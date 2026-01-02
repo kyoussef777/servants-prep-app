@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,8 +28,22 @@ export default function UsersPage() {
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  const [isFiltering, setIsFiltering] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<UserRole | ''>('')
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Form state
   const [formData, setFormData] = useState({
@@ -49,16 +63,19 @@ export default function UsersPage() {
     }
   }, [status, session, router])
 
-  useEffect(() => {
-    if (session?.user) {
-      fetchUsers()
-    }
-  }, [session])
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async (search?: string, role?: string, isInitialLoad = false) => {
     try {
-      setLoading(true)
-      const res = await fetch('/api/users')
+      if (isInitialLoad) {
+        setLoading(true)
+      } else {
+        setIsFiltering(true)
+      }
+      const params = new URLSearchParams()
+      if (search) params.set('search', search)
+      if (role) params.set('role', role)
+
+      const url = `/api/users${params.toString() ? `?${params.toString()}` : ''}`
+      const res = await fetch(url)
       if (!res.ok) throw new Error('Failed to fetch users')
       const data = await res.json()
       setUsers(data)
@@ -66,8 +83,22 @@ export default function UsersPage() {
       console.error('Failed to fetch users:', error)
     } finally {
       setLoading(false)
+      setIsFiltering(false)
     }
-  }
+  }, [])
+
+  // Track if this is the initial load
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false)
+
+  useEffect(() => {
+    if (session?.user) {
+      const isInitial = !hasInitiallyLoaded
+      fetchUsers(debouncedSearch, roleFilter, isInitial)
+      if (!hasInitiallyLoaded) {
+        setHasInitiallyLoaded(true)
+      }
+    }
+  }, [session, debouncedSearch, roleFilter, fetchUsers, hasInitiallyLoaded])
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,7 +117,7 @@ export default function UsersPage() {
         throw new Error(data.error || 'Failed to create user')
       }
 
-      await fetchUsers()
+      await fetchUsers(debouncedSearch, roleFilter)
       setShowCreateForm(false)
       setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
     } catch (err: any) {
@@ -124,7 +155,7 @@ export default function UsersPage() {
         throw new Error(data.error || 'Failed to update user')
       }
 
-      await fetchUsers()
+      await fetchUsers(debouncedSearch, roleFilter)
 
       // Show appropriate success message
       if (formData.password) {
@@ -157,7 +188,7 @@ export default function UsersPage() {
         throw new Error(data.error || 'Failed to delete user')
       }
 
-      await fetchUsers()
+      await fetchUsers(debouncedSearch, roleFilter)
       toast.success('User deleted successfully!')
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete user')
@@ -197,11 +228,18 @@ export default function UsersPage() {
     ? ['STUDENT', 'MENTOR']
     : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT']
 
+  // Filter options based on role permissions
+  // SERVANT_PREP can only filter by STUDENT, MENTOR, or SERVANT_PREP
+  // SUPER_ADMIN/PRIEST can filter by all roles
+  const filterRoleOptions: UserRole[] = session?.user?.role === 'SERVANT_PREP'
+    ? ['STUDENT', 'MENTOR', 'SERVANT_PREP']
+    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT']
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold">User Management</h1>
             <p className="text-gray-600 mt-1">Create and manage all users</p>
@@ -217,6 +255,57 @@ export default function UsersPage() {
             + Create User
           </Button>
         </div>
+
+        {/* Search and Filter */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+              <div className="flex-1 relative w-full">
+                <Label htmlFor="search" className="sr-only">Search users</Label>
+                <Input
+                  id="search"
+                  type="text"
+                  placeholder="Search by name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full"
+                />
+                {isFiltering && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="h-4 w-4 border-2 border-maroon-600 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              <div className="w-full md:w-48">
+                <Label htmlFor="roleFilter" className="sr-only">Filter by role</Label>
+                <select
+                  id="roleFilter"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value as UserRole | '')}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">All Roles</option>
+                  {filterRoleOptions.map(role => (
+                    <option key={role} value={role}>
+                      {getRoleDisplayName(role)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {(searchQuery || roleFilter) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery('')
+                    setRoleFilter('')
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Create/Edit Form */}
         {(showCreateForm || editingUser) && (
@@ -327,7 +416,10 @@ export default function UsersPage() {
         {/* Users List */}
         <Card>
           <CardHeader>
-            <CardTitle>All Users ({users.length})</CardTitle>
+            <CardTitle>
+              {roleFilter ? `${getRoleDisplayName(roleFilter)}s` : 'All Users'} ({users.length})
+              {searchQuery && <span className="font-normal text-gray-500 ml-2">matching &quot;{searchQuery}&quot;</span>}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {/* Desktop View */}
@@ -363,7 +455,7 @@ export default function UsersPage() {
                           <Badge
                             className={
                               user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
-                              user.role === 'PRIEST' ? 'bg-blue-600' :
+                              user.role === 'PRIEST' ? 'bg-maroon-600' :
                               user.role === 'SERVANT_PREP' ? 'bg-green-600' :
                               user.role === 'MENTOR' ? 'bg-yellow-600' :
                               'bg-gray-600'
@@ -406,78 +498,76 @@ export default function UsersPage() {
 
               {users.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  No users found
+                  {searchQuery || roleFilter
+                    ? 'No users match your search criteria'
+                    : 'No users found'}
                 </div>
               )}
             </div>
 
-            {/* Mobile View */}
-            <div className="lg:hidden space-y-3">
+            {/* Mobile View - Compact */}
+            <div className="lg:hidden space-y-1">
               {users.map((user) => {
                 const isCurrentUser = user.id === session?.user?.id
 
                 return (
-                  <Card key={user.id} className="overflow-hidden">
-                    <div className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900 truncate">{user.name}</span>
-                            {isCurrentUser && (
-                              <Badge variant="outline" className="text-xs">You</Badge>
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-500 truncate">{user.email}</div>
-                          {user.phone && (
-                            <div className="text-sm text-gray-500">{user.phone}</div>
-                          )}
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            <Badge
-                              className={
-                                user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
-                                user.role === 'PRIEST' ? 'bg-blue-600' :
-                                user.role === 'SERVANT_PREP' ? 'bg-green-600' :
-                                user.role === 'MENTOR' ? 'bg-yellow-600' :
-                                'bg-gray-600'
-                              }
-                            >
-                              {getRoleDisplayName(user.role)}
-                            </Badge>
-                            {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && (
-                              <Badge variant="outline" className="text-xs">
-                                {user._count?.mentoredStudents || 0} mentees
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 mt-3 pt-3 border-t">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => startEdit(user)}
-                          className="flex-1"
+                  <div key={user.id} className="flex items-center gap-2 p-2 bg-white border rounded-md">
+                    {/* Name & Role */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-sm truncate">{user.name}</span>
+                        {isCurrentUser && (
+                          <Badge variant="outline" className="text-[10px] px-1 py-0">You</Badge>
+                        )}
+                        <Badge
+                          className={`text-[10px] px-1.5 py-0 ${
+                            user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
+                            user.role === 'PRIEST' ? 'bg-maroon-600' :
+                            user.role === 'SERVANT_PREP' ? 'bg-green-600' :
+                            user.role === 'MENTOR' ? 'bg-yellow-600' :
+                            'bg-gray-600'
+                          }`}
                         >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteUser(user.id)}
-                          disabled={isCurrentUser}
-                          className="flex-1"
-                        >
-                          Delete
-                        </Button>
+                          {user.role === 'SUPER_ADMIN' ? 'Admin' :
+                           user.role === 'PRIEST' ? 'Priest' :
+                           user.role === 'SERVANT_PREP' ? 'Prep' :
+                           user.role === 'MENTOR' ? 'Mentor' : 'Student'}
+                        </Badge>
+                        {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && user._count?.mentoredStudents ? (
+                          <span className="text-[10px] text-gray-500">({user._count.mentoredStudents})</span>
+                        ) : null}
                       </div>
+                      <div className="text-xs text-gray-500 truncate">{user.email}</div>
                     </div>
-                  </Card>
+                    {/* Actions */}
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEdit(user)}
+                        className="h-7 px-2 text-xs"
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={isCurrentUser}
+                        className="h-7 px-2 text-xs"
+                      >
+                        Del
+                      </Button>
+                    </div>
+                  </div>
                 )
               })}
 
               {users.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  No users found
+                  {searchQuery || roleFilter
+                    ? 'No users match your search criteria'
+                    : 'No users found'}
                 </div>
               )}
             </div>

@@ -159,7 +159,7 @@ export default function MentorAnalyticsPage() {
           <div className="space-y-6">
             {analytics.map((data) => (
               <Card key={data.studentId} className="overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                <CardHeader className="bg-gradient-to-r from-maroon-50 to-maroon-100 border-b">
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-2xl">{data.studentName}</CardTitle>
@@ -223,7 +223,7 @@ export default function MentorAnalyticsPage() {
                     <h3 className="font-semibold text-lg mb-3">Exam Performance</h3>
                     <div className="space-y-3">
                       {/* Overall Average */}
-                      <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                      <div className="bg-maroon-50 border border-maroon-200 rounded p-4">
                         <div className="flex justify-between items-center mb-2">
                           <span className="font-medium">Overall Average</span>
                           <span className="text-2xl font-bold">

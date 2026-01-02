@@ -327,35 +327,35 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-4">
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Take Attendance</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="text-xl sm:text-2xl font-bold">Take Attendance</h1>
+            <p className="text-xs sm:text-sm text-gray-600">
               {selectedYearId === 'all'
-                ? 'Showing lessons from all academic years'
+                ? 'All academic years'
                 : `${academicYears.find(y => y.id === selectedYearId)?.name || 'Selected year'} • ${lessons.length} lessons`}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {!selectedLesson && (
               <select
                 value={selectedYearId}
                 onChange={(e) => setSelectedYearId(e.target.value)}
-                className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm flex-1 sm:flex-none"
               >
-                <option value="all">All Academic Years</option>
+                <option value="all">All Years</option>
                 {academicYears.map(year => (
                   <option key={year.id} value={year.id}>
-                    {year.name}{year.isActive ? ' (Active)' : ''}
+                    {year.name.replace('Academic Year ', '')}{year.isActive ? ' ✓' : ''}
                   </option>
                 ))}
               </select>
             )}
             {selectedLesson && (
-              <Button variant="outline" onClick={() => setSelectedLesson(null)}>
+              <Button variant="outline" size="sm" onClick={() => setSelectedLesson(null)} className="text-xs sm:text-sm">
                 Change Lesson
               </Button>
             )}
@@ -364,12 +364,12 @@ export default function AttendancePage() {
 
         {/* Lesson Selection */}
         {!selectedLesson ? (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Scheduled Lessons (No attendance yet) - At the top */}
             {scheduledLessons.length > 0 && (
               <div>
-                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-blue-600" />
+                <h2 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-maroon-600" />
                   Needs Attendance ({scheduledLessons.length})
                 </h2>
                 <div className="grid gap-2">
@@ -378,7 +378,6 @@ export default function AttendancePage() {
                       key={lesson.id}
                       lesson={lesson}
                       onClick={() => setSelectedLesson(lesson)}
-                      highlight="upcoming"
                       showYear={showingAllYears}
                       yearName={yearNameMap.get(lesson.academicYearId)}
                     />
@@ -392,11 +391,11 @@ export default function AttendancePage() {
               <div>
                 <button
                   onClick={() => setShowCompletedLessons(!showCompletedLessons)}
-                  className="flex items-center gap-2 text-lg font-semibold mb-3 hover:text-gray-700"
+                  className="flex items-center gap-2 text-base sm:text-lg font-semibold mb-2 sm:mb-3 hover:text-gray-700"
                 >
-                  {showCompletedLessons ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                  <Check className="w-5 h-5 text-green-600" />
-                  Attendance Completed ({completedLessons.length})
+                  {showCompletedLessons ? <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" /> : <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />}
+                  <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                  Completed ({completedLessons.length})
                 </button>
                 {showCompletedLessons && (
                   <div className="grid gap-2">
@@ -419,74 +418,73 @@ export default function AttendancePage() {
           <>
             {/* Selected Lesson Info */}
             <Card>
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-semibold">Lesson {selectedLesson.lessonNumber}: {selectedLesson.title}</div>
-                    <div className="text-sm text-gray-600 flex items-center gap-2">
-                      {formatDateUTC(selectedLesson.scheduledDate)} | {selectedLesson.examSection.displayName}
-                      <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                        {yearNameMap.get(selectedLesson.academicYearId) || 'Unknown Year'}
-                      </Badge>
+              <CardContent className="p-2.5 sm:p-4">
+                <div className="flex justify-between items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-sm sm:text-base truncate">L{selectedLesson.lessonNumber}: {selectedLesson.title}</div>
+                    <div className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 sm:gap-2 flex-wrap">
+                      <span>{formatDateUTC(selectedLesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                      <span className="hidden sm:inline">|</span>
+                      <Badge className="text-[10px] sm:text-xs px-1 sm:px-2">{selectedLesson.examSection.displayName}</Badge>
                     </div>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    {attendance.size} / {filteredStudents.length} marked
+                  <div className="text-xs sm:text-sm text-gray-600 shrink-0">
+                    {attendance.size}/{filteredStudents.length}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Filters & Actions */}
-            <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
               <Input
-                placeholder="Search students..."
+                placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-xs"
+                className="h-8 sm:h-10 text-xs sm:text-sm w-28 sm:max-w-xs"
               />
               <select
-                className="h-10 px-3 rounded-md border border-input bg-background"
+                className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm"
                 value={filterYearLevel}
                 onChange={(e) => setFilterYearLevel(e.target.value)}
               >
-                <option value="all">All Years</option>
-                <option value="YEAR_1">Year 1</option>
-                <option value="YEAR_2">Year 2</option>
+                <option value="all">All</option>
+                <option value="YEAR_1">Y1</option>
+                <option value="YEAR_2">Y2</option>
               </select>
-              <label className="flex items-center gap-2 px-3 h-10 border rounded-md bg-background cursor-pointer">
+              <label className="flex items-center gap-1.5 px-2 sm:px-3 h-8 sm:h-10 border rounded-md bg-background cursor-pointer text-xs sm:text-sm">
                 <input
                   type="checkbox"
                   checked={filterMentees}
                   onChange={(e) => setFilterMentees(e.target.checked)}
-                  className="h-4 w-4"
+                  className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                 />
-                <span className="text-sm">My Mentees</span>
+                <span className="hidden sm:inline">My Mentees</span>
+                <span className="sm:hidden">Mine</span>
               </label>
-              <Button onClick={handleMarkAllPresent} variant="outline" size="sm">
-                Mark All Present
+              <Button onClick={handleMarkAllPresent} variant="outline" size="sm" className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3">
+                <span className="hidden sm:inline">Mark All Present</span>
+                <span className="sm:hidden">All ✓</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setCompactMode(!compactMode)}
-                className="gap-1"
+                className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3 gap-1"
               >
-                <Settings2 className="h-4 w-4" />
-                {compactMode ? 'Show Details' : 'Compact'}
+                <Settings2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">{compactMode ? 'Details' : 'Compact'}</span>
               </Button>
             </div>
 
             {/* Status bar */}
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
               {hasUnsavedChanges && (
-                <span className="text-orange-600 font-medium">• Unsaved changes</span>
+                <span className="text-orange-600 font-medium">• Unsaved</span>
               )}
               {lastSaved && (
                 <span className="text-gray-500">
-                  Last saved {lastSaved.toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
+                  Saved {lastSaved.toLocaleString('en-US', {
                     hour: 'numeric',
                     minute: '2-digit'
                   })}
@@ -740,7 +738,7 @@ function LessonCard({
   yearName?: string
 }) {
   const bgColor =
-    highlight === 'upcoming' ? 'bg-blue-50 border-blue-200' :
+    highlight === 'upcoming' ? 'bg-maroon-50 border-maroon-200' :
     highlight === 'recent' ? 'bg-orange-50 border-orange-200' :
     highlight === 'completed' ? 'bg-green-50 border-green-200' :
     highlight === 'past' ? 'bg-gray-50' :
@@ -753,7 +751,8 @@ function LessonCard({
       className={`cursor-pointer hover:shadow-md transition-all ${bgColor}`}
       onClick={onClick}
     >
-      <CardContent className="p-4">
+      {/* Desktop Layout */}
+      <CardContent className="hidden sm:block p-4">
         <div className="flex justify-between items-center">
           <div className="flex-1">
             <div className="font-semibold">Lesson {lesson.lessonNumber}: {lesson.title}</div>
@@ -774,13 +773,42 @@ function LessonCard({
             )}
             <Badge>{lesson.examSection.displayName}</Badge>
             {highlight === 'upcoming' && (
-              <Badge className="bg-blue-600">This Week</Badge>
+              <Badge className="bg-maroon-600">This Week</Badge>
             )}
             {highlight === 'recent' && (
               <Badge className="bg-orange-600">Recent</Badge>
             )}
             {highlight === 'completed' && (
               <Badge className="bg-green-600">Complete</Badge>
+            )}
+          </div>
+        </div>
+      </CardContent>
+
+      {/* Mobile Layout - Compact */}
+      <CardContent className="sm:hidden p-2.5">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-sm">L{lesson.lessonNumber}</span>
+              <span className="text-sm truncate">{lesson.title}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span>{formatDateUTC(lesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+              {attendanceCount > 0 && (
+                <span className="text-green-600">• {attendanceCount}</span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {showYear && yearName && (
+              <Badge variant="outline" className="text-[10px] px-1 py-0 bg-purple-50 text-purple-700 border-purple-200">
+                {yearName.replace('Academic Year ', '')}
+              </Badge>
+            )}
+            <Badge className="text-[10px] px-1.5 py-0">{lesson.examSection.displayName}</Badge>
+            {highlight === 'completed' && (
+              <Badge className="text-[10px] px-1 py-0 bg-green-600">✓</Badge>
             )}
           </div>
         </div>

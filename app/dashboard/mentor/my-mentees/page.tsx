@@ -138,7 +138,7 @@ export default function MyMenteesPage() {
         </Card>
 
         {/* Info Card */}
-        <Card className="bg-blue-50 border-blue-200">
+        <Card className="bg-maroon-50 border-maroon-200">
           <CardContent className="pt-6">
             <p className="text-sm text-gray-700">
               <strong>Note:</strong> {isPriest

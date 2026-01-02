@@ -346,7 +346,7 @@ export default function CurriculumPage() {
 
         {/* Add Form */}
         {showAddForm && canEdit && (
-          <Card className="bg-blue-50 border-blue-200">
+          <Card className="bg-maroon-50 border-maroon-200">
             <CardContent className="pt-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -588,7 +588,7 @@ export default function CurriculumPage() {
                               className={
                                 lesson.status === 'COMPLETED' ? 'bg-green-500' :
                                 lesson.status === 'CANCELLED' ? 'bg-red-500' :
-                                'bg-blue-500'
+                                'bg-maroon-500'
                               }
                             >
                               {lesson.status}
@@ -668,7 +668,7 @@ export default function CurriculumPage() {
                             className={
                               lesson.status === 'COMPLETED' ? 'bg-green-500' :
                               lesson.status === 'CANCELLED' ? 'bg-red-500' :
-                              'bg-blue-500'
+                              'bg-maroon-500'
                             }
                           >
                             {lesson.status}

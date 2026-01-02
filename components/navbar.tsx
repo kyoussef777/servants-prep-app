@@ -96,7 +96,7 @@ export function Navbar() {
                   href={link.href}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive(link.href)
-                      ? 'bg-blue-50 text-blue-700'
+                      ? 'bg-maroon-50 text-maroon-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -135,7 +135,7 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-blue-600 text-white">
+                    <AvatarFallback className="bg-maroon-600 text-white">
                       {userInitials}
                     </AvatarFallback>
                   </Avatar>
@@ -188,7 +188,7 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
                     isActive(link.href)
-                      ? 'bg-blue-50 text-blue-700'
+                      ? 'bg-maroon-50 text-maroon-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >

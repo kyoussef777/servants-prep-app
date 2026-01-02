@@ -483,7 +483,7 @@ export default function StudentsManagementPage() {
 
           {selectedStudents.size > 0 && (
             <div className="px-6 pb-4">
-              <Card className="bg-blue-50 border-blue-200">
+              <Card className="bg-maroon-50 border-maroon-200">
                 <CardContent className="pt-4">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-sm font-medium">
@@ -512,7 +512,7 @@ export default function StudentsManagementPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => createEnrollments(Array.from(selectedStudents), 'YEAR_1')}
-                        className="gap-1 text-blue-700 border-blue-300 hover:bg-blue-50"
+                        className="gap-1 text-maroon-700 border-maroon-300 hover:bg-maroon-50"
                       >
                         <UserPlus className="h-3 w-3" />
                         Enroll in Year 1
@@ -521,7 +521,7 @@ export default function StudentsManagementPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => createEnrollments(Array.from(selectedStudents), 'YEAR_2')}
-                        className="gap-1 text-blue-700 border-blue-300 hover:bg-blue-50"
+                        className="gap-1 text-maroon-700 border-maroon-300 hover:bg-maroon-50"
                       >
                         <UserPlus className="h-3 w-3" />
                         Enroll in Year 2
@@ -681,7 +681,7 @@ export default function StudentsManagementPage() {
                             <Badge className="bg-green-100 text-green-800">Active</Badge>
                           )}
                           {student.enrollments?.[0]?.status === 'GRADUATED' && (
-                            <Badge className="bg-blue-100 text-blue-800">Graduated</Badge>
+                            <Badge className="bg-maroon-100 text-maroon-800">Graduated</Badge>
                           )}
                           {student.enrollments?.[0]?.status === 'WITHDRAWN' && (
                             <Badge className="bg-gray-100 text-gray-800">Withdrawn</Badge>
@@ -749,7 +749,7 @@ export default function StudentsManagementPage() {
                                 <Badge className="bg-green-100 text-green-800 text-xs">Active</Badge>
                               )}
                               {student.enrollments?.[0]?.status === 'GRADUATED' && (
-                                <Badge className="bg-blue-100 text-blue-800 text-xs">Graduated</Badge>
+                                <Badge className="bg-maroon-100 text-maroon-800 text-xs">Graduated</Badge>
                               )}
                               {student.enrollments?.[0]?.status === 'WITHDRAWN' && (
                                 <Badge className="bg-gray-100 text-gray-800 text-xs">Withdrawn</Badge>

@@ -141,7 +141,7 @@ export function BulkStudentImport({ onSuccess }: BulkStudentImportProps) {
 
           <div className="space-y-6">
             {/* Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-maroon-50 border border-maroon-200 rounded-lg p-4">
               <h4 className="font-semibold mb-2 text-sm">Format Instructions:</h4>
               <p className="text-sm text-gray-700 mb-2">
                 Enter one student per line in this format:

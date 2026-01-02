@@ -601,12 +601,12 @@ export default function ExamsPage() {
                       return (
                         <tr
                           key={student.id}
-                          className={`border-b hover:bg-gray-50 ${isMentee ? 'bg-blue-50' : ''}`}
+                          className={`border-b hover:bg-gray-50 ${isMentee ? 'bg-maroon-50' : ''}`}
                         >
                           <td className="p-2 text-gray-500">{index + 1}</td>
                           <td className="p-2">
                             <div className="font-medium">{student.name}</div>
-                            {isMentee && <span className="text-xs text-blue-600">Your Mentee</span>}
+                            {isMentee && <span className="text-xs text-maroon-600">Your Mentee</span>}
                           </td>
                           <td className="p-2 text-center">
                             <Badge variant="outline" className="text-xs">
@@ -620,7 +620,7 @@ export default function ExamsPage() {
                                 placeholder="0"
                                 value={score !== undefined ? score : ''}
                                 onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                                className="w-20 px-2 py-1 text-center border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="w-20 px-2 py-1 text-center border rounded focus:outline-none focus:ring-1 focus:ring-maroon-500"
                                 min={0}
                                 max={selectedExam?.totalPoints}
                                 step="any"
@@ -686,7 +686,7 @@ export default function ExamsPage() {
                   const isPassing = percentage !== null && percentage >= 60
 
                   return (
-                    <Card key={student.id} className={isMentee ? 'border-blue-300 bg-blue-50' : ''}>
+                    <Card key={student.id} className={isMentee ? 'border-maroon-300 bg-maroon-50' : ''}>
                       <CardContent className="p-4 space-y-3">
                         {/* Student Header */}
                         <div className="flex items-start justify-between">
@@ -696,7 +696,7 @@ export default function ExamsPage() {
                               <h3 className="font-semibold">{student.name}</h3>
                             </div>
                             {isMentee && (
-                              <span className="text-xs text-blue-600">Your Mentee</span>
+                              <span className="text-xs text-maroon-600">Your Mentee</span>
                             )}
                           </div>
                           <Badge variant="outline" className="text-xs">
@@ -713,7 +713,7 @@ export default function ExamsPage() {
                               placeholder="0"
                               value={score !== undefined ? score : ''}
                               onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                              className="flex-1 px-3 py-2 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="flex-1 px-3 py-2 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-maroon-500"
                               min={0}
                               max={selectedExam?.totalPoints}
                               step="any"

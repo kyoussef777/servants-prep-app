@@ -199,7 +199,7 @@ export default function EnrollmentsPage() {
               {mentors.map(mentor => (
                 <div key={mentor.id} className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer" onClick={() => setFilterMentor(mentor.id)}>
                   <div className="font-medium text-sm truncate" title={mentor.name}>{mentor.name}</div>
-                  <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-2xl font-bold text-maroon-600">
                     {mentorWorkload.get(mentor.id) || 0}
                   </div>
                   <div className="text-xs text-gray-600">mentees</div>
