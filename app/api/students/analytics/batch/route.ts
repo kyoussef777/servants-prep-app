@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { isAdmin, canViewStudents } from "@/lib/roles"
-import { LessonStatus, UserRole } from "@prisma/client"
+import { canViewStudents } from "@/lib/roles"
+import { UserRole } from "@prisma/client"
 
 // GET /api/students/analytics/batch - Get analytics for all students efficiently
 // OPTIMIZED: Uses database aggregations instead of fetching all records
@@ -56,10 +56,16 @@ export async function GET(request: Request) {
     const studentIds = enrollments.map(e => e.studentId)
 
     // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
-    const validStatuses: LessonStatus[] = [LessonStatus.SCHEDULED, LessonStatus.COMPLETED]
+    // Only count lessons that have attendance records (i.e., attendance was taken)
     const lessonFilter = academicYearId
-      ? { academicYearId, status: { in: validStatuses } }
-      : { status: { in: validStatuses } }
+      ? { academicYearId }
+      : {}
+
+    // Filter for lessons with attendance records
+    const lessonsWithAttendanceFilter = {
+      ...lessonFilter,
+      attendanceRecords: { some: {} }
+    }
 
     // Build exam filter - if academicYearId provided, filter by it; otherwise include all
     const examFilter = academicYearId
@@ -103,10 +109,10 @@ export async function GET(request: Request) {
     }
 
     // Run all queries in parallel for better performance
-    const [totalLessonsCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear] = await Promise.all([
-      // Count lessons (don't fetch all lesson data, just count)
+    const [lessonsWithAttendanceCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear] = await Promise.all([
+      // Count only lessons that have attendance records (completed lessons with attendance taken)
       prisma.lesson.count({
-        where: lessonFilter
+        where: lessonsWithAttendanceFilter
       }),
 
       // Get attendance counts grouped by student and status
@@ -115,7 +121,7 @@ export async function GET(request: Request) {
         by: ['studentId', 'status'],
         where: {
           studentId: { in: studentIds },
-          lesson: lessonFilter
+          lesson: lessonsWithAttendanceFilter
         },
         _count: { status: true }
       }),
@@ -156,7 +162,7 @@ export async function GET(request: Request) {
       prisma.attendanceRecord.findMany({
         where: {
           studentId: { in: studentIds },
-          lesson: lessonFilter
+          lesson: lessonsWithAttendanceFilter
         },
         select: {
           studentId: true,
@@ -223,10 +229,10 @@ export async function GET(request: Request) {
       else if (record.status === 'ABSENT') yearRecord.absent++
     }
 
-    // Count lessons per academic year
+    // Count lessons per academic year (only lessons with attendance records)
     const lessonsByAcademicYear = await prisma.lesson.groupBy({
       by: ['academicYearId'],
-      where: lessonFilter,
+      where: lessonsWithAttendanceFilter,
       _count: true
     })
 
@@ -268,10 +274,10 @@ export async function GET(request: Request) {
       const lateCount = attendance.late
       const absentCount = attendance.absent
 
-      // Overall attendance calculation
+      // Overall attendance calculation (only count lessons where attendance was taken)
       const totalEffectivePresent = presentCount + (lateCount / 2)
-      const overallAttendancePercentage = totalLessonsCount > 0
-        ? (totalEffectivePresent / totalLessonsCount) * 100
+      const overallAttendancePercentage = lessonsWithAttendanceCount > 0
+        ? (totalEffectivePresent / lessonsWithAttendanceCount) * 100
         : 0
 
       // Year 1 attendance
@@ -314,7 +320,7 @@ export async function GET(request: Request) {
         // Attendance
         attendancePercentage: Math.round(overallAttendancePercentage * 10) / 10,
         attendanceMet,
-        totalLessons: totalLessonsCount,
+        totalLessons: lessonsWithAttendanceCount,
         presentCount,
         lateCount,
         absentCount,

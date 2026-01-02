@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { LessonStatus, ExamYearLevel, UserRole } from "@prisma/client"
+import { ExamYearLevel, UserRole } from "@prisma/client"
 import { canViewStudents } from "@/lib/roles"
 
 // GET /api/students/[id]/analytics - Get student analytics including graduation status
@@ -67,14 +67,19 @@ export async function GET(
     }
 
     // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
-    const validStatuses: LessonStatus[] = [LessonStatus.SCHEDULED, LessonStatus.COMPLETED]
+    // Only count lessons that have attendance records (i.e., attendance was taken)
     const lessonFilter = academicYearId
-      ? { academicYearId, status: { in: validStatuses } }
-      : { status: { in: validStatuses } }
+      ? { academicYearId }
+      : {}
 
-    // Get all lessons (only SCHEDULED and COMPLETED count)
-    const totalLessons = await prisma.lesson.count({
-      where: lessonFilter
+    // Get count of lessons that have attendance records (completed lessons with attendance taken)
+    const lessonsWithAttendance = await prisma.lesson.count({
+      where: {
+        ...lessonFilter,
+        attendanceRecords: {
+          some: {} // At least one attendance record exists
+        }
+      }
     })
 
     // Get attendance records - only fetch needed fields for performance
@@ -99,9 +104,10 @@ export async function GET(
     const lateCount = attendanceRecords.filter(r => r.status === 'LATE').length
     const absentCount = attendanceRecords.filter(r => r.status === 'ABSENT').length
 
-    // Formula: (Present + (Lates / 2)) / TotalScheduledLessons
+    // Formula: (Present + (Lates / 2)) / LessonsWithAttendance
+    // Only count lessons where attendance was actually taken
     const effectivePresent = presentCount + (lateCount / 2)
-    const attendancePercentage = totalLessons > 0 ? (effectivePresent / totalLessons) * 100 : 0
+    const attendancePercentage = lessonsWithAttendance > 0 ? (effectivePresent / lessonsWithAttendance) * 100 : 0
     const attendanceMet = attendancePercentage >= 75
 
     // Build exam filter - if academicYearId provided, filter by it; otherwise include all
@@ -174,7 +180,7 @@ export async function GET(
     return NextResponse.json({
       enrollment,
       attendance: {
-        totalLessons,
+        totalLessons: lessonsWithAttendance,
         presentCount,
         lateCount,
         absentCount,
