@@ -61,6 +61,7 @@ interface AttendanceRecord {
     examSection: {
       id: string
       name: string
+      displayName: string
       yearLevel: string
     }
   }
@@ -906,16 +907,19 @@ export function StudentDetailsModal({
                   {attendanceRecords.map((record) => (
                     <div key={record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                       <div className="flex-1">
-                        <div className="font-medium text-sm">{record.lesson.title}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="font-medium text-sm flex items-center gap-2">
                           {formatDateUTC(record.lesson.scheduledDate, {
                             weekday: undefined,
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'
                           })}
-                          {' • '}
-                          {record.lesson.examSection.name}
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal bg-blue-50 text-blue-700 border-blue-200">
+                            {record.lesson.examSection.displayName}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {record.lesson.title}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
