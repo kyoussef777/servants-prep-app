@@ -36,8 +36,9 @@ enum ExamSectionType {
   COMPARATIVE_THEOLOGY
   RITUAL_THEOLOGY_SACRAMENTS
   CHURCH_HISTORY_COPTIC_HERITAGE
-  SPIRITUALITY_OF_MENTOR
+  SPIRITUALITY_OF_SERVANT
   PSYCHOLOGY_METHODOLOGY
+  MISCELLANEOUS
 }
 
 enum AttendanceStatus {
@@ -161,6 +162,7 @@ model Lesson {
   status             LessonStatus @default(SCHEDULED)
   cancellationReason String?      @db.Text
   lessonNumber       Int
+  isExamDay          Boolean      @default(false)  // If true, attendance doesn't count toward percentage
   createdBy          String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -170,12 +172,27 @@ model Lesson {
   examSection       ExamSection        @relation(fields: [examSectionId], references: [id])
   creator           User?              @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   attendanceRecords AttendanceRecord[]
+  resources         LessonResource[]
 
   @@unique([academicYearId, lessonNumber])
   @@index([academicYearId])
   @@index([examSectionId])
   @@index([scheduledDate])
   @@index([status])
+}
+
+model LessonResource {
+  id        String   @id @default(cuid())
+  lessonId  String
+  title     String
+  url       String
+  type      String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
 }
 
 model AttendanceRecord {

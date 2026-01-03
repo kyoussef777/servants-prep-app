@@ -57,11 +57,12 @@ export async function GET(request: Request) {
 
     // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
     // Only count lessons that have attendance records (i.e., attendance was taken)
+    // Exclude exam day lessons from attendance calculations
     const lessonFilter = academicYearId
-      ? { academicYearId }
-      : {}
+      ? { academicYearId, isExamDay: false }
+      : { isExamDay: false }
 
-    // Filter for lessons with attendance records
+    // Filter for lessons with attendance records (excludes exam days)
     const lessonsWithAttendanceFilter = {
       ...lessonFilter,
       attendanceRecords: { some: {} }

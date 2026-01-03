@@ -68,11 +68,13 @@ export async function GET(
 
     // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
     // Only count lessons that have attendance records (i.e., attendance was taken)
+    // Exclude exam day lessons from attendance calculations
     const lessonFilter = academicYearId
-      ? { academicYearId }
-      : {}
+      ? { academicYearId, isExamDay: false }
+      : { isExamDay: false }
 
     // Get count of lessons that have attendance records (completed lessons with attendance taken)
+    // Excludes exam day lessons
     const lessonsWithAttendance = await prisma.lesson.count({
       where: {
         ...lessonFilter,
@@ -83,6 +85,7 @@ export async function GET(
     })
 
     // Get attendance records - only fetch needed fields for performance
+    // Excludes exam day lessons
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,

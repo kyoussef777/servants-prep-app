@@ -21,22 +21,46 @@ export async function PATCH(
     }
     const { id } = await params
     const body = await request.json()
-    const { title, subtitle, description, scheduledDate, examSectionId, status, cancellationReason } = body
+    const { title, subtitle, description, scheduledDate, examSectionId, status, cancellationReason, resources, isExamDay } = body
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (title) updateData.title = title
     if (subtitle !== undefined) updateData.subtitle = subtitle || null
     if (description !== undefined) updateData.description = description || null
     if (scheduledDate) updateData.scheduledDate = new Date(scheduledDate)
-    if (examSectionId) updateData.examSectionId = examSectionId
+    if (examSectionId) updateData.examSection = { connect: { id: examSectionId } }
     if (status) updateData.status = status
     if (cancellationReason !== undefined) updateData.cancellationReason = cancellationReason
+    if (isExamDay !== undefined) updateData.isExamDay = isExamDay
+
+    // Handle resources update: delete all existing and recreate
+    if (resources !== undefined) {
+      await prisma.lessonResource.deleteMany({
+        where: { lessonId: id }
+      })
+
+      if (resources.length > 0) {
+        await prisma.lessonResource.createMany({
+          data: resources.map((r: { title: string; url: string; type?: string }) => ({
+            lessonId: id,
+            title: r.title,
+            url: r.url,
+            type: r.type || null,
+          }))
+        })
+      }
+    }
 
     const lesson = await prisma.lesson.update({
       where: { id },
       data: updateData,
       include: {
         examSection: true,
+        resources: {
+          orderBy: {
+            createdAt: 'asc'
+          }
+        },
         _count: {
           select: {
             attendanceRecords: true

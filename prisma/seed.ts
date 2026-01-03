@@ -60,11 +60,11 @@ async function main() {
       },
     }),
     prisma.examSection.upsert({
-      where: { name: 'SPIRITUALITY_OF_MENTOR' },
-      update: { displayName: 'The Spirituality of the Mentor' },
+      where: { name: 'SPIRITUALITY_OF_SERVANT' },
+      update: { displayName: 'Spirituality of the Servant' },
       create: {
-        name: 'SPIRITUALITY_OF_MENTOR',
-        displayName: 'The Spirituality of the Mentor',
+        name: 'SPIRITUALITY_OF_SERVANT',
+        displayName: 'Spirituality of the Servant',
         passingScore: 60,
         averageRequirement: 75,
       },
@@ -75,6 +75,16 @@ async function main() {
       create: {
         name: 'PSYCHOLOGY_METHODOLOGY',
         displayName: 'Psychology & Methodology',
+        passingScore: 60,
+        averageRequirement: 75,
+      },
+    }),
+    prisma.examSection.upsert({
+      where: { name: 'MISCELLANEOUS' },
+      update: { displayName: 'Miscellaneous' },
+      create: {
+        name: 'MISCELLANEOUS',
+        displayName: 'Miscellaneous',
         passingScore: 60,
         averageRequirement: 75,
       },

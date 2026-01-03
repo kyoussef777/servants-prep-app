@@ -48,6 +48,11 @@ export async function GET(request: Request) {
             name: true,
           }
         },
+        resources: {
+          orderBy: {
+            createdAt: 'asc'
+          }
+        },
         _count: {
           select: {
             attendanceRecords: {
@@ -133,7 +138,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { academicYearId, examSectionId, title, subtitle, description, scheduledDate, lessonNumber } = body
+    const { academicYearId, examSectionId, title, subtitle, description, scheduledDate, lessonNumber, resources, isExamDay } = body
 
     if (!academicYearId || !examSectionId || !title || !scheduledDate || !lessonNumber) {
       return NextResponse.json(
@@ -151,7 +156,15 @@ export async function POST(request: Request) {
         description: description || null,
         scheduledDate: new Date(scheduledDate),
         lessonNumber,
+        isExamDay: isExamDay || false,
         createdBy: user.id,
+        resources: resources && resources.length > 0 ? {
+          create: resources.map((r: { title: string; url: string; type?: string }) => ({
+            title: r.title,
+            url: r.url,
+            type: r.type || null,
+          }))
+        } : undefined,
       },
       include: {
         examSection: true,
@@ -159,6 +172,11 @@ export async function POST(request: Request) {
           select: {
             id: true,
             name: true,
+          }
+        },
+        resources: {
+          orderBy: {
+            createdAt: 'asc'
           }
         },
         _count: {

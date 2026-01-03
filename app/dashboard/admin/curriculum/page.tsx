@@ -12,6 +12,13 @@ import { isAdmin } from '@/lib/roles'
 import { toast } from 'sonner'
 import { formatDateUTC } from '@/lib/utils'
 
+interface LessonResource {
+  id: string
+  title: string
+  url: string
+  type?: string
+}
+
 interface Lesson {
   id: string
   title: string
@@ -21,11 +28,13 @@ interface Lesson {
   lessonNumber: number
   status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
   cancellationReason?: string
+  isExamDay: boolean
   examSection: {
     id: string
     displayName: string
     name: string
   }
+  resources: LessonResource[]
   _count: {
     attendanceRecords: number
   }
@@ -66,7 +75,9 @@ export default function CurriculumPage() {
     scheduledDate: '',
     examSectionId: '',
     status: 'SCHEDULED' as 'SCHEDULED' | 'COMPLETED' | 'CANCELLED',
-    cancellationReason: ''
+    cancellationReason: '',
+    isExamDay: false,
+    resources: [] as { title: string; url: string; type?: string }[]
   })
 
   useEffect(() => {
@@ -161,7 +172,9 @@ export default function CurriculumPage() {
       scheduledDate: formattedDate,
       examSectionId: lesson.examSection.id,
       status: lesson.status,
-      cancellationReason: lesson.cancellationReason || ''
+      cancellationReason: lesson.cancellationReason || '',
+      isExamDay: lesson.isExamDay || false,
+      resources: lesson.resources?.map(r => ({ title: r.title, url: r.url, type: r.type })) || []
     })
   }
 
@@ -177,7 +190,9 @@ export default function CurriculumPage() {
           scheduledDate: new Date(formData.scheduledDate).toISOString(),
           examSectionId: formData.examSectionId,
           status: formData.status,
-          cancellationReason: formData.status === 'CANCELLED' ? formData.cancellationReason : null
+          cancellationReason: formData.status === 'CANCELLED' ? formData.cancellationReason : null,
+          isExamDay: formData.isExamDay,
+          resources: formData.resources.filter(r => r.title && r.url)
         })
       })
 
@@ -227,7 +242,9 @@ export default function CurriculumPage() {
           examSectionId: formData.examSectionId,
           academicYearId: formAcademicYearId,
           lessonNumber: nextLessonNumber,
-          status: 'SCHEDULED'
+          status: 'SCHEDULED',
+          isExamDay: formData.isExamDay,
+          resources: formData.resources.filter(r => r.title && r.url)
         })
       })
 
@@ -242,7 +259,9 @@ export default function CurriculumPage() {
           scheduledDate: '',
           examSectionId: sections[0]?.id || '',
           status: 'SCHEDULED',
-          cancellationReason: ''
+          cancellationReason: '',
+          isExamDay: false,
+          resources: []
         })
         const now = new Date()
         setLastSaved(now)
@@ -410,6 +429,70 @@ export default function CurriculumPage() {
                     ))}
                   </select>
                 </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <input
+                    type="checkbox"
+                    id="isExamDay"
+                    checked={formData.isExamDay}
+                    onChange={(e) => setFormData({ ...formData, isExamDay: e.target.checked })}
+                    className="h-4 w-4"
+                  />
+                  <label htmlFor="isExamDay" className="text-sm font-medium cursor-pointer">
+                    Exam Day (attendance not counted)
+                  </label>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium">Resources (optional)</label>
+                  <div className="space-y-2 mt-1">
+                    {formData.resources.map((resource, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <Input
+                          placeholder="Title (e.g., PowerPoint)"
+                          value={resource.title}
+                          onChange={(e) => {
+                            const newResources = [...formData.resources]
+                            newResources[idx] = { ...newResources[idx], title: e.target.value }
+                            setFormData({ ...formData, resources: newResources })
+                          }}
+                          className="flex-1"
+                        />
+                        <Input
+                          placeholder="URL"
+                          value={resource.url}
+                          onChange={(e) => {
+                            const newResources = [...formData.resources]
+                            newResources[idx] = { ...newResources[idx], url: e.target.value }
+                            setFormData({ ...formData, resources: newResources })
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const newResources = formData.resources.filter((_, i) => i !== idx)
+                            setFormData({ ...formData, resources: newResources })
+                          }}
+                          className="text-red-600"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormData({
+                        ...formData,
+                        resources: [...formData.resources, { title: '', url: '' }]
+                      })}
+                    >
+                      + Add Resource
+                    </Button>
+                  </div>
+                </div>
               </div>
               <div className="flex gap-2 mt-4">
                 <Button onClick={handleAdd}>Create Lesson</Button>
@@ -422,7 +505,9 @@ export default function CurriculumPage() {
                     scheduledDate: '',
                     examSectionId: sections[0]?.id || '',
                     status: 'SCHEDULED',
-                    cancellationReason: ''
+                    cancellationReason: '',
+                    isExamDay: false,
+                    resources: []
                   })
                 }}>
                   Cancel
@@ -494,106 +579,237 @@ export default function CurriculumPage() {
                     const isEditing = editingId === lesson.id
                     const isPast = new Date(lesson.scheduledDate) < new Date()
 
+                    if (isEditing) {
+                      // Expanded edit mode - spans all columns
+                      return (
+                        <tr key={lesson.id} className="border-b bg-blue-50">
+                          <td colSpan={canEdit ? 9 : 8} className="p-4">
+                            <div className="space-y-4">
+                              {/* Row 1: Basic Info */}
+                              <div className="grid grid-cols-4 gap-4">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Title</label>
+                                  <Input
+                                    value={formData.title}
+                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                    className="mt-1"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Subtitle</label>
+                                  <Input
+                                    value={formData.subtitle}
+                                    onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                                    placeholder="Optional"
+                                    className="mt-1"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Date & Time</label>
+                                  <Input
+                                    type="datetime-local"
+                                    value={formData.scheduledDate}
+                                    onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
+                                    className="mt-1"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Section</label>
+                                  <select
+                                    value={formData.examSectionId}
+                                    onChange={(e) => setFormData({ ...formData, examSectionId: e.target.value })}
+                                    className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  >
+                                    {sections.map(section => (
+                                      <option key={section.id} value={section.id}>
+                                        {section.displayName}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Row 2: Description */}
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Description</label>
+                                <Textarea
+                                  value={formData.description}
+                                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                  placeholder="Speaker, topic details, etc."
+                                  rows={2}
+                                  className="mt-1"
+                                />
+                              </div>
+
+                              {/* Row 3: Status & Options */}
+                              <div className="grid grid-cols-4 gap-4">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700">Status</label>
+                                  <select
+                                    value={formData.status}
+                                    onChange={(e) => setFormData({ ...formData, status: e.target.value as 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' })}
+                                    className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  >
+                                    <option value="SCHEDULED">Scheduled</option>
+                                    <option value="COMPLETED">Completed</option>
+                                    <option value="CANCELLED">Cancelled</option>
+                                  </select>
+                                </div>
+                                {formData.status === 'CANCELLED' && (
+                                  <div className="col-span-2">
+                                    <label className="text-sm font-medium text-gray-700">Cancellation Reason</label>
+                                    <Input
+                                      value={formData.cancellationReason}
+                                      onChange={(e) => setFormData({ ...formData, cancellationReason: e.target.value })}
+                                      placeholder="Reason for cancellation"
+                                      className="mt-1"
+                                    />
+                                  </div>
+                                )}
+                                <div className="flex items-end">
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={formData.isExamDay}
+                                      onChange={(e) => setFormData({ ...formData, isExamDay: e.target.checked })}
+                                      className="h-4 w-4"
+                                    />
+                                    <span className="text-sm font-medium">Exam Day (no attendance)</span>
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* Row 4: Resources */}
+                              <div>
+                                <label className="text-sm font-medium text-gray-700">Resources</label>
+                                <div className="space-y-2 mt-1">
+                                  {formData.resources.map((resource, idx) => (
+                                    <div key={idx} className="flex gap-2 items-center">
+                                      <Input
+                                        placeholder="Title (e.g., PowerPoint)"
+                                        value={resource.title}
+                                        onChange={(e) => {
+                                          const newResources = [...formData.resources]
+                                          newResources[idx] = { ...newResources[idx], title: e.target.value }
+                                          setFormData({ ...formData, resources: newResources })
+                                        }}
+                                        className="flex-1"
+                                      />
+                                      <Input
+                                        placeholder="URL"
+                                        value={resource.url}
+                                        onChange={(e) => {
+                                          const newResources = [...formData.resources]
+                                          newResources[idx] = { ...newResources[idx], url: e.target.value }
+                                          setFormData({ ...formData, resources: newResources })
+                                        }}
+                                        className="flex-1"
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          const newResources = formData.resources.filter((_, i) => i !== idx)
+                                          setFormData({ ...formData, resources: newResources })
+                                        }}
+                                        className="text-red-600"
+                                      >
+                                        Remove
+                                      </Button>
+                                    </div>
+                                  ))}
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setFormData({
+                                      ...formData,
+                                      resources: [...formData.resources, { title: '', url: '' }]
+                                    })}
+                                  >
+                                    + Add Resource
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex gap-2 pt-2 border-t">
+                                <Button onClick={() => handleSave(lesson.id)}>
+                                  Save Changes
+                                </Button>
+                                <Button variant="outline" onClick={() => setEditingId(null)}>
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                    // Normal view mode row
                     return (
                       <tr key={lesson.id} className={`border-b hover:bg-gray-50 ${isPast ? 'opacity-60' : ''}`}>
                         <td className="p-2 text-gray-500">{index + 1}</td>
                         <td className="p-2">
-                          {isEditing ? (
-                            <Input
-                              type="datetime-local"
-                              value={formData.scheduledDate}
-                              onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                              className="w-full text-xs"
-                            />
-                          ) : (
-                            <div>
-                              <div className="font-medium">
-                                {formatDateUTC(lesson.scheduledDate, {
-                                  weekday: undefined,
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric'
-                                })}
-                              </div>
+                          <div>
+                            <div className="font-medium">
+                              {formatDateUTC(lesson.scheduledDate, {
+                                weekday: undefined,
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
                             </div>
-                          )}
+                          </div>
                         </td>
                         <td className="p-2">
-                          {isEditing ? (
-                            <Input
-                              value={formData.title}
-                              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                              className="w-full"
-                            />
-                          ) : (
-                            <div className="font-medium">{lesson.title}</div>
-                          )}
+                          <div className="font-medium">
+                            {lesson.title}
+                            {lesson.isExamDay && (
+                              <Badge variant="outline" className="ml-2 text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                                Exam Day
+                              </Badge>
+                            )}
+                          </div>
                         </td>
                         <td className="p-2">
-                          {isEditing ? (
-                            <Input
-                              value={formData.subtitle}
-                              onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                              className="w-full"
-                              placeholder="Optional"
-                            />
-                          ) : (
-                            <div className="text-sm text-gray-600">{lesson.subtitle || '—'}</div>
-                          )}
+                          <div className="text-sm text-gray-600">{lesson.subtitle || '—'}</div>
                         </td>
                         <td className="p-2">
-                          {isEditing ? (
-                            <Textarea
-                              value={formData.description}
-                              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                              className="w-full text-sm"
-                              rows={2}
-                            />
-                          ) : (
-                            <div className="text-sm text-gray-600 max-w-md truncate">
-                              {lesson.description || '—'}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-2 text-center">
-                          {isEditing ? (
-                            <select
-                              value={formData.examSectionId}
-                              onChange={(e) => setFormData({ ...formData, examSectionId: e.target.value })}
-                              className="w-full h-8 rounded-md border text-xs px-2"
-                            >
-                              {sections.map(section => (
-                                <option key={section.id} value={section.id}>
-                                  {section.displayName}
-                                </option>
+                          <div className="text-sm text-gray-600 max-w-md truncate">
+                            {lesson.description || '—'}
+                          </div>
+                          {lesson.resources && lesson.resources.length > 0 && (
+                            <div className="flex gap-2 mt-1">
+                              {lesson.resources.map((r, idx) => (
+                                <a
+                                  key={idx}
+                                  href={r.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:underline"
+                                >
+                                  {r.title}
+                                </a>
                               ))}
-                            </select>
-                          ) : (
-                            <Badge variant="outline">{lesson.examSection.displayName}</Badge>
+                            </div>
                           )}
                         </td>
                         <td className="p-2 text-center">
-                          {isEditing ? (
-                            <select
-                              value={formData.status}
-                              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                              className="w-full h-8 rounded-md border text-xs px-2"
-                            >
-                              <option value="SCHEDULED">Scheduled</option>
-                              <option value="COMPLETED">Completed</option>
-                              <option value="CANCELLED">Cancelled</option>
-                            </select>
-                          ) : (
-                            <Badge
-                              className={
-                                lesson.status === 'COMPLETED' ? 'bg-green-500' :
-                                lesson.status === 'CANCELLED' ? 'bg-red-500' :
-                                'bg-maroon-500'
-                              }
-                            >
-                              {lesson.status}
-                            </Badge>
-                          )}
+                          <Badge variant="outline">{lesson.examSection.displayName}</Badge>
+                        </td>
+                        <td className="p-2 text-center">
+                          <Badge
+                            className={
+                              lesson.status === 'COMPLETED' ? 'bg-green-500' :
+                              lesson.status === 'CANCELLED' ? 'bg-red-500' :
+                              'bg-maroon-500'
+                            }
+                          >
+                            {lesson.status}
+                          </Badge>
                         </td>
                         <td className="p-2 text-center">
                           <span className="text-gray-600">{lesson._count?.attendanceRecords || 0}</span>
@@ -601,30 +817,17 @@ export default function CurriculumPage() {
                         {canEdit && (
                           <td className="p-2">
                             <div className="flex gap-1 justify-center">
-                              {isEditing ? (
-                                <>
-                                  <Button size="sm" onClick={() => handleSave(lesson.id)}>
-                                    Save
-                                  </Button>
-                                  <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
-                                    Cancel
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <Button size="sm" variant="outline" onClick={() => handleEdit(lesson)}>
-                                    Edit
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => handleDelete(lesson.id)}
-                                    disabled={(lesson._count?.attendanceRecords || 0) > 0}
-                                  >
-                                    Delete
-                                  </Button>
-                                </>
-                              )}
+                              <Button size="sm" variant="outline" onClick={() => handleEdit(lesson)}>
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDelete(lesson.id)}
+                                disabled={(lesson._count?.attendanceRecords || 0) > 0}
+                              >
+                                Delete
+                              </Button>
                             </div>
                           </td>
                         )}
@@ -755,7 +958,7 @@ export default function CurriculumPage() {
                           <label className="text-sm font-medium text-gray-700">Status</label>
                           <select
                             value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value as 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' })}
                             className="w-full h-10 rounded-md border px-3"
                           >
                             <option value="SCHEDULED">Scheduled</option>
@@ -763,13 +966,105 @@ export default function CurriculumPage() {
                             <option value="CANCELLED">Cancelled</option>
                           </select>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="isExamDayMobile"
+                            checked={formData.isExamDay}
+                            onChange={(e) => setFormData({ ...formData, isExamDay: e.target.checked })}
+                            className="h-4 w-4"
+                          />
+                          <label htmlFor="isExamDayMobile" className="text-sm font-medium cursor-pointer">
+                            Exam Day (attendance not counted)
+                          </label>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700">Resources</label>
+                          <div className="space-y-2">
+                            {formData.resources.map((resource, idx) => (
+                              <div key={idx} className="space-y-2 p-2 bg-gray-50 rounded">
+                                <Input
+                                  placeholder="Title (e.g., PowerPoint)"
+                                  value={resource.title}
+                                  onChange={(e) => {
+                                    const newResources = [...formData.resources]
+                                    newResources[idx] = { ...newResources[idx], title: e.target.value }
+                                    setFormData({ ...formData, resources: newResources })
+                                  }}
+                                />
+                                <div className="flex gap-2">
+                                  <Input
+                                    placeholder="URL"
+                                    value={resource.url}
+                                    onChange={(e) => {
+                                      const newResources = [...formData.resources]
+                                      newResources[idx] = { ...newResources[idx], url: e.target.value }
+                                      setFormData({ ...formData, resources: newResources })
+                                    }}
+                                    className="flex-1"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const newResources = formData.resources.filter((_, i) => i !== idx)
+                                      setFormData({ ...formData, resources: newResources })
+                                    }}
+                                    className="text-red-600"
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setFormData({
+                                ...formData,
+                                resources: [...formData.resources, { title: '', url: '' }]
+                              })}
+                            >
+                              + Add Resource
+                            </Button>
+                          </div>
+                        </div>
                       </>
                     )}
 
-                    {/* Attendance Count */}
+                    {/* Resources in view mode */}
+                    {!isEditing && lesson.resources && lesson.resources.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-sm font-medium text-gray-700">Resources</span>
+                        <div className="flex flex-wrap gap-2">
+                          {lesson.resources.map((r, idx) => (
+                            <a
+                              key={idx}
+                              href={r.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:underline"
+                            >
+                              {r.title}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Attendance Count & Exam Day badge */}
                     {!isEditing && (
                       <div className="pt-2 border-t flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Attendance</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">Attendance</span>
+                          {lesson.isExamDay && (
+                            <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                              Exam Day
+                            </Badge>
+                          )}
+                        </div>
                         <Badge variant="outline">{lesson._count?.attendanceRecords || 0} students</Badge>
                       </div>
                     )}

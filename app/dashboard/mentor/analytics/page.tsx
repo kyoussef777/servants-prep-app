@@ -39,8 +39,9 @@ const SECTION_DISPLAY_NAMES: { [key: string]: string } = {
   COMPARATIVE_THEOLOGY: 'Comparative Theology',
   RITUAL_THEOLOGY_SACRAMENTS: 'Ritual Theology & Sacraments',
   CHURCH_HISTORY_COPTIC_HERITAGE: 'Church History & Coptic Heritage',
-  SPIRITUALITY_OF_MENTOR: 'Spirituality of Mentor',
+  SPIRITUALITY_OF_SERVANT: 'Spirituality of the Servant',
   PSYCHOLOGY_METHODOLOGY: 'Psychology & Methodology',
+  MISCELLANEOUS: 'Miscellaneous',
 }
 
 export default function MentorAnalyticsPage() {
