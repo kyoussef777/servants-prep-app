@@ -155,11 +155,13 @@ export function Navbar() {
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings" className="cursor-pointer">
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
+                {(session.user.role === 'SUPER_ADMIN' || session.user.role === 'PRIEST' || session.user.role === 'SERVANT_PREP') && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/admin/settings" className="cursor-pointer">
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link href="/change-password" className="cursor-pointer">
                     Change Password
