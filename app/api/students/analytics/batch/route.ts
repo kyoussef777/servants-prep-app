@@ -177,15 +177,16 @@ export async function GET(request: Request) {
     ])
 
     // Build lookup maps for O(1) access
-    const attendanceByStudent = new Map<string, { present: number; late: number; absent: number }>()
+    const attendanceByStudent = new Map<string, { present: number; late: number; absent: number; excused: number }>()
     for (const agg of attendanceAggregates) {
       if (!attendanceByStudent.has(agg.studentId)) {
-        attendanceByStudent.set(agg.studentId, { present: 0, late: 0, absent: 0 })
+        attendanceByStudent.set(agg.studentId, { present: 0, late: 0, absent: 0, excused: 0 })
       }
       const record = attendanceByStudent.get(agg.studentId)!
       if (agg.status === 'PRESENT') record.present = agg._count.status
       else if (agg.status === 'LATE') record.late = agg._count.status
       else if (agg.status === 'ABSENT') record.absent = agg._count.status
+      else if ((agg.status as string) === 'EXCUSED') record.excused = agg._count.status
     }
 
     const examsByStudent = new Map<string, { avg: number; count: number }>()
@@ -211,7 +212,7 @@ export async function GET(request: Request) {
     }
 
     // Build attendance by student by academic year (raw data, will be mapped per-student later)
-    const attendanceByStudentByAcademicYear = new Map<string, Map<string, { present: number; late: number; absent: number }>>()
+    const attendanceByStudentByAcademicYear = new Map<string, Map<string, { present: number; late: number; absent: number; excused: number }>>()
     for (const record of attendanceWithYear) {
       if (!attendanceByStudentByAcademicYear.has(record.studentId)) {
         attendanceByStudentByAcademicYear.set(record.studentId, new Map())
@@ -220,13 +221,14 @@ export async function GET(request: Request) {
       const academicYearId = record.lesson.academicYearId
 
       if (!studentYearMap.has(academicYearId)) {
-        studentYearMap.set(academicYearId, { present: 0, late: 0, absent: 0 })
+        studentYearMap.set(academicYearId, { present: 0, late: 0, absent: 0, excused: 0 })
       }
       const yearRecord = studentYearMap.get(academicYearId)!
 
       if (record.status === 'PRESENT') yearRecord.present++
       else if (record.status === 'LATE') yearRecord.late++
       else if (record.status === 'ABSENT') yearRecord.absent++
+      else if ((record.status as string) === 'EXCUSED') yearRecord.excused++
     }
 
     // Count lessons per academic year (only lessons with attendance records)
@@ -244,7 +246,7 @@ export async function GET(request: Request) {
     // Calculate stats for each student using pre-aggregated data
     const studentAnalytics = enrollments.map(enrollment => {
       const studentId = enrollment.studentId
-      const attendance = attendanceByStudent.get(studentId) || { present: 0, late: 0, absent: 0 }
+      const attendance = attendanceByStudent.get(studentId) || { present: 0, late: 0, absent: 0, excused: 0 }
       const exams = examsByStudent.get(studentId) || { avg: 0, count: 0 }
 
       // Get per-student year mapping based on their current year level
@@ -254,8 +256,8 @@ export async function GET(request: Request) {
       // Get Year 1 attendance for this student
       const year1AcademicYearId = studentYearMapping.year1AcademicYearId
       const year1Attendance = year1AcademicYearId && studentAcademicYearAttendance
-        ? studentAcademicYearAttendance.get(year1AcademicYearId) || { present: 0, late: 0, absent: 0 }
-        : { present: 0, late: 0, absent: 0 }
+        ? studentAcademicYearAttendance.get(year1AcademicYearId) || { present: 0, late: 0, absent: 0, excused: 0 }
+        : { present: 0, late: 0, absent: 0, excused: 0 }
       const year1LessonsCount = year1AcademicYearId
         ? lessonsCountByAcademicYear.get(year1AcademicYearId) || 0
         : 0
@@ -263,35 +265,42 @@ export async function GET(request: Request) {
       // Get Year 2 attendance for this student (null if not in Year 2 yet)
       const year2AcademicYearId = studentYearMapping.year2AcademicYearId
       const year2Attendance = year2AcademicYearId && studentAcademicYearAttendance
-        ? studentAcademicYearAttendance.get(year2AcademicYearId) || { present: 0, late: 0, absent: 0 }
+        ? studentAcademicYearAttendance.get(year2AcademicYearId) || { present: 0, late: 0, absent: 0, excused: 0 }
         : null // null means not in Year 2 yet
       const year2LessonsCount = year2AcademicYearId
         ? lessonsCountByAcademicYear.get(year2AcademicYearId) || 0
         : 0
 
-      // Calculate attendance using Formula A: (Present + Late/2) / Total * 100
+      // Calculate attendance using Formula A: (Present + Late/2) / (Total - Excused) * 100
+      // EXCUSED lessons don't count against or for the student
       const presentCount = attendance.present
       const lateCount = attendance.late
       const absentCount = attendance.absent
+      const excusedCount = attendance.excused
 
-      // Overall attendance calculation (only count lessons where attendance was taken)
+      // Overall attendance calculation (subtract excused from total)
       const totalEffectivePresent = presentCount + (lateCount / 2)
-      const overallAttendancePercentage = lessonsWithAttendanceCount > 0
-        ? (totalEffectivePresent / lessonsWithAttendanceCount) * 100
+      const effectiveTotalLessons = lessonsWithAttendanceCount - excusedCount
+      const overallAttendancePercentage = effectiveTotalLessons > 0
+        ? (totalEffectivePresent / effectiveTotalLessons) * 100
         : 0
 
-      // Year 1 attendance
+      // Year 1 attendance (subtract excused from total)
       const year1EffectivePresent = year1Attendance.present + (year1Attendance.late / 2)
-      const year1AttendancePercentage = year1LessonsCount > 0
-        ? (year1EffectivePresent / year1LessonsCount) * 100
+      const year1EffectiveTotalLessons = year1LessonsCount - year1Attendance.excused
+      const year1AttendancePercentage = year1EffectiveTotalLessons > 0
+        ? (year1EffectivePresent / year1EffectiveTotalLessons) * 100
         : 0
 
       // Year 2 attendance (null if student is still in Year 1)
       const year2EffectivePresent = year2Attendance
         ? year2Attendance.present + (year2Attendance.late / 2)
         : 0
-      const year2AttendancePercentage = year2Attendance && year2LessonsCount > 0
-        ? (year2EffectivePresent / year2LessonsCount) * 100
+      const year2EffectiveTotalLessons = year2Attendance
+        ? year2LessonsCount - year2Attendance.excused
+        : 0
+      const year2AttendancePercentage = year2Attendance && year2EffectiveTotalLessons > 0
+        ? (year2EffectivePresent / year2EffectiveTotalLessons) * 100
         : null // null indicates not applicable (Year 1 student)
 
       // Calculate section averages for this student
@@ -320,10 +329,12 @@ export async function GET(request: Request) {
         // Attendance
         attendancePercentage: Math.round(overallAttendancePercentage * 10) / 10,
         attendanceMet,
-        totalLessons: lessonsWithAttendanceCount,
+        totalLessons: effectiveTotalLessons, // Total minus excused for this student
+        allLessons: lessonsWithAttendanceCount, // All lessons with attendance
         presentCount,
         lateCount,
         absentCount,
+        excusedCount,
         attendedLessons: Math.round(totalEffectivePresent * 10) / 10,
         // Exams
         examAverage: Math.round(examAverage * 10) / 10,
@@ -341,8 +352,8 @@ export async function GET(request: Request) {
         year2AttendancePercentage: year2AttendancePercentage !== null
           ? Math.round(year2AttendancePercentage * 10) / 10
           : null,
-        year1TotalLessons: year1LessonsCount,
-        year2TotalLessons: year2AcademicYearId ? year2LessonsCount : null,
+        year1TotalLessons: year1EffectiveTotalLessons,
+        year2TotalLessons: year2Attendance !== null ? year2EffectiveTotalLessons : null,
         year1AttendedLessons: Math.round(year1EffectivePresent * 10) / 10,
         year2AttendedLessons: year2Attendance !== null
           ? Math.round(year2EffectivePresent * 10) / 10

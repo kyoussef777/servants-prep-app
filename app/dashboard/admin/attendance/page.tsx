@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { isAdmin } from '@/lib/roles'
-import { ChevronDown, ChevronRight, Calendar, Users, Settings2, Check, Clock, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Users, Settings2, Check, Clock, X, Shield } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDateUTC } from '@/lib/utils'
 
@@ -45,7 +45,7 @@ interface Student {
 
 interface AttendanceRecord {
   studentId: string
-  status: 'PRESENT' | 'LATE' | 'ABSENT'
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
   arrivedAt?: string
   notes?: string
 }
@@ -67,7 +67,7 @@ export default function AttendancePage() {
   const [filterMentees, setFilterMentees] = useState(false)
   const [showCompletedLessons, setShowCompletedLessons] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [compactMode, setCompactMode] = useState(true)
+  const [compactMode, setCompactMode] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
 
@@ -435,77 +435,79 @@ export default function AttendancePage() {
               </CardContent>
             </Card>
 
-            {/* Filters & Actions */}
-            <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
-              <Input
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8 sm:h-10 text-xs sm:text-sm w-28 sm:max-w-xs"
-              />
-              <select
-                className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm"
-                value={filterYearLevel}
-                onChange={(e) => setFilterYearLevel(e.target.value)}
-              >
-                <option value="all">All</option>
-                <option value="YEAR_1">Y1</option>
-                <option value="YEAR_2">Y2</option>
-              </select>
-              <label className="flex items-center gap-1.5 px-2 sm:px-3 h-8 sm:h-10 border rounded-md bg-background cursor-pointer text-xs sm:text-sm">
-                <input
-                  type="checkbox"
-                  checked={filterMentees}
-                  onChange={(e) => setFilterMentees(e.target.checked)}
-                  className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+            {/* Sticky Filters & Actions */}
+            <div className="sticky top-0 z-20 bg-gray-50 py-2 -mx-2 px-2 sm:-mx-4 sm:px-4 md:-mx-8 md:px-8 space-y-2">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
+                <Input
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-8 sm:h-10 text-xs sm:text-sm w-28 sm:max-w-xs"
                 />
-                <span className="hidden sm:inline">My Mentees</span>
-                <span className="sm:hidden">Mine</span>
-              </label>
-              <Button onClick={handleMarkAllPresent} variant="outline" size="sm" className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3">
-                <span className="hidden sm:inline">Mark All Present</span>
-                <span className="sm:hidden">All ✓</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCompactMode(!compactMode)}
-                className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3 gap-1"
-              >
-                <Settings2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">{compactMode ? 'Details' : 'Compact'}</span>
-              </Button>
-            </div>
+                <select
+                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm"
+                  value={filterYearLevel}
+                  onChange={(e) => setFilterYearLevel(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="YEAR_1">Y1</option>
+                  <option value="YEAR_2">Y2</option>
+                </select>
+                <label className="flex items-center gap-1.5 px-2 sm:px-3 h-8 sm:h-10 border rounded-md bg-background cursor-pointer text-xs sm:text-sm">
+                  <input
+                    type="checkbox"
+                    checked={filterMentees}
+                    onChange={(e) => setFilterMentees(e.target.checked)}
+                    className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                  />
+                  <span className="hidden sm:inline">My Mentees</span>
+                  <span className="sm:hidden">Mine</span>
+                </label>
+                <Button onClick={handleMarkAllPresent} variant="outline" size="sm" className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3">
+                  <span className="hidden sm:inline">Mark All Present</span>
+                  <span className="sm:hidden">All ✓</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCompactMode(!compactMode)}
+                  className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3 gap-1"
+                >
+                  <Settings2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">{compactMode ? 'Details' : 'Compact'}</span>
+                </Button>
+              </div>
 
-            {/* Status bar */}
-            <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
-              {hasUnsavedChanges && (
-                <span className="text-orange-600 font-medium">• Unsaved</span>
-              )}
-              {lastSaved && (
-                <span className="text-gray-500">
-                  Saved {lastSaved.toLocaleString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })}
-                </span>
-              )}
+              {/* Status bar */}
+              <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+                {hasUnsavedChanges && (
+                  <span className="text-orange-600 font-medium">• Unsaved</span>
+                )}
+                {lastSaved && (
+                  <span className="text-gray-500">
+                    Saved {lastSaved.toLocaleString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Excel-like Table - Desktop */}
             <Card className="hidden md:block mb-20">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-h-[calc(100vh-280px)]">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-gray-50 border-b sticky top-0 z-10">
                     <tr>
-                      <th className="text-left p-2 font-medium text-gray-700 w-8">#</th>
-                      <th className="text-left p-2 font-medium text-gray-700">Name</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-16">Year</th>
-                      <th className="text-center p-2 font-medium text-gray-700 w-36">Status</th>
+                      <th className="text-left p-2 font-medium text-gray-700 w-8 bg-gray-50">#</th>
+                      <th className="text-left p-2 font-medium text-gray-700 bg-gray-50">Name</th>
+                      <th className="text-center p-2 font-medium text-gray-700 w-16 bg-gray-50">Year</th>
+                      <th className="text-center p-2 font-medium text-gray-700 w-44 bg-gray-50">Status</th>
                       {!compactMode && (
                         <>
-                          <th className="text-left p-2 font-medium text-gray-700 w-28">Arrived</th>
-                          <th className="text-left p-2 font-medium text-gray-700">Notes</th>
+                          <th className="text-left p-2 font-medium text-gray-700 w-28 bg-gray-50">Arrived</th>
+                          <th className="text-left p-2 font-medium text-gray-700 bg-gray-50">Notes</th>
                         </>
                       )}
                     </tr>
@@ -562,6 +564,18 @@ export default function AttendancePage() {
                                 title="Absent"
                               >
                                 <X className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
+                                className={`p-1.5 rounded transition-colors ${
+                                  currentStatus === 'EXCUSED'
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-gray-100 text-gray-400 hover:bg-blue-100 hover:text-blue-600'
+                                }`}
+                                title="Excused (not counted)"
+                              >
+                                <Shield className="h-4 w-4" />
                               </button>
                             </div>
                           </td>
@@ -650,6 +664,17 @@ export default function AttendancePage() {
                             }`}
                           >
                             <X className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
+                            className={`p-2 rounded transition-colors ${
+                              currentStatus === 'EXCUSED'
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-100 text-gray-400'
+                            }`}
+                          >
+                            <Shield className="h-4 w-4" />
                           </button>
                         </div>
                         {/* Expand button for details */}

@@ -103,11 +103,14 @@ export async function GET(
     const presentCount = attendanceRecords.filter(r => r.status === 'PRESENT').length
     const lateCount = attendanceRecords.filter(r => r.status === 'LATE').length
     const absentCount = attendanceRecords.filter(r => r.status === 'ABSENT').length
+    const excusedCount = attendanceRecords.filter(r => (r.status as string) === 'EXCUSED').length
 
-    // Formula: (Present + (Lates / 2)) / LessonsWithAttendance
+    // Formula: (Present + (Lates / 2)) / (LessonsWithAttendance - Excused)
+    // EXCUSED lessons are not counted in the total - they don't count against or for the student
     // Only count lessons where attendance was actually taken
     const effectivePresent = presentCount + (lateCount / 2)
-    const attendancePercentage = lessonsWithAttendance > 0 ? (effectivePresent / lessonsWithAttendance) * 100 : 0
+    const effectiveTotalLessons = lessonsWithAttendance - excusedCount
+    const attendancePercentage = effectiveTotalLessons > 0 ? (effectivePresent / effectiveTotalLessons) * 100 : 0
     const attendanceMet = attendancePercentage >= 75
 
     // Build exam filter - if academicYearId provided, filter by it; otherwise include all
@@ -180,10 +183,12 @@ export async function GET(
     return NextResponse.json({
       enrollment,
       attendance: {
-        totalLessons: lessonsWithAttendance,
+        totalLessons: effectiveTotalLessons, // Total lessons minus excused
+        allLessons: lessonsWithAttendance, // All lessons with attendance taken
         presentCount,
         lateCount,
         absentCount,
+        excusedCount,
         effectivePresent,
         percentage: attendancePercentage,
         met: attendanceMet,
