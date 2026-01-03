@@ -24,7 +24,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { yearLevel, mentorId, isActive, status, notes, academicYearId } = body
+    const { yearLevel, mentorId, isActive, status, notes, academicYearId, fatherOfConfessionId } = body
 
     const updateData: Record<string, unknown> = {}
     if (yearLevel) updateData.yearLevel = yearLevel
@@ -35,6 +35,7 @@ export async function PATCH(
     if (isActive !== undefined) updateData.isActive = isActive
     if (notes !== undefined) updateData.notes = notes
     if (academicYearId !== undefined) updateData.academicYearId = academicYearId || null
+    if (fatherOfConfessionId !== undefined) updateData.fatherOfConfessionId = fatherOfConfessionId || null
 
     // Handle graduation status change
     if (status !== undefined) {
@@ -85,6 +86,14 @@ export async function PATCH(
           select: {
             id: true,
             name: true,
+          }
+        },
+        fatherOfConfession: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            church: true,
           }
         }
       }

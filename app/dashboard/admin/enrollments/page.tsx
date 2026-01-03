@@ -7,12 +7,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { canAssignMentors } from '@/lib/roles'
 import { toast } from 'sonner'
+import { Plus, Pencil, Trash2, X } from 'lucide-react'
 
 interface AcademicYear {
   id: string
   name: string
+}
+
+interface FatherOfConfession {
+  id: string
+  name: string
+  phone: string | null
+  church: string | null
+  _count?: { students: number }
 }
 
 interface Enrollment {
@@ -29,6 +40,7 @@ interface Enrollment {
     id: string
     name: string
   } | null
+  fatherOfConfession: FatherOfConfession | null
   academicYear: AcademicYear | null
   graduatedAcademicYear: AcademicYear | null
 }
@@ -45,12 +57,19 @@ export default function EnrollmentsPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
+  const [fathersOfConfession, setFathersOfConfession] = useState<FatherOfConfession[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMentor, setFilterMentor] = useState<string>('all')
   const [filterYear, setFilterYear] = useState<string>('all')
   const [filterAcademicYear, setFilterAcademicYear] = useState<string>('all')
-  const [filterStatus, setFilterStatus] = useState<string>('ACTIVE')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+
+  // Father of Confession management
+  const [showFatherDialog, setShowFatherDialog] = useState(false)
+  const [editingFather, setEditingFather] = useState<FatherOfConfession | null>(null)
+  const [fatherForm, setFatherForm] = useState({ name: '', phone: '', church: '' })
+  const [savingFather, setSavingFather] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -64,20 +83,22 @@ export default function EnrollmentsPage() {
     const fetchData = async () => {
       try {
         // Fetch all data in parallel
-        const [enrollmentsRes, usersRes, yearsRes] = await Promise.all([
+        const [enrollmentsRes, usersRes, yearsRes, fathersRes] = await Promise.all([
           fetch('/api/enrollments'),
           fetch('/api/users'),
-          fetch('/api/academic-years')
+          fetch('/api/academic-years'),
+          fetch('/api/fathers-of-confession')
         ])
 
         if (!enrollmentsRes.ok) throw new Error('Failed to fetch enrollments')
         if (!usersRes.ok) throw new Error('Failed to fetch users')
         if (!yearsRes.ok) throw new Error('Failed to fetch academic years')
 
-        const [enrollmentsData, usersData, yearsData] = await Promise.all([
+        const [enrollmentsData, usersData, yearsData, fathersData] = await Promise.all([
           enrollmentsRes.json(),
           usersRes.json(),
-          yearsRes.json()
+          yearsRes.json(),
+          fathersRes.ok ? fathersRes.json() : []
         ])
 
         // Set all enrollments (filtering is done in UI)
@@ -85,6 +106,9 @@ export default function EnrollmentsPage() {
 
         // Set academic years
         setAcademicYears(Array.isArray(yearsData) ? yearsData : [])
+
+        // Set fathers of confession
+        setFathersOfConfession(Array.isArray(fathersData) ? fathersData : [])
 
         // Filter to only users who can be mentors
         const mentorsData = Array.isArray(usersData)
@@ -100,6 +124,7 @@ export default function EnrollmentsPage() {
         setEnrollments([])
         setMentors([])
         setAcademicYears([])
+        setFathersOfConfession([])
       } finally {
         setLoading(false)
       }
@@ -131,6 +156,116 @@ export default function EnrollmentsPage() {
     } catch (error) {
       console.error('Failed to update mentor:', error)
       toast.error('Failed to update mentor')
+    }
+  }
+
+  const handleFatherChange = async (enrollmentId: string, fatherOfConfessionId: string) => {
+    try {
+      const res = await fetch(`/api/enrollments/${enrollmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fatherOfConfessionId })
+      })
+
+      if (res.ok) {
+        const updated = await res.json()
+        setEnrollments(enrollments.map(e =>
+          e.id === enrollmentId ? updated : e
+        ))
+        toast.success('Father of Confession updated!')
+      } else {
+        const errorData = await res.json()
+        toast.error(errorData.error || 'Failed to update')
+      }
+    } catch (error) {
+      console.error('Failed to update father of confession:', error)
+      toast.error('Failed to update')
+    }
+  }
+
+  const openAddFatherDialog = () => {
+    setEditingFather(null)
+    setFatherForm({ name: '', phone: '', church: '' })
+    setShowFatherDialog(true)
+  }
+
+  const openEditFatherDialog = (father: FatherOfConfession) => {
+    setEditingFather(father)
+    setFatherForm({
+      name: father.name,
+      phone: father.phone || '',
+      church: father.church || ''
+    })
+    setShowFatherDialog(true)
+  }
+
+  const handleSaveFather = async () => {
+    if (!fatherForm.name.trim()) {
+      toast.error('Name is required')
+      return
+    }
+
+    setSavingFather(true)
+    try {
+      const url = editingFather
+        ? `/api/fathers-of-confession/${editingFather.id}`
+        : '/api/fathers-of-confession'
+      const method = editingFather ? 'PATCH' : 'POST'
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fatherForm)
+      })
+
+      if (res.ok) {
+        const saved = await res.json()
+        if (editingFather) {
+          setFathersOfConfession(fathersOfConfession.map(f =>
+            f.id === editingFather.id ? { ...saved, _count: f._count } : f
+          ))
+        } else {
+          setFathersOfConfession([...fathersOfConfession, { ...saved, _count: { students: 0 } }])
+        }
+        setShowFatherDialog(false)
+        toast.success(editingFather ? 'Updated successfully!' : 'Added successfully!')
+      } else {
+        const errorData = await res.json()
+        toast.error(errorData.error || 'Failed to save')
+      }
+    } catch (error) {
+      console.error('Failed to save father of confession:', error)
+      toast.error('Failed to save')
+    } finally {
+      setSavingFather(false)
+    }
+  }
+
+  const handleDeleteFather = async (father: FatherOfConfession) => {
+    if (!confirm(`Are you sure you want to remove "${father.name}"? This will unassign them from all students.`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/fathers-of-confession/${father.id}`, {
+        method: 'DELETE'
+      })
+
+      if (res.ok) {
+        setFathersOfConfession(fathersOfConfession.filter(f => f.id !== father.id))
+        // Also update enrollments to reflect the removal
+        setEnrollments(enrollments.map(e =>
+          e.fatherOfConfession?.id === father.id
+            ? { ...e, fatherOfConfession: null }
+            : e
+        ))
+        toast.success('Removed successfully!')
+      } else {
+        toast.error('Failed to remove')
+      }
+    } catch (error) {
+      console.error('Failed to delete father of confession:', error)
+      toast.error('Failed to remove')
     }
   }
 
@@ -185,8 +320,8 @@ export default function EnrollmentsPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold">Mentor Assignments</h1>
-          <p className="text-gray-600 mt-1">Assign mentors to students ({filteredEnrollments.length} students)</p>
+          <h1 className="text-3xl font-bold">Student Roster</h1>
+          <p className="text-gray-600 mt-1">Manage student assignments ({filteredEnrollments.length} students)</p>
         </div>
 
         {/* Mentor Workload Summary */}
@@ -206,6 +341,51 @@ export default function EnrollmentsPage() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Fathers of Confession */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Fathers of Confession</CardTitle>
+            <Button size="sm" onClick={openAddFatherDialog}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {fathersOfConfession.length === 0 ? (
+              <p className="text-gray-500 text-sm">No fathers of confession added yet. Click "Add" to create one.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {fathersOfConfession.map(father => (
+                  <div key={father.id} className="p-3 border rounded-lg flex justify-between items-start group">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm truncate">{father.name}</div>
+                      {father.church && <div className="text-xs text-gray-500 truncate">{father.church}</div>}
+                      {father.phone && <div className="text-xs text-gray-400">{father.phone}</div>}
+                      <div className="text-xs text-maroon-600 mt-1">{father._count?.students || 0} students</div>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => openEditFatherDialog(father)}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFather(father)}
+                        className="p-1 text-gray-400 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -263,14 +443,14 @@ export default function EnrollmentsPage() {
                   </option>
                 ))}
               </select>
-              {(searchTerm || filterMentor !== 'all' || filterYear !== 'all' || filterStatus !== 'ACTIVE' || filterAcademicYear !== 'all') && (
+              {(searchTerm || filterMentor !== 'all' || filterYear !== 'all' || filterStatus !== 'all' || filterAcademicYear !== 'all') && (
                 <Button
                   variant="outline"
                   onClick={() => {
                     setSearchTerm('')
                     setFilterMentor('all')
                     setFilterYear('all')
-                    setFilterStatus('ACTIVE')
+                    setFilterStatus('all')
                     setFilterAcademicYear('all')
                   }}
                 >
@@ -292,6 +472,7 @@ export default function EnrollmentsPage() {
                     <th className="text-left p-3 font-semibold">Student</th>
                     <th className="text-left p-3 font-semibold w-24">Year</th>
                     <th className="text-left p-3 font-semibold">Mentor</th>
+                    <th className="text-left p-3 font-semibold">Father of Confession</th>
                     <th className="text-left p-3 font-semibold w-28">Status</th>
                     <th className="text-left p-3 font-semibold">Academic Year</th>
                   </tr>
@@ -318,6 +499,20 @@ export default function EnrollmentsPage() {
                           {mentors.map(mentor => (
                             <option key={mentor.id} value={mentor.id}>
                               {mentor.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-3">
+                        <select
+                          className="h-9 px-2 text-sm rounded-md border border-input bg-background w-full max-w-xs"
+                          value={enrollment.fatherOfConfession?.id || ''}
+                          onChange={(e) => handleFatherChange(enrollment.id, e.target.value)}
+                        >
+                          <option value="">Unassigned</option>
+                          {fathersOfConfession.map(father => (
+                            <option key={father.id} value={father.id}>
+                              {father.name}
                             </option>
                           ))}
                         </select>
@@ -401,6 +596,21 @@ export default function EnrollmentsPage() {
                         ))}
                       </select>
                     </div>
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">Father of Confession:</label>
+                      <select
+                        className="h-9 px-3 text-sm rounded-md border border-input bg-background w-full"
+                        value={enrollment.fatherOfConfession?.id || ''}
+                        onChange={(e) => handleFatherChange(enrollment.id, e.target.value)}
+                      >
+                        <option value="">Unassigned</option>
+                        {fathersOfConfession.map(father => (
+                          <option key={father.id} value={father.id}>
+                            {father.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -414,6 +624,54 @@ export default function EnrollmentsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Add/Edit Father of Confession Dialog */}
+      <Dialog open={showFatherDialog} onOpenChange={setShowFatherDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingFather ? 'Edit Father of Confession' : 'Add Father of Confession'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="father-name">Name *</Label>
+              <Input
+                id="father-name"
+                placeholder="Fr. Name"
+                value={fatherForm.name}
+                onChange={(e) => setFatherForm({ ...fatherForm, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="father-church">Church</Label>
+              <Input
+                id="father-church"
+                placeholder="St. Mary's Church"
+                value={fatherForm.church}
+                onChange={(e) => setFatherForm({ ...fatherForm, church: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="father-phone">Phone</Label>
+              <Input
+                id="father-phone"
+                placeholder="(555) 123-4567"
+                value={fatherForm.phone}
+                onChange={(e) => setFatherForm({ ...fatherForm, phone: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFatherDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveFather} disabled={savingFather}>
+              {savingFather ? 'Saving...' : (editingFather ? 'Update' : 'Add')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

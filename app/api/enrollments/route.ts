@@ -90,6 +90,14 @@ export async function GET(request: Request) {
             id: true,
             name: true,
           }
+        },
+        fatherOfConfession: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            church: true,
+          }
         }
       },
       orderBy: {

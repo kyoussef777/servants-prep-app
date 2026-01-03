@@ -112,6 +112,7 @@ model StudentEnrollment {
   mentorId                String?
   mentorName              String?
   mentorPhone             String?
+  fatherOfConfessionId    String?            // Reference to FatherOfConfession (not a User)
   isActive                Boolean            @default(true)
   status                  EnrollmentStatus   @default(ACTIVE)
   notes                   String?            @db.Text
@@ -120,10 +121,11 @@ model StudentEnrollment {
   updatedAt               DateTime           @updatedAt @default(now())
 
   // Relations
-  student               User          @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
-  mentor                User?         @relation("MentorServant", fields: [mentorId], references: [id])
-  academicYear          AcademicYear? @relation("EnrollmentYear", fields: [academicYearId], references: [id])
-  graduatedAcademicYear AcademicYear? @relation("GraduationYear", fields: [graduatedAcademicYearId], references: [id])
+  student               User                 @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+  mentor                User?                @relation("MentorServant", fields: [mentorId], references: [id])
+  academicYear          AcademicYear?        @relation("EnrollmentYear", fields: [academicYearId], references: [id])
+  graduatedAcademicYear AcademicYear?        @relation("GraduationYear", fields: [graduatedAcademicYearId], references: [id])
+  fatherOfConfession    FatherOfConfession?  @relation(fields: [fatherOfConfessionId], references: [id], onDelete: SetNull)
 
   @@index([studentId])
   @@index([mentorId])
@@ -131,6 +133,7 @@ model StudentEnrollment {
   @@index([status])
   @@index([academicYearId])
   @@index([graduatedAcademicYearId])
+  @@index([fatherOfConfessionId])
   @@index([mentorId, isActive]) // Compound index for mentor filtering with active status
   @@index([mentorId, status]) // Compound index for mentor filtering with enrollment status
 }
@@ -255,4 +258,20 @@ model StudentNote {
   @@index([studentId])
   @@index([authorId])
   @@index([createdAt])
+}
+
+model FatherOfConfession {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  church    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  students StudentEnrollment[]
+
+  @@index([isActive])
+  @@index([name])
 }

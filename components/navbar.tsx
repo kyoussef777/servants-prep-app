@@ -64,7 +64,7 @@ export function Navbar() {
       { href: '/dashboard/admin/curriculum', label: 'Curriculum' },
       { href: '/dashboard/admin/students', label: 'Students' },
       { href: '/dashboard/admin/mentees', label: 'Mentees' },
-      { href: '/dashboard/admin/enrollments', label: 'Enrollments' },
+      { href: '/dashboard/admin/enrollments', label: 'Roster' },
       { href: '/dashboard/admin/users', label: 'Users' }
     ]
   }
