@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -124,9 +124,10 @@ interface StudentDetails {
   allLessons: Lesson[]
 }
 
-export default function StudentsManagementPage() {
+function StudentsManagementContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [students, setStudents] = useState<Student[]>([])
   const [analytics, setAnalytics] = useState<StudentAnalytics[]>([])
   const [loading, setLoading] = useState(true)
@@ -155,6 +156,20 @@ export default function StudentsManagementPage() {
       fetchStudents()
     }
   }, [session])
+
+  // Handle URL parameter to open student details modal directly
+  useEffect(() => {
+    const studentId = searchParams.get('student')
+    if (studentId && students.length > 0 && !loading) {
+      // Check if the student exists
+      const student = students.find(s => s.id === studentId)
+      if (student) {
+        openStudentDetails(studentId)
+        // Clear the URL parameter after opening
+        router.replace('/dashboard/admin/students', { scroll: false })
+      }
+    }
+  }, [searchParams, students, loading])
 
   const fetchStudents = async () => {
     try {
@@ -898,5 +913,20 @@ export default function StudentsManagementPage() {
         onRefresh={refreshStudentDetails}
       />
     </div>
+  )
+}
+
+export default function StudentsManagementPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-6">
+        <div className="flex flex-col gap-4">
+          <div className="h-8 w-48 bg-gray-200 animate-pulse rounded" />
+          <div className="h-64 bg-gray-100 animate-pulse rounded" />
+        </div>
+      </div>
+    }>
+      <StudentsManagementContent />
+    </Suspense>
   )
 }

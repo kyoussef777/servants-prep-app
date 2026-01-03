@@ -67,12 +67,24 @@ interface WeakSection {
   count: number
 }
 
+interface ProgramOverview {
+  currentYearExams: number
+  totalRelevantExams: number
+  year1ExamsNeeded: number
+  year2ExamsNeeded: number
+  year1StudentCount: number
+  year2StudentCount: number
+  totalScoresRecorded: number
+  overallProgramAverage: number | null
+}
+
 interface Analytics {
   examScoresByYear: YearExamScores[]
   attendanceByYear: YearAttendance[]
   atRiskStudents: AtRiskStudent[]
   weakestSections: WeakSection[]
   totalAtRisk: number
+  programOverview: ProgramOverview
 }
 
 export default function AdminDashboard() {
@@ -190,13 +202,13 @@ export default function AdminDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Exams</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Exams</CardTitle>
               <GraduationCap className="h-4 w-4 text-gray-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalExams || 0}</div>
+              <div className="text-2xl font-bold">{analytics?.programOverview?.totalRelevantExams || stats?.totalExams || 0}</div>
               <p className="text-xs text-gray-500 mt-1">
-                Created exams
+                {analytics?.programOverview?.totalScoresRecorded || 0} scores recorded
               </p>
             </CardContent>
           </Card>
@@ -216,7 +228,60 @@ export default function AdminDashboard() {
         </div>
 
         {/* Program Health Overview */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Program Overview */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-600" />
+                <div>
+                  <CardTitle>Program Overview</CardTitle>
+                  <CardDescription>Students by year level</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {analytics?.programOverview ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                      <div className="text-2xl font-bold text-blue-700">
+                        {analytics.programOverview.year1StudentCount}
+                      </div>
+                      <div className="text-xs text-blue-600">Year 1 Students</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {analytics.programOverview.year1ExamsNeeded} exams
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-purple-50 border border-purple-100">
+                      <div className="text-2xl font-bold text-purple-700">
+                        {analytics.programOverview.year2StudentCount}
+                      </div>
+                      <div className="text-xs text-purple-600">Year 2 Students</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {analytics.programOverview.year2ExamsNeeded} exams total
+                      </div>
+                    </div>
+                  </div>
+                  {analytics.programOverview.overallProgramAverage !== null && (
+                    <div className="pt-2 border-t">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Program Exam Average</span>
+                        <span className={`font-bold ${getScoreColor(analytics.programOverview.overallProgramAverage)}`}>
+                          {analytics.programOverview.overallProgramAverage.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  Loading...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Current Year Attendance */}
           <Card>
             <CardHeader>
@@ -431,7 +496,7 @@ export default function AdminDashboard() {
                               </p>
                             )}
                           </div>
-                          <Link href={`/dashboard/admin/students?search=${encodeURIComponent(student.name)}`}>
+                          <Link href={`/dashboard/admin/students?student=${student.id}`}>
                             <Button variant="ghost" size="sm">View</Button>
                           </Link>
                         </div>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { isAdmin } from "@/lib/roles"
-import { AttendanceStatus } from "@prisma/client"
+import { AttendanceStatus, YearLevel, ExamYearLevel } from "@prisma/client"
 
 // GET /api/dashboard/analytics - Get detailed analytics for the dashboard
 export async function GET() {
@@ -22,21 +22,35 @@ export async function GET() {
       select: { id: true, name: true, isActive: true }
     })
 
+    const activeYear = academicYears.find(y => y.isActive)
+
     // Get all exam sections
     const examSections = await prisma.examSection.findMany({
       select: { id: true, name: true, displayName: true }
     })
 
-    // Get exam scores with exam and section info
+    // Get exam scores with exam and section info (ALL exams, not filtered by year)
     const examScores = await prisma.examScore.findMany({
       select: {
         score: true,
+        studentId: true,
         exam: {
           select: {
+            id: true,
             academicYearId: true,
-            examSectionId: true
+            examSectionId: true,
+            yearLevel: true
           }
         }
+      }
+    })
+
+    // Get all exams to count properly
+    const allExams = await prisma.exam.findMany({
+      select: {
+        id: true,
+        academicYearId: true,
+        yearLevel: true
       }
     })
 
@@ -292,12 +306,81 @@ export async function GET() {
       }
     })
 
+    // Calculate program-wide exam stats
+    // For Year 2 students, include exams from both current year AND previous year (their Year 1 exams)
+    const year2Students = activeEnrollments.filter(e => e.yearLevel === YearLevel.YEAR_2).map(e => e.student.id)
+    const year1Students = activeEnrollments.filter(e => e.yearLevel === YearLevel.YEAR_1).map(e => e.student.id)
+
+    // Get the previous academic year (for Year 2 students' Year 1 exams)
+    const activeYearIndex = academicYears.findIndex(y => y.isActive)
+    const previousYear = activeYearIndex >= 0 && activeYearIndex < academicYears.length - 1
+      ? academicYears[activeYearIndex + 1]
+      : null
+
+    // Count relevant exams for current active students
+    // Current year exams (for all students)
+    const currentYearExams = allExams.filter(e => activeYear && e.academicYearId === activeYear.id)
+    // Previous year exams (relevant for Year 2 students who took them as Year 1)
+    const previousYearExams = previousYear
+      ? allExams.filter(e => e.academicYearId === previousYear.id)
+      : []
+
+    // Total unique exams relevant to current program
+    const relevantExamIds = new Set([
+      ...currentYearExams.map(e => e.id),
+      ...previousYearExams.map(e => e.id)
+    ])
+
+    // Count exam scores for active students
+    const activeStudentIds = new Set(activeEnrollments.map(e => e.student.id))
+    const activeStudentScores = examScores.filter(s => activeStudentIds.has(s.studentId))
+
+    // Calculate completion rates
+    const year1ExamCount = currentYearExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_1 || e.yearLevel === ExamYearLevel.BOTH).length
+    const year2ExamCount = currentYearExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_2 || e.yearLevel === ExamYearLevel.BOTH).length
+    const previousYearYear1ExamCount = previousYearExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_1 || e.yearLevel === ExamYearLevel.BOTH).length
+
+    // For Year 2 students, they need current Year 2 exams + their Year 1 exams from previous year
+    const totalExamsForYear2 = year2ExamCount + previousYearYear1ExamCount
+
+    // Count exams by year level
+    // An exam with BOTH applies to both Year 1 and Year 2 students
+    const year1OnlyExams = allExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_1)
+    const year2OnlyExams = allExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_2)
+    const bothYearsExams = allExams.filter(e => e.yearLevel === ExamYearLevel.BOTH)
+
+    // Year 1 students need: YEAR_1 exams + BOTH exams
+    const examsForYear1Students = year1OnlyExams.length + bothYearsExams.length
+    // Year 2 students need: YEAR_1 exams + YEAR_2 exams + BOTH exams (all of them)
+    const examsForYear2Students = allExams.length
+
+    // Program overview stats
+    const programOverview = {
+      // Total exams in current academic year
+      currentYearExams: currentYearExams.length,
+      // Total exams in the database
+      totalRelevantExams: allExams.length,
+      // Exam counts by student year level
+      year1ExamsNeeded: examsForYear1Students,
+      year2ExamsNeeded: examsForYear2Students,
+      // Student counts
+      year1StudentCount: year1Students.length,
+      year2StudentCount: year2Students.length,
+      // Scores recorded
+      totalScoresRecorded: activeStudentScores.length,
+      // Average scores across all active students (all their exams)
+      overallProgramAverage: activeStudentScores.length > 0
+        ? activeStudentScores.reduce((sum, s) => sum + s.score, 0) / activeStudentScores.length
+        : null
+    }
+
     return NextResponse.json({
       examScoresByYear,
       attendanceByYear: attendanceByYearFormatted,
       atRiskStudents: atRiskStudents.slice(0, 10), // Top 10 at-risk
       weakestSections: sectionAverages.slice(0, 3), // Bottom 3 sections
-      totalAtRisk: atRiskStudents.length
+      totalAtRisk: atRiskStudents.length,
+      programOverview
     })
   } catch (error: unknown) {
     return NextResponse.json(
