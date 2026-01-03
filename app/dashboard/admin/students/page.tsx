@@ -83,6 +83,7 @@ interface AttendanceRecord {
     examSection: {
       id: string
       name: string
+      displayName: string
       yearLevel: string
     }
   }
