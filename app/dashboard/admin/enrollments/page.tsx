@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { canAssignMentors } from '@/lib/roles'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, X } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 
 interface AcademicYear {
   id: string
@@ -63,9 +63,10 @@ export default function EnrollmentsPage() {
   const [filterMentor, setFilterMentor] = useState<string>('all')
   const [filterYear, setFilterYear] = useState<string>('all')
   const [filterAcademicYear, setFilterAcademicYear] = useState<string>('all')
-  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterStatus, setFilterStatus] = useState<string>('ACTIVE')
 
   // Father of Confession management
+  const [showFathersListDialog, setShowFathersListDialog] = useState(false)
   const [showFatherDialog, setShowFatherDialog] = useState(false)
   const [editingFather, setEditingFather] = useState<FatherOfConfession | null>(null)
   const [fatherForm, setFatherForm] = useState({ name: '', phone: '', church: '' })
@@ -319,9 +320,14 @@ export default function EnrollmentsPage() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Student Roster</h1>
-          <p className="text-gray-600 mt-1">Manage student assignments ({filteredEnrollments.length} students)</p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Student Roster</h1>
+            <p className="text-gray-600 mt-1">Manage student assignments ({filteredEnrollments.length} students)</p>
+          </div>
+          <Button variant="outline" onClick={() => setShowFathersListDialog(true)}>
+            Manage Priests ({fathersOfConfession.length})
+          </Button>
         </div>
 
         {/* Mentor Workload Summary */}
@@ -341,51 +347,6 @@ export default function EnrollmentsPage() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Fathers of Confession */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Fathers of Confession</CardTitle>
-            <Button size="sm" onClick={openAddFatherDialog}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {fathersOfConfession.length === 0 ? (
-              <p className="text-gray-500 text-sm">No fathers of confession added yet. Click "Add" to create one.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {fathersOfConfession.map(father => (
-                  <div key={father.id} className="p-3 border rounded-lg flex justify-between items-start group">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm truncate">{father.name}</div>
-                      {father.church && <div className="text-xs text-gray-500 truncate">{father.church}</div>}
-                      {father.phone && <div className="text-xs text-gray-400">{father.phone}</div>}
-                      <div className="text-xs text-maroon-600 mt-1">{father._count?.students || 0} students</div>
-                    </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onClick={() => openEditFatherDialog(father)}
-                        className="p-1 text-gray-400 hover:text-gray-600"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteFather(father)}
-                        className="p-1 text-gray-400 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -624,6 +585,57 @@ export default function EnrollmentsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Fathers of Confession List Dialog */}
+      <Dialog open={showFathersListDialog} onOpenChange={setShowFathersListDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader className="pr-8">
+            <DialogTitle>Fathers of Confession</DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-end -mt-2 mb-2">
+            <Button size="sm" onClick={openAddFatherDialog}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </div>
+          <div className="py-4 max-h-[60vh] overflow-y-auto">
+            {fathersOfConfession.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center py-8">
+                No fathers of confession added yet.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {fathersOfConfession.map(father => (
+                  <div key={father.id} className="p-3 border rounded-lg flex justify-between items-start hover:bg-gray-50">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm">{father.name}</div>
+                      {father.church && <div className="text-xs text-gray-500">{father.church}</div>}
+                      {father.phone && <div className="text-xs text-gray-400">{father.phone}</div>}
+                      <div className="text-xs text-maroon-600 mt-1">{father._count?.students || 0} students</div>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditFatherDialog(father)}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFather(father)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Father of Confession Dialog */}
       <Dialog open={showFatherDialog} onOpenChange={setShowFatherDialog}>
