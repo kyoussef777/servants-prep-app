@@ -120,25 +120,34 @@ const user = await requireRole([UserRole.PRIEST, UserRole.SUPER_ADMIN])  // Thro
 
 2. **AttendanceRecord**
    - Links to: `lesson`, `student`, `recordedBy` (teacher)
-   - Statuses: PRESENT, LATE, ABSENT
+   - Statuses: PRESENT, LATE, ABSENT, EXCUSED
    - Late attendance calculation: 2 lates = 1 absence
+   - EXCUSED absences do not count against the student (excluded from both numerator and denominator)
 
 3. **Exam & ExamScore**
    - Exams have `yearLevel`: YEAR_1, YEAR_2, or BOTH
-   - 7 exam sections: Bible Studies, Dogma, Comparative Theology, Ritual Theology & Sacraments, Church History & Coptic Heritage, Spirituality of Mentor, Psychology & Methodology
+   - 8 exam sections: Bible Studies, Dogma, Comparative Theology, Ritual Theology & Sacraments, Church History & Coptic Heritage, Spirituality of the Servant, Psychology & Methodology, Miscellaneous
    - Scores link to: `exam`, `student`, `gradedBy`
 
 4. **Lesson**
    - Status: SCHEDULED, COMPLETED, CANCELLED
+   - `isExamDay`: Boolean flag - when true, attendance is NOT counted toward graduation requirements
    - Links to: `academicYear`, `examSection`, `createdBy`
-   - Has many `attendanceRecords`
+   - Has many `attendanceRecords` and `resources` (LessonResource)
    - **Note:** Lessons do NOT have a yearLevel field - they apply to all students
 
+5. **LessonResource**
+   - Allows multiple resource links per lesson (e.g., PowerPoint, PDF, video)
+   - Fields: `title`, `url`, `type` (optional)
+   - Cascade deletes when lesson is deleted
+
 **Graduation Requirements Logic:**
-- **Attendance ≥ 75%:** `(present + (lates / 2)) / total_lessons`
+- **Attendance ≥ 75%:** `(present + (lates / 2)) / (total_lessons - excused)`
   - **Formula A** is used consistently across ALL APIs (`/api/students/[id]/analytics` and `/api/students/analytics/batch`)
   - This counts what's present, not what's absent
   - 2 lates = 1 absence
+  - EXCUSED absences are excluded from both numerator and denominator
+  - Lessons marked as `isExamDay: true` are excluded from attendance calculations
 - Overall exam average ≥ 75% across all sections
 - Minimum 60% in each individual exam section
 - Must complete both YEAR_1 and YEAR_2
@@ -332,8 +341,8 @@ NEXTAUTH_SECRET="<generate-with-openssl-rand-base64-32>"
 - `/dashboard/admin` - Main admin dashboard with statistics and quick links
 - `/dashboard/admin/users` - User management (create/edit/delete users with role-based filtering)
 - `/dashboard/admin/students` - Student management with analytics, enrollment, and detailed views
-- `/dashboard/admin/attendance` - Attendance tracking and management
-- `/dashboard/admin/curriculum` - Curriculum and lesson management
+- `/dashboard/admin/attendance` - Attendance tracking and management (filters out CANCELLED and exam day lessons)
+- `/dashboard/admin/curriculum` - Curriculum and lesson management (with expanded edit mode, resources, and exam day marking)
 - `/dashboard/admin/exams` - Exam management and grading
 - `/dashboard/admin/enrollments` - Student enrollment and mentor assignment
 - `/dashboard/admin/mentees` - View mentee assignments (for SERVANT_PREP role with mentees)
@@ -404,6 +413,38 @@ NEXTAUTH_SECRET="<generate-with-openssl-rand-base64-32>"
 **Custom Components:**
 - `StudentDetailsModal` - Detailed student information modal
 - `BulkStudentImport` - Bulk student import functionality
+
+### Curriculum Page Features
+
+**Expanded Edit Mode:**
+- When editing a lesson, the table row expands vertically to show all fields without horizontal scrolling
+- Uses `colSpan` to span all columns and displays a form layout with multiple rows
+- Includes: title, subtitle, date, section, description, status, cancellation reason, exam day toggle, and resources
+
+**Lesson Resources:**
+- Each lesson can have multiple resource links (e.g., PowerPoint, PDF, video)
+- Resources are managed in the expanded edit mode with add/remove functionality
+- Each resource has a title (required) and URL (required), with optional type
+- Resources are displayed as clickable links on lesson cards
+
+**Exam Day Marking:**
+- Lessons can be marked as "Exam Day" using a checkbox in edit mode
+- Exam day lessons display a yellow "Exam Day" badge
+- Attendance on exam day lessons does NOT count toward graduation requirements
+- Exam day lessons are filtered out from the attendance page
+
+### Attendance Page Features
+
+**Lesson Filtering:**
+- CANCELLED lessons are filtered out (not shown in either scheduled or completed tabs)
+- Exam day lessons (`isExamDay: true`) are filtered out from both tabs
+- This ensures attendance is only tracked for regular class sessions
+
+**Attendance Statuses:**
+- PRESENT - Student attended the class
+- LATE - Student arrived late (counts as 0.5 present for graduation calculation)
+- ABSENT - Student did not attend
+- EXCUSED - Student had a valid excuse (excluded from graduation calculation entirely)
 
 ### SWR Integration
 

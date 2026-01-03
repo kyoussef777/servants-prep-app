@@ -25,6 +25,7 @@ interface Lesson {
   lessonNumber: number
   status: string
   academicYearId: string
+  isExamDay?: boolean
   examSection: {
     displayName: string
   }
@@ -310,12 +311,13 @@ export default function AttendancePage() {
   // Categorize lessons by whether attendance has been taken
   // "Scheduled" = no attendance records yet (needs attendance)
   // "Completed" = has attendance records
+  // Filter out CANCELLED lessons and exam days - they shouldn't appear on attendance page
   const scheduledLessons = lessons
-    .filter(l => (l._count?.attendanceRecords || 0) === 0)
+    .filter(l => l.status !== 'CANCELLED' && !l.isExamDay && (l._count?.attendanceRecords || 0) === 0)
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
 
   const completedLessons = lessons
-    .filter(l => (l._count?.attendanceRecords || 0) > 0)
+    .filter(l => l.status !== 'CANCELLED' && !l.isExamDay && (l._count?.attendanceRecords || 0) > 0)
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()) // Most recent first
 
   if (loading || status === 'loading') {
