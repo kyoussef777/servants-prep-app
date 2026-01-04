@@ -54,8 +54,13 @@ export async function GET() {
       }
     })
 
-    // Get attendance records with lesson info
+    // Get attendance records with lesson info (exclude exam day lessons)
     const attendanceRecords = await prisma.attendanceRecord.findMany({
+      where: {
+        lesson: {
+          isExamDay: false
+        }
+      },
       select: {
         status: true,
         lesson: {
@@ -123,11 +128,14 @@ export async function GET() {
     // Get individual student analytics for at-risk calculation
     const studentIds = activeEnrollments.map(e => e.student.id)
 
-    // Get attendance per student
+    // Get attendance per student (exclude exam day lessons)
     const studentAttendance = await prisma.attendanceRecord.groupBy({
       by: ['studentId', 'status'],
       where: {
-        studentId: { in: studentIds }
+        studentId: { in: studentIds },
+        lesson: {
+          isExamDay: false
+        }
       },
       _count: true
     })
