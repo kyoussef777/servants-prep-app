@@ -42,7 +42,7 @@ describe('auth-helpers', () => {
     })
 
     it('returns undefined when session has no user', async () => {
-      mockGetServerSession.mockResolvedValue({ expires: '' } as any)
+      mockGetServerSession.mockResolvedValue({ expires: '' } as { expires: string })
 
       const result = await getCurrentUser()
       expect(result).toBeUndefined()
@@ -70,7 +70,7 @@ describe('auth-helpers', () => {
     })
 
     it('throws Unauthorized when session has no user', async () => {
-      mockGetServerSession.mockResolvedValue({ expires: '' } as any)
+      mockGetServerSession.mockResolvedValue({ expires: '' } as { expires: string })
 
       await expect(requireAuth()).rejects.toThrow('Unauthorized')
     })

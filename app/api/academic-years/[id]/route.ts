@@ -34,7 +34,7 @@ export async function PATCH(
       })
     }
 
-    const updateData: any = {}
+    const updateData: { name?: string; startDate?: Date; endDate?: Date; isActive?: boolean } = {}
     if (name) updateData.name = name
     if (startDate) updateData.startDate = new Date(startDate)
     if (endDate) updateData.endDate = new Date(endDate)

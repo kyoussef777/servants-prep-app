@@ -631,7 +631,7 @@ export default function ExamsPage() {
                           <td className="p-2 text-center">
                             {percentage !== null ? (
                               <span className={`font-medium ${isPassing ? 'text-green-600' : 'text-red-600'}`}>
-                                {percentage.toFixed(1)}%
+                                {percentage.toFixed(2)}%
                               </span>
                             ) : (
                               <span className="text-gray-400">—</span>
@@ -728,7 +728,7 @@ export default function ExamsPage() {
                             <div>
                               <div className="text-xs text-gray-500">Percentage</div>
                               <div className={`text-lg font-bold ${isPassing ? 'text-green-600' : 'text-red-600'}`}>
-                                {percentage.toFixed(1)}%
+                                {percentage.toFixed(2)}%
                               </div>
                             </div>
                             <Badge className={isPassing ? 'bg-green-500' : 'bg-red-500'}>
@@ -789,7 +789,7 @@ export default function ExamsPage() {
                 <select
                   className="w-full h-10 px-3 rounded-md border border-input bg-background mt-1"
                   value={newExam.yearLevel}
-                  onChange={(e) => setNewExam({ ...newExam, yearLevel: e.target.value as any })}
+                  onChange={(e) => setNewExam({ ...newExam, yearLevel: e.target.value as 'YEAR_1' | 'YEAR_2' | 'BOTH' })}
                 >
                   <option value="BOTH">All Students (Both Years)</option>
                   <option value="YEAR_1">Year 1 Only</option>

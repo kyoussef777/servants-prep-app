@@ -34,7 +34,7 @@ async function main() {
   console.log('========================================\n')
 
   const sheet = workbook.Sheets['Attendance (2024 - 2025)']
-  const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][]
+  const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][]
 
   // Parse header row to get dates
   const headerRow = data[0]

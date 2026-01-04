@@ -141,7 +141,7 @@ function StudentsManagementContent() {
   const [viewingStudent, setViewingStudent] = useState<string | null>(null)
   const [studentDetails, setStudentDetails] = useState<StudentDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
-  const [academicYearId, setAcademicYearId] = useState<string | null>(null)
+  const [, setAcademicYearId] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -169,7 +169,7 @@ function StudentsManagementContent() {
         router.replace('/dashboard/admin/students', { scroll: false })
       }
     }
-  }, [searchParams, students, loading])
+  }, [searchParams, students, loading, router])
 
   const fetchStudents = async () => {
     try {
@@ -281,7 +281,7 @@ function StudentsManagementContent() {
 
       await fetchStudents()
       setSelectedStudents(new Set())
-    } catch (error) {
+    } catch {
       toast.error('Failed to update year level')
     }
   }
@@ -318,7 +318,7 @@ function StudentsManagementContent() {
       await fetchStudents()
       setSelectedStudents(new Set())
       setShowGraduateDialog(false)
-    } catch (error) {
+    } catch {
       toast.error('Failed to update enrollment status')
     }
   }
@@ -648,14 +648,18 @@ function StudentsManagementContent() {
                         </td>
                         <td className="p-3">
                           {studentAnalytics ? (
-                            <div>
-                              <div className={`font-semibold ${year1Color}`}>
-                                {studentAnalytics.year1AttendancePercentage.toFixed(1)}%
+                            studentAnalytics.year1AttendancePercentage !== null ? (
+                              <div>
+                                <div className={`font-semibold ${year1Color}`}>
+                                  {studentAnalytics.year1AttendancePercentage.toFixed(2)}%
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {studentAnalytics.year1AttendedLessons}/{studentAnalytics.year1TotalLessons} lessons
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500">
-                                {studentAnalytics.year1AttendedLessons}/{studentAnalytics.year1TotalLessons} lessons
-                              </div>
-                            </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )
                           ) : (
                             <span className="text-gray-400 text-sm">N/A</span>
                           )}
@@ -665,7 +669,7 @@ function StudentsManagementContent() {
                             studentAnalytics.year2AttendancePercentage !== null ? (
                               <div>
                                 <div className={`font-semibold ${year2Color}`}>
-                                  {studentAnalytics.year2AttendancePercentage.toFixed(1)}%
+                                  {studentAnalytics.year2AttendancePercentage.toFixed(2)}%
                                 </div>
                                 <div className="text-xs text-gray-500">
                                   {studentAnalytics.year2AttendedLessons}/{studentAnalytics.year2TotalLessons} lessons
@@ -680,14 +684,18 @@ function StudentsManagementContent() {
                         </td>
                         <td className="p-3">
                           {studentAnalytics ? (
-                            <div>
-                              <div className={`font-semibold ${examColor}`}>
-                                {studentAnalytics.avgExamScore.toFixed(1)}%
+                            studentAnalytics.avgExamScore !== null ? (
+                              <div>
+                                <div className={`font-semibold ${examColor}`}>
+                                  {studentAnalytics.avgExamScore.toFixed(2)}%
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {studentAnalytics.examCount} exam{studentAnalytics.examCount !== 1 ? 's' : ''}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500">
-                                {studentAnalytics.examCount} exam{studentAnalytics.examCount !== 1 ? 's' : ''}
-                              </div>
-                            </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )
                           ) : (
                             <span className="text-gray-400 text-sm">N/A</span>
                           )}
@@ -789,21 +797,25 @@ function StudentsManagementContent() {
                           <div>
                             <div className="text-xs text-gray-500">Year 1</div>
                             <div className={`text-base font-semibold ${year1Color}`}>
-                              {studentAnalytics.year1AttendancePercentage.toFixed(1)}%
+                              {studentAnalytics.year1AttendancePercentage !== null
+                                ? `${studentAnalytics.year1AttendancePercentage.toFixed(2)}%`
+                                : '—'}
                             </div>
                           </div>
                           <div>
                             <div className="text-xs text-gray-500">Year 2</div>
                             <div className={`text-base font-semibold ${year2Color}`}>
                               {studentAnalytics.year2AttendancePercentage !== null
-                                ? `${studentAnalytics.year2AttendancePercentage.toFixed(1)}%`
+                                ? `${studentAnalytics.year2AttendancePercentage.toFixed(2)}%`
                                 : '—'}
                             </div>
                           </div>
                           <div>
                             <div className="text-xs text-gray-500">Exam Avg</div>
                             <div className={`text-base font-semibold ${examColor}`}>
-                              {studentAnalytics.avgExamScore.toFixed(1)}%
+                              {studentAnalytics.avgExamScore !== null
+                                ? `${studentAnalytics.avgExamScore.toFixed(2)}%`
+                                : '—'}
                             </div>
                           </div>
                         </div>

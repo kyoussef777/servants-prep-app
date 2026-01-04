@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: PrismaAdapter(prisma) as unknown as NextAuthOptions['adapter'],
   providers: [
     CredentialsProvider({
       name: "credentials",

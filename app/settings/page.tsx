@@ -13,7 +13,6 @@ import { toast } from 'sonner'
 export default function SettingsPage() {
   const { data: session, status, update } = useSession()
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
 
   // Name change
   const [name, setName] = useState('')
@@ -101,7 +100,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (loading || status === 'loading') {
+  if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>

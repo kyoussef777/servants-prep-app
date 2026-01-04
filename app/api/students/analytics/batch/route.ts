@@ -232,18 +232,6 @@ export async function GET(request: Request) {
       else if ((record.status as string) === 'EXCUSED') yearRecord.excused++
     }
 
-    // Count lessons per academic year (only lessons with attendance records)
-    const lessonsByAcademicYear = await prisma.lesson.groupBy({
-      by: ['academicYearId'],
-      where: lessonsWithAttendanceFilter,
-      _count: true
-    })
-
-    const lessonsCountByAcademicYear = new Map<string, number>()
-    for (const l of lessonsByAcademicYear) {
-      lessonsCountByAcademicYear.set(l.academicYearId, l._count)
-    }
-
     // Calculate stats for each student using pre-aggregated data
     const studentAnalytics = enrollments.map(enrollment => {
       const studentId = enrollment.studentId
@@ -259,18 +247,12 @@ export async function GET(request: Request) {
       const year1Attendance = year1AcademicYearId && studentAcademicYearAttendance
         ? studentAcademicYearAttendance.get(year1AcademicYearId) || { present: 0, late: 0, absent: 0, excused: 0 }
         : { present: 0, late: 0, absent: 0, excused: 0 }
-      const year1LessonsCount = year1AcademicYearId
-        ? lessonsCountByAcademicYear.get(year1AcademicYearId) || 0
-        : 0
 
       // Get Year 2 attendance for this student (null if not in Year 2 yet)
       const year2AcademicYearId = studentYearMapping.year2AcademicYearId
       const year2Attendance = year2AcademicYearId && studentAcademicYearAttendance
         ? studentAcademicYearAttendance.get(year2AcademicYearId) || { present: 0, late: 0, absent: 0, excused: 0 }
         : null // null means not in Year 2 yet
-      const year2LessonsCount = year2AcademicYearId
-        ? lessonsCountByAcademicYear.get(year2AcademicYearId) || 0
-        : 0
 
       // Calculate attendance using Formula A: (Present + Late/2) / (Total - Excused) * 100
       // EXCUSED lessons don't count against or for the student
@@ -279,26 +261,35 @@ export async function GET(request: Request) {
       const absentCount = attendance.absent
       const excusedCount = attendance.excused
 
-      // Overall attendance calculation (subtract excused from total)
+      // Overall attendance calculation
+      // IMPORTANT: Use the STUDENT'S attendance record count, not ALL lessons in the system
+      // This ensures Year 1 students are only measured against lessons they were expected to attend
+      const studentTotalLessons = presentCount + lateCount + absentCount + excusedCount
       const totalEffectivePresent = presentCount + (lateCount / 2)
-      const effectiveTotalLessons = lessonsWithAttendanceCount - excusedCount
+      const effectiveTotalLessons = studentTotalLessons - excusedCount
+      // If no lessons yet, return null (not 0) - don't penalize for lessons that haven't happened
       const overallAttendancePercentage = effectiveTotalLessons > 0
         ? (totalEffectivePresent / effectiveTotalLessons) * 100
-        : 0
+        : null
 
-      // Year 1 attendance (subtract excused from total)
+      // Year 1 attendance - use STUDENT'S attendance records for that year, not all lessons
+      const year1StudentTotalLessons = year1Attendance.present + year1Attendance.late + year1Attendance.absent + year1Attendance.excused
       const year1EffectivePresent = year1Attendance.present + (year1Attendance.late / 2)
-      const year1EffectiveTotalLessons = year1LessonsCount - year1Attendance.excused
+      const year1EffectiveTotalLessons = year1StudentTotalLessons - year1Attendance.excused
+      // If no lessons yet, return null - don't penalize
       const year1AttendancePercentage = year1EffectiveTotalLessons > 0
         ? (year1EffectivePresent / year1EffectiveTotalLessons) * 100
-        : 0
+        : null
 
-      // Year 2 attendance (null if student is still in Year 1)
+      // Year 2 attendance (null if student is still in Year 1) - use STUDENT'S attendance records
+      const year2StudentTotalLessons = year2Attendance
+        ? year2Attendance.present + year2Attendance.late + year2Attendance.absent + year2Attendance.excused
+        : 0
       const year2EffectivePresent = year2Attendance
         ? year2Attendance.present + (year2Attendance.late / 2)
         : 0
       const year2EffectiveTotalLessons = year2Attendance
-        ? year2LessonsCount - year2Attendance.excused
+        ? year2StudentTotalLessons - year2Attendance.excused
         : 0
       const year2AttendancePercentage = year2Attendance && year2EffectiveTotalLessons > 0
         ? (year2EffectivePresent / year2EffectiveTotalLessons) * 100
@@ -312,23 +303,28 @@ export async function GET(request: Request) {
       if (studentSections) {
         for (const [sectionName, scores] of studentSections.entries()) {
           const avg = scores.reduce((a, b) => a + b, 0) / scores.length
-          sectionAverages[sectionName] = Math.round(avg * 10) / 10
+          sectionAverages[sectionName] = avg  // No rounding - keep exact score
           if (avg < 60) allSectionsMet = false
         }
       }
 
       // Graduation requirements
-      const attendanceMet = overallAttendancePercentage >= 75
-      const examAverage = exams.avg
-      const examAverageMet = examAverage >= 75
+      // If no data yet, treat as "met" (not penalized) until data exists
+      const attendanceMet = overallAttendancePercentage === null ? true : overallAttendancePercentage >= 75
+      // If no exam scores, return null for average (don't penalize for exams not taken yet)
+      const examAverage = exams.count > 0 ? exams.avg : null
+      const examAverageMet = examAverage === null ? true : examAverage >= 75
+      // allSectionsMet is already true by default, only set to false if a section < 60%
       const graduationEligible = attendanceMet && examAverageMet && allSectionsMet
 
       return {
         studentId,
         studentName: enrollment.student.name,
         yearLevel: enrollment.yearLevel,
-        // Attendance
-        attendancePercentage: Math.round(overallAttendancePercentage * 10) / 10,
+        // Attendance - null if no lessons yet
+        attendancePercentage: overallAttendancePercentage !== null
+          ? Math.round(overallAttendancePercentage * 10) / 10
+          : null,
         attendanceMet,
         totalLessons: effectiveTotalLessons, // Total minus excused for this student
         allLessons: lessonsWithAttendanceCount, // All lessons with attendance
@@ -337,9 +333,9 @@ export async function GET(request: Request) {
         absentCount,
         excusedCount,
         attendedLessons: Math.round(totalEffectivePresent * 10) / 10,
-        // Exams
-        examAverage: Math.round(examAverage * 10) / 10,
-        avgExamScore: Math.round(exams.avg * 10) / 10,
+        // Exams - null if no exams yet (no rounding - keep exact scores)
+        examAverage: examAverage,
+        avgExamScore: exams.count > 0 ? exams.avg : null,
         examAverageMet,
         examCount: exams.count,
         sectionAverages,
@@ -349,12 +345,15 @@ export async function GET(request: Request) {
         // Year-based (for admin page) - based on student's enrollment year
         // Year 1 students: Year 1 = current year, Year 2 = null (not started)
         // Year 2 students: Year 1 = last year, Year 2 = current year
-        year1AttendancePercentage: Math.round(year1AttendancePercentage * 10) / 10,
+        // Note: Uses STUDENT'S attendance record count, not all lessons in the system
+        year1AttendancePercentage: year1AttendancePercentage !== null
+          ? Math.round(year1AttendancePercentage * 10) / 10
+          : null,
         year2AttendancePercentage: year2AttendancePercentage !== null
           ? Math.round(year2AttendancePercentage * 10) / 10
           : null,
-        year1TotalLessons: year1EffectiveTotalLessons,
-        year2TotalLessons: year2Attendance !== null ? year2EffectiveTotalLessons : null,
+        year1TotalLessons: year1EffectiveTotalLessons, // Student's Year 1 lessons minus excused
+        year2TotalLessons: year2Attendance !== null ? year2EffectiveTotalLessons : null, // Student's Year 2 lessons minus excused
         year1AttendedLessons: Math.round(year1EffectivePresent * 10) / 10,
         year2AttendedLessons: year2Attendance !== null
           ? Math.round(year2EffectivePresent * 10) / 10

@@ -81,7 +81,7 @@ export default function SettingsPage() {
         const data = await res.json()
         setAcademicYears(data)
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to load academic years')
     } finally {
       setLoading(false)
@@ -147,7 +147,7 @@ export default function SettingsPage() {
         const data = await res.json()
         toast.error(data.error || 'Failed to create academic year')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to create academic year')
     } finally {
       setSaving(false)
@@ -181,7 +181,7 @@ export default function SettingsPage() {
         const data = await res.json()
         toast.error(data.error || 'Failed to update academic year')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to update academic year')
     } finally {
       setSaving(false)
@@ -205,7 +205,7 @@ export default function SettingsPage() {
         const data = await res.json()
         toast.error(data.error || 'Failed to delete academic year')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete academic year')
     } finally {
       setSaving(false)
@@ -230,7 +230,7 @@ export default function SettingsPage() {
         const data = await res.json()
         toast.error(data.error || 'Failed to set active year')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to set active year')
     } finally {
       setSaving(false)

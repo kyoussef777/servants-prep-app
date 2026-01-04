@@ -41,31 +41,17 @@ export default function MentorDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-1 gap-4 max-w-md">
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle>My Mentees</CardTitle>
               <CardDescription>
-                View your assigned students
+                View your assigned students and their detailed analytics
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Link href="/dashboard/mentor/my-mentees">
                 <Button className="w-full">View My Mentees</Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle>Mentee Analytics</CardTitle>
-              <CardDescription>
-                View detailed progress for your mentees
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href="/dashboard/mentor/analytics">
-                <Button className="w-full">View Analytics</Button>
               </Link>
             </CardContent>
           </Card>
@@ -81,8 +67,7 @@ export default function MentorDashboard() {
               As a <strong>Mentor</strong>, you have read-only access to:
             </p>
             <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-              <li>View your assigned mentees</li>
-              <li>View detailed analytics for your mentees</li>
+              <li>View your assigned mentees and their detailed analytics</li>
               <li>Track their attendance records</li>
               <li>Monitor their exam scores and performance</li>
               <li>Check their graduation eligibility</li>

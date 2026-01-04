@@ -113,7 +113,7 @@ export default function EnrollmentsPage() {
 
         // Filter to only users who can be mentors
         const mentorsData = Array.isArray(usersData)
-          ? usersData.filter((user: any) =>
+          ? usersData.filter((user: { role: string }) =>
               user.role === 'SUPER_ADMIN' ||
               user.role === 'SERVANT_PREP' ||
               user.role === 'MENTOR'

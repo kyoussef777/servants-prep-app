@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-
+import { AttendanceStatus } from "@prisma/client"
 import { isAdmin } from "@/lib/roles"
 
 // PATCH /api/attendance/[id] - Update attendance record (Admin only)
@@ -40,7 +40,7 @@ export async function PATCH(
 
     // Note: Admins can edit attendance records at any time
 
-    const updateData: any = {}
+    const updateData: { status?: AttendanceStatus; arrivedAt?: Date | null; notes?: string } = {}
     if (status) updateData.status = status
     if (arrivedAt !== undefined) {
       // Validate arrivedAt - only set if it's a valid date

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const academicYearId = searchParams.get('academicYearId')
     const examSectionId = searchParams.get('examSectionId')
 
-    const where: any = {}
+    const where: { academicYearId?: string; examSectionId?: string } = {}
     if (academicYearId) where.academicYearId = academicYearId
     if (examSectionId) where.examSectionId = examSectionId
 

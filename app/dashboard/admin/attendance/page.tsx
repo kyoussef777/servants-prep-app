@@ -3,12 +3,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { isAdmin } from '@/lib/roles'
-import { ChevronDown, ChevronRight, Calendar, Users, Settings2, Check, Clock, X, Shield } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Settings2, Check, Clock, X, Shield } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDateUTC } from '@/lib/utils'
 
@@ -60,7 +60,7 @@ export default function AttendancePage() {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [selectedYearId, setSelectedYearId] = useState<string>('')
   const [attendance, setAttendance] = useState<Map<string, AttendanceRecord>>(new Map())
-  const [existingAttendance, setExistingAttendance] = useState<Map<string, any>>(new Map())
+  const [, setExistingAttendance] = useState<Map<string, AttendanceRecord>>(new Map())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -128,7 +128,7 @@ export default function AttendancePage() {
           }
         }
         setStudents(Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name)))
-      } catch (error) {
+      } catch {
         setStudents([])
         setAcademicYears([])
       } finally {
@@ -156,7 +156,7 @@ export default function AttendancePage() {
         }
         const lessonsData = await lessonsRes.json()
         setLessons(Array.isArray(lessonsData) ? lessonsData : [])
-      } catch (error) {
+      } catch {
         setLessons([])
       }
     }
@@ -172,14 +172,14 @@ export default function AttendancePage() {
         const res = await fetch(`/api/attendance?lessonId=${selectedLesson.id}`)
         const records = await res.json()
 
-        const recordsMap = new Map()
-        records.forEach((record: any) => {
+        const recordsMap = new Map<string, AttendanceRecord>()
+        records.forEach((record: AttendanceRecord & { studentId: string }) => {
           recordsMap.set(record.studentId, record)
         })
         setExistingAttendance(recordsMap)
 
-        const attendanceMap = new Map()
-        records.forEach((record: any) => {
+        const attendanceMap = new Map<string, AttendanceRecord>()
+        records.forEach((record: AttendanceRecord & { studentId: string }) => {
           attendanceMap.set(record.studentId, {
             studentId: record.studentId,
             status: record.status,
@@ -196,7 +196,7 @@ export default function AttendancePage() {
     fetchAttendance()
   }, [selectedLesson])
 
-  const updateAttendance = (studentId: string, field: keyof AttendanceRecord, value: any) => {
+  const updateAttendance = (studentId: string, field: keyof AttendanceRecord, value: string) => {
     const record = attendance.get(studentId) || {
       studentId,
       status: 'PRESENT' as const,

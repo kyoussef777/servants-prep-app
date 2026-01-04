@@ -224,13 +224,6 @@ describe('Role Helper Functions', () => {
 
 describe('Role Permission Matrix', () => {
   // This tests the overall permission structure to ensure consistency
-  const roles = [
-    UserRole.SUPER_ADMIN,
-    UserRole.PRIEST,
-    UserRole.SERVANT_PREP,
-    UserRole.MENTOR,
-    UserRole.STUDENT,
-  ] as UserRoleType[]
 
   it('SUPER_ADMIN should have the most permissions', () => {
     const role = UserRole.SUPER_ADMIN as UserRoleType

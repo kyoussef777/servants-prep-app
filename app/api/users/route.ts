@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
-import { isAdmin, canManageUsers, canManageAllUsers, canViewStudents } from "@/lib/roles"
+import { isAdmin, canManageUsers } from "@/lib/roles"
 
 // GET /api/users - List all users (Admin only, or MENTOR role can view students)
 // Query params:

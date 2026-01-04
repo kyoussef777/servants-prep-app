@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const lessonId = searchParams.get('lessonId')
     const studentId = searchParams.get('studentId')
 
-    const where: any = {}
+    const where: { lessonId?: string; studentId?: string; student?: { enrollments: { some: { mentorId: string } } } } = {}
     if (lessonId) where.lessonId = lessonId
     if (studentId) where.studentId = studentId
 

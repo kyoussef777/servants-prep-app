@@ -125,7 +125,6 @@ export async function POST(request: Request) {
         const complexUpdates: typeof toUpdate = []
 
         for (const update of toUpdate) {
-          const key = `${update.status}_${update.arrivedAt}_${update.notes || ''}`
           if (update.arrivedAt === null && update.notes === null) {
             // Simple status-only updates can be grouped
             if (!updateGroups.has(update.status)) {

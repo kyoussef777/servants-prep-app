@@ -5,12 +5,12 @@ import { UserRole } from "@prisma/client"
 import { isAdmin } from "@/lib/roles"
 
 // GET /api/exam-scores - List all exam scores (Admins see all, Mentors see only their mentees)
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const user = await requireAuth()
 
     // Build where clause based on role
-    let where: any = {}
+    const where: { studentId?: string | { in: string[] } } = {}
 
     // If MENTOR role, restrict to only their mentees
     if (user.role === UserRole.MENTOR) {

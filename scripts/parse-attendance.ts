@@ -24,7 +24,6 @@ function normalizeName(name: string): string {
 // Calculate similarity between two strings (Levenshtein distance based)
 function similarity(s1: string, s2: string): number {
   const longer = s1.length > s2.length ? s1 : s2
-  const shorter = s1.length > s2.length ? s2 : s1
 
   if (longer.length === 0) return 1.0
 
@@ -63,7 +62,7 @@ async function main() {
   console.log('========================================\n')
 
   const sheet = workbook.Sheets['Attendance (2024 - 2025)']
-  const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][]
+  const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][]
 
   // Parse header row to get dates
   const headerRow = data[0]
@@ -153,7 +152,7 @@ async function main() {
 
   const studentAttendance: StudentAttendance[] = []
   let matchedStudents = 0
-  let unmatchedStudents: { name: string; closestMatch: string | null; similarity: number }[] = []
+  const unmatchedStudents: { name: string; closestMatch: string | null; similarity: number }[] = []
   const fuzzyMatches: { excel: string; db: string; similarity: number }[] = []
 
   // Skip header rows (row 0 and 1)
@@ -161,8 +160,8 @@ async function main() {
     const row = data[rowIdx]
     if (!row || !row[1]) continue // Skip empty rows
 
-    const excelName = row[1]?.toString().trim()
-    const excelYear = row[2]
+    const excelName = (row[1] as string | undefined)?.toString().trim()
+    const excelYear = row[2] as string | number
 
     if (!excelName || excelName === '') continue
 

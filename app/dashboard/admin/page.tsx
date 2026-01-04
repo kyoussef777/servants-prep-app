@@ -76,6 +76,12 @@ interface ProgramOverview {
   year2StudentCount: number
   totalScoresRecorded: number
   overallProgramAverage: number | null
+  studentsWithGoodAttendance: number
+  studentsWithLowAttendance: number
+  studentsWithGoodExams: number
+  studentsWithLowExams: number
+  studentsFullyOnTrack: number
+  totalActiveStudents: number
 }
 
 interface Analytics {
@@ -91,7 +97,7 @@ export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
-  const [analyticsLoading, setAnalyticsLoading] = useState(true)
+  const [, setAnalyticsLoading] = useState(true)
 
   // Use SWR for caching - automatically revalidates and caches
   const { data: stats, isLoading } = useDashboardStats()
@@ -263,12 +269,35 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Student Threshold Stats */}
+                  <div className="pt-3 border-t space-y-2">
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Graduation Track (≥75% both)</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2 rounded bg-green-50 border border-green-200 text-center">
+                        <div className="text-xl font-bold text-green-700">
+                          {analytics.programOverview.studentsFullyOnTrack}
+                        </div>
+                        <div className="text-xs text-green-600">On Track</div>
+                      </div>
+                      <div className="p-2 rounded bg-red-50 border border-red-200 text-center">
+                        <div className="text-xl font-bold text-red-700">
+                          {analytics.programOverview.totalActiveStudents - analytics.programOverview.studentsFullyOnTrack}
+                        </div>
+                        <div className="text-xs text-red-600">Need Support</div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 text-center">
+                      Attendance + Exam avg both ≥75%
+                    </div>
+                  </div>
+
                   {analytics.programOverview.overallProgramAverage !== null && (
                     <div className="pt-2 border-t">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Program Exam Average</span>
                         <span className={`font-bold ${getScoreColor(analytics.programOverview.overallProgramAverage)}`}>
-                          {analytics.programOverview.overallProgramAverage.toFixed(1)}%
+                          {analytics.programOverview.overallProgramAverage.toFixed(2)}%
                         </span>
                       </div>
                     </div>
@@ -299,7 +328,7 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Overall Rate</span>
                     <span className={`text-2xl font-bold ${getScoreColor(activeYearAttendance.attendanceRate)}`}>
-                      {activeYearAttendance.attendanceRate?.toFixed(1) || '—'}%
+                      {activeYearAttendance.attendanceRate?.toFixed(2) || '—'}%
                     </span>
                   </div>
                   <Progress
@@ -357,7 +386,7 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <Badge className={`${getScoreBgColor(section.average)} ${getScoreColor(section.average)} border-0`}>
-                        {section.average.toFixed(1)}%
+                        {section.average.toFixed(2)}%
                       </Badge>
                     </div>
                   ))}
@@ -379,7 +408,7 @@ export default function AdminDashboard() {
                 <BarChart3 className="h-5 w-5 text-purple-600" />
                 <div>
                   <CardTitle>Exam Performance by Section</CardTitle>
-                  <CardDescription>{activeYearExams.yearName} - Overall Average: {activeYearExams.overallAverage?.toFixed(1) || '—'}%</CardDescription>
+                  <CardDescription>{activeYearExams.yearName} - Overall Average: {activeYearExams.overallAverage?.toFixed(2) || '—'}%</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -395,7 +424,7 @@ export default function AdminDashboard() {
                     </p>
                     <div className="flex items-baseline gap-1 mt-1">
                       <span className={`text-xl font-bold ${getScoreColor(section.average)}`}>
-                        {section.average?.toFixed(1) || '—'}
+                        {section.average?.toFixed(2) || '—'}
                       </span>
                       {section.average !== null && <span className="text-sm text-gray-500">%</span>}
                     </div>
@@ -446,10 +475,10 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                           <td className={`text-center py-2 px-3 font-medium ${getScoreColor(year.attendanceRate)}`}>
-                            {year.attendanceRate?.toFixed(1) || '—'}%
+                            {year.attendanceRate?.toFixed(2) || '—'}%
                           </td>
                           <td className={`text-center py-2 px-3 font-medium ${getScoreColor(examYear?.overallAverage ?? null)}`}>
-                            {examYear?.overallAverage?.toFixed(1) || '—'}%
+                            {examYear?.overallAverage?.toFixed(2) || '—'}%
                           </td>
                           <td className="text-center py-2 px-3 text-gray-500">
                             {year.total} attendance
@@ -487,12 +516,12 @@ export default function AdminDashboard() {
                           <div className="text-right">
                             {student.attendanceRate !== null && (
                               <p className={`text-sm ${getScoreColor(student.attendanceRate)}`}>
-                                {student.attendanceRate.toFixed(1)}% attendance
+                                {student.attendanceRate.toFixed(2)}% attendance
                               </p>
                             )}
                             {student.examAverage !== null && (
                               <p className={`text-sm ${getScoreColor(student.examAverage)}`}>
-                                {student.examAverage.toFixed(1)}% exam avg
+                                {student.examAverage.toFixed(2)}% exam avg
                               </p>
                             )}
                           </div>

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, ExamSectionType } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -34,7 +34,7 @@ async function main() {
     // Step 3: Create Miscellaneous section if it doesn't exist
     console.log('Creating Miscellaneous section if needed...')
     const existingMisc = await prisma.examSection.findFirst({
-      where: { name: 'MISCELLANEOUS' as any }
+      where: { name: 'MISCELLANEOUS' as ExamSectionType }
     })
 
     if (!existingMisc) {

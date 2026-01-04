@@ -91,7 +91,7 @@ export async function PATCH(
       )
     }
 
-    const updateData: any = {}
+    const updateData: { email?: string; name?: string; phone?: string | null; role?: UserRole; password?: string; mustChangePassword?: boolean } = {}
 
     if (email) updateData.email = email
     if (name) updateData.name = name

@@ -93,7 +93,7 @@ export function BulkStudentImport({ onSuccess }: BulkStudentImportProps) {
 
       toast.success(successMsg + errorMsg, {
         description: data.errors.length > 0
-          ? `Errors: ${data.errors.map((e: any) => `${e.name}: ${e.error}`).join(', ')}`
+          ? `Errors: ${data.errors.map((e: { name: string; error: string }) => `${e.name}: ${e.error}`).join(', ')}`
           : undefined
       })
 

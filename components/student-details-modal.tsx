@@ -126,7 +126,6 @@ export function StudentDetailsModal({
   examScores,
   attendanceRecords,
   allExams = [],
-  allLessons = [],
   loading,
   onClose,
   onRefresh
@@ -159,6 +158,7 @@ export function StudentDetailsModal({
     } else {
       setNotes([])
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId])
 
   const fetchNotes = async () => {
@@ -338,18 +338,6 @@ export function StudentDetailsModal({
     acc[section].push(score)
     return acc
   }, {} as Record<string, ExamScore[]>)
-
-  // Debug: Log exam scores to check if they're different
-  if (examScores.length > 0) {
-    console.log('Exam Scores:', examScores.map(s => ({
-      id: s.id,
-      examId: s.exam.id,
-      score: s.score,
-      percentage: s.percentage,
-      examDate: s.exam.examDate,
-      section: s.exam.examSection.displayName
-    })))
-  }
 
   // Find missing exams (exams student hasn't taken yet)
   const takenExamIds = new Set(examScores.map(s => s.exam.id))
@@ -660,7 +648,7 @@ export function StudentDetailsModal({
                     <div>
                       <div className="text-sm text-gray-500">Average Score</div>
                       <div className={`text-2xl font-bold ${avgScore >= 75 ? 'text-green-700' : avgScore >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                        {avgScore.toFixed(1)}%
+                        {avgScore.toFixed(2)}%
                       </div>
                     </div>
                     <div>
@@ -737,7 +725,7 @@ export function StudentDetailsModal({
                                     <>
                                       <div className="text-right">
                                         <div className={`font-semibold ${score.percentage >= 75 ? 'text-green-700' : score.percentage >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                                          {score.percentage.toFixed(1)}%
+                                          {score.percentage.toFixed(2)}%
                                         </div>
                                         <div className="text-xs text-gray-500">
                                           {score.score} / {score.exam.totalPoints}
@@ -822,7 +810,7 @@ export function StudentDetailsModal({
                     <div>
                       <div className="text-sm text-gray-500">Rate</div>
                       <div className={`text-2xl font-bold ${attendanceRate >= 75 ? 'text-green-700' : attendanceRate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                        {attendanceRate.toFixed(1)}%
+                        {attendanceRate.toFixed(2)}%
                       </div>
                     </div>
                     <div>
@@ -850,7 +838,7 @@ export function StudentDetailsModal({
                       <div>
                         <div className="text-sm text-gray-500">Rate</div>
                         <div className={`text-2xl font-bold ${year1Rate >= 75 ? 'text-green-700' : year1Rate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                          {year1Rate.toFixed(1)}%
+                          {year1Rate.toFixed(2)}%
                         </div>
                       </div>
                       <div>
@@ -879,7 +867,7 @@ export function StudentDetailsModal({
                       <div>
                         <div className="text-sm text-gray-500">Rate</div>
                         <div className={`text-2xl font-bold ${year2Rate >= 75 ? 'text-green-700' : year2Rate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                          {year2Rate.toFixed(1)}%
+                          {year2Rate.toFixed(2)}%
                         </div>
                       </div>
                       <div>

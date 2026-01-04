@@ -102,7 +102,7 @@ async function importAttendance() {
   }[] = []
 
   let matchedStudents = 0
-  let unmatchedStudents: string[] = []
+  const unmatchedStudents: string[] = []
 
   for (let lineIdx = 2; lineIdx < lines.length; lineIdx++) {
     const cols = lines[lineIdx].split(',')

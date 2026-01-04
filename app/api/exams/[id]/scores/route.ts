@@ -15,7 +15,7 @@ export async function GET(
     const { id } = await params
 
     // Build where clause based on role
-    const where: any = { examId: id }
+    const where: { examId: string; student?: { enrollments: { some: { mentorId: string } } } } = { examId: id }
 
     // If MENTOR role, restrict to only their mentees
     if (user.role === UserRole.MENTOR) {

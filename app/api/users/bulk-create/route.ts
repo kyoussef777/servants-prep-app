@@ -33,9 +33,12 @@ export async function POST(request: Request) {
     // Hash the default password once
     const hashedPassword = await bcrypt.hash(defaultPassword, 10)
 
-    const results = {
-      created: [] as any[],
-      errors: [] as { name: string; error: string }[]
+    const results: {
+      created: Array<{ id: string; name: string; email: string }>,
+      errors: Array<{ name: string; error: string }>
+    } = {
+      created: [],
+      errors: []
     }
 
     // Process each student

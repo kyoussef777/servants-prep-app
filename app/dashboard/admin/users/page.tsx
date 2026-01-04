@@ -120,8 +120,8 @@ export default function UsersPage() {
       await fetchUsers(debouncedSearch, roleFilter)
       setShowCreateForm(false)
       setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
-    } catch (err: any) {
-      setFormError(err.message || 'Failed to create user')
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create user')
     }
   }
 
@@ -168,8 +168,8 @@ export default function UsersPage() {
 
       setEditingUser(null)
       setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
-    } catch (err: any) {
-      setFormError(err.message || 'Failed to update user')
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to update user')
     }
   }
 
@@ -190,8 +190,8 @@ export default function UsersPage() {
 
       await fetchUsers(debouncedSearch, roleFilter)
       toast.success('User deleted successfully!')
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to delete user')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete user')
     }
   }
 

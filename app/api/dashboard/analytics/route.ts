@@ -171,7 +171,7 @@ export async function GET() {
       studentExamScoresMap[score.studentId].push(score.score)
     }
 
-    // Identify at-risk students
+    // Identify at-risk students and track students on track
     const atRiskStudents: Array<{
       id: string
       name: string
@@ -181,6 +181,13 @@ export async function GET() {
       issues: string[]
     }> = []
 
+    // Track students meeting thresholds
+    let studentsWithGoodAttendance = 0
+    let studentsWithLowAttendance = 0
+    let studentsWithGoodExams = 0
+    let studentsWithLowExams = 0
+    let studentsFullyOnTrack = 0  // Both attendance AND exams >= 75%
+
     for (const enrollment of activeEnrollments) {
       const studentId = enrollment.student.id
       const attendance = studentAttendanceMap[studentId]
@@ -189,22 +196,47 @@ export async function GET() {
       let attendanceRate: number | null = null
       let examAverage: number | null = null
       const issues: string[] = []
+      let hasGoodAttendance = false
+      let hasGoodExams = false
 
       if (attendance && attendance.total > 0) {
         const countableLessons = attendance.total - attendance.excused
         if (countableLessons > 0) {
           attendanceRate = ((attendance.present + (attendance.late / 2)) / countableLessons) * 100
           if (attendanceRate < 75) {
-            issues.push(`Low attendance: ${attendanceRate.toFixed(1)}%`)
+            issues.push(`Low attendance: ${attendanceRate.toFixed(2)}%`)
+            studentsWithLowAttendance++
+          } else {
+            hasGoodAttendance = true
+            studentsWithGoodAttendance++
           }
+        } else {
+          // All lessons were excused - don't penalize
+          hasGoodAttendance = true
         }
+      } else {
+        // No attendance records yet - lessons haven't happened, don't penalize
+        hasGoodAttendance = true
       }
 
       if (scores.length > 0) {
         examAverage = scores.reduce((a, b) => a + b, 0) / scores.length
         if (examAverage < 75) {
-          issues.push(`Low exam average: ${examAverage.toFixed(1)}%`)
+          issues.push(`Low exam average: ${examAverage.toFixed(2)}%`)
+          studentsWithLowExams++
+        } else {
+          hasGoodExams = true
+          studentsWithGoodExams++
         }
+      } else {
+        // No exam scores yet - student hasn't taken exams, don't penalize them
+        hasGoodExams = true  // Treat as on track until they have actual scores
+      }
+
+      // Student is fully on track if they have good attendance AND good exams
+      // Students with no exam scores yet are not penalized (hasGoodExams = true)
+      if (hasGoodAttendance && hasGoodExams) {
+        studentsFullyOnTrack++
       }
 
       if (issues.length > 0) {
@@ -311,42 +343,17 @@ export async function GET() {
     const year2Students = activeEnrollments.filter(e => e.yearLevel === YearLevel.YEAR_2).map(e => e.student.id)
     const year1Students = activeEnrollments.filter(e => e.yearLevel === YearLevel.YEAR_1).map(e => e.student.id)
 
-    // Get the previous academic year (for Year 2 students' Year 1 exams)
-    const activeYearIndex = academicYears.findIndex(y => y.isActive)
-    const previousYear = activeYearIndex >= 0 && activeYearIndex < academicYears.length - 1
-      ? academicYears[activeYearIndex + 1]
-      : null
-
     // Count relevant exams for current active students
     // Current year exams (for all students)
     const currentYearExams = allExams.filter(e => activeYear && e.academicYearId === activeYear.id)
-    // Previous year exams (relevant for Year 2 students who took them as Year 1)
-    const previousYearExams = previousYear
-      ? allExams.filter(e => e.academicYearId === previousYear.id)
-      : []
-
-    // Total unique exams relevant to current program
-    const relevantExamIds = new Set([
-      ...currentYearExams.map(e => e.id),
-      ...previousYearExams.map(e => e.id)
-    ])
 
     // Count exam scores for active students
     const activeStudentIds = new Set(activeEnrollments.map(e => e.student.id))
     const activeStudentScores = examScores.filter(s => activeStudentIds.has(s.studentId))
 
-    // Calculate completion rates
-    const year1ExamCount = currentYearExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_1 || e.yearLevel === ExamYearLevel.BOTH).length
-    const year2ExamCount = currentYearExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_2 || e.yearLevel === ExamYearLevel.BOTH).length
-    const previousYearYear1ExamCount = previousYearExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_1 || e.yearLevel === ExamYearLevel.BOTH).length
-
-    // For Year 2 students, they need current Year 2 exams + their Year 1 exams from previous year
-    const totalExamsForYear2 = year2ExamCount + previousYearYear1ExamCount
-
     // Count exams by year level
     // An exam with BOTH applies to both Year 1 and Year 2 students
     const year1OnlyExams = allExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_1)
-    const year2OnlyExams = allExams.filter(e => e.yearLevel === ExamYearLevel.YEAR_2)
     const bothYearsExams = allExams.filter(e => e.yearLevel === ExamYearLevel.BOTH)
 
     // Year 1 students need: YEAR_1 exams + BOTH exams
@@ -371,7 +378,14 @@ export async function GET() {
       // Average scores across all active students (all their exams)
       overallProgramAverage: activeStudentScores.length > 0
         ? activeStudentScores.reduce((sum, s) => sum + s.score, 0) / activeStudentScores.length
-        : null
+        : null,
+      // Students meeting 75% threshold
+      studentsWithGoodAttendance,
+      studentsWithLowAttendance,
+      studentsWithGoodExams,
+      studentsWithLowExams,
+      studentsFullyOnTrack,
+      totalActiveStudents: activeEnrollments.length
     }
 
     return NextResponse.json({

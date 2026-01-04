@@ -60,7 +60,7 @@ export default function StudentDashboard() {
   const router = useRouter()
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [loading, setLoading] = useState(true)
-  const [academicYearId, setAcademicYearId] = useState<string | null>(null)
+  const [, setAcademicYearId] = useState<string | null>(null)
   const [academicYearName, setAcademicYearName] = useState<string>('')
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function StudentDashboard() {
         // Get active academic year
         const yearsRes = await fetch('/api/academic-years')
         const years = await yearsRes.json()
-        const activeYear = years.find((y: any) => y.isActive)
+        const activeYear = years.find((y: { isActive: boolean }) => y.isActive)
 
         if (activeYear) {
           setAcademicYearId(activeYear.id)
@@ -171,7 +171,7 @@ export default function StudentDashboard() {
           <CardHeader>
             <CardTitle>Attendance</CardTitle>
             <CardDescription>
-              {analytics.attendance.met ? '✓' : '❌'} {analytics.attendance.percentage.toFixed(1)}% (Need {analytics.attendance.required}%)
+              {analytics.attendance.met ? '✓' : '❌'} {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(2)}%` : '—'} (Need {analytics.attendance.required}%)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -201,7 +201,7 @@ export default function StudentDashboard() {
           <CardHeader>
             <CardTitle>Exam Average</CardTitle>
             <CardDescription>
-              {analytics.exams.overallAverageMet ? '✓' : '❌'} {analytics.exams.overallAverage.toFixed(1)}% (Need {analytics.exams.requiredAverage}%)
+              {analytics.exams.overallAverageMet ? '✓' : '❌'} {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(2)}%` : '—'} (Need {analytics.exams.requiredAverage}%)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -224,7 +224,7 @@ export default function StudentDashboard() {
                   <div key={section} className="flex justify-between items-center">
                     <span>{sectionDisplayNames[section]}</span>
                     <span className={sectionData.passingMet ? 'text-green-600' : 'text-red-600'}>
-                      {sectionData.average.toFixed(1)}% {sectionData.passingMet ? '✓' : `❌ (Need ${analytics.exams.requiredMinimum}%)`}
+                      {sectionData.average.toFixed(2)}% {sectionData.passingMet ? '✓' : `❌ (Need ${analytics.exams.requiredMinimum}%)`}
                     </span>
                   </div>
                 )

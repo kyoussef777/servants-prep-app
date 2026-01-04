@@ -108,13 +108,17 @@ export async function GET(
     const absentCount = attendanceRecords.filter(r => r.status === 'ABSENT').length
     const excusedCount = attendanceRecords.filter(r => (r.status as string) === 'EXCUSED').length
 
-    // Formula: (Present + (Lates / 2)) / (LessonsWithAttendance - Excused)
+    // Formula: (Present + (Lates / 2)) / (StudentLessons - Excused)
     // EXCUSED lessons are not counted in the total - they don't count against or for the student
-    // Only count lessons where attendance was actually taken
+    // IMPORTANT: Use the STUDENT'S attendance record count, not ALL lessons in the system
+    // This ensures Year 1 students are only measured against lessons they were expected to attend
+    const studentTotalLessons = presentCount + lateCount + absentCount + excusedCount
     const effectivePresent = presentCount + (lateCount / 2)
-    const effectiveTotalLessons = lessonsWithAttendance - excusedCount
-    const attendancePercentage = effectiveTotalLessons > 0 ? (effectivePresent / effectiveTotalLessons) * 100 : 0
-    const attendanceMet = attendancePercentage >= 75
+    const effectiveTotalLessons = studentTotalLessons - excusedCount
+    // If no lessons yet, return null (not 0) - don't penalize for lessons that haven't happened
+    const attendancePercentage = effectiveTotalLessons > 0 ? (effectivePresent / effectiveTotalLessons) * 100 : null
+    // If no attendance data, treat as "met" (not penalized) until data exists
+    const attendanceMet = attendancePercentage === null ? true : attendancePercentage >= 75
 
     // Build exam filter - if academicYearId provided, filter by it; otherwise include all
     // Map yearLevel to ExamYearLevel (BOTH is always included, plus the student's current year)
@@ -172,13 +176,16 @@ export async function GET(
 
     // Calculate overall average
     const allScores = Object.values(scoresBySection).flat()
+    // If no exam scores yet, return null (not 0) - don't penalize for exams that haven't happened
     const overallAverage = allScores.length > 0
       ? allScores.reduce((a, b) => a + b, 0) / allScores.length
-      : 0
-    const overallAverageMet = overallAverage >= 75
+      : null
+    // If no exam data, treat as "met" (not penalized) until data exists
+    const overallAverageMet = overallAverage === null ? true : overallAverage >= 75
 
     // Check if all sections have at least 60%
-    const allSectionsPassing = sectionAverages.every(s => s.passingMet)
+    // If no sections yet, treat as passing (not penalized)
+    const allSectionsPassing = sectionAverages.length === 0 ? true : sectionAverages.every(s => s.passingMet)
 
     // Graduation eligibility
     const graduationEligible = attendanceMet && overallAverageMet && allSectionsPassing
