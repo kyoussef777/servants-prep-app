@@ -153,6 +153,37 @@ export async function GET(
       }
     })
 
+    // Get all exams applicable to this student's year level to find missing ones
+    const allApplicableExams = await prisma.exam.findMany({
+      where: academicYearId
+        ? {
+            academicYearId,
+            yearLevel: { in: validYearLevels }
+          }
+        : {
+            yearLevel: { in: validYearLevels }
+          },
+      include: {
+        examSection: true
+      },
+      orderBy: {
+        examDate: 'desc'
+      }
+    })
+
+    // Find exams the student hasn't taken
+    const takenExamIds = new Set(examScores.map(s => s.exam.id))
+    const missingExams = allApplicableExams
+      .filter(exam => !takenExamIds.has(exam.id))
+      .map(exam => ({
+        id: exam.id,
+        examDate: exam.examDate,
+        totalPoints: exam.totalPoints,
+        yearLevel: exam.yearLevel,
+        sectionName: exam.examSection.name,
+        sectionDisplayName: exam.examSection.displayName
+      }))
+
     // Group scores by section
     const scoresBySection: { [key: string]: number[] } = {}
     examScores.forEach(score => {
@@ -210,7 +241,10 @@ export async function GET(
         overallAverageMet,
         allSectionsPassing,
         requiredAverage: 75,
-        requiredMinimum: 60
+        requiredMinimum: 60,
+        missingExams,
+        totalApplicableExams: allApplicableExams.length,
+        examsTaken: examScores.length
       },
       graduation: {
         eligible: graduationEligible,

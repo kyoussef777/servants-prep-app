@@ -87,6 +87,7 @@ export async function GET(
     })
 
     // Get all attendance records with lesson details
+    // Include isExamDay field so frontend can filter/display appropriately
     const attendanceRecords = await prisma.attendanceRecord.findMany({
       where: {
         studentId,

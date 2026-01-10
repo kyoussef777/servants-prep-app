@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { isAdmin } from "@/lib/roles"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +16,8 @@ import {
   BookOpen,
   Calendar,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  AlertCircle
 } from 'lucide-react'
 
 interface SectionAverage {
@@ -23,6 +25,15 @@ interface SectionAverage {
   average: number
   scores: number[]
   passingMet: boolean
+}
+
+interface MissingExam {
+  id: string
+  examDate: string
+  totalPoints: number
+  yearLevel: string
+  sectionName: string
+  sectionDisplayName: string
 }
 
 interface Mentee {
@@ -59,6 +70,9 @@ interface Mentee {
       allSectionsPassing: boolean
       requiredAverage: number
       requiredMinimum: number
+      missingExams: MissingExam[]
+      totalApplicableExams: number
+      examsTaken: number
     }
     graduation: {
       eligible: boolean
@@ -247,7 +261,11 @@ export default function MenteesPage() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">{mentee.student.name}</CardTitle>
+                        <Link href={`/dashboard/admin/students?student=${mentee.student.id}`}>
+                          <CardTitle className="text-lg hover:text-blue-600 hover:underline cursor-pointer">
+                            {mentee.student.name}
+                          </CardTitle>
+                        </Link>
                         <Badge variant="outline">
                           Year {mentee.yearLevel === 'YEAR_1' ? '1' : '2'}
                         </Badge>
@@ -271,17 +289,23 @@ export default function MenteesPage() {
 
                     {/* Quick Stats */}
                     {analytics && (
-                      <div className="flex gap-6 text-right">
+                      <div className="flex gap-3 md:gap-6 text-right">
                         <div>
-                          <div className="text-xs text-gray-500 uppercase">Attendance</div>
-                          <div className={`text-lg font-bold ${getScoreColor(analytics.attendance.percentage)}`}>
-                            {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(2)}%` : '—'}
+                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Attendance</div>
+                          <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.attendance.percentage)}`}>
+                            {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(1)}%` : '—'}
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500 uppercase">Exam Avg</div>
-                          <div className={`text-lg font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
-                            {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(2)}%` : '—'}
+                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Exam Avg</div>
+                          <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
+                            {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(1)}%` : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Missing</div>
+                          <div className={`text-sm md:text-lg font-bold ${analytics.exams.missingExams?.length > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                            {analytics.exams.missingExams?.length || 0}
                           </div>
                         </div>
                       </div>
@@ -365,9 +389,12 @@ export default function MenteesPage() {
 
                       {/* Exam Details */}
                       <div>
-                        <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <h4 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
                           <BookOpen className="h-4 w-4" />
                           Exam Performance
+                          <span className="text-sm font-normal text-gray-500">
+                            ({analytics.exams.examsTaken}/{analytics.exams.totalApplicableExams} taken)
+                          </span>
                           {analytics.exams.overallAverageMet ? (
                             <Badge className="bg-green-100 text-green-800 text-xs">✓ Above 75%</Badge>
                           ) : analytics.exams.overallAverage !== null ? (
@@ -421,6 +448,38 @@ export default function MenteesPage() {
                           </div>
                         ) : (
                           <p className="text-gray-500 text-center py-4">No exam scores recorded yet</p>
+                        )}
+
+                        {/* Missing Exams */}
+                        {analytics.exams.missingExams && analytics.exams.missingExams.length > 0 && (
+                          <div className="mt-4 pt-4 border-t">
+                            <h5 className="font-medium text-amber-700 mb-2 flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4" />
+                              Missing Exams ({analytics.exams.missingExams.length})
+                            </h5>
+                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                              {analytics.exams.missingExams.map((exam) => (
+                                <div
+                                  key={exam.id}
+                                  className="bg-amber-50 border border-amber-200 rounded p-2 flex justify-between items-center"
+                                >
+                                  <div>
+                                    <div className="text-sm font-medium">{exam.sectionDisplayName}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {new Date(exam.examDate).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric'
+                                      })}
+                                    </div>
+                                  </div>
+                                  <Badge variant="outline" className="text-amber-700 border-amber-400">
+                                    Not Taken
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
 

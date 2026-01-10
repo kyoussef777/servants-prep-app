@@ -73,18 +73,23 @@ interface ExamScore {
 
 interface AttendanceRecord {
   id: string
-  status: 'PRESENT' | 'LATE' | 'ABSENT'
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
   arrivedAt?: string | Date
   notes?: string
   lesson: {
     id: string
     title: string
     scheduledDate: string | Date
+    isExamDay?: boolean
     examSection: {
       id: string
       name: string
       displayName: string
       yearLevel: string
+    }
+    academicYear?: {
+      id: string
+      name: string
     }
   }
   recorder?: {

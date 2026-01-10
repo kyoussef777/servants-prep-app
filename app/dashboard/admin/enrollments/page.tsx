@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -442,7 +443,9 @@ export default function EnrollmentsPage() {
                   {filteredEnrollments.map(enrollment => (
                     <tr key={enrollment.id} className="border-b hover:bg-gray-50">
                       <td className="p-3">
-                        <div className="font-medium">{enrollment.student.name}</div>
+                        <Link href={`/dashboard/admin/students?student=${enrollment.student.id}`}>
+                          <div className="font-medium hover:text-blue-600 hover:underline cursor-pointer">{enrollment.student.name}</div>
+                        </Link>
                         <div className="text-xs text-gray-500">{enrollment.student.email}</div>
                       </td>
                       <td className="p-3">
@@ -517,7 +520,9 @@ export default function EnrollmentsPage() {
                 <div key={enrollment.id} className="p-4">
                   <div className="space-y-3">
                     <div>
-                      <div className="font-medium">{enrollment.student.name}</div>
+                      <Link href={`/dashboard/admin/students?student=${enrollment.student.id}`}>
+                        <div className="font-medium hover:text-blue-600 hover:underline cursor-pointer">{enrollment.student.name}</div>
+                      </Link>
                       <div className="text-sm text-gray-500">{enrollment.student.email}</div>
                     </div>
                     <div className="flex flex-wrap gap-2">

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -444,7 +445,13 @@ export default function UsersPage() {
                       <tr key={user.id} className="border-b hover:bg-gray-50">
                         <td className="p-2 text-gray-500">{index + 1}</td>
                         <td className="p-2 font-medium">
-                          {user.name}
+                          {user.role === 'STUDENT' ? (
+                            <Link href={`/dashboard/admin/students?student=${user.id}`} className="hover:text-blue-600 hover:underline">
+                              {user.name}
+                            </Link>
+                          ) : (
+                            user.name
+                          )}
                           {isCurrentUser && (
                             <Badge variant="outline" className="ml-2 text-xs">You</Badge>
                           )}
@@ -515,7 +522,13 @@ export default function UsersPage() {
                     {/* Name & Role */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-sm truncate">{user.name}</span>
+                        {user.role === 'STUDENT' ? (
+                          <Link href={`/dashboard/admin/students?student=${user.id}`} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">
+                            {user.name}
+                          </Link>
+                        ) : (
+                          <span className="font-medium text-sm truncate">{user.name}</span>
+                        )}
                         {isCurrentUser && (
                           <Badge variant="outline" className="text-[10px] px-1 py-0">You</Badge>
                         )}

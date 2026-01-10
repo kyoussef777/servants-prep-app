@@ -7,6 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 
+interface MissingExam {
+  id: string
+  examDate: string
+  totalPoints: number
+  yearLevel: string
+  sectionName: string
+  sectionDisplayName: string
+}
+
 interface Analytics {
   enrollment: {
     id: string
@@ -29,8 +38,9 @@ interface Analytics {
     presentCount: number
     lateCount: number
     absentCount: number
+    excusedCount: number
     effectivePresent: number
-    percentage: number
+    percentage: number | null
     met: boolean
     required: number
   }
@@ -41,11 +51,14 @@ interface Analytics {
       scores: number[]
       passingMet: boolean
     }>
-    overallAverage: number
+    overallAverage: number | null
     overallAverageMet: boolean
     allSectionsPassing: boolean
     requiredAverage: number
     requiredMinimum: number
+    missingExams: MissingExam[]
+    totalApplicableExams: number
+    examsTaken: number
   }
   graduation: {
     eligible: boolean
@@ -171,27 +184,31 @@ export default function StudentDashboard() {
           <CardHeader>
             <CardTitle>Attendance</CardTitle>
             <CardDescription>
-              {analytics.attendance.met ? '✓' : '❌'} {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(2)}%` : '—'} (Need {analytics.attendance.required}%)
+              {analytics.attendance.met ? '✓' : '❌'} {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(1)}%` : '—'} (Need {analytics.attendance.required}%)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Progress value={analytics.attendance.percentage} className="h-4" />
-            <div className="grid grid-cols-3 gap-4 text-sm">
+            <Progress value={analytics.attendance.percentage || 0} className="h-4" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <div className="font-semibold">Present</div>
-                <div className="text-2xl">{analytics.attendance.presentCount}</div>
+                <div className="font-semibold text-green-700">Present</div>
+                <div className="text-2xl text-green-700">{analytics.attendance.presentCount}</div>
               </div>
               <div>
-                <div className="font-semibold">Late</div>
-                <div className="text-2xl">{analytics.attendance.lateCount}</div>
+                <div className="font-semibold text-yellow-700">Late</div>
+                <div className="text-2xl text-yellow-700">{analytics.attendance.lateCount}</div>
               </div>
               <div>
-                <div className="font-semibold">Absent</div>
-                <div className="text-2xl">{analytics.attendance.absentCount}</div>
+                <div className="font-semibold text-red-700">Absent</div>
+                <div className="text-2xl text-red-700">{analytics.attendance.absentCount}</div>
+              </div>
+              <div>
+                <div className="font-semibold text-blue-700">Excused</div>
+                <div className="text-2xl text-blue-700">{analytics.attendance.excusedCount}</div>
               </div>
             </div>
             <p className="text-xs text-gray-500 italic">
-              (2 lates = 1 absence counted)
+              Formula: (Present + Late÷2) ÷ (Total - Excused) • 2 lates = 1 absence • Excused days don&apos;t count against you
             </p>
           </CardContent>
         </Card>
@@ -199,13 +216,18 @@ export default function StudentDashboard() {
         {/* Exam Scores */}
         <Card>
           <CardHeader>
-            <CardTitle>Exam Average</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Exam Average
+              <span className="text-sm font-normal text-gray-500">
+                ({analytics.exams.examsTaken}/{analytics.exams.totalApplicableExams} taken)
+              </span>
+            </CardTitle>
             <CardDescription>
-              {analytics.exams.overallAverageMet ? '✓' : '❌'} {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(2)}%` : '—'} (Need {analytics.exams.requiredAverage}%)
+              {analytics.exams.overallAverageMet ? '✓' : '❌'} {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(1)}%` : '—'} (Need {analytics.exams.requiredAverage}%)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Progress value={analytics.exams.overallAverage} className="h-4" />
+            <Progress value={analytics.exams.overallAverage || 0} className="h-4" />
 
             <div className="space-y-3">
               {Object.keys(sectionDisplayNames).map((section) => {
@@ -214,22 +236,53 @@ export default function StudentDashboard() {
                 if (!sectionData) {
                   return (
                     <div key={section} className="flex justify-between items-center">
-                      <span>{sectionDisplayNames[section]}</span>
-                      <Badge variant="outline">Not taken yet</Badge>
+                      <span className="text-sm">{sectionDisplayNames[section]}</span>
+                      <Badge variant="outline" className="text-gray-500">Not taken yet</Badge>
                     </div>
                   )
                 }
 
                 return (
                   <div key={section} className="flex justify-between items-center">
-                    <span>{sectionDisplayNames[section]}</span>
-                    <span className={sectionData.passingMet ? 'text-green-600' : 'text-red-600'}>
-                      {sectionData.average.toFixed(2)}% {sectionData.passingMet ? '✓' : `❌ (Need ${analytics.exams.requiredMinimum}%)`}
+                    <span className="text-sm">{sectionDisplayNames[section]}</span>
+                    <span className={`text-sm font-medium ${sectionData.passingMet ? 'text-green-600' : 'text-red-600'}`}>
+                      {sectionData.average.toFixed(1)}% {sectionData.passingMet ? '✓' : `❌`}
                     </span>
                   </div>
                 )
               })}
             </div>
+
+            {/* Missing Exams */}
+            {analytics.exams.missingExams && analytics.exams.missingExams.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <h4 className="font-semibold text-amber-700 mb-2">
+                  Missing Exams ({analytics.exams.missingExams.length})
+                </h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {analytics.exams.missingExams.map((exam) => (
+                    <div
+                      key={exam.id}
+                      className="bg-amber-50 border border-amber-200 rounded p-2 flex justify-between items-center"
+                    >
+                      <div>
+                        <div className="text-sm font-medium">{exam.sectionDisplayName}</div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(exam.examDate).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-amber-700 border-amber-400">
+                        Not Taken
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +15,8 @@ import {
   BookOpen,
   Calendar,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  AlertCircle
 } from 'lucide-react'
 
 interface SectionAverage {
@@ -22,6 +24,15 @@ interface SectionAverage {
   average: number
   scores: number[]
   passingMet: boolean
+}
+
+interface MissingExam {
+  id: string
+  examDate: string
+  totalPoints: number
+  yearLevel: string
+  sectionName: string
+  sectionDisplayName: string
 }
 
 interface Mentee {
@@ -58,6 +69,9 @@ interface Mentee {
       allSectionsPassing: boolean
       requiredAverage: number
       requiredMinimum: number
+      missingExams: MissingExam[]
+      totalApplicableExams: number
+      examsTaken: number
     }
     graduation: {
       eligible: boolean
@@ -252,45 +266,55 @@ export default function MyMenteesPage() {
                 key={mentee.id}
                 className={`transition-all ${isAtRisk ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-green-500'}`}
               >
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">{mentee.student.name}</CardTitle>
-                        <Badge variant="outline">
+                <CardHeader className="pb-2 px-3 md:px-6">
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                        <Link href={`/dashboard/admin/students?student=${mentee.student.id}`}>
+                          <CardTitle className="text-base md:text-lg truncate hover:text-blue-600 hover:underline cursor-pointer">
+                            {mentee.student.name}
+                          </CardTitle>
+                        </Link>
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">
                           Year {mentee.yearLevel === 'YEAR_1' ? '1' : '2'}
                         </Badge>
                         {isAtRisk ? (
-                          <Badge className="bg-red-100 text-red-800">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
+                          <Badge className="bg-red-100 text-red-800 text-xs px-1.5 py-0">
+                            <AlertTriangle className="h-3 w-3 mr-0.5" />
                             At Risk
                           </Badge>
                         ) : (
-                          <Badge className="bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
+                          <Badge className="bg-green-100 text-green-800 text-xs px-1.5 py-0">
+                            <CheckCircle className="h-3 w-3 mr-0.5" />
                             On Track
                           </Badge>
                         )}
                       </div>
-                      <CardDescription className="mt-1">
+                      <CardDescription className="mt-1 text-xs md:text-sm truncate">
                         {mentee.student.email}
-                        {mentee.student.phone && ` • ${mentee.student.phone}`}
+                        {mentee.student.phone && <span className="hidden md:inline"> • {mentee.student.phone}</span>}
                       </CardDescription>
                     </div>
 
-                    {/* Quick Stats */}
+                    {/* Quick Stats - horizontal on mobile */}
                     {analytics && (
-                      <div className="flex gap-6 text-right">
+                      <div className="flex gap-4 md:gap-6 text-left md:text-right">
                         <div>
-                          <div className="text-xs text-gray-500 uppercase">Attendance</div>
-                          <div className={`text-lg font-bold ${getScoreColor(analytics.attendance.percentage)}`}>
-                            {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(2)}%` : '—'}
+                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Attendance</div>
+                          <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.attendance.percentage)}`}>
+                            {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(1)}%` : '—'}
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500 uppercase">Exam Avg</div>
-                          <div className={`text-lg font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
-                            {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(2)}%` : '—'}
+                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Exam Avg</div>
+                          <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
+                            {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(1)}%` : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Missing</div>
+                          <div className={`text-sm md:text-lg font-bold ${analytics.exams.missingExams?.length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                            {analytics.exams.missingExams?.length || 0}
                           </div>
                         </div>
                       </div>
@@ -298,22 +322,22 @@ export default function MyMenteesPage() {
                   </div>
                 </CardHeader>
 
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 px-3 md:px-6">
                   {/* Expand/Collapse Button */}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setExpandedMentee(isExpanded ? null : mentee.id)}
-                    className="w-full justify-center text-gray-500 hover:text-gray-700"
+                    className="w-full justify-center text-gray-500 hover:text-gray-700 text-xs md:text-sm"
                   >
                     {isExpanded ? (
                       <>
-                        <ChevronUp className="h-4 w-4 mr-1" />
+                        <ChevronUp className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                         Hide Details
                       </>
                     ) : (
                       <>
-                        <ChevronDown className="h-4 w-4 mr-1" />
+                        <ChevronDown className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                         Show Details
                       </>
                     )}
@@ -321,154 +345,191 @@ export default function MyMenteesPage() {
 
                   {/* Expanded Details */}
                   {isExpanded && analytics && (
-                    <div className="mt-4 space-y-6 border-t pt-4">
+                    <div className="mt-3 md:mt-4 space-y-4 md:space-y-6 border-t pt-3 md:pt-4">
                       {/* Attendance Details */}
                       <div>
-                        <h4 className="font-semibold mb-3 flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          Attendance Details
+                        <h4 className="font-semibold mb-2 md:mb-3 flex flex-wrap items-center gap-1.5 md:gap-2 text-sm md:text-base">
+                          <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                          Attendance
                           {analytics.attendance.met ? (
-                            <Badge className="bg-green-100 text-green-800 text-xs">✓ Requirement Met</Badge>
+                            <Badge className="bg-green-100 text-green-800 text-[10px] md:text-xs px-1.5 py-0">✓ Met</Badge>
                           ) : analytics.attendance.percentage !== null ? (
-                            <Badge className="bg-red-100 text-red-800 text-xs">Below 75%</Badge>
+                            <Badge className="bg-red-100 text-red-800 text-[10px] md:text-xs px-1.5 py-0">Below 75%</Badge>
                           ) : (
-                            <Badge className="bg-gray-100 text-gray-800 text-xs">No data yet</Badge>
+                            <Badge className="bg-gray-100 text-gray-800 text-[10px] md:text-xs px-1.5 py-0">No data</Badge>
                           )}
                         </h4>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                          <div className="bg-green-50 border border-green-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-green-700">{analytics.attendance.presentCount}</div>
-                            <div className="text-xs text-gray-600">Present</div>
+                        <div className="grid grid-cols-5 gap-1.5 md:gap-3">
+                          <div className="bg-green-50 border border-green-200 rounded p-1.5 md:p-3 text-center">
+                            <div className="text-base md:text-2xl font-bold text-green-700">{analytics.attendance.presentCount}</div>
+                            <div className="text-[9px] md:text-xs text-gray-600">Present</div>
                           </div>
-                          <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-yellow-700">{analytics.attendance.lateCount}</div>
-                            <div className="text-xs text-gray-600">Late</div>
+                          <div className="bg-yellow-50 border border-yellow-200 rounded p-1.5 md:p-3 text-center">
+                            <div className="text-base md:text-2xl font-bold text-yellow-700">{analytics.attendance.lateCount}</div>
+                            <div className="text-[9px] md:text-xs text-gray-600">Late</div>
                           </div>
-                          <div className="bg-red-50 border border-red-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-red-700">{analytics.attendance.absentCount}</div>
-                            <div className="text-xs text-gray-600">Absent</div>
+                          <div className="bg-red-50 border border-red-200 rounded p-1.5 md:p-3 text-center">
+                            <div className="text-base md:text-2xl font-bold text-red-700">{analytics.attendance.absentCount}</div>
+                            <div className="text-[9px] md:text-xs text-gray-600">Absent</div>
                           </div>
-                          <div className="bg-gray-50 border border-gray-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-gray-700">{analytics.attendance.excusedCount}</div>
-                            <div className="text-xs text-gray-600">Excused</div>
+                          <div className="bg-gray-50 border border-gray-200 rounded p-1.5 md:p-3 text-center">
+                            <div className="text-base md:text-2xl font-bold text-gray-700">{analytics.attendance.excusedCount}</div>
+                            <div className="text-[9px] md:text-xs text-gray-600">Excused</div>
                           </div>
-                          <div className="bg-blue-50 border border-blue-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-blue-700">{analytics.attendance.totalLessons}</div>
-                            <div className="text-xs text-gray-600">Total Lessons</div>
+                          <div className="bg-blue-50 border border-blue-200 rounded p-1.5 md:p-3 text-center">
+                            <div className="text-base md:text-2xl font-bold text-blue-700">{analytics.attendance.totalLessons}</div>
+                            <div className="text-[9px] md:text-xs text-gray-600">Total</div>
                           </div>
                         </div>
-                        <div className="mt-3">
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>Progress to 75% requirement</span>
+                        <div className="mt-2 md:mt-3">
+                          <div className="flex justify-between text-xs md:text-sm mb-1">
+                            <span>Progress to 75%</span>
                             <span className={getScoreColor(analytics.attendance.percentage)}>
-                              {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(2)}%` : '—'}
+                              {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(1)}%` : '—'}
                             </span>
                           </div>
                           <Progress
                             value={analytics.attendance.percentage || 0}
-                            className="h-2"
+                            className="h-1.5 md:h-2"
                           />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Formula: (Present + Late÷2) ÷ (Total - Excused) = {analytics.attendance.effectivePresent.toFixed(1)} ÷ {analytics.attendance.totalLessons}
+                          <p className="text-[10px] md:text-xs text-gray-500 mt-1">
+                            (Present + Late÷2) ÷ (Total - Excused) = {analytics.attendance.effectivePresent.toFixed(1)} ÷ {analytics.attendance.totalLessons}
                           </p>
                         </div>
                       </div>
 
                       {/* Exam Details */}
                       <div>
-                        <h4 className="font-semibold mb-3 flex items-center gap-2">
-                          <BookOpen className="h-4 w-4" />
-                          Exam Performance
+                        <h4 className="font-semibold mb-2 md:mb-3 flex flex-wrap items-center gap-1.5 md:gap-2 text-sm md:text-base">
+                          <BookOpen className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                          Exams
+                          <span className="text-[10px] md:text-xs font-normal text-gray-500">
+                            ({analytics.exams.examsTaken}/{analytics.exams.totalApplicableExams} taken)
+                          </span>
                           {analytics.exams.overallAverageMet ? (
-                            <Badge className="bg-green-100 text-green-800 text-xs">✓ Above 75%</Badge>
+                            <Badge className="bg-green-100 text-green-800 text-[10px] md:text-xs px-1.5 py-0">✓ Above 75%</Badge>
                           ) : analytics.exams.overallAverage !== null ? (
-                            <Badge className="bg-red-100 text-red-800 text-xs">Below 75%</Badge>
+                            <Badge className="bg-red-100 text-red-800 text-[10px] md:text-xs px-1.5 py-0">Below 75%</Badge>
                           ) : (
-                            <Badge className="bg-gray-100 text-gray-800 text-xs">No exams yet</Badge>
+                            <Badge className="bg-gray-100 text-gray-800 text-[10px] md:text-xs px-1.5 py-0">No exams</Badge>
                           )}
                         </h4>
 
                         {/* Overall Average */}
-                        <div className="bg-maroon-50 border border-maroon-200 rounded p-4 mb-4">
+                        <div className="bg-maroon-50 border border-maroon-200 rounded p-2.5 md:p-4 mb-3 md:mb-4">
                           <div className="flex justify-between items-center">
-                            <span className="font-medium">Overall Average</span>
-                            <span className={`text-2xl font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
-                              {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(2)}%` : 'No exams yet'}
+                            <span className="font-medium text-xs md:text-base">Overall Average</span>
+                            <span className={`text-lg md:text-2xl font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
+                              {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(1)}%` : '—'}
                             </span>
                           </div>
                           {analytics.exams.overallAverage !== null && (
                             <Progress
                               value={analytics.exams.overallAverage}
-                              className="h-2 mt-2"
+                              className="h-1.5 md:h-2 mt-2"
                             />
                           )}
                         </div>
 
                         {/* Section Breakdown */}
                         {analytics.exams.sectionAverages.length > 0 ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
                             {analytics.exams.sectionAverages.map((section) => (
                               <div
                                 key={section.section}
-                                className={`border rounded p-3 ${
+                                className={`border rounded p-2 md:p-3 ${
                                   section.passingMet
                                     ? 'bg-green-50 border-green-200'
                                     : 'bg-red-50 border-red-200'
                                 }`}
                               >
                                 <div className="flex justify-between items-center mb-1">
-                                  <span className="text-sm font-medium">
+                                  <span className="text-xs md:text-sm font-medium truncate mr-2">
                                     {SECTION_DISPLAY_NAMES[section.section] || section.section}
                                   </span>
-                                  <span className={`font-bold ${section.passingMet ? 'text-green-700' : 'text-red-700'}`}>
-                                    {section.average.toFixed(2)}%
+                                  <span className={`font-bold text-sm md:text-base ${section.passingMet ? 'text-green-700' : 'text-red-700'}`}>
+                                    {section.average.toFixed(1)}%
                                   </span>
                                 </div>
                                 <Progress value={section.average} className="h-1 mb-1" />
-                                <div className="flex justify-between text-xs text-gray-600">
+                                <div className="flex justify-between text-[10px] md:text-xs text-gray-600">
                                   <span>{section.scores.length} exam{section.scores.length !== 1 ? 's' : ''}</span>
-                                  <span>{section.passingMet ? '✓ Pass (≥60%)' : '✗ Fail (<60%)'}</span>
+                                  <span>{section.passingMet ? '✓ ≥60%' : '✗ <60%'}</span>
                                 </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-gray-500 text-center py-4">No exam scores recorded yet</p>
+                          <p className="text-gray-500 text-center py-3 text-xs md:text-sm">No exam scores recorded yet</p>
+                        )}
+
+                        {/* Missing Exams */}
+                        {analytics.exams.missingExams && analytics.exams.missingExams.length > 0 && (
+                          <div className="mt-3 md:mt-4">
+                            <h5 className="font-medium text-amber-700 mb-2 flex items-center gap-1.5 text-xs md:text-sm">
+                              <AlertCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                              Missing Exams ({analytics.exams.missingExams.length})
+                            </h5>
+                            <div className="space-y-1.5 md:space-y-2 max-h-40 overflow-y-auto">
+                              {analytics.exams.missingExams.map((exam) => (
+                                <div
+                                  key={exam.id}
+                                  className="bg-amber-50 border border-amber-200 rounded p-2 md:p-2.5 flex justify-between items-center"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-xs md:text-sm font-medium truncate">
+                                      {exam.sectionDisplayName}
+                                    </div>
+                                    <div className="text-[10px] md:text-xs text-gray-500">
+                                      {new Date(exam.examDate).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric'
+                                      })}
+                                    </div>
+                                  </div>
+                                  <Badge variant="outline" className="text-amber-700 border-amber-400 text-[10px] md:text-xs px-1.5 py-0 ml-2 shrink-0">
+                                    Not Taken
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
 
                       {/* Graduation Status */}
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold mb-3">Graduation Requirements</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div className={`p-3 rounded border ${analytics.graduation.attendanceMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                            <div className="flex items-center gap-2">
+                      <div className="border-t pt-3 md:pt-4">
+                        <h4 className="font-semibold mb-2 md:mb-3 text-sm md:text-base">Graduation Requirements</h4>
+                        <div className="grid grid-cols-3 gap-1.5 md:gap-3">
+                          <div className={`p-2 md:p-3 rounded border ${analytics.graduation.attendanceMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                            <div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
                               {analytics.graduation.attendanceMet ? (
-                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-green-600 shrink-0" />
                               ) : (
-                                <AlertTriangle className="h-5 w-5 text-red-600" />
+                                <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-red-600 shrink-0" />
                               )}
-                              <span className="font-medium">Attendance ≥75%</span>
+                              <span className="font-medium text-[10px] md:text-sm text-center">Attendance ≥75%</span>
                             </div>
                           </div>
-                          <div className={`p-3 rounded border ${analytics.graduation.overallAverageMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                            <div className="flex items-center gap-2">
+                          <div className={`p-2 md:p-3 rounded border ${analytics.graduation.overallAverageMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                            <div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
                               {analytics.graduation.overallAverageMet ? (
-                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-green-600 shrink-0" />
                               ) : (
-                                <AlertTriangle className="h-5 w-5 text-red-600" />
+                                <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-red-600 shrink-0" />
                               )}
-                              <span className="font-medium">Exam Avg ≥75%</span>
+                              <span className="font-medium text-[10px] md:text-sm text-center">Exam Avg ≥75%</span>
                             </div>
                           </div>
-                          <div className={`p-3 rounded border ${analytics.graduation.allSectionsPassing ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                            <div className="flex items-center gap-2">
+                          <div className={`p-2 md:p-3 rounded border ${analytics.graduation.allSectionsPassing ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                            <div className="flex flex-col md:flex-row items-center gap-1 md:gap-2">
                               {analytics.graduation.allSectionsPassing ? (
-                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-green-600 shrink-0" />
                               ) : (
-                                <AlertTriangle className="h-5 w-5 text-red-600" />
+                                <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-red-600 shrink-0" />
                               )}
-                              <span className="font-medium">All Sections ≥60%</span>
+                              <span className="font-medium text-[10px] md:text-sm text-center">Sections ≥60%</span>
                             </div>
                           </div>
                         </div>

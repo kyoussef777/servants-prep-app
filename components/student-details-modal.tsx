@@ -51,18 +51,23 @@ interface ExamScore {
 
 interface AttendanceRecord {
   id: string
-  status: 'PRESENT' | 'LATE' | 'ABSENT'
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
   arrivedAt?: string | Date
   notes?: string
   lesson: {
     id: string
     title: string
     scheduledDate: string | Date
+    isExamDay?: boolean
     examSection: {
       id: string
       name: string
       displayName: string
       yearLevel: string
+    }
+    academicYear?: {
+      id: string
+      name: string
     }
   }
   recorder?: {
@@ -305,7 +310,7 @@ export function StudentDetailsModal({
     setEditingScoreId(null)
   }
 
-  const updateAttendance = async (recordId: string, status: 'PRESENT' | 'LATE' | 'ABSENT') => {
+  const updateAttendance = async (recordId: string, status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED') => {
     try {
       const res = await fetch(`/api/attendance/${recordId}`, {
         method: 'PATCH',
@@ -343,39 +348,45 @@ export function StudentDetailsModal({
   const takenExamIds = new Set(examScores.map(s => s.exam.id))
   const missingExams = allExams.filter(exam => !takenExamIds.has(exam.id))
 
-  // Separate attendance by year level
-  const year1Attendance = attendanceRecords.filter(r =>
+  // Filter out exam day lessons from attendance calculations (they don't count toward graduation)
+  const countableAttendance = attendanceRecords.filter(r => !r.lesson.isExamDay)
+
+  // Separate attendance by year level (using section yearLevel for grouping display)
+  const year1Attendance = countableAttendance.filter(r =>
     r.lesson.examSection.yearLevel === 'YEAR_1'
   )
-  const year2Attendance = attendanceRecords.filter(r =>
+  const year2Attendance = countableAttendance.filter(r =>
     r.lesson.examSection.yearLevel === 'YEAR_2'
   )
 
-  // Calculate attendance stats
-  const presentCount = attendanceRecords.filter(r => r.status === 'PRESENT').length
-  const lateCount = attendanceRecords.filter(r => r.status === 'LATE').length
-  const absentCount = attendanceRecords.filter(r => r.status === 'ABSENT').length
-  const totalRecords = attendanceRecords.length
-  const attendanceRate = totalRecords > 0
-    ? ((presentCount + (lateCount / 2)) / totalRecords) * 100
+  // Calculate attendance stats using Formula A: (Present + Late/2) / (Total - Excused) * 100
+  const presentCount = countableAttendance.filter(r => r.status === 'PRESENT').length
+  const lateCount = countableAttendance.filter(r => r.status === 'LATE').length
+  const absentCount = countableAttendance.filter(r => r.status === 'ABSENT').length
+  const excusedCount = countableAttendance.filter(r => r.status === 'EXCUSED').length
+  const effectiveTotal = countableAttendance.length - excusedCount
+  const attendanceRate = effectiveTotal > 0
+    ? ((presentCount + (lateCount / 2)) / effectiveTotal) * 100
     : 0
 
   // Year 1 attendance stats
   const year1Present = year1Attendance.filter(r => r.status === 'PRESENT').length
   const year1Late = year1Attendance.filter(r => r.status === 'LATE').length
   const year1Absent = year1Attendance.filter(r => r.status === 'ABSENT').length
-  const year1Total = year1Attendance.length
-  const year1Rate = year1Total > 0
-    ? ((year1Present + (year1Late / 2)) / year1Total) * 100
+  const year1Excused = year1Attendance.filter(r => r.status === 'EXCUSED').length
+  const year1EffectiveTotal = year1Attendance.length - year1Excused
+  const year1Rate = year1EffectiveTotal > 0
+    ? ((year1Present + (year1Late / 2)) / year1EffectiveTotal) * 100
     : 0
 
   // Year 2 attendance stats
   const year2Present = year2Attendance.filter(r => r.status === 'PRESENT').length
   const year2Late = year2Attendance.filter(r => r.status === 'LATE').length
   const year2Absent = year2Attendance.filter(r => r.status === 'ABSENT').length
-  const year2Total = year2Attendance.length
-  const year2Rate = year2Total > 0
-    ? ((year2Present + (year2Late / 2)) / year2Total) * 100
+  const year2Excused = year2Attendance.filter(r => r.status === 'EXCUSED').length
+  const year2EffectiveTotal = year2Attendance.length - year2Excused
+  const year2Rate = year2EffectiveTotal > 0
+    ? ((year2Present + (year2Late / 2)) / year2EffectiveTotal) * 100
     : 0
 
   return (
@@ -806,7 +817,7 @@ export function StudentDetailsModal({
               <Card>
                 <CardContent className="pt-6">
                   <h3 className="font-semibold mb-3">Overall Attendance</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div>
                       <div className="text-sm text-gray-500">Rate</div>
                       <div className={`text-2xl font-bold ${attendanceRate >= 75 ? 'text-green-700' : attendanceRate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
@@ -825,6 +836,10 @@ export function StudentDetailsModal({
                       <div className="text-sm text-gray-500">Absent</div>
                       <div className="text-2xl font-bold text-red-700">{absentCount}</div>
                     </div>
+                    <div>
+                      <div className="text-sm text-gray-500">Excused</div>
+                      <div className="text-2xl font-bold text-blue-700">{excusedCount}</div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -834,7 +849,7 @@ export function StudentDetailsModal({
                 <Card>
                   <CardContent className="pt-6">
                     <h3 className="font-semibold mb-3">Year 1 Attendance</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                       <div>
                         <div className="text-sm text-gray-500">Rate</div>
                         <div className={`text-2xl font-bold ${year1Rate >= 75 ? 'text-green-700' : year1Rate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
@@ -853,6 +868,10 @@ export function StudentDetailsModal({
                         <div className="text-sm text-gray-500">Absent</div>
                         <div className="text-2xl font-bold text-red-700">{year1Absent}</div>
                       </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Excused</div>
+                        <div className="text-2xl font-bold text-blue-700">{year1Excused}</div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -863,7 +882,7 @@ export function StudentDetailsModal({
                 <Card>
                   <CardContent className="pt-6">
                     <h3 className="font-semibold mb-3">Year 2 Attendance</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                       <div>
                         <div className="text-sm text-gray-500">Rate</div>
                         <div className={`text-2xl font-bold ${year2Rate >= 75 ? 'text-green-700' : year2Rate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
@@ -881,6 +900,10 @@ export function StudentDetailsModal({
                       <div>
                         <div className="text-sm text-gray-500">Absent</div>
                         <div className="text-2xl font-bold text-red-700">{year2Absent}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Excused</div>
+                        <div className="text-2xl font-bold text-blue-700">{year2Excused}</div>
                       </div>
                     </div>
                   </CardContent>
@@ -915,12 +938,13 @@ export function StudentDetailsModal({
                           <>
                             <select
                               value={record.status}
-                              onChange={(e) => updateAttendance(record.id, e.target.value as 'PRESENT' | 'LATE' | 'ABSENT')}
+                              onChange={(e) => updateAttendance(record.id, e.target.value as 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED')}
                               className="border rounded px-2 py-1 text-sm"
                             >
                               <option value="PRESENT">Present</option>
                               <option value="LATE">Late</option>
                               <option value="ABSENT">Absent</option>
+                              <option value="EXCUSED">Excused</option>
                             </select>
                             <Button
                               size="sm"
@@ -941,6 +965,9 @@ export function StudentDetailsModal({
                             )}
                             {record.status === 'ABSENT' && (
                               <Badge className="bg-red-100 text-red-800">Absent</Badge>
+                            )}
+                            {record.status === 'EXCUSED' && (
+                              <Badge className="bg-blue-100 text-blue-800">Excused</Badge>
                             )}
                             <Button
                               size="sm"
