@@ -86,9 +86,9 @@ const SECTION_DISPLAY_NAMES: { [key: string]: string } = {
   'BIBLE_STUDIES': 'Bible Studies',
   'DOGMA': 'Dogma',
   'COMPARATIVE_THEOLOGY': 'Comparative Theology',
-  'RITUAL_THEOLOGY': 'Ritual & Sacraments',
-  'CHURCH_HISTORY': 'Church History',
-  'SPIRITUALITY': 'Spirituality',
+  'RITUAL_THEOLOGY_SACRAMENTS': 'Ritual & Sacraments',
+  'CHURCH_HISTORY_COPTIC_HERITAGE': 'Church History',
+  'SPIRITUALITY_OF_SERVANT': 'Spirituality',
   'PSYCHOLOGY_METHODOLOGY': 'Psychology & Methodology',
   'MISCELLANEOUS': 'Miscellaneous'
 }
@@ -267,24 +267,27 @@ export default function MyMenteesPage() {
                 className={`transition-all ${isAtRisk ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-green-500'}`}
               >
                 <CardHeader className="pb-2 px-3 md:px-6">
-                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+                  <div className="space-y-2 md:space-y-0 md:flex md:justify-between md:items-start md:gap-4">
+                    {/* Student Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                      <div className="flex items-center gap-2">
                         <Link href={`/dashboard/admin/students?student=${mentee.student.id}`}>
                           <CardTitle className="text-base md:text-lg truncate hover:text-blue-600 hover:underline cursor-pointer">
                             {mentee.student.name}
                           </CardTitle>
                         </Link>
-                        <Badge variant="outline" className="text-xs px-1.5 py-0">
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <Badge variant="outline" className="text-[10px] md:text-xs px-1.5 py-0">
                           Year {mentee.yearLevel === 'YEAR_1' ? '1' : '2'}
                         </Badge>
                         {isAtRisk ? (
-                          <Badge className="bg-red-100 text-red-800 text-xs px-1.5 py-0">
+                          <Badge className="bg-red-100 text-red-800 text-[10px] md:text-xs px-1.5 py-0">
                             <AlertTriangle className="h-3 w-3 mr-0.5" />
                             At Risk
                           </Badge>
                         ) : (
-                          <Badge className="bg-green-100 text-green-800 text-xs px-1.5 py-0">
+                          <Badge className="bg-green-100 text-green-800 text-[10px] md:text-xs px-1.5 py-0">
                             <CheckCircle className="h-3 w-3 mr-0.5" />
                             On Track
                           </Badge>
@@ -296,22 +299,22 @@ export default function MyMenteesPage() {
                       </CardDescription>
                     </div>
 
-                    {/* Quick Stats - horizontal on mobile */}
+                    {/* Quick Stats - stacks on very small screens */}
                     {analytics && (
-                      <div className="flex gap-4 md:gap-6 text-left md:text-right">
-                        <div>
-                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Attendance</div>
+                      <div className="flex justify-between gap-3 pt-2 border-t md:border-t-0 md:pt-0 md:gap-6 md:text-right">
+                        <div className="text-center md:text-right">
+                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Attend</div>
                           <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.attendance.percentage)}`}>
-                            {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(1)}%` : '—'}
+                            {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(0)}%` : '—'}
                           </div>
                         </div>
-                        <div>
-                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Exam Avg</div>
+                        <div className="text-center md:text-right">
+                          <div className="text-[10px] md:text-xs text-gray-500 uppercase">Exam</div>
                           <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
-                            {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(1)}%` : '—'}
+                            {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(0)}%` : '—'}
                           </div>
                         </div>
-                        <div>
+                        <div className="text-center md:text-right">
                           <div className="text-[10px] md:text-xs text-gray-500 uppercase">Missing</div>
                           <div className={`text-sm md:text-lg font-bold ${analytics.exams.missingExams?.length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
                             {analytics.exams.missingExams?.length || 0}
