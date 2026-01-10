@@ -67,6 +67,7 @@ export default function AttendancePage() {
   const [filterYearLevel, setFilterYearLevel] = useState<string>('all')
   const [filterMentees, setFilterMentees] = useState(false)
   const [showCompletedLessons, setShowCompletedLessons] = useState(false)
+  const [lessonStatusFilter, setLessonStatusFilter] = useState<string>('all')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [compactMode, setCompactMode] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -308,16 +309,25 @@ export default function AttendancePage() {
   // Check if we're showing all years
   const showingAllYears = selectedYearId === 'all'
 
-  // Categorize lessons by whether attendance has been taken
-  // "Scheduled" = no attendance records yet (needs attendance)
-  // "Completed" = has attendance records
+  // Filter lessons by status (lesson status field, not attendance status)
   // Filter out CANCELLED lessons and exam days - they shouldn't appear on attendance page
-  const scheduledLessons = lessons
-    .filter(l => l.status !== 'CANCELLED' && !l.isExamDay && (l._count?.attendanceRecords || 0) === 0)
+  const filteredLessons = lessons.filter(l => {
+    // Always exclude cancelled and exam day lessons
+    if (l.status === 'CANCELLED' || l.isExamDay) return false
+    // Apply lesson status filter if set
+    if (lessonStatusFilter !== 'all' && l.status !== lessonStatusFilter) return false
+    return true
+  })
+
+  // Categorize lessons by whether attendance has been taken
+  // "Needs Attendance" = no attendance records yet (shown at top)
+  // "Completed" = has attendance records (shown at bottom)
+  const scheduledLessons = filteredLessons
+    .filter(l => (l._count?.attendanceRecords || 0) === 0)
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
 
-  const completedLessons = lessons
-    .filter(l => l.status !== 'CANCELLED' && !l.isExamDay && (l._count?.attendanceRecords || 0) > 0)
+  const completedLessons = filteredLessons
+    .filter(l => (l._count?.attendanceRecords || 0) > 0)
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()) // Most recent first
 
   if (loading || status === 'loading') {
@@ -343,18 +353,29 @@ export default function AttendancePage() {
           </div>
           <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {!selectedLesson && (
-              <select
-                value={selectedYearId}
-                onChange={(e) => setSelectedYearId(e.target.value)}
-                className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm flex-1 sm:flex-none"
-              >
-                <option value="all">All Years</option>
-                {academicYears.map(year => (
-                  <option key={year.id} value={year.id}>
-                    {year.name.replace('Academic Year ', '')}{year.isActive ? ' ✓' : ''}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  value={selectedYearId}
+                  onChange={(e) => setSelectedYearId(e.target.value)}
+                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm flex-1 sm:flex-none"
+                >
+                  <option value="all">All Years</option>
+                  {academicYears.map(year => (
+                    <option key={year.id} value={year.id}>
+                      {year.name.replace('Academic Year ', '')}{year.isActive ? ' ✓' : ''}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={lessonStatusFilter}
+                  onChange={(e) => setLessonStatusFilter(e.target.value)}
+                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="SCHEDULED">Scheduled</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+              </>
             )}
             {selectedLesson && (
               <Button variant="outline" size="sm" onClick={() => setSelectedLesson(null)} className="text-xs sm:text-sm">
