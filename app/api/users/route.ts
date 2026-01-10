@@ -83,6 +83,7 @@ export async function GET(request: Request) {
         name: true,
         phone: true,
         role: true,
+        isDisabled: true,
         createdAt: true,
         updatedAt: true,
         enrollments: {

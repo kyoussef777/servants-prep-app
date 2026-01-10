@@ -19,6 +19,7 @@ interface User {
   email: string
   phone?: string
   role: UserRole
+  isDisabled?: boolean
   _count?: {
     mentoredStudents: number
   }
@@ -32,6 +33,10 @@ export default function UsersPage() {
   const [isFiltering, setIsFiltering] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+
+  // Bulk selection state (SUPER_ADMIN only)
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
@@ -216,6 +221,66 @@ export default function UsersPage() {
     setFormError('')
   }
 
+  // Bulk selection handlers (SUPER_ADMIN only)
+  const toggleUserSelection = (userId: string) => {
+    const newSelected = new Set(selectedUsers)
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId)
+    } else {
+      newSelected.add(userId)
+    }
+    setSelectedUsers(newSelected)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedUsers.size === selectableUsers.length) {
+      setSelectedUsers(new Set())
+    } else {
+      setSelectedUsers(new Set(selectableUsers.map(u => u.id)))
+    }
+  }
+
+  const handleBulkDisable = async (disable: boolean) => {
+    if (selectedUsers.size === 0) return
+
+    const action = disable ? 'disable' : 'enable'
+    const confirmMessage = disable
+      ? `Are you sure you want to disable ${selectedUsers.size} user(s)? They will not be able to log in.`
+      : `Are you sure you want to enable ${selectedUsers.size} user(s)? They will be able to log in again.`
+
+    if (!confirm(confirmMessage)) return
+
+    setIsBulkProcessing(true)
+    try {
+      const res = await fetch('/api/users/bulk-disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userIds: Array.from(selectedUsers),
+          isDisabled: disable
+        })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to ${action} users`)
+      }
+
+      toast.success(`Successfully ${action}d ${data.updatedCount} user(s)`)
+      setSelectedUsers(new Set())
+      await fetchUsers(debouncedSearch, roleFilter)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to ${action} users`)
+    } finally {
+      setIsBulkProcessing(false)
+    }
+  }
+
+  // Users that can be selected for bulk operations (not SUPER_ADMIN, not current user)
+  const selectableUsers = users.filter(u => u.role !== 'SUPER_ADMIN' && u.id !== session?.user?.id)
+  const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
+
   if (loading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -245,16 +310,46 @@ export default function UsersPage() {
             <h1 className="text-3xl font-bold">User Management</h1>
             <p className="text-gray-600 mt-1">Create and manage all users</p>
           </div>
-          <Button
-            onClick={() => {
-              setShowCreateForm(true)
-              setEditingUser(null)
-              setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
-            }}
-            disabled={showCreateForm || editingUser !== null}
-          >
-            + Create User
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            {/* Bulk Actions (SUPER_ADMIN only) */}
+            {isSuperAdmin && selectedUsers.size > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => handleBulkDisable(true)}
+                  disabled={isBulkProcessing}
+                  className="text-red-600 border-red-300 hover:bg-red-50"
+                >
+                  {isBulkProcessing ? 'Processing...' : `Disable (${selectedUsers.size})`}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleBulkDisable(false)}
+                  disabled={isBulkProcessing}
+                  className="text-green-600 border-green-300 hover:bg-green-50"
+                >
+                  {isBulkProcessing ? 'Processing...' : `Enable (${selectedUsers.size})`}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedUsers(new Set())}
+                  disabled={isBulkProcessing}
+                >
+                  Clear
+                </Button>
+              </>
+            )}
+            <Button
+              onClick={() => {
+                setShowCreateForm(true)
+                setEditingUser(null)
+                setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
+              }}
+              disabled={showCreateForm || editingUser !== null}
+            >
+              + Create User
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filter */}
@@ -428,11 +523,23 @@ export default function UsersPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
+                    {isSuperAdmin && (
+                      <th className="text-center p-2 w-10">
+                        <input
+                          type="checkbox"
+                          checked={selectableUsers.length > 0 && selectedUsers.size === selectableUsers.length}
+                          onChange={toggleSelectAll}
+                          className="h-4 w-4 rounded border-gray-300"
+                          title="Select all"
+                        />
+                      </th>
+                    )}
                     <th className="text-left p-2 w-8">#</th>
                     <th className="text-left p-2">Name</th>
                     <th className="text-left p-2">Email</th>
                     <th className="text-left p-2">Phone</th>
                     <th className="text-center p-2 w-40">Role</th>
+                    <th className="text-center p-2 w-24">Status</th>
                     <th className="text-center p-2 w-24">Mentees</th>
                     <th className="text-center p-2 w-40">Actions</th>
                   </tr>
@@ -440,9 +547,24 @@ export default function UsersPage() {
                 <tbody>
                   {users.map((user, index) => {
                     const isCurrentUser = user.id === session?.user?.id
+                    const canSelect = user.role !== 'SUPER_ADMIN' && !isCurrentUser
 
                     return (
-                      <tr key={user.id} className="border-b hover:bg-gray-50">
+                      <tr key={user.id} className={`border-b hover:bg-gray-50 ${user.isDisabled ? 'bg-red-50' : ''}`}>
+                        {isSuperAdmin && (
+                          <td className="p-2 text-center">
+                            {canSelect ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedUsers.has(user.id)}
+                                onChange={() => toggleUserSelection(user.id)}
+                                className="h-4 w-4 rounded border-gray-300"
+                              />
+                            ) : (
+                              <span className="text-gray-300">-</span>
+                            )}
+                          </td>
+                        )}
                         <td className="p-2 text-gray-500">{index + 1}</td>
                         <td className="p-2 font-medium">
                           {user.role === 'STUDENT' ? (
@@ -470,6 +592,13 @@ export default function UsersPage() {
                           >
                             {getRoleDisplayName(user.role)}
                           </Badge>
+                        </td>
+                        <td className="p-2 text-center">
+                          {user.isDisabled ? (
+                            <Badge className="bg-red-500">Disabled</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-green-600 border-green-300">Active</Badge>
+                          )}
                         </td>
                         <td className="p-2 text-center">
                           {user.role === 'MENTOR' || user.role === 'SERVANT_PREP' ? (
@@ -516,12 +645,28 @@ export default function UsersPage() {
             <div className="lg:hidden space-y-1">
               {users.map((user) => {
                 const isCurrentUser = user.id === session?.user?.id
+                const canSelect = user.role !== 'SUPER_ADMIN' && !isCurrentUser
 
                 return (
-                  <div key={user.id} className="flex items-center gap-2 p-2 bg-white border rounded-md">
+                  <div key={user.id} className={`flex items-center gap-2 p-2 border rounded-md ${user.isDisabled ? 'bg-red-50' : 'bg-white'}`}>
+                    {/* Checkbox for SUPER_ADMIN */}
+                    {isSuperAdmin && (
+                      <div className="shrink-0">
+                        {canSelect ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.has(user.id)}
+                            onChange={() => toggleUserSelection(user.id)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                        ) : (
+                          <div className="w-4" />
+                        )}
+                      </div>
+                    )}
                     {/* Name & Role */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         {user.role === 'STUDENT' ? (
                           <Link href={`/dashboard/admin/students?student=${user.id}`} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">
                             {user.name}
@@ -531,6 +676,9 @@ export default function UsersPage() {
                         )}
                         {isCurrentUser && (
                           <Badge variant="outline" className="text-[10px] px-1 py-0">You</Badge>
+                        )}
+                        {user.isDisabled && (
+                          <Badge className="bg-red-500 text-[10px] px-1 py-0">Disabled</Badge>
                         )}
                         <Badge
                           className={`text-[10px] px-1.5 py-0 ${
