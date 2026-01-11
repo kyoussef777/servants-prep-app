@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { isAdmin } from '@/lib/roles'
+import { isAdmin, canManageCurriculum } from '@/lib/roles'
 import { toast } from 'sonner'
 import { formatDateUTC } from '@/lib/utils'
 
@@ -334,7 +334,8 @@ export default function CurriculumPage() {
     )
   }
 
-  const canEdit = session?.user?.role && isAdmin(session.user.role)
+  // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can edit curriculum
+  const canEdit = session?.user?.role && canManageCurriculum(session.user.role)
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">

@@ -2,11 +2,12 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 
-import { canAssignMentors, isAdmin } from "@/lib/roles"
+import { canAssignMentors, canManageEnrollments } from "@/lib/roles"
 
 // PATCH /api/enrollments/[id] - Update an enrollment
-// - SUPER_ADMIN/PRIEST: Can update all fields including mentor assignment
-// - SERVANT_PREP: Can update yearLevel, status, notes, isActive (but NOT mentorId)
+// - SUPER_ADMIN: Can update all fields including mentor assignment
+// - SERVANT_PREP: Can update yearLevel, status, notes, isActive, mentorId
+// - PRIEST: Read-only, cannot update enrollments
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -15,8 +16,8 @@ export async function PATCH(
     const user = await requireAuth()
     const { id } = await params
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage enrollments
+    if (!canManageEnrollments(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
@@ -28,7 +29,7 @@ export async function PATCH(
 
     const updateData: Record<string, unknown> = {}
     if (yearLevel) updateData.yearLevel = yearLevel
-    // Only SUPER_ADMIN/PRIEST can change mentor assignment
+    // Only SUPER_ADMIN/SERVANT_PREP can change mentor assignment
     if (mentorId !== undefined && canAssignMentors(user.role)) {
       updateData.mentorId = mentorId || null
     }

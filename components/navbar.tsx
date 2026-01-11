@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { getRoleDisplayName } from '@/lib/roles'
+import { getRoleDisplayName, canManageUsers, canManageEnrollments } from '@/lib/roles'
 import { Menu, X } from 'lucide-react'
 
 export function Navbar() {
@@ -57,16 +57,26 @@ export function Navbar() {
     }
 
     // SUPER_ADMIN, PRIEST, SERVANT_PREP
-    return [
+    const adminLinks = [
       { href: '/dashboard/admin', label: 'Dashboard' },
       { href: '/dashboard/admin/attendance', label: 'Attendance' },
       { href: '/dashboard/admin/exams', label: 'Exams' },
       { href: '/dashboard/admin/curriculum', label: 'Curriculum' },
       { href: '/dashboard/admin/students', label: 'Students' },
       { href: '/dashboard/admin/mentees', label: 'Mentees' },
-      { href: '/dashboard/admin/enrollments', label: 'Roster' },
-      { href: '/dashboard/admin/users', label: 'Users' }
     ]
+
+    // Only show Roster page for roles that can manage enrollments (PRIEST is read-only)
+    if (canManageEnrollments(role)) {
+      adminLinks.push({ href: '/dashboard/admin/enrollments', label: 'Roster' })
+    }
+
+    // Only show Users page for roles that can manage users
+    if (canManageUsers(role)) {
+      adminLinks.push({ href: '/dashboard/admin/users', label: 'Users' })
+    }
+
+    return adminLinks
   }
 
   const navLinks = getNavLinks()

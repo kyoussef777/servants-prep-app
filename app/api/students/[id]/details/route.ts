@@ -39,6 +39,14 @@ export async function GET(
                 name: true,
                 email: true
               }
+            },
+            fatherOfConfession: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                church: true
+              }
             }
           }
         }

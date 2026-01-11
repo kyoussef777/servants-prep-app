@@ -312,31 +312,47 @@ export default function UsersPage() {
           </div>
           <div className="flex gap-2 flex-wrap">
             {/* Bulk Actions (SUPER_ADMIN only) */}
-            {isSuperAdmin && selectedUsers.size > 0 && (
+            {isSuperAdmin && (
               <>
+                {/* Select All / Clear All button */}
                 <Button
                   variant="outline"
-                  onClick={() => handleBulkDisable(true)}
-                  disabled={isBulkProcessing}
-                  className="text-red-600 border-red-300 hover:bg-red-50"
+                  onClick={toggleSelectAll}
+                  disabled={isBulkProcessing || selectableUsers.length === 0}
+                  className="text-xs md:text-sm"
                 >
-                  {isBulkProcessing ? 'Processing...' : `Disable (${selectedUsers.size})`}
+                  {selectedUsers.size === selectableUsers.length && selectableUsers.length > 0
+                    ? `Deselect All`
+                    : `Select All (${selectableUsers.length})`}
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleBulkDisable(false)}
-                  disabled={isBulkProcessing}
-                  className="text-green-600 border-green-300 hover:bg-green-50"
-                >
-                  {isBulkProcessing ? 'Processing...' : `Enable (${selectedUsers.size})`}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setSelectedUsers(new Set())}
-                  disabled={isBulkProcessing}
-                >
-                  Clear
-                </Button>
+                {selectedUsers.size > 0 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleBulkDisable(true)}
+                      disabled={isBulkProcessing}
+                      className="text-red-600 border-red-300 hover:bg-red-50 text-xs md:text-sm"
+                    >
+                      {isBulkProcessing ? 'Processing...' : `Disable (${selectedUsers.size})`}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleBulkDisable(false)}
+                      disabled={isBulkProcessing}
+                      className="text-green-600 border-green-300 hover:bg-green-50 text-xs md:text-sm"
+                    >
+                      {isBulkProcessing ? 'Processing...' : `Enable (${selectedUsers.size})`}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSelectedUsers(new Set())}
+                      disabled={isBulkProcessing}
+                      className="text-xs md:text-sm"
+                    >
+                      Clear
+                    </Button>
+                  </>
+                )}
               </>
             )}
             <Button

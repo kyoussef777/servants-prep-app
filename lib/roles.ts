@@ -41,19 +41,39 @@ export const canManageAllUsers = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN
 }
 
-// Can access admin dashboard
+// Can access admin dashboard (view-only for PRIEST)
 export const canAccessAdmin = (role: UserRole) => {
   return isAdmin(role)
 }
 
-// Can take attendance and enter scores
+// Can take attendance and enter scores (PRIEST is read-only)
 export const canManageData = (role: UserRole) => {
-  return isAdmin(role)
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
 }
 
-// Can assign mentors to students
+// Can create/edit curriculum and lessons (PRIEST is read-only)
+export const canManageCurriculum = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// Can create/edit exams and scores (PRIEST is read-only)
+export const canManageExams = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// Can create/edit enrollments (PRIEST is read-only)
+export const canManageEnrollments = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// Has read-only admin access (PRIEST)
+export const isReadOnlyAdmin = (role: UserRole) => {
+  return role === UserRole.PRIEST
+}
+
+// Can assign mentors to students (PRIEST is read-only)
 export const canAssignMentors = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.PRIEST || role === UserRole.SERVANT_PREP
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
 }
 
 // Can self-assign mentees (mentors)

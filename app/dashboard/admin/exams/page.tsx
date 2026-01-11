@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { isAdmin } from "@/lib/roles"
+import { isAdmin, canManageExams } from "@/lib/roles"
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -411,6 +411,9 @@ export default function ExamsPage() {
     return true
   })
 
+  // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage exams
+  const canEdit = session?.user?.role && canManageExams(session.user.role)
+
   if (loading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -454,9 +457,11 @@ export default function ExamsPage() {
                     </option>
                   ))}
                 </select>
-                <Button onClick={() => setShowCreateExam(true)}>
-                  Create New Exam
-                </Button>
+                {canEdit && (
+                  <Button onClick={() => setShowCreateExam(true)}>
+                    Create New Exam
+                  </Button>
+                )}
               </>
             )}
             {selectedExam && (
@@ -508,14 +513,16 @@ export default function ExamsPage() {
                                 <div className="text-sm text-gray-600">
                                   {exam._count?.scores || 0} scores entered
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => deleteExam(exam.id, e)}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {canEdit && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => deleteExam(exam.id, e)}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </CardContent>
@@ -563,14 +570,16 @@ export default function ExamsPage() {
                 />
                 <span className="text-sm">My Mentees</span>
               </label>
-              <Button
-                onClick={saveScores}
-                disabled={saving || scores.size === 0}
-                size="sm"
-                className="ml-auto"
-              >
-                {saving ? 'Saving...' : 'Save Scores'}
-              </Button>
+              {canEdit && (
+                <Button
+                  onClick={saveScores}
+                  disabled={saving || scores.size === 0}
+                  size="sm"
+                  className="ml-auto"
+                >
+                  {saving ? 'Saving...' : 'Save Scores'}
+                </Button>
+              )}
             </div>
 
             {/* Excel-like Table - Desktop */}
@@ -620,7 +629,8 @@ export default function ExamsPage() {
                                 placeholder="0"
                                 value={score !== undefined ? score : ''}
                                 onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                                className="w-20 px-2 py-1 text-center border rounded focus:outline-none focus:ring-1 focus:ring-maroon-500"
+                                disabled={!canEdit}
+                                className={`w-20 px-2 py-1 text-center border rounded focus:outline-none focus:ring-1 focus:ring-maroon-500 ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 min={0}
                                 max={selectedExam?.totalPoints}
                                 step="any"
@@ -649,7 +659,8 @@ export default function ExamsPage() {
                               placeholder="Optional notes..."
                               value={notes.get(student.id) || ''}
                               onChange={(e) => handleNotesChange(student.id, e.target.value)}
-                              className="w-full text-xs min-h-[60px]"
+                              disabled={!canEdit}
+                              className={`w-full text-xs min-h-[60px] ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                               rows={2}
                             />
                           </td>
@@ -713,7 +724,8 @@ export default function ExamsPage() {
                               placeholder="0"
                               value={score !== undefined ? score : ''}
                               onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                              className="flex-1 px-3 py-2 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-maroon-500"
+                              disabled={!canEdit}
+                              className={`flex-1 px-3 py-2 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-maroon-500 ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                               min={0}
                               max={selectedExam?.totalPoints}
                               step="any"
@@ -744,7 +756,8 @@ export default function ExamsPage() {
                             placeholder="Add notes for this student..."
                             value={notes.get(student.id) || ''}
                             onChange={(e) => handleNotesChange(student.id, e.target.value)}
-                            className="w-full text-sm"
+                            disabled={!canEdit}
+                            className={`w-full text-sm ${!canEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             rows={3}
                           />
                         </div>

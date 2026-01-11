@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { isAdmin } from "@/lib/roles"
+import { canManageData } from "@/lib/roles"
 import { AttendanceStatus } from "@prisma/client"
 
 interface AttendanceRecord {
@@ -21,7 +21,8 @@ export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    if (!isAdmin(user.role)) {
+    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage attendance
+    if (!canManageData(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }

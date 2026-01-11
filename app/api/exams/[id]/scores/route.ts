@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
-import { isAdmin } from "@/lib/roles"
+import { isAdmin, canManageExams } from "@/lib/roles"
 
 
 // GET /api/exams/[id]/scores - Get scores for an exam (Admins see all, Mentors see only their mentees)
@@ -73,8 +73,8 @@ export async function POST(
   try {
     const user = await requireAuth()
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage exam scores
+    if (!canManageExams(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }

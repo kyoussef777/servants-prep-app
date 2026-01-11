@@ -105,6 +105,13 @@ interface Mentor {
   email?: string
 }
 
+interface FatherOfConfession {
+  id: string
+  name: string
+  phone?: string
+  church?: string
+}
+
 interface StudentDetailsModalProps {
   studentId: string | null
   studentName: string
@@ -112,6 +119,8 @@ interface StudentDetailsModalProps {
   studentPhone?: string
   yearLevel?: string
   mentor?: Mentor | null
+  fatherOfConfession?: FatherOfConfession | null
+  enrollmentId?: string
   examScores: ExamScore[]
   attendanceRecords: AttendanceRecord[]
   allExams?: Exam[]
@@ -128,6 +137,8 @@ export function StudentDetailsModal({
   studentPhone = '',
   yearLevel,
   mentor,
+  fatherOfConfession,
+  enrollmentId,
   examScores,
   attendanceRecords,
   allExams = [],
@@ -156,15 +167,26 @@ export function StudentDetailsModal({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteContent, setEditingNoteContent] = useState('')
 
+  // Father of Confession state
+  const [fathersList, setFathersList] = useState<FatherOfConfession[]>([])
+  const [selectedFatherId, setSelectedFatherId] = useState<string>('')
+  const [savingFather, setSavingFather] = useState(false)
+
   // Fetch notes when student changes
   useEffect(() => {
     if (studentId) {
       fetchNotes()
+      fetchFathersList()
     } else {
       setNotes([])
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId])
+
+  // Update selectedFatherId when fatherOfConfession prop changes
+  useEffect(() => {
+    setSelectedFatherId(fatherOfConfession?.id || '')
+  }, [fatherOfConfession])
 
   const fetchNotes = async () => {
     if (!studentId) return
@@ -179,6 +201,49 @@ export function StudentDetailsModal({
       console.error('Failed to fetch notes:', error)
     } finally {
       setNotesLoading(false)
+    }
+  }
+
+  const fetchFathersList = async () => {
+    try {
+      const res = await fetch('/api/fathers-of-confession')
+      if (res.ok) {
+        const data = await res.json()
+        setFathersList(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch fathers of confession:', error)
+    }
+  }
+
+  const updateFatherOfConfession = async (fatherId: string) => {
+    if (!enrollmentId) {
+      toast.error('No enrollment found for this student')
+      return
+    }
+    setSavingFather(true)
+    try {
+      const res = await fetch(`/api/enrollments/${enrollmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fatherOfConfessionId: fatherId || null
+        })
+      })
+
+      if (res.ok) {
+        toast.success('Father of Confession updated successfully!')
+        setSelectedFatherId(fatherId)
+        onRefresh()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to update Father of Confession')
+      }
+    } catch (error) {
+      console.error('Failed to update Father of Confession:', error)
+      toast.error('Failed to update Father of Confession')
+    } finally {
+      setSavingFather(false)
     }
   }
 
@@ -514,9 +579,28 @@ export function StudentDetailsModal({
                           {yearLevel === 'YEAR_1' ? 'Year 1' : yearLevel === 'YEAR_2' ? 'Year 2' : '-'}
                         </span>
                       </div>
-                      <div className="flex justify-between py-2">
+                      <div className="flex justify-between py-2 border-b">
                         <span className="text-gray-600">Mentor</span>
                         <span className="font-medium">{mentor?.name || 'Not assigned'}</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 gap-1 sm:gap-2">
+                        <span className="text-gray-600 shrink-0">Father of Confession</span>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={selectedFatherId}
+                            onChange={(e) => updateFatherOfConfession(e.target.value)}
+                            disabled={savingFather || !enrollmentId}
+                            className="border rounded px-2 py-1 text-sm w-full sm:w-auto sm:max-w-[180px] truncate"
+                          >
+                            <option value="">Not assigned</option>
+                            {fathersList.map((father) => (
+                              <option key={father.id} value={father.id}>
+                                {father.name}
+                              </option>
+                            ))}
+                          </select>
+                          {savingFather && <span className="text-xs text-gray-500">Saving...</span>}
+                        </div>
                       </div>
                     </div>
                   )}

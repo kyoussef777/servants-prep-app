@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { isAdmin } from "@/lib/roles"
+import { canManageCurriculum } from "@/lib/roles"
 
 
-// PATCH /api/lessons/[id] - Update a lesson (Priest/Servant)
+// PATCH /api/lessons/[id] - Update a lesson (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -12,8 +12,8 @@ export async function PATCH(
   try {
     const user = await requireAuth()
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage curriculum
+    if (!canManageCurriculum(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
@@ -78,7 +78,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/lessons/[id] - Delete a lesson (Priest only)
+// DELETE /api/lessons/[id] - Delete a lesson (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -86,8 +86,8 @@ export async function DELETE(
   try {
     const user = await requireAuth()
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage curriculum
+    if (!canManageCurriculum(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }

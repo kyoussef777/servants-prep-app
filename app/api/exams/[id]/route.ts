@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { isAdmin } from "@/lib/roles"
+import { canManageExams } from "@/lib/roles"
 
-// DELETE /api/exams/[id] - Delete an exam (Admin only)
+// DELETE /api/exams/[id] - Delete an exam (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -19,8 +19,8 @@ export async function DELETE(
       )
     }
 
-    // Check if user has admin access
-    if (!isAdmin(session.user.role)) {
+    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage exams
+    if (!canManageExams(session.user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }

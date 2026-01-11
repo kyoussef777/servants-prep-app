@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
-import { isAdmin } from "@/lib/roles"
+import { isAdmin, canManageData } from "@/lib/roles"
 
 // GET /api/attendance - List attendance records (Admins see all, Mentors see only their mentees)
 export async function GET(request: Request) {
@@ -67,13 +67,13 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/attendance - Create attendance record (Admin only)
+// POST /api/attendance - Create attendance record (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    // Check if user can manage data (PRIEST is read-only)
+    if (!canManageData(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }

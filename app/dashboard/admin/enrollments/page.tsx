@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { canAssignMentors } from '@/lib/roles'
+import { canAssignMentors, canManageEnrollments } from '@/lib/roles'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 
@@ -271,6 +271,9 @@ export default function EnrollmentsPage() {
     }
   }
 
+  // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage enrollments
+  const canEdit = session?.user?.role && canManageEnrollments(session.user.role)
+
   if (loading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -455,9 +458,10 @@ export default function EnrollmentsPage() {
                       </td>
                       <td className="p-3">
                         <select
-                          className="h-9 px-2 text-sm rounded-md border border-input bg-background w-full max-w-xs"
+                          className={`h-9 px-2 text-sm rounded-md border border-input bg-background w-full max-w-xs ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
                           value={enrollment.mentor?.id || ''}
                           onChange={(e) => handleMentorChange(enrollment.id, e.target.value)}
+                          disabled={!canEdit}
                         >
                           <option value="">Unassigned</option>
                           {mentors.map(mentor => (
@@ -469,9 +473,10 @@ export default function EnrollmentsPage() {
                       </td>
                       <td className="p-3">
                         <select
-                          className="h-9 px-2 text-sm rounded-md border border-input bg-background w-full max-w-xs"
+                          className={`h-9 px-2 text-sm rounded-md border border-input bg-background w-full max-w-xs ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
                           value={enrollment.fatherOfConfession?.id || ''}
                           onChange={(e) => handleFatherChange(enrollment.id, e.target.value)}
+                          disabled={!canEdit}
                         >
                           <option value="">Unassigned</option>
                           {fathersOfConfession.map(father => (
@@ -550,9 +555,10 @@ export default function EnrollmentsPage() {
                     <div>
                       <label className="text-sm text-gray-600 block mb-1">Mentor:</label>
                       <select
-                        className="h-9 px-3 text-sm rounded-md border border-input bg-background w-full"
+                        className={`h-9 px-3 text-sm rounded-md border border-input bg-background w-full ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
                         value={enrollment.mentor?.id || ''}
                         onChange={(e) => handleMentorChange(enrollment.id, e.target.value)}
+                        disabled={!canEdit}
                       >
                         <option value="">Unassigned</option>
                         {mentors.map(mentor => (
@@ -565,9 +571,10 @@ export default function EnrollmentsPage() {
                     <div>
                       <label className="text-sm text-gray-600 block mb-1">Father of Confession:</label>
                       <select
-                        className="h-9 px-3 text-sm rounded-md border border-input bg-background w-full"
+                        className={`h-9 px-3 text-sm rounded-md border border-input bg-background w-full ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
                         value={enrollment.fatherOfConfession?.id || ''}
                         onChange={(e) => handleFatherChange(enrollment.id, e.target.value)}
+                        disabled={!canEdit}
                       >
                         <option value="">Unassigned</option>
                         {fathersOfConfession.map(father => (
@@ -597,12 +604,14 @@ export default function EnrollmentsPage() {
           <DialogHeader className="pr-8">
             <DialogTitle>Fathers of Confession</DialogTitle>
           </DialogHeader>
-          <div className="flex justify-end -mt-2 mb-2">
-            <Button size="sm" onClick={openAddFatherDialog}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
-          </div>
+          {canEdit && (
+            <div className="flex justify-end -mt-2 mb-2">
+              <Button size="sm" onClick={openAddFatherDialog}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add
+              </Button>
+            </div>
+          )}
           <div className="py-4 max-h-[60vh] overflow-y-auto">
             {fathersOfConfession.length === 0 ? (
               <p className="text-gray-500 text-sm text-center py-8">
@@ -618,22 +627,24 @@ export default function EnrollmentsPage() {
                       {father.phone && <div className="text-xs text-gray-400">{father.phone}</div>}
                       <div className="text-xs text-maroon-600 mt-1">{father._count?.students || 0} students</div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEditFatherDialog(father)}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteFather(father)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditFatherDialog(father)}
+                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteFather(father)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

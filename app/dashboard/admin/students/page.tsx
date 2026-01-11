@@ -29,6 +29,12 @@ interface Student {
       id: string
       name: string
     }
+    fatherOfConfession?: {
+      id: string
+      name: string
+      phone?: string
+      church?: string
+    }
   }>
 }
 
@@ -918,6 +924,8 @@ function StudentsManagementContent() {
         studentPhone={students.find(s => s.id === viewingStudent)?.phone || ''}
         yearLevel={studentDetails?.student?.enrollments?.[0]?.yearLevel}
         mentor={studentDetails?.student?.enrollments?.[0]?.mentor}
+        fatherOfConfession={studentDetails?.student?.enrollments?.[0]?.fatherOfConfession}
+        enrollmentId={studentDetails?.student?.enrollments?.[0]?.id}
         examScores={studentDetails?.examScores || []}
         attendanceRecords={studentDetails?.attendanceRecords || []}
         allExams={studentDetails?.allExams || []}

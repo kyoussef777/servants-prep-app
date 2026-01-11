@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
-import { isAdmin } from "@/lib/roles"
+import { isAdmin, canManageEnrollments } from "@/lib/roles"
 
 // GET /api/enrollments - List enrollments
 // Query params:
@@ -137,13 +137,13 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/enrollments - Create a new enrollment (Admin only)
+// POST /api/enrollments - Create a new enrollment (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage enrollments
+    if (!canManageEnrollments(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }

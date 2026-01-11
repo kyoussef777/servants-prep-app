@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { isAdmin } from '@/lib/roles'
+import { isAdmin, canManageData } from '@/lib/roles'
 import { ChevronDown, ChevronRight, Calendar, Settings2, Check, Clock, X, Shield } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDateUTC } from '@/lib/utils'
@@ -330,6 +330,9 @@ export default function AttendancePage() {
     .filter(l => (l._count?.attendanceRecords || 0) > 0)
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime()) // Most recent first
 
+  // Check if user can manage data (PRIEST is read-only)
+  const userCanManageData = session?.user?.role ? canManageData(session.user.role) : false
+
   if (loading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -555,11 +558,12 @@ export default function AttendancePage() {
                               <button
                                 type="button"
                                 onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
+                                disabled={!userCanManageData}
                                 className={`p-1.5 rounded transition-colors ${
                                   currentStatus === 'PRESENT'
                                     ? 'bg-green-500 text-white'
                                     : 'bg-gray-100 text-gray-400 hover:bg-green-100 hover:text-green-600'
-                                }`}
+                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                                 title="Present"
                               >
                                 <Check className="h-4 w-4" />
@@ -567,11 +571,12 @@ export default function AttendancePage() {
                               <button
                                 type="button"
                                 onClick={() => updateAttendance(student.id, 'status', 'LATE')}
+                                disabled={!userCanManageData}
                                 className={`p-1.5 rounded transition-colors ${
                                   currentStatus === 'LATE'
                                     ? 'bg-yellow-500 text-white'
                                     : 'bg-gray-100 text-gray-400 hover:bg-yellow-100 hover:text-yellow-600'
-                                }`}
+                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                                 title="Late"
                               >
                                 <Clock className="h-4 w-4" />
@@ -579,11 +584,12 @@ export default function AttendancePage() {
                               <button
                                 type="button"
                                 onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
+                                disabled={!userCanManageData}
                                 className={`p-1.5 rounded transition-colors ${
                                   currentStatus === 'ABSENT'
                                     ? 'bg-red-500 text-white'
                                     : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600'
-                                }`}
+                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                                 title="Absent"
                               >
                                 <X className="h-4 w-4" />
@@ -591,11 +597,12 @@ export default function AttendancePage() {
                               <button
                                 type="button"
                                 onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
+                                disabled={!userCanManageData}
                                 className={`p-1.5 rounded transition-colors ${
                                   currentStatus === 'EXCUSED'
                                     ? 'bg-blue-500 text-white'
                                     : 'bg-gray-100 text-gray-400 hover:bg-blue-100 hover:text-blue-600'
-                                }`}
+                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                                 title="Excused (not counted)"
                               >
                                 <Shield className="h-4 w-4" />
@@ -658,44 +665,48 @@ export default function AttendancePage() {
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
+                            disabled={!userCanManageData}
                             className={`p-2 rounded transition-colors ${
                               currentStatus === 'PRESENT'
                                 ? 'bg-green-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
-                            }`}
+                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
                             <Check className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'LATE')}
+                            disabled={!userCanManageData}
                             className={`p-2 rounded transition-colors ${
                               currentStatus === 'LATE'
                                 ? 'bg-yellow-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
-                            }`}
+                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
                             <Clock className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
+                            disabled={!userCanManageData}
                             className={`p-2 rounded transition-colors ${
                               currentStatus === 'ABSENT'
                                 ? 'bg-red-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
-                            }`}
+                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
                             <X className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
+                            disabled={!userCanManageData}
                             className={`p-2 rounded transition-colors ${
                               currentStatus === 'EXCUSED'
                                 ? 'bg-blue-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
-                            }`}
+                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
                             <Shield className="h-4 w-4" />
                           </button>
@@ -755,14 +766,16 @@ export default function AttendancePage() {
                     <span className="text-orange-600 font-medium">• Unsaved</span>
                   )}
                 </div>
-                <Button
-                  onClick={saveAttendance}
-                  disabled={saving}
-                  size="lg"
-                  className="px-8"
-                >
-                  {saving ? 'Saving...' : 'Save Attendance'}
-                </Button>
+                {userCanManageData && (
+                  <Button
+                    onClick={saveAttendance}
+                    disabled={saving}
+                    size="lg"
+                    className="px-8"
+                  >
+                    {saving ? 'Saving...' : 'Save Attendance'}
+                  </Button>
+                )}
               </div>
             </div>
           </>

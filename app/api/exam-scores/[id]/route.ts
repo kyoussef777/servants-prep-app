@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { isAdmin } from "@/lib/roles"
+import { canManageExams } from "@/lib/roles"
 
 
-// PATCH /api/exam-scores/[id] - Update an exam score (Priest/Servant)
+// PATCH /api/exam-scores/[id] - Update an exam score (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -12,8 +12,8 @@ export async function PATCH(
   try {
     const user = await requireAuth()
 
-    // Check if user has admin access
-    if (!isAdmin(user.role)) {
+    // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage exam scores
+    if (!canManageExams(user.role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403 }
