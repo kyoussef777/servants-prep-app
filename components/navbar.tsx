@@ -4,15 +4,17 @@ import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { getRoleDisplayName, canManageUsers, canManageEnrollments } from '@/lib/roles'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Moon, Sun } from 'lucide-react'
 
 export function Navbar() {
   const { data: session } = useSession()
   const pathname = usePathname()
+  const { theme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   if (!session?.user || pathname === '/login' || pathname === '/change-password') {
@@ -82,7 +84,7 @@ export function Navbar() {
   const navLinks = getNavLinks()
 
   return (
-    <nav className="border-b bg-white sticky top-0 z-50">
+    <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Left side - Logo/Title */}
@@ -93,7 +95,7 @@ export function Navbar() {
                 alt="Servants Prep Logo"
                 className="w-10 h-10 rounded-md bg-black p-1"
               />
-              <span className="text-xl font-bold text-gray-900">
+              <span className="text-xl font-bold text-gray-900 dark:text-white">
                 Servants Prep
               </span>
             </Link>
@@ -106,8 +108,8 @@ export function Navbar() {
                   href={link.href}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive(link.href)
-                      ? 'bg-maroon-50 text-maroon-700'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-maroon-50 text-maroon-700 dark:bg-maroon-900/30 dark:text-maroon-300'
+                      : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
                   }`}
                 >
                   {link.label}
@@ -133,10 +135,10 @@ export function Navbar() {
             </Button>
 
             <div className="hidden md:flex flex-col items-end">
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {session.user.name}
               </span>
-              <span className="text-xs text-gray-600">
+              <span className="text-xs text-gray-600 dark:text-gray-400">
                 {getRoleDisplayName(session.user.role)}
               </span>
             </div>
@@ -154,8 +156,8 @@ export function Navbar() {
               <DropdownMenuContent align="end" className="w-56">
                 <div className="flex flex-col space-y-1 p-2">
                   <p className="text-sm font-medium">{session.user.name}</p>
-                  <p className="text-xs text-gray-600">{session.user.email}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">{session.user.email}</p>
+                  <p className="text-xs text-muted-foreground">
                     {getRoleDisplayName(session.user.role)}
                   </p>
                 </div>
@@ -177,6 +179,22 @@ export function Navbar() {
                     Change Password
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer flex items-center gap-2"
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                >
+                  {theme === 'dark' ? (
+                    <>
+                      <Sun className="h-4 w-4" />
+                      Light Mode
+                    </>
+                  ) : (
+                    <>
+                      <Moon className="h-4 w-4" />
+                      Dark Mode
+                    </>
+                  )}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="cursor-pointer text-red-600"
@@ -191,7 +209,7 @@ export function Navbar() {
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t">
+          <div className="lg:hidden border-t dark:border-gray-800">
             <div className="px-2 pt-2 pb-3 space-y-1">
               {navLinks.map(link => (
                 <Link
@@ -200,8 +218,8 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
                     isActive(link.href)
-                      ? 'bg-maroon-50 text-maroon-700'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-maroon-50 text-maroon-700 dark:bg-maroon-900/30 dark:text-maroon-300'
+                      : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
                   }`}
                 >
                   {link.label}
