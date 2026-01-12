@@ -9,6 +9,16 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { canManageUsers, getRoleDisplayName } from '@/lib/roles'
 import { UserRole } from '@prisma/client'
 import { toast } from 'sonner'
@@ -37,6 +47,12 @@ export default function UsersPage() {
   // Bulk selection state (SUPER_ADMIN only)
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
+
+  // Confirmation dialog state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null)
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
+  const [bulkAction, setBulkAction] = useState<'enable' | 'disable' | null>(null)
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
@@ -179,13 +195,16 @@ export default function UsersPage() {
     }
   }
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      return
-    }
+  const handleDeleteUser = (userId: string) => {
+    setDeleteUserId(userId)
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDeleteUser = async () => {
+    if (!deleteUserId) return
 
     try {
-      const res = await fetch(`/api/users/${userId}`, {
+      const res = await fetch(`/api/users/${deleteUserId}`, {
         method: 'DELETE'
       })
 
@@ -198,6 +217,9 @@ export default function UsersPage() {
       toast.success('User deleted successfully!')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete user')
+    } finally {
+      setDeleteConfirmOpen(false)
+      setDeleteUserId(null)
     }
   }
 
@@ -240,15 +262,17 @@ export default function UsersPage() {
     }
   }
 
-  const handleBulkDisable = async (disable: boolean) => {
+  const handleBulkDisable = (disable: boolean) => {
     if (selectedUsers.size === 0) return
+    setBulkAction(disable ? 'disable' : 'enable')
+    setBulkConfirmOpen(true)
+  }
 
-    const action = disable ? 'disable' : 'enable'
-    const confirmMessage = disable
-      ? `Are you sure you want to disable ${selectedUsers.size} user(s)? They will not be able to log in.`
-      : `Are you sure you want to enable ${selectedUsers.size} user(s)? They will be able to log in again.`
+  const confirmBulkAction = async () => {
+    if (!bulkAction || selectedUsers.size === 0) return
 
-    if (!confirm(confirmMessage)) return
+    const disable = bulkAction === 'disable'
+    const action = bulkAction
 
     setIsBulkProcessing(true)
     try {
@@ -274,6 +298,8 @@ export default function UsersPage() {
       toast.error(err instanceof Error ? err.message : `Failed to ${action} users`)
     } finally {
       setIsBulkProcessing(false)
+      setBulkConfirmOpen(false)
+      setBulkAction(null)
     }
   }
 
@@ -751,6 +777,52 @@ export default function UsersPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this user? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteUserId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteUser}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Enable/Disable Confirmation Dialog */}
+      <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {bulkAction === 'disable' ? 'Disable Users' : 'Enable Users'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {bulkAction === 'disable'
+                ? `Are you sure you want to disable ${selectedUsers.size} user(s)? They will not be able to log in.`
+                : `Are you sure you want to enable ${selectedUsers.size} user(s)? They will be able to log in again.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBulkAction(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBulkAction}
+              className={bulkAction === 'disable' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
+            >
+              {bulkAction === 'disable' ? 'Disable' : 'Enable'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
