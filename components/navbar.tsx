@@ -53,8 +53,7 @@ export function Navbar() {
     if (role === 'MENTOR') {
       return [
         { href: '/dashboard/mentor', label: 'Dashboard' },
-        { href: '/dashboard/mentor/my-mentees', label: 'My Mentees' },
-        { href: '/dashboard/mentor/analytics', label: 'Analytics' }
+        { href: '/dashboard/mentor/my-mentees', label: 'My Mentees' }
       ]
     }
 

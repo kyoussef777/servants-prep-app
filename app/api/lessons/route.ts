@@ -99,15 +99,13 @@ export async function GET(request: Request) {
     )
 
     if (lessonsToComplete.length > 0) {
-      // Update lessons in background (don't await to avoid slowing response)
-      Promise.all(
-        lessonsToComplete.map(lesson =>
-          prisma.lesson.update({
-            where: { id: lesson.id },
-            data: { status: 'COMPLETED' }
-          })
-        )
-      ).catch(err => console.error('Failed to auto-complete lessons:', err))
+      // Use updateMany for efficient batch update (single query instead of N queries)
+      await prisma.lesson.updateMany({
+        where: {
+          id: { in: lessonsToComplete.map(lesson => lesson.id) }
+        },
+        data: { status: 'COMPLETED' }
+      })
 
       // Update the lessons array to reflect the new status
       lessonsToComplete.forEach(lesson => {

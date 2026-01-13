@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { ExamYearLevel, UserRole } from "@prisma/client"
 import { canViewStudents } from "@/lib/roles"
+import { handleApiError } from "@/lib/api-utils"
+import {
+  countAttendanceStatuses,
+  calculateAttendancePercentage,
+  meetsAttendanceRequirement
+} from "@/lib/attendance-utils"
 
 // GET /api/students/[id]/analytics - Get student analytics including graduation status
 // NOTE: academicYearId parameter is optional. If not provided, aggregates across ALL academic years.
@@ -102,23 +108,17 @@ export async function GET(
       }
     })
 
-    // Calculate attendance
-    const presentCount = attendanceRecords.filter(r => r.status === 'PRESENT').length
-    const lateCount = attendanceRecords.filter(r => r.status === 'LATE').length
-    const absentCount = attendanceRecords.filter(r => r.status === 'ABSENT').length
-    const excusedCount = attendanceRecords.filter(r => (r.status as string) === 'EXCUSED').length
+    // Calculate attendance using shared utility
+    const attendanceCounts = countAttendanceStatuses(attendanceRecords)
+    const { present: presentCount, late: lateCount, absent: absentCount, excused: excusedCount } = attendanceCounts
 
-    // Formula: (Present + (Lates / 2)) / (StudentLessons - Excused)
-    // EXCUSED lessons are not counted in the total - they don't count against or for the student
-    // IMPORTANT: Use the STUDENT'S attendance record count, not ALL lessons in the system
-    // This ensures Year 1 students are only measured against lessons they were expected to attend
+    // Calculate totals using shared utilities
     const studentTotalLessons = presentCount + lateCount + absentCount + excusedCount
     const effectivePresent = presentCount + (lateCount / 2)
     const effectiveTotalLessons = studentTotalLessons - excusedCount
-    // If no lessons yet, return null (not 0) - don't penalize for lessons that haven't happened
-    const attendancePercentage = effectiveTotalLessons > 0 ? (effectivePresent / effectiveTotalLessons) * 100 : null
+    const attendancePercentage = calculateAttendancePercentage(attendanceCounts)
     // If no attendance data, treat as "met" (not penalized) until data exists
-    const attendanceMet = attendancePercentage === null ? true : attendancePercentage >= 75
+    const attendanceMet = attendancePercentage === null ? true : meetsAttendanceRequirement(attendancePercentage)
 
     // Build exam filter - if academicYearId provided, filter by it; otherwise include all
     // Map yearLevel to ExamYearLevel (BOTH is always included, plus the student's current year)
@@ -254,9 +254,6 @@ export async function GET(
       }
     })
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch student analytics" },
-      { status: 500 }
-    )
+    return handleApiError(error)
   }
 }

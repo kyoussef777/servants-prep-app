@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canViewStudents } from "@/lib/roles"
 import { UserRole } from "@prisma/client"
+import { handleApiError } from "@/lib/api-utils"
+import {
+  calculateAttendancePercentage,
+  meetsAttendanceRequirement,
+  type AttendanceCounts
+} from "@/lib/attendance-utils"
 
 // GET /api/students/analytics/batch - Get analytics for all students efficiently
 // OPTIMIZED: Uses database aggregations instead of fetching all records
@@ -254,34 +260,27 @@ export async function GET(request: Request) {
         ? studentAcademicYearAttendance.get(year2AcademicYearId) || { present: 0, late: 0, absent: 0, excused: 0 }
         : null // null means not in Year 2 yet
 
-      // Calculate attendance using Formula A: (Present + Late/2) / (Total - Excused) * 100
+      // Calculate attendance using shared utility
       // EXCUSED lessons don't count against or for the student
-      const presentCount = attendance.present
-      const lateCount = attendance.late
-      const absentCount = attendance.absent
-      const excusedCount = attendance.excused
+      const { present: presentCount, late: lateCount, absent: absentCount, excused: excusedCount } = attendance
 
-      // Overall attendance calculation
-      // IMPORTANT: Use the STUDENT'S attendance record count, not ALL lessons in the system
-      // This ensures Year 1 students are only measured against lessons they were expected to attend
+      // Overall attendance calculation using shared utility
+      // Uses STUDENT'S attendance record count, not ALL lessons in the system
+      const overallAttendancePercentage = calculateAttendancePercentage(attendance as AttendanceCounts)
       const studentTotalLessons = presentCount + lateCount + absentCount + excusedCount
       const totalEffectivePresent = presentCount + (lateCount / 2)
       const effectiveTotalLessons = studentTotalLessons - excusedCount
-      // If no lessons yet, return null (not 0) - don't penalize for lessons that haven't happened
-      const overallAttendancePercentage = effectiveTotalLessons > 0
-        ? (totalEffectivePresent / effectiveTotalLessons) * 100
-        : null
 
-      // Year 1 attendance - use STUDENT'S attendance records for that year, not all lessons
+      // Year 1 attendance - use shared utility
+      const year1AttendancePercentage = calculateAttendancePercentage(year1Attendance as AttendanceCounts)
       const year1StudentTotalLessons = year1Attendance.present + year1Attendance.late + year1Attendance.absent + year1Attendance.excused
       const year1EffectivePresent = year1Attendance.present + (year1Attendance.late / 2)
       const year1EffectiveTotalLessons = year1StudentTotalLessons - year1Attendance.excused
-      // If no lessons yet, return null - don't penalize
-      const year1AttendancePercentage = year1EffectiveTotalLessons > 0
-        ? (year1EffectivePresent / year1EffectiveTotalLessons) * 100
-        : null
 
-      // Year 2 attendance (null if student is still in Year 1) - use STUDENT'S attendance records
+      // Year 2 attendance (null if student is still in Year 1) - use shared utility
+      const year2AttendancePercentage = year2Attendance
+        ? calculateAttendancePercentage(year2Attendance as AttendanceCounts)
+        : null
       const year2StudentTotalLessons = year2Attendance
         ? year2Attendance.present + year2Attendance.late + year2Attendance.absent + year2Attendance.excused
         : 0
@@ -291,9 +290,6 @@ export async function GET(request: Request) {
       const year2EffectiveTotalLessons = year2Attendance
         ? year2StudentTotalLessons - year2Attendance.excused
         : 0
-      const year2AttendancePercentage = year2Attendance && year2EffectiveTotalLessons > 0
-        ? (year2EffectivePresent / year2EffectiveTotalLessons) * 100
-        : null // null indicates not applicable (Year 1 student)
 
       // Calculate section averages for this student
       const studentSections = sectionScoresByStudent.get(studentId)
@@ -308,9 +304,9 @@ export async function GET(request: Request) {
         }
       }
 
-      // Graduation requirements
+      // Graduation requirements using shared utility
       // If no data yet, treat as "met" (not penalized) until data exists
-      const attendanceMet = overallAttendancePercentage === null ? true : overallAttendancePercentage >= 75
+      const attendanceMet = overallAttendancePercentage === null ? true : meetsAttendanceRequirement(overallAttendancePercentage)
       // If no exam scores, return null for average (don't penalize for exams not taken yet)
       const examAverage = exams.count > 0 ? exams.avg : null
       const examAverageMet = examAverage === null ? true : examAverage >= 75
@@ -363,9 +359,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json(studentAnalytics)
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch batch analytics" },
-      { status: 500 }
-    )
+    return handleApiError(error)
   }
 }

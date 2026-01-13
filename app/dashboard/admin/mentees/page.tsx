@@ -168,23 +168,23 @@ export default function MenteesPage() {
   const totalMentees = mentees.length
 
   const getScoreColor = (score: number | null) => {
-    if (score === null) return 'text-gray-500'
-    if (score >= 75) return 'text-green-600'
-    if (score >= 60) return 'text-yellow-600'
-    return 'text-red-600'
+    if (score === null) return 'text-gray-500 dark:text-gray-400'
+    if (score >= 75) return 'text-green-600 dark:text-green-400'
+    if (score >= 60) return 'text-yellow-600 dark:text-yellow-400'
+    return 'text-red-600 dark:text-red-400'
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
+            <h1 className="text-3xl font-bold flex items-center gap-2 dark:text-white">
               <Users className="h-8 w-8" />
               My Mentees
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               You are mentoring {mentees.length} student{mentees.length !== 1 ? 's' : ''}
             </p>
           </div>
@@ -339,10 +339,10 @@ export default function MenteesPage() {
 
                   {/* Expanded Details */}
                   {isExpanded && analytics && (
-                    <div className="mt-4 space-y-6 border-t pt-4">
+                    <div className="mt-4 space-y-6 border-t dark:border-gray-700 pt-4">
                       {/* Attendance Details */}
                       <div>
-                        <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <h4 className="font-semibold mb-3 flex items-center gap-2 dark:text-white">
                           <Calendar className="h-4 w-4" />
                           Attendance Details
                           {analytics.attendance.met ? (
@@ -352,25 +352,25 @@ export default function MenteesPage() {
                           )}
                         </h4>
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                          <div className="bg-green-50 border border-green-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-green-700">{analytics.attendance.presentCount}</div>
-                            <div className="text-xs text-gray-600">Present</div>
+                          <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded p-3 text-center">
+                            <div className="text-2xl font-bold text-green-700 dark:text-green-400">{analytics.attendance.presentCount}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Present</div>
                           </div>
-                          <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-yellow-700">{analytics.attendance.lateCount}</div>
-                            <div className="text-xs text-gray-600">Late</div>
+                          <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded p-3 text-center">
+                            <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">{analytics.attendance.lateCount}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Late</div>
                           </div>
-                          <div className="bg-red-50 border border-red-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-red-700">{analytics.attendance.absentCount}</div>
-                            <div className="text-xs text-gray-600">Absent</div>
+                          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded p-3 text-center">
+                            <div className="text-2xl font-bold text-red-700 dark:text-red-400">{analytics.attendance.absentCount}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Absent</div>
                           </div>
-                          <div className="bg-gray-50 border border-gray-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-gray-700">{analytics.attendance.excusedCount}</div>
-                            <div className="text-xs text-gray-600">Excused</div>
+                          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded p-3 text-center">
+                            <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">{analytics.attendance.excusedCount}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Excused</div>
                           </div>
-                          <div className="bg-blue-50 border border-blue-200 rounded p-3 text-center">
-                            <div className="text-2xl font-bold text-blue-700">{analytics.attendance.totalLessons}</div>
-                            <div className="text-xs text-gray-600">Total Lessons</div>
+                          <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded p-3 text-center">
+                            <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">{analytics.attendance.totalLessons}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Total Lessons</div>
                           </div>
                         </div>
                         <div className="mt-3">
@@ -392,10 +392,10 @@ export default function MenteesPage() {
 
                       {/* Exam Details */}
                       <div>
-                        <h4 className="font-semibold mb-3 flex items-center gap-2 flex-wrap">
+                        <h4 className="font-semibold mb-3 flex items-center gap-2 flex-wrap dark:text-white">
                           <BookOpen className="h-4 w-4" />
                           Exam Performance
-                          <span className="text-sm font-normal text-gray-500">
+                          <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
                             ({analytics.exams.examsTaken}/{analytics.exams.totalApplicableExams} taken)
                           </span>
                           {analytics.exams.overallAverageMet ? (
@@ -406,9 +406,9 @@ export default function MenteesPage() {
                         </h4>
 
                         {/* Overall Average */}
-                        <div className="bg-maroon-50 border border-maroon-200 rounded p-4 mb-4">
+                        <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded p-4 mb-4">
                           <div className="flex justify-between items-center">
-                            <span className="font-medium">Overall Average</span>
+                            <span className="font-medium dark:text-gray-200">Overall Average</span>
                             <span className={`text-2xl font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
                               {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(2)}%` : 'No exams yet'}
                             </span>
@@ -429,20 +429,20 @@ export default function MenteesPage() {
                                 key={section.section}
                                 className={`border rounded p-3 ${
                                   section.passingMet
-                                    ? 'bg-green-50 border-green-200'
-                                    : 'bg-red-50 border-red-200'
+                                    ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700'
+                                    : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700'
                                 }`}
                               >
                                 <div className="flex justify-between items-center mb-1">
-                                  <span className="text-sm font-medium">
+                                  <span className="text-sm font-medium dark:text-gray-200">
                                     {SECTION_DISPLAY_NAMES[section.section] || section.section}
                                   </span>
-                                  <span className={`font-bold ${section.passingMet ? 'text-green-700' : 'text-red-700'}`}>
+                                  <span className={`font-bold ${section.passingMet ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
                                     {section.average.toFixed(2)}%
                                   </span>
                                 </div>
                                 <Progress value={section.average} className="h-1 mb-1" />
-                                <div className="flex justify-between text-xs text-gray-600">
+                                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
                                   <span>{section.scores.length} exam{section.scores.length !== 1 ? 's' : ''}</span>
                                   <span>{section.passingMet ? '✓ Pass (≥60%)' : '✗ Fail (<60%)'}</span>
                                 </div>
@@ -450,7 +450,7 @@ export default function MenteesPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-gray-500 text-center py-4">No exam scores recorded yet</p>
+                          <p className="text-gray-500 dark:text-gray-400 text-center py-4">No exam scores recorded yet</p>
                         )}
 
                         {/* Missing Exams */}
@@ -487,37 +487,37 @@ export default function MenteesPage() {
                       </div>
 
                       {/* Graduation Status */}
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold mb-3">Graduation Requirements</h4>
+                      <div className="border-t dark:border-gray-700 pt-4">
+                        <h4 className="font-semibold mb-3 dark:text-white">Graduation Requirements</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div className={`p-3 rounded border ${analytics.graduation.attendanceMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                          <div className={`p-3 rounded border ${analytics.graduation.attendanceMet ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700'}`}>
                             <div className="flex items-center gap-2">
                               {analytics.graduation.attendanceMet ? (
-                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                               ) : (
-                                <AlertTriangle className="h-5 w-5 text-red-600" />
+                                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
                               )}
-                              <span className="font-medium">Attendance ≥75%</span>
+                              <span className="font-medium dark:text-gray-200">Attendance ≥75%</span>
                             </div>
                           </div>
-                          <div className={`p-3 rounded border ${analytics.graduation.overallAverageMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                          <div className={`p-3 rounded border ${analytics.graduation.overallAverageMet ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700'}`}>
                             <div className="flex items-center gap-2">
                               {analytics.graduation.overallAverageMet ? (
-                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                               ) : (
-                                <AlertTriangle className="h-5 w-5 text-red-600" />
+                                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
                               )}
-                              <span className="font-medium">Exam Avg ≥75%</span>
+                              <span className="font-medium dark:text-gray-200">Exam Avg ≥75%</span>
                             </div>
                           </div>
-                          <div className={`p-3 rounded border ${analytics.graduation.allSectionsPassing ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                          <div className={`p-3 rounded border ${analytics.graduation.allSectionsPassing ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700'}`}>
                             <div className="flex items-center gap-2">
                               {analytics.graduation.allSectionsPassing ? (
-                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                               ) : (
-                                <AlertTriangle className="h-5 w-5 text-red-600" />
+                                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
                               )}
-                              <span className="font-medium">All Sections ≥60%</span>
+                              <span className="font-medium dark:text-gray-200">All Sections ≥60%</span>
                             </div>
                           </div>
                         </div>

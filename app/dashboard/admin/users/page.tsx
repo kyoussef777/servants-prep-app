@@ -54,6 +54,10 @@ export default function UsersPage() {
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
   const [bulkAction, setBulkAction] = useState<'enable' | 'disable' | null>(null)
 
+  // Password reset dialog state
+  const [passwordResetOpen, setPasswordResetOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -303,6 +307,50 @@ export default function UsersPage() {
     }
   }
 
+  const handleBulkPasswordReset = () => {
+    if (selectedUsers.size === 0) return
+    setNewPassword('')
+    setPasswordResetOpen(true)
+  }
+
+  const confirmPasswordReset = async () => {
+    if (selectedUsers.size === 0 || !newPassword) return
+
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+
+    setIsBulkProcessing(true)
+    try {
+      const res = await fetch('/api/users/bulk-reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userIds: Array.from(selectedUsers),
+          newPassword
+        })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to reset passwords')
+      }
+
+      toast.success(`Password reset for ${data.updatedCount} user(s)`, {
+        description: 'Users will be prompted to change password on next login'
+      })
+      setSelectedUsers(new Set())
+      setNewPassword('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reset passwords')
+    } finally {
+      setIsBulkProcessing(false)
+      setPasswordResetOpen(false)
+    }
+  }
+
   // Users that can be selected for bulk operations (not SUPER_ADMIN, not current user)
   const selectableUsers = users.filter(u => u.role !== 'SUPER_ADMIN' && u.id !== session?.user?.id)
   const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
@@ -368,6 +416,14 @@ export default function UsersPage() {
                       className="text-green-600 border-green-300 hover:bg-green-50 text-xs md:text-sm"
                     >
                       {isBulkProcessing ? 'Processing...' : `Enable (${selectedUsers.size})`}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleBulkPasswordReset}
+                      disabled={isBulkProcessing}
+                      className="text-blue-600 border-blue-300 hover:bg-blue-50 text-xs md:text-sm"
+                    >
+                      {isBulkProcessing ? 'Processing...' : `Reset Password (${selectedUsers.size})`}
                     </Button>
                     <Button
                       variant="ghost"
@@ -819,6 +875,39 @@ export default function UsersPage() {
               className={bulkAction === 'disable' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
             >
               {bulkAction === 'disable' ? 'Disable' : 'Enable'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Password Reset Dialog */}
+      <AlertDialog open={passwordResetOpen} onOpenChange={setPasswordResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Password for {selectedUsers.size} User(s)</AlertDialogTitle>
+            <AlertDialogDescription>
+              Enter a new password that will be set for all selected users. They will be prompted to change it on their next login.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="newPassword">New Password</Label>
+            <Input
+              id="newPassword"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password (min 6 characters)"
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setNewPassword('')}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmPasswordReset}
+              disabled={!newPassword || newPassword.length < 6}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Reset Password
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

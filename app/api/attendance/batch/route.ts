@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canManageData } from "@/lib/roles"
 import { AttendanceStatus } from "@prisma/client"
+import { parseTimeString, handleApiError } from "@/lib/api-utils"
 
 interface AttendanceRecord {
   studentId: string
@@ -80,15 +81,8 @@ export async function POST(request: Request) {
 
     for (const record of records) {
       const existingId = existingByStudent.get(record.studentId)
-      // Validate arrivedAt - must be a non-empty string that creates a valid date
-      let arrivedAt: Date | null = null
-      if (record.arrivedAt && record.arrivedAt.trim()) {
-        const parsedDate = new Date(`1970-01-01T${record.arrivedAt}`)
-        // Only use the date if it's valid
-        if (!isNaN(parsedDate.getTime())) {
-          arrivedAt = parsedDate
-        }
-      }
+      // Parse arrivedAt using utility function
+      const arrivedAt = parseTimeString(record.arrivedAt)
 
       if (existingId) {
         toUpdate.push({
@@ -169,9 +163,6 @@ export async function POST(request: Request) {
     })
   } catch (error: unknown) {
     console.error('Batch attendance save error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to save attendance" },
-      { status: 500 }
-    )
+    return handleApiError(error)
   }
 }

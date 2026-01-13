@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
+import { handleApiError } from "@/lib/api-utils"
 
 // POST /api/users/bulk-disable - Bulk enable/disable users (SUPER_ADMIN only)
 export async function POST(request: Request) {
@@ -79,9 +80,6 @@ export async function POST(request: Request) {
       action: isDisabled ? 'disabled' : 'enabled'
     })
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update users" },
-      { status: 500 }
-    )
+    return handleApiError(error)
   }
 }
