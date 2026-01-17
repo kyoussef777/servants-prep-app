@@ -35,6 +35,7 @@ interface Analytics {
   }
   attendance: {
     totalLessons: number
+    allLessons: number
     presentCount: number
     lateCount: number
     absentCount: number
@@ -171,12 +172,34 @@ export default function StudentDashboard() {
             <CardTitle className="flex items-center gap-2">
               GRADUATION STATUS:
               {analytics.graduation.eligible ? (
-                <Badge className="bg-green-500">✓ ON TRACK</Badge>
+                <Badge className="bg-green-500">ON TRACK</Badge>
               ) : (
-                <Badge className="bg-yellow-500">⚠ AT RISK</Badge>
+                <Badge className="bg-yellow-500">AT RISK</Badge>
               )}
             </CardTitle>
           </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-3">
+              <div className={`p-3 rounded border text-center ${analytics.graduation.attendanceMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="text-2xl mb-1">{analytics.graduation.attendanceMet ? '✓' : '✗'}</div>
+                <div className={`text-sm font-medium ${analytics.graduation.attendanceMet ? 'text-green-700' : 'text-red-700'}`}>
+                  Attendance ≥75%
+                </div>
+              </div>
+              <div className={`p-3 rounded border text-center ${analytics.graduation.overallAverageMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="text-2xl mb-1">{analytics.graduation.overallAverageMet ? '✓' : '✗'}</div>
+                <div className={`text-sm font-medium ${analytics.graduation.overallAverageMet ? 'text-green-700' : 'text-red-700'}`}>
+                  Exam Avg ≥75%
+                </div>
+              </div>
+              <div className={`p-3 rounded border text-center ${analytics.graduation.allSectionsPassing ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="text-2xl mb-1">{analytics.graduation.allSectionsPassing ? '✓' : '✗'}</div>
+                <div className={`text-sm font-medium ${analytics.graduation.allSectionsPassing ? 'text-green-700' : 'text-red-700'}`}>
+                  All Sections ≥60%
+                </div>
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
         {/* Attendance */}
@@ -189,7 +212,7 @@ export default function StudentDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Progress value={analytics.attendance.percentage || 0} className="h-4" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
               <div>
                 <div className="font-semibold text-green-700">Present</div>
                 <div className="text-2xl text-green-700">{analytics.attendance.presentCount}</div>
@@ -205,6 +228,10 @@ export default function StudentDashboard() {
               <div>
                 <div className="font-semibold text-blue-700">Excused</div>
                 <div className="text-2xl text-blue-700">{analytics.attendance.excusedCount}</div>
+              </div>
+              <div>
+                <div className="font-semibold text-gray-700">Total</div>
+                <div className="text-2xl text-gray-700">{analytics.attendance.allLessons}</div>
               </div>
             </div>
             <p className="text-xs text-gray-500 italic">

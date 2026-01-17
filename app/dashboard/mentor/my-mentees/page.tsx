@@ -8,6 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Textarea } from '@/components/ui/textarea'
+import { toast } from 'sonner'
+import { UserRole } from '@prisma/client'
+import { getRoleDisplayName } from '@/lib/roles'
 import {
   Users,
   AlertTriangle,
@@ -16,8 +20,22 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
-  AlertCircle
+  AlertCircle,
+  MessageSquare,
+  Send
 } from 'lucide-react'
+
+interface StudentNote {
+  id: string
+  content: string
+  createdAt: string | Date
+  updatedAt: string | Date
+  author: {
+    id: string
+    name: string
+    role: UserRole
+  }
+}
 
 interface SectionAverage {
   section: string
@@ -100,6 +118,12 @@ export default function MyMenteesPage() {
   const [loading, setLoading] = useState(true)
   const [expandedMentee, setExpandedMentee] = useState<string | null>(null)
 
+  // Notes state
+  const [notesMap, setNotesMap] = useState<Record<string, StudentNote[]>>({})
+  const [notesLoading, setNotesLoading] = useState<Record<string, boolean>>({})
+  const [newNoteContent, setNewNoteContent] = useState<Record<string, string>>({})
+  const [submittingNote, setSubmittingNote] = useState<Record<string, boolean>>({})
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
@@ -161,6 +185,17 @@ export default function MyMenteesPage() {
     }
   }, [session])
 
+  // Load notes when a mentee is expanded
+  useEffect(() => {
+    if (expandedMentee) {
+      const mentee = mentees.find(m => m.id === expandedMentee)
+      if (mentee && !notesMap[mentee.student.id]) {
+        fetchNotes(mentee.student.id)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedMentee, mentees])
+
   if (loading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -179,6 +214,54 @@ export default function MyMenteesPage() {
     if (score >= 75) return 'text-green-600 dark:text-green-400'
     if (score >= 60) return 'text-yellow-600 dark:text-yellow-400'
     return 'text-red-600 dark:text-red-400'
+  }
+
+  // Fetch notes for a student
+  const fetchNotes = async (studentId: string) => {
+    setNotesLoading(prev => ({ ...prev, [studentId]: true }))
+    try {
+      const res = await fetch(`/api/students/${studentId}/notes`)
+      if (res.ok) {
+        const data = await res.json()
+        setNotesMap(prev => ({ ...prev, [studentId]: data }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch notes:', error)
+    } finally {
+      setNotesLoading(prev => ({ ...prev, [studentId]: false }))
+    }
+  }
+
+  // Add a new note
+  const addNote = async (studentId: string) => {
+    const content = newNoteContent[studentId]?.trim()
+    if (!content) return
+
+    setSubmittingNote(prev => ({ ...prev, [studentId]: true }))
+    try {
+      const res = await fetch(`/api/students/${studentId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      })
+      if (res.ok) {
+        const note = await res.json()
+        setNotesMap(prev => ({
+          ...prev,
+          [studentId]: [note, ...(prev[studentId] || [])]
+        }))
+        setNewNoteContent(prev => ({ ...prev, [studentId]: '' }))
+        toast.success('Note added successfully!')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to add note')
+      }
+    } catch (error) {
+      console.error('Failed to add note:', error)
+      toast.error('Failed to add note')
+    } finally {
+      setSubmittingNote(prev => ({ ...prev, [studentId]: false }))
+    }
   }
 
   return (
@@ -347,8 +430,10 @@ export default function MyMenteesPage() {
                   </Button>
 
                   {/* Expanded Details */}
-                  {isExpanded && analytics && (
+                  {isExpanded && (
                     <div className="mt-3 md:mt-4 space-y-4 md:space-y-6 border-t dark:border-gray-700 pt-3 md:pt-4">
+                    {analytics && (
+                    <>
                       {/* Attendance Details */}
                       <div>
                         <h4 className="font-semibold mb-2 md:mb-3 flex flex-wrap items-center gap-1.5 md:gap-2 text-sm md:text-base dark:text-white">
@@ -536,6 +621,82 @@ export default function MyMenteesPage() {
                             </div>
                           </div>
                         </div>
+                      </div>
+                    </>
+                    )}
+
+                      {/* Notes/Comments Section */}
+                      <div className={analytics ? "border-t dark:border-gray-700 pt-3 md:pt-4" : ""}>
+                        <h4 className="font-semibold mb-2 md:mb-3 flex items-center gap-1.5 md:gap-2 text-sm md:text-base dark:text-white">
+                          <MessageSquare className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                          Notes & Comments
+                          {notesMap[mentee.student.id]?.length > 0 && (
+                            <Badge variant="outline" className="text-[10px] md:text-xs px-1.5 py-0">
+                              {notesMap[mentee.student.id].length}
+                            </Badge>
+                          )}
+                        </h4>
+
+                        {/* Add Note Input */}
+                        <div className="flex gap-2 mb-3">
+                          <Textarea
+                            placeholder="Add a note about this student..."
+                            value={newNoteContent[mentee.student.id] || ''}
+                            onChange={(e) => setNewNoteContent(prev => ({
+                              ...prev,
+                              [mentee.student.id]: e.target.value
+                            }))}
+                            className="flex-1 text-xs md:text-sm min-h-[60px]"
+                            rows={2}
+                          />
+                          <Button
+                            onClick={() => addNote(mentee.student.id)}
+                            disabled={submittingNote[mentee.student.id] || !newNoteContent[mentee.student.id]?.trim()}
+                            size="sm"
+                            className="self-end"
+                          >
+                            <Send className="h-3 w-3 md:h-4 md:w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Notes List */}
+                        {notesLoading[mentee.student.id] ? (
+                          <div className="py-3 text-center text-gray-500 dark:text-gray-400 text-xs md:text-sm">
+                            Loading notes...
+                          </div>
+                        ) : notesMap[mentee.student.id]?.length > 0 ? (
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {notesMap[mentee.student.id].map((note) => (
+                              <div
+                                key={note.id}
+                                className="p-2 md:p-3 bg-gray-100 dark:bg-gray-800 rounded-lg"
+                              >
+                                <div className="flex items-center gap-1.5 md:gap-2 mb-1">
+                                  <span className="font-medium text-[10px] md:text-xs dark:text-gray-200">
+                                    {note.author.name}
+                                  </span>
+                                  <Badge variant="outline" className="text-[8px] md:text-[10px] px-1 py-0">
+                                    {getRoleDisplayName(note.author.role)}
+                                  </Badge>
+                                  <span className="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400">
+                                    {new Date(note.createdAt).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                                  </span>
+                                </div>
+                                <p className="text-xs md:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                  {note.content}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="py-3 text-center text-gray-500 dark:text-gray-400 text-xs md:text-sm">
+                            No notes yet. Add the first one!
+                          </div>
+                        )}
                       </div>
 
                     </div>
