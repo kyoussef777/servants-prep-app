@@ -171,10 +171,11 @@ export async function GET(
       }
     })
 
-    // Find exams the student hasn't taken
+    // Find exams the student hasn't taken (only past exams, not upcoming ones)
+    const now = new Date()
     const takenExamIds = new Set(examScores.map(s => s.exam.id))
     const missingExams = allApplicableExams
-      .filter(exam => !takenExamIds.has(exam.id))
+      .filter(exam => !takenExamIds.has(exam.id) && new Date(exam.examDate) < now)
       .map(exam => ({
         id: exam.id,
         examDate: exam.examDate,

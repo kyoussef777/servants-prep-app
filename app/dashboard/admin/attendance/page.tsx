@@ -650,65 +650,65 @@ export default function AttendancePage() {
                   <Card key={student.id} className="overflow-hidden">
                     <CardContent className="p-3">
                       {/* Compact Row - Always Visible */}
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-400 w-5">{index + 1}</span>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="text-[10px] sm:text-xs text-gray-400 w-4 sm:w-5 shrink-0">{index + 1}</span>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium truncate">{student.name}</span>
-                            <Badge variant="outline" className="text-xs shrink-0">
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <span className="font-medium text-xs sm:text-sm leading-tight line-clamp-2 sm:truncate">{student.name}</span>
+                            <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0 px-1 sm:px-2">
                               {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
                             </Badge>
                           </div>
                         </div>
                         {/* Status Buttons */}
-                        <div className="flex gap-1 shrink-0">
+                        <div className="flex gap-0.5 sm:gap-1 shrink-0">
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
                             disabled={!userCanManageData}
-                            className={`p-2 rounded transition-colors ${
+                            className={`p-1.5 sm:p-2 rounded transition-colors ${
                               currentStatus === 'PRESENT'
                                 ? 'bg-green-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
                             } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
-                            <Check className="h-4 w-4" />
+                            <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'LATE')}
                             disabled={!userCanManageData}
-                            className={`p-2 rounded transition-colors ${
+                            className={`p-1.5 sm:p-2 rounded transition-colors ${
                               currentStatus === 'LATE'
                                 ? 'bg-yellow-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
                             } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
-                            <Clock className="h-4 w-4" />
+                            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
                             disabled={!userCanManageData}
-                            className={`p-2 rounded transition-colors ${
+                            className={`p-1.5 sm:p-2 rounded transition-colors ${
                               currentStatus === 'ABSENT'
                                 ? 'bg-red-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
                             } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
                             disabled={!userCanManageData}
-                            className={`p-2 rounded transition-colors ${
+                            className={`p-1.5 sm:p-2 rounded transition-colors ${
                               currentStatus === 'EXCUSED'
                                 ? 'bg-blue-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
                             } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
-                            <Shield className="h-4 w-4" />
+                            <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </button>
                         </div>
                         {/* Expand button for details */}
