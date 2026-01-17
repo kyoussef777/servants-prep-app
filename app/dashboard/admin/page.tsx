@@ -353,6 +353,27 @@ export default function AdminDashboard() {
                       <div className="text-xs text-gray-600">Excused</div>
                     </div>
                   </div>
+
+                  {/* Student Attendance Thresholds */}
+                  {analytics?.programOverview && (
+                    <div className="pt-3 border-t space-y-2">
+                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Student Attendance (≥75%)</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2 rounded bg-green-50 border border-green-200 text-center">
+                          <div className="text-xl font-bold text-green-700">
+                            {analytics.programOverview.studentsWithGoodAttendance}
+                          </div>
+                          <div className="text-xs text-green-600">On Track</div>
+                        </div>
+                        <div className="p-2 rounded bg-red-50 border border-red-200 text-center">
+                          <div className="text-xl font-bold text-red-700">
+                            {analytics.programOverview.studentsWithLowAttendance}
+                          </div>
+                          <div className="text-xs text-red-600">Below 75%</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-4 text-gray-500">
