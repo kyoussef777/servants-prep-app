@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { ExamYearLevel, UserRole } from "@prisma/client"
+import { ExamYearLevel, LessonStatus, UserRole } from "@prisma/client"
 import { canViewStudents } from "@/lib/roles"
 import { handleApiError } from "@/lib/api-utils"
 import {
@@ -74,10 +74,10 @@ export async function GET(
 
     // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
     // Only count lessons that have attendance records (i.e., attendance was taken)
-    // Exclude exam day lessons from attendance calculations
+    // Exclude exam day lessons and cancelled lessons from attendance calculations
     const lessonFilter = academicYearId
-      ? { academicYearId, isExamDay: false }
-      : { isExamDay: false }
+      ? { academicYearId, isExamDay: false, status: { not: LessonStatus.CANCELLED } }
+      : { isExamDay: false, status: { not: LessonStatus.CANCELLED } }
 
     // Get count of lessons that have attendance records (completed lessons with attendance taken)
     // Excludes exam day lessons

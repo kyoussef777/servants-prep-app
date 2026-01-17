@@ -409,9 +409,12 @@ export function StudentDetailsModal({
     return acc
   }, {} as Record<string, ExamScore[]>)
 
-  // Find missing exams (exams student hasn't taken yet)
+  // Find missing exams (past exams student hasn't taken - exclude future exams)
+  const now = new Date()
   const takenExamIds = new Set(examScores.map(s => s.exam.id))
-  const missingExams = allExams.filter(exam => !takenExamIds.has(exam.id))
+  const missingExams = allExams.filter(exam =>
+    !takenExamIds.has(exam.id) && new Date(exam.examDate) < now
+  )
 
   // Filter out exam day lessons from attendance calculations (they don't count toward graduation)
   const countableAttendance = attendanceRecords.filter(r => !r.lesson.isExamDay)

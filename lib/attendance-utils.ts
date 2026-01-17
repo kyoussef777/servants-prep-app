@@ -8,6 +8,7 @@ import { AttendanceStatus } from "@prisma/client"
  * - 2 lates count as 1 absence
  * - Excused absences are excluded from both numerator and denominator
  * - Exam day lessons are excluded from attendance calculations (filtered before calling these functions)
+ * - Cancelled lessons are excluded from attendance calculations (filtered before calling these functions)
  */
 
 export interface AttendanceCounts {
