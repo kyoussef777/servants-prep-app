@@ -442,7 +442,7 @@ export default function AdminDashboard() {
 
         </div>
 
-        {/* Exam Scores by Section - All Years */}
+        {/* Exam Scores by Section - Combined View */}
         {analytics?.examScoresByYear && analytics.examScoresByYear.length > 0 && (
           <Card>
             <CardHeader>
@@ -450,46 +450,107 @@ export default function AdminDashboard() {
                 <BarChart3 className="h-5 w-5 text-purple-600" />
                 <div>
                   <CardTitle>Exam Performance by Section</CardTitle>
-                  <CardDescription>All academic years</CardDescription>
+                  <CardDescription>Click a section to view and manage exams</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {analytics.examScoresByYear.map(year => (
-                  <div key={year.yearId}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <h4 className="font-semibold text-sm">{year.yearName}</h4>
-                      {year.isActive && <Badge variant="outline" className="text-xs">Active</Badge>}
-                      <span className="text-sm text-gray-500">
-                        — Overall: <span className={getScoreColor(year.overallAverage)}>{year.overallAverage?.toFixed(2) || '—'}%</span>
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                      {year.sections.map(section => (
-                        <Link
-                          key={section.sectionId}
-                          href={`/dashboard/admin/exams?section=${section.sectionId}`}
-                          className={`p-4 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer ${section.average !== null ? getScoreBgColor(section.average) : 'bg-gray-50'}`}
-                        >
-                          <p className="text-sm font-medium truncate" title={section.displayName}>
-                            {section.displayName}
-                          </p>
-                          <div className="flex items-baseline gap-1 mt-1">
-                            <span className={`text-xl font-bold ${getScoreColor(section.average)}`}>
-                              {section.average?.toFixed(2) || '—'}
-                            </span>
-                            {section.average !== null && <span className="text-sm text-gray-500">%</span>}
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {section.count} {section.count === 1 ? 'score' : 'scores'}
-                          </p>
-                        </Link>
-                      ))}
-                    </div>
+              {/* Get unique sections and aggregate data across years */}
+              {(() => {
+                // Create a map of sections with their data from all years
+                const sectionMap = new Map<string, {
+                  sectionId: string
+                  displayName: string
+                  yearData: Array<{
+                    yearId: string
+                    yearName: string
+                    isActive: boolean
+                    average: number | null
+                    count: number
+                  }>
+                  totalCount: number
+                  overallAverage: number | null
+                }>()
+
+                // Aggregate section data across all years
+                analytics.examScoresByYear.forEach(year => {
+                  year.sections.forEach(section => {
+                    if (!sectionMap.has(section.sectionId)) {
+                      sectionMap.set(section.sectionId, {
+                        sectionId: section.sectionId,
+                        displayName: section.displayName,
+                        yearData: [],
+                        totalCount: 0,
+                        overallAverage: null
+                      })
+                    }
+                    const sectionData = sectionMap.get(section.sectionId)!
+                    sectionData.yearData.push({
+                      yearId: year.yearId,
+                      yearName: year.yearName,
+                      isActive: year.isActive,
+                      average: section.average,
+                      count: section.count
+                    })
+                    sectionData.totalCount += section.count
+                  })
+                })
+
+                // Calculate overall average for each section
+                sectionMap.forEach(section => {
+                  const validYears = section.yearData.filter(y => y.average !== null && y.count > 0)
+                  if (validYears.length > 0) {
+                    const totalWeightedScore = validYears.reduce((sum, y) => sum + (y.average! * y.count), 0)
+                    const totalCount = validYears.reduce((sum, y) => sum + y.count, 0)
+                    section.overallAverage = totalWeightedScore / totalCount
+                  }
+                })
+
+                const sections = Array.from(sectionMap.values())
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {sections.map(section => (
+                      <Link
+                        key={section.sectionId}
+                        href={`/dashboard/admin/exams?section=${section.sectionId}`}
+                        className={`p-4 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer ${section.overallAverage !== null ? getScoreBgColor(section.overallAverage) : 'bg-gray-50'}`}
+                      >
+                        <p className="text-sm font-medium truncate" title={section.displayName}>
+                          {section.displayName}
+                        </p>
+                        <div className="flex items-baseline gap-1 mt-1">
+                          <span className={`text-xl font-bold ${getScoreColor(section.overallAverage)}`}>
+                            {section.overallAverage?.toFixed(1) || '—'}
+                          </span>
+                          {section.overallAverage !== null && <span className="text-sm text-gray-500">%</span>}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {section.totalCount} {section.totalCount === 1 ? 'score' : 'scores'} total
+                        </p>
+                        {/* Year breakdown */}
+                        <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+                          {section.yearData.map(yearInfo => (
+                            <div key={yearInfo.yearId} className="flex items-center justify-between text-xs">
+                              <span className="flex items-center gap-1">
+                                <Badge
+                                  variant={yearInfo.isActive ? "default" : "outline"}
+                                  className={`text-[10px] px-1.5 py-0 ${yearInfo.isActive ? 'bg-blue-600' : ''}`}
+                                >
+                                  {yearInfo.yearName}
+                                </Badge>
+                              </span>
+                              <span className={getScoreColor(yearInfo.average)}>
+                                {yearInfo.average?.toFixed(1) || '—'}% ({yearInfo.count})
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </Link>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )
+              })()}
             </CardContent>
           </Card>
         )}
