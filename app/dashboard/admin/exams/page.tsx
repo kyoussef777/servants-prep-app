@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { isAdmin, canManageExams } from "@/lib/roles"
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -61,12 +61,26 @@ interface ExamScore {
 }
 
 export default function ExamsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    }>
+      <ExamsPageContent />
+    </Suspense>
+  )
+}
+
+function ExamsPageContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [exams, setExams] = useState<Exam[]>([])
   const [examSections, setExamSections] = useState<ExamSection[]>([])
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [selectedYearId, setSelectedYearId] = useState<string>('')
+  const [selectedSectionId, setSelectedSectionId] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [showCreateExam, setShowCreateExam] = useState(false)
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null)
@@ -94,6 +108,14 @@ export default function ExamsPage() {
       router.push('/dashboard')
     }
   }, [status, session, router])
+
+  // Read URL params for section filter
+  useEffect(() => {
+    const sectionParam = searchParams.get('section')
+    if (sectionParam) {
+      setSelectedSectionId(sectionParam)
+    }
+  }, [searchParams])
 
   // Fetch academic years, sections, and enrollments on mount
   useEffect(() => {
@@ -446,6 +468,29 @@ export default function ExamsPage() {
             {!selectedExam && (
               <>
                 <select
+                  value={selectedSectionId}
+                  onChange={(e) => {
+                    setSelectedSectionId(e.target.value)
+                    // Update URL param
+                    const params = new URLSearchParams(window.location.search)
+                    if (e.target.value === 'all') {
+                      params.delete('section')
+                    } else {
+                      params.set('section', e.target.value)
+                    }
+                    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
+                    router.replace(newUrl, { scroll: false })
+                  }}
+                  className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                >
+                  <option value="all">All Sections</option>
+                  {examSections.map(section => (
+                    <option key={section.id} value={section.id}>
+                      {section.displayName}
+                    </option>
+                  ))}
+                </select>
+                <select
                   value={selectedYearId}
                   onChange={(e) => setSelectedYearId(e.target.value)}
                   className="h-10 px-3 rounded-md border border-input bg-background text-sm"
@@ -475,7 +520,9 @@ export default function ExamsPage() {
         {/* Exam List or Score Entry */}
         {!selectedExam ? (
           <div className="space-y-6">
-            {examSections.map(section => {
+            {examSections
+              .filter(section => selectedSectionId === 'all' || section.id === selectedSectionId)
+              .map(section => {
               const sectionExams = exams.filter(e => e.examSection.name === section.name)
 
               return (

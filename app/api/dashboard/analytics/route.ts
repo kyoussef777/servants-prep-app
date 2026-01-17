@@ -369,6 +369,56 @@ export async function GET() {
     // Year 2 students need: YEAR_1 exams + YEAR_2 exams + BOTH exams (all of them)
     const examsForYear2Students = allExams.length
 
+    // Get lesson counts by academic year (excluding exam days)
+    const lessonsByYear = await prisma.lesson.groupBy({
+      by: ['academicYearId'],
+      where: {
+        isExamDay: false
+      },
+      _count: true
+    })
+
+    // Create a map of lessons per year
+    const lessonCountByYear: Record<string, number> = {}
+    for (const lesson of lessonsByYear) {
+      lessonCountByYear[lesson.academicYearId] = lesson._count
+    }
+
+    // Get exam counts by academic year
+    const examsByYear = await prisma.exam.groupBy({
+      by: ['academicYearId'],
+      _count: true
+    })
+
+    // Create a map of exams per year
+    const examCountByYear: Record<string, number> = {}
+    for (const exam of examsByYear) {
+      examCountByYear[exam.academicYearId] = exam._count
+    }
+
+    // Get exam scores count by academic year
+    const examScoresByAcademicYear = await prisma.examScore.groupBy({
+      by: ['examId'],
+      _count: true
+    })
+
+    // Map exam scores to academic year
+    const examIdToYear: Record<string, string> = {}
+    for (const exam of allExams) {
+      examIdToYear[exam.id] = exam.academicYearId
+    }
+
+    const examScoresCountByYear: Record<string, number> = {}
+    for (const scoreGroup of examScoresByAcademicYear) {
+      const yearId = examIdToYear[scoreGroup.examId]
+      if (yearId) {
+        if (!examScoresCountByYear[yearId]) {
+          examScoresCountByYear[yearId] = 0
+        }
+        examScoresCountByYear[yearId] += scoreGroup._count
+      }
+    }
+
     // Program overview stats
     const programOverview = {
       // Total exams in current academic year
@@ -393,7 +443,13 @@ export async function GET() {
       studentsWithGoodExams,
       studentsWithLowExams,
       studentsFullyOnTrack,
-      totalActiveStudents: activeEnrollments.length
+      totalActiveStudents: activeEnrollments.length,
+      // Lessons by year (excluding exam days)
+      lessonCountByYear,
+      // Exams by year
+      examCountByYear,
+      // Exam scores by year
+      examScoresCountByYear
     }
 
     return NextResponse.json({

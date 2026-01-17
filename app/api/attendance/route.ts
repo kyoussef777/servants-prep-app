@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
-import { isAdmin, canManageData } from "@/lib/roles"
+import { canManageData } from "@/lib/roles"
 
 // GET /api/attendance - List attendance records (Admins see all, Mentors see only their mentees)
 export async function GET(request: Request) {

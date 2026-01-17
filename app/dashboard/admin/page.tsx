@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { isAdmin, canAssignMentors, canManageUsers } from '@/lib/roles'
 import { useDashboardStats } from '@/lib/swr'
 import {
@@ -19,7 +18,6 @@ import {
   Clock,
   Settings,
   AlertTriangle,
-  TrendingDown,
   BarChart3,
   Calendar
 } from 'lucide-react'
@@ -82,6 +80,9 @@ interface ProgramOverview {
   studentsWithLowExams: number
   studentsFullyOnTrack: number
   totalActiveStudents: number
+  lessonCountByYear: Record<string, number>
+  examCountByYear: Record<string, number>
+  examScoresCountByYear: Record<string, number>
 }
 
 interface Analytics {
@@ -157,9 +158,6 @@ export default function AdminDashboard() {
     if (score >= 60) return 'bg-yellow-100'
     return 'bg-red-100'
   }
-
-  const activeYearExams = analytics?.examScoresByYear.find(y => y.isActive)
-  const activeYearAttendance = analytics?.attendanceByYear.find(y => y.isActive)
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -311,46 +309,38 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Current Year Attendance */}
+          {/* Attendance Overview */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="h-5 w-5 text-maroon-600" />
                 <div>
                   <CardTitle>Attendance Overview</CardTitle>
-                  <CardDescription>{activeYearAttendance?.yearName || 'Current Year'}</CardDescription>
+                  <CardDescription>Lessons by academic year</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              {activeYearAttendance ? (
+              {analytics?.attendanceByYear && analytics.attendanceByYear.length > 0 ? (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Overall Rate</span>
-                    <span className={`text-2xl font-bold ${getScoreColor(activeYearAttendance.attendanceRate)}`}>
-                      {activeYearAttendance.attendanceRate?.toFixed(2) || '—'}%
-                    </span>
-                  </div>
-                  <Progress
-                    value={activeYearAttendance.attendanceRate || 0}
-                    className="h-2"
-                  />
-                  <div className="grid grid-cols-4 gap-2 text-center text-sm">
-                    <div className="p-2 rounded bg-green-50">
-                      <div className="font-semibold text-green-700">{activeYearAttendance.present}</div>
-                      <div className="text-xs text-green-600">Present</div>
-                    </div>
-                    <div className="p-2 rounded bg-yellow-50">
-                      <div className="font-semibold text-yellow-700">{activeYearAttendance.late}</div>
-                      <div className="text-xs text-yellow-600">Late</div>
-                    </div>
-                    <div className="p-2 rounded bg-red-50">
-                      <div className="font-semibold text-red-700">{activeYearAttendance.absent}</div>
-                      <div className="text-xs text-red-600">Absent</div>
-                    </div>
-                    <div className="p-2 rounded bg-gray-50">
-                      <div className="font-semibold text-gray-700">{activeYearAttendance.excused}</div>
-                      <div className="text-xs text-gray-600">Excused</div>
+                  {/* Lessons by Year */}
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Lessons (excl. exam days)</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {analytics.attendanceByYear.map(year => (
+                        <div
+                          key={year.yearId}
+                          className={`p-3 rounded border text-center ${year.isActive ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}
+                        >
+                          <div className={`text-2xl font-bold ${year.isActive ? 'text-blue-700' : 'text-gray-700'}`}>
+                            {analytics.programOverview?.lessonCountByYear?.[year.yearId] || 0}
+                          </div>
+                          <div className={`text-xs ${year.isActive ? 'text-blue-600' : 'text-gray-600'}`}>
+                            {year.yearName}
+                            {year.isActive && ' (Active)'}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
@@ -383,34 +373,64 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Weakest Sections */}
+          {/* Exam Overview */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <TrendingDown className="h-5 w-5 text-red-500" />
+                <GraduationCap className="h-5 w-5 text-purple-600" />
                 <div>
-                  <CardTitle>Areas Needing Attention</CardTitle>
-                  <CardDescription>Lowest scoring exam sections</CardDescription>
+                  <CardTitle>Exam Overview</CardTitle>
+                  <CardDescription>Exams by academic year</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              {analytics?.weakestSections && analytics.weakestSections.length > 0 ? (
-                <div className="space-y-3">
-                  {analytics.weakestSections.map((section, index) => (
-                    <div key={section.sectionId} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-gray-400">#{index + 1}</span>
-                        <div>
-                          <p className="font-medium text-sm">{section.displayName}</p>
-                          <p className="text-xs text-gray-500">{section.count} scores recorded</p>
+              {analytics?.examScoresByYear && analytics.examScoresByYear.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Exams by Year */}
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Exams Created</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {analytics.examScoresByYear.map(year => (
+                        <div
+                          key={year.yearId}
+                          className={`p-3 rounded border text-center ${year.isActive ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}
+                        >
+                          <div className={`text-2xl font-bold ${year.isActive ? 'text-purple-700' : 'text-gray-700'}`}>
+                            {analytics.programOverview?.examCountByYear?.[year.yearId] || 0}
+                          </div>
+                          <div className={`text-xs ${year.isActive ? 'text-purple-600' : 'text-gray-600'}`}>
+                            {year.yearName}
+                            {year.isActive && ' (Active)'}
+                          </div>
+                          <div className="text-[10px] text-gray-500 mt-1">
+                            {analytics.programOverview?.examScoresCountByYear?.[year.yearId] || 0} scores recorded
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Student Exam Thresholds */}
+                  {analytics?.programOverview && (
+                    <div className="pt-3 border-t space-y-2">
+                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Student Exam Avg (≥75%)</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2 rounded bg-green-50 border border-green-200 text-center">
+                          <div className="text-xl font-bold text-green-700">
+                            {analytics.programOverview.studentsWithGoodExams}
+                          </div>
+                          <div className="text-xs text-green-600">On Track</div>
+                        </div>
+                        <div className="p-2 rounded bg-red-50 border border-red-200 text-center">
+                          <div className="text-xl font-bold text-red-700">
+                            {analytics.programOverview.studentsWithLowExams}
+                          </div>
+                          <div className="text-xs text-red-600">Below 75%</div>
                         </div>
                       </div>
-                      <Badge className={`${getScoreBgColor(section.average)} ${getScoreColor(section.average)} border-0`}>
-                        {section.average.toFixed(2)}%
-                      </Badge>
                     </div>
-                  ))}
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-4 text-gray-500">
@@ -419,39 +439,54 @@ export default function AdminDashboard() {
               )}
             </CardContent>
           </Card>
+
         </div>
 
-        {/* Exam Scores by Section */}
-        {activeYearExams && (
+        {/* Exam Scores by Section - All Years */}
+        {analytics?.examScoresByYear && analytics.examScoresByYear.length > 0 && (
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-purple-600" />
                 <div>
                   <CardTitle>Exam Performance by Section</CardTitle>
-                  <CardDescription>{activeYearExams.yearName} - Overall Average: {activeYearExams.overallAverage?.toFixed(2) || '—'}%</CardDescription>
+                  <CardDescription>All academic years</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                {activeYearExams.sections.map(section => (
-                  <div
-                    key={section.sectionId}
-                    className={`p-4 rounded-lg border ${section.average !== null ? getScoreBgColor(section.average) : 'bg-gray-50'}`}
-                  >
-                    <p className="text-sm font-medium truncate" title={section.displayName}>
-                      {section.displayName}
-                    </p>
-                    <div className="flex items-baseline gap-1 mt-1">
-                      <span className={`text-xl font-bold ${getScoreColor(section.average)}`}>
-                        {section.average?.toFixed(2) || '—'}
+              <div className="space-y-6">
+                {analytics.examScoresByYear.map(year => (
+                  <div key={year.yearId}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <h4 className="font-semibold text-sm">{year.yearName}</h4>
+                      {year.isActive && <Badge variant="outline" className="text-xs">Active</Badge>}
+                      <span className="text-sm text-gray-500">
+                        — Overall: <span className={getScoreColor(year.overallAverage)}>{year.overallAverage?.toFixed(2) || '—'}%</span>
                       </span>
-                      {section.average !== null && <span className="text-sm text-gray-500">%</span>}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {section.count} {section.count === 1 ? 'score' : 'scores'}
-                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {year.sections.map(section => (
+                        <Link
+                          key={section.sectionId}
+                          href={`/dashboard/admin/exams?section=${section.sectionId}`}
+                          className={`p-4 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer ${section.average !== null ? getScoreBgColor(section.average) : 'bg-gray-50'}`}
+                        >
+                          <p className="text-sm font-medium truncate" title={section.displayName}>
+                            {section.displayName}
+                          </p>
+                          <div className="flex items-baseline gap-1 mt-1">
+                            <span className={`text-xl font-bold ${getScoreColor(section.average)}`}>
+                              {section.average?.toFixed(2) || '—'}
+                            </span>
+                            {section.average !== null && <span className="text-sm text-gray-500">%</span>}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {section.count} {section.count === 1 ? 'score' : 'scores'}
+                          </p>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>

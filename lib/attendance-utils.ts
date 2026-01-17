@@ -140,7 +140,6 @@ export function calculateAbsencesAllowed(
 ): number {
   const { present, late, absent, excused } = counts
   const currentTotal = present + late + absent + excused
-  const futureTotal = currentTotal + remainingLessons - excused + remainingLessons
 
   // To maintain 75%: effectivePresent / countable >= 0.75
   // effectivePresent + remainingLessons >= 0.75 * (countable + remainingLessons)

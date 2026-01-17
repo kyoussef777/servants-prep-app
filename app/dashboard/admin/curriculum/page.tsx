@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { isAdmin, canManageCurriculum } from '@/lib/roles'
+import { canManageCurriculum } from '@/lib/roles'
 import { toast } from 'sonner'
 import { formatDateUTC } from '@/lib/utils'
 
