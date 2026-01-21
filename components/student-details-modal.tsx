@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { Edit, Check, X, Trash2, Send } from 'lucide-react'
 import { UserRole } from '@prisma/client'
-import { getRoleDisplayName } from '@/lib/roles'
+import { getRoleDisplayName, isAdmin } from '@/lib/roles'
 import { formatDateUTC } from '@/lib/utils'
 
 interface StudentNote {
@@ -703,7 +703,7 @@ export function StudentDetailsModal({
                                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.content}</p>
                                 )}
                               </div>
-                              {!isEditing && (isAuthor || session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'PRIEST' || session?.user?.role === 'SERVANT_PREP') && (
+                              {!isEditing && (isAuthor || (session?.user?.role && isAdmin(session.user.role as UserRole))) && (
                                 <div className="flex gap-1">
                                   {isAuthor && (
                                     <Button

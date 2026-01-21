@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { UserRole } from '@prisma/client'
-import { getRoleDisplayName } from '@/lib/roles'
+import { getRoleDisplayName, isAdmin } from '@/lib/roles'
 import {
   Users,
   AlertTriangle,
@@ -22,7 +22,8 @@ import {
   ChevronUp,
   AlertCircle,
   MessageSquare,
-  Send
+  Send,
+  Trash2
 } from 'lucide-react'
 
 interface StudentNote {
@@ -261,6 +262,30 @@ export default function MyMenteesPage() {
       toast.error('Failed to add note')
     } finally {
       setSubmittingNote(prev => ({ ...prev, [studentId]: false }))
+    }
+  }
+
+  // Delete a note
+  const deleteNote = async (studentId: string, noteId: string) => {
+    if (!confirm('Are you sure you want to delete this note?')) return
+
+    try {
+      const res = await fetch(`/api/student-notes/${noteId}`, {
+        method: 'DELETE'
+      })
+      if (res.ok) {
+        setNotesMap(prev => ({
+          ...prev,
+          [studentId]: (prev[studentId] || []).filter(n => n.id !== noteId)
+        }))
+        toast.success('Note deleted successfully!')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to delete note')
+      }
+    } catch (error) {
+      console.error('Failed to delete note:', error)
+      toast.error('Failed to delete note')
     }
   }
 
@@ -666,31 +691,50 @@ export default function MyMenteesPage() {
                           </div>
                         ) : notesMap[mentee.student.id]?.length > 0 ? (
                           <div className="space-y-2 max-h-48 overflow-y-auto">
-                            {notesMap[mentee.student.id].map((note) => (
-                              <div
-                                key={note.id}
-                                className="p-2 md:p-3 bg-gray-100 dark:bg-gray-800 rounded-lg"
-                              >
-                                <div className="flex items-center gap-1.5 md:gap-2 mb-1">
-                                  <span className="font-medium text-[10px] md:text-xs dark:text-gray-200">
-                                    {note.author.name}
-                                  </span>
-                                  <Badge variant="outline" className="text-[8px] md:text-[10px] px-1 py-0">
-                                    {getRoleDisplayName(note.author.role)}
-                                  </Badge>
-                                  <span className="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400">
-                                    {new Date(note.createdAt).toLocaleDateString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric'
-                                    })}
-                                  </span>
+                            {notesMap[mentee.student.id].map((note) => {
+                              const isAuthor = session?.user?.id === note.author.id
+                              const canDelete = isAuthor || (session?.user?.role && isAdmin(session.user.role as UserRole))
+
+                              return (
+                                <div
+                                  key={note.id}
+                                  className="p-2 md:p-3 bg-gray-100 dark:bg-gray-800 rounded-lg"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 md:gap-2 mb-1 flex-wrap">
+                                        <span className="font-medium text-[10px] md:text-xs dark:text-gray-200">
+                                          {note.author.name}
+                                        </span>
+                                        <Badge variant="outline" className="text-[8px] md:text-[10px] px-1 py-0">
+                                          {getRoleDisplayName(note.author.role)}
+                                        </Badge>
+                                        <span className="text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400">
+                                          {new Date(note.createdAt).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: 'numeric'
+                                          })}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs md:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                        {note.content}
+                                      </p>
+                                    </div>
+                                    {canDelete && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => deleteNote(mentee.student.id, note.id)}
+                                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-100 shrink-0"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
-                                <p className="text-xs md:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                  {note.content}
-                                </p>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         ) : (
                           <div className="py-3 text-center text-gray-500 dark:text-gray-400 text-xs md:text-sm">
