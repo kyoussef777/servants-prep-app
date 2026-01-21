@@ -120,6 +120,7 @@ model StudentEnrollment {
   notes                   String?            @db.Text
   enrolledAt              DateTime           @default(now())
   graduatedAt             DateTime?          // When the student graduated
+  graduationNote          String?            @db.Text  // Required if graduating without meeting requirements (exception)
   updatedAt               DateTime           @updatedAt @default(now())
 
   // Relations

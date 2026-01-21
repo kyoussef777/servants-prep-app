@@ -143,13 +143,16 @@ export default function AttendancePage() {
   }, [session])
 
   // Fetch lessons when selected year changes
+  // Exclude cancelled and exam day lessons at the API level (not needed for attendance)
   useEffect(() => {
     const fetchLessons = async () => {
       try {
-        // If "all" is selected, fetch all lessons
-        const url = selectedYearId && selectedYearId !== 'all'
-          ? `/api/lessons?academicYearId=${selectedYearId}`
-          : '/api/lessons'
+        // Build URL with forAttendance filter - excludes cancelled and exam day lessons
+        const params = new URLSearchParams({ forAttendance: 'true' })
+        if (selectedYearId && selectedYearId !== 'all') {
+          params.set('academicYearId', selectedYearId)
+        }
+        const url = `/api/lessons?${params.toString()}`
         const lessonsRes = await fetch(url)
         if (!lessonsRes.ok) {
           setLessons([])
@@ -310,10 +313,8 @@ export default function AttendancePage() {
   const showingAllYears = selectedYearId === 'all'
 
   // Filter lessons by status (lesson status field, not attendance status)
-  // Filter out CANCELLED lessons and exam days - they shouldn't appear on attendance page
+  // Note: Cancelled and exam day lessons are already excluded at the API level
   const filteredLessons = lessons.filter(l => {
-    // Always exclude cancelled and exam day lessons
-    if (l.status === 'CANCELLED' || l.isExamDay) return false
     // Apply lesson status filter if set
     if (lessonStatusFilter !== 'all' && l.status !== lessonStatusFilter) return false
     return true

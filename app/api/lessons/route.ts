@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canManageCurriculum } from "@/lib/roles"
+import { LessonStatus } from "@prisma/client"
 
 
 // GET /api/lessons - List lessons
@@ -9,6 +10,9 @@ import { canManageCurriculum } from "@/lib/roles"
 //   ?academicYearId=xxx - filter by academic year
 //   ?examSectionId=xxx - filter by exam section
 //   ?status=COMPLETED - filter by status
+//   ?excludeCancelled=true - exclude cancelled lessons (for attendance page)
+//   ?excludeExamDays=true - exclude exam day lessons (for attendance page)
+//   ?forAttendance=true - shorthand for excludeCancelled + excludeExamDays
 //   ?page=1&limit=50 - pagination (default: all results for backwards compatibility)
 export async function GET(request: Request) {
   try {
@@ -18,13 +22,27 @@ export async function GET(request: Request) {
     const academicYearId = searchParams.get('academicYearId')
     const examSectionId = searchParams.get('examSectionId')
     const status = searchParams.get('status')
+    const excludeCancelled = searchParams.get('excludeCancelled') === 'true' || searchParams.get('forAttendance') === 'true'
+    const excludeExamDays = searchParams.get('excludeExamDays') === 'true' || searchParams.get('forAttendance') === 'true'
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : null
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
 
     const where: Record<string, unknown> = {}
     if (academicYearId) where.academicYearId = academicYearId
     if (examSectionId) where.examSectionId = examSectionId
-    if (status) where.status = status
+
+    // Handle status filtering - excludeCancelled takes precedence
+    if (excludeCancelled) {
+      // Exclude CANCELLED status using notIn for explicit filtering
+      where.status = { notIn: [LessonStatus.CANCELLED] }
+    } else if (status) {
+      where.status = status
+    }
+
+    // Exclude exam days if requested
+    if (excludeExamDays) {
+      where.isExamDay = { not: true }
+    }
 
     const queryOptions: {
       where: Record<string, unknown>

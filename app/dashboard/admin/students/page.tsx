@@ -10,9 +10,11 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { isAdmin } from '@/lib/roles'
 import { toast } from 'sonner'
-import { GraduationCap, ChevronUp, ChevronDown, ChevronRight, Trash2, UserPlus, Pencil } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronRight, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, XCircle, GraduationCap } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
 import { BulkStudentImport } from '@/components/bulk-student-import'
+import { YearEndReviewPanel } from '@/components/year-end-review-panel'
+import { GraduationDialog } from '@/components/graduation-dialog'
 
 interface Student {
   id: string
@@ -42,10 +44,11 @@ interface StudentAnalytics {
   studentId: string
   studentName: string
   yearLevel: 'YEAR_1' | 'YEAR_2'
-  attendancePercentage: number
-  year1AttendancePercentage: number
+  attendancePercentage: number | null
+  year1AttendancePercentage: number | null
   year2AttendancePercentage: number | null  // null for Year 1 students (not in Year 2 yet)
-  avgExamScore: number
+  avgExamScore: number | null
+  examAverage: number | null
   totalLessons: number
   year1TotalLessons: number
   year2TotalLessons: number | null  // null for Year 1 students
@@ -53,6 +56,19 @@ interface StudentAnalytics {
   year1AttendedLessons: number
   year2AttendedLessons: number | null  // null for Year 1 students
   examCount: number
+  // Graduation eligibility fields
+  graduationEligible: boolean
+  attendanceMet: boolean
+  examAverageMet: boolean
+  allSectionsMet: boolean
+}
+
+interface AcademicYear {
+  id: string
+  name: string
+  startDate: string
+  endDate: string
+  isActive: boolean
 }
 
 interface ExamScore {
@@ -147,6 +163,8 @@ function StudentsManagementContent() {
   const [filterYearLevel, setFilterYearLevel] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showGraduateDialog, setShowGraduateDialog] = useState(false)
+  const [showYearEndPanel, setShowYearEndPanel] = useState(false)
+  const [activeYear, setActiveYear] = useState<AcademicYear | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null)
   const [viewingStudent, setViewingStudent] = useState<string | null>(null)
@@ -197,10 +215,11 @@ function StudentsManagementContent() {
 
       if (yearsRes.ok) {
         const years = await yearsRes.json()
-        const activeYear = years.find((y: { isActive: boolean }) => y.isActive)
+        const activeYearData = years.find((y: AcademicYear) => y.isActive)
 
-        if (activeYear) {
-          setAcademicYearId(activeYear.id)
+        if (activeYearData) {
+          setAcademicYearId(activeYearData.id)
+          setActiveYear(activeYearData)
         }
       }
 
@@ -267,20 +286,34 @@ function StudentsManagementContent() {
 
   const updateYearLevel = async (studentIds: string[], yearLevel: 'YEAR_1' | 'YEAR_2') => {
     try {
-      for (const studentId of studentIds) {
-        const student = students.find(s => s.id === studentId)
-        if (student?.enrollments?.[0]) {
-          await fetch(`/api/enrollments/${student.enrollments[0].id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ yearLevel })
-          })
-        }
+      // Get enrollment IDs
+      const enrollmentIds = studentIds
+        .map(id => students.find(s => s.id === id)?.enrollments?.[0]?.id)
+        .filter((id): id is string => !!id)
+
+      if (enrollmentIds.length === 0) {
+        toast.error('No valid enrollments found')
+        return
+      }
+
+      // Use bulk update API for better performance
+      const res = await fetch('/api/enrollments/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enrollmentIds,
+          updates: { yearLevel }
+        })
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to update')
       }
 
       const now = new Date()
       setLastSaved(now)
-      toast.success(`Updated ${studentIds.length} student(s) to ${yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}`, {
+      toast.success(`Updated ${enrollmentIds.length} student(s) to ${yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}`, {
         description: now.toLocaleString('en-US', {
           month: 'short',
           day: 'numeric',
@@ -292,31 +325,42 @@ function StudentsManagementContent() {
 
       await fetchStudents()
       setSelectedStudents(new Set())
-    } catch {
-      toast.error('Failed to update year level')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update year level')
     }
   }
 
   const updateEnrollmentStatus = async (studentIds: string[], status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN') => {
     try {
-      for (const studentId of studentIds) {
-        const student = students.find(s => s.id === studentId)
-        if (student?.enrollments?.[0]) {
-          await fetch(`/api/enrollments/${student.enrollments[0].id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              status,
-              isActive: status === 'ACTIVE'
-            })
-          })
-        }
+      // Get enrollment IDs
+      const enrollmentIds = studentIds
+        .map(id => students.find(s => s.id === id)?.enrollments?.[0]?.id)
+        .filter((id): id is string => !!id)
+
+      if (enrollmentIds.length === 0) {
+        toast.error('No valid enrollments found')
+        return
+      }
+
+      // Use bulk update API for better performance
+      const res = await fetch('/api/enrollments/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enrollmentIds,
+          updates: { status }
+        })
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to update')
       }
 
       const now = new Date()
       setLastSaved(now)
       const statusText = status === 'GRADUATED' ? 'Graduated' : status === 'WITHDRAWN' ? 'Withdrawn' : 'Active'
-      toast.success(`Marked ${studentIds.length} student(s) as ${statusText}`, {
+      toast.success(`Marked ${enrollmentIds.length} student(s) as ${statusText}`, {
         description: now.toLocaleString('en-US', {
           month: 'short',
           day: 'numeric',
@@ -329,8 +373,50 @@ function StudentsManagementContent() {
       await fetchStudents()
       setSelectedStudents(new Set())
       setShowGraduateDialog(false)
-    } catch {
-      toast.error('Failed to update enrollment status')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update enrollment status')
+    }
+  }
+
+  // Handle graduation with optional exception note
+  const handleGraduateStudents = async (enrollmentIds: string[], graduationNote?: string) => {
+    try {
+      const res = await fetch('/api/enrollments/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enrollmentIds,
+          updates: {
+            status: 'GRADUATED',
+            graduationNote
+          }
+        })
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to graduate students')
+      }
+
+      const now = new Date()
+      setLastSaved(now)
+      toast.success(`Graduated ${enrollmentIds.length} student(s)`, {
+        description: graduationNote
+          ? 'Exception noted: ' + graduationNote.substring(0, 50) + (graduationNote.length > 50 ? '...' : '')
+          : now.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit'
+            })
+      })
+
+      await fetchStudents()
+      setSelectedStudents(new Set())
+      setShowGraduateDialog(false)
+    } catch (error) {
+      throw error  // Re-throw so the dialog can handle it
     }
   }
 
@@ -469,6 +555,42 @@ function StudentsManagementContent() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Year-End Review Panel */}
+        <YearEndReviewPanel
+          activeYear={activeYear}
+          analytics={analytics}
+          isVisible={showYearEndPanel}
+          onToggle={() => setShowYearEndPanel(!showYearEndPanel)}
+          onGraduateEligible={() => {
+            // Select all eligible Year 2 students
+            const eligibleStudents = students.filter(s => {
+              const studentAnalytics = analytics.find(a => a.studentId === s.id)
+              return s.enrollments?.[0]?.yearLevel === 'YEAR_2' &&
+                     s.enrollments?.[0]?.status === 'ACTIVE' &&
+                     studentAnalytics?.graduationEligible
+            })
+            setSelectedStudents(new Set(eligibleStudents.map(s => s.id)))
+            if (eligibleStudents.length > 0) {
+              setShowGraduateDialog(true)
+            } else {
+              toast.error('No eligible students found')
+            }
+          }}
+          onPromoteYear1={() => {
+            // Select all Year 1 students
+            const year1StudentIds = students
+              .filter(s => s.enrollments?.[0]?.yearLevel === 'YEAR_1' && s.enrollments?.[0]?.status === 'ACTIVE')
+              .map(s => s.id)
+            if (year1StudentIds.length > 0) {
+              setSelectedStudents(new Set(year1StudentIds))
+              updateYearLevel(year1StudentIds, 'YEAR_2')
+            } else {
+              toast.error('No Year 1 students found')
+            }
+          }}
+          onYearCreated={fetchStudents}
+        />
 
         {/* Filters and Bulk Actions */}
         <Card>
@@ -614,6 +736,7 @@ function StudentsManagementContent() {
                     <th className="text-left p-3 font-semibold">Year 1 Attendance</th>
                     <th className="text-left p-3 font-semibold">Year 2 Attendance</th>
                     <th className="text-left p-3 font-semibold">Exam Avg</th>
+                    <th className="text-left p-3 font-semibold">Eligibility</th>
                     <th className="text-left p-3 font-semibold">Status</th>
                     <th className="text-left p-3 font-semibold">Actions</th>
                   </tr>
@@ -621,13 +744,13 @@ function StudentsManagementContent() {
                 <tbody>
                   {filteredStudents.map(student => {
                     const studentAnalytics = analytics.find(a => a.studentId === student.id)
-                    const year1Color = !studentAnalytics ? 'text-gray-400' :
+                    const year1Color = !studentAnalytics || studentAnalytics.year1AttendancePercentage === null ? 'text-gray-400' :
                       studentAnalytics.year1AttendancePercentage >= 75 ? 'text-green-700' :
                       studentAnalytics.year1AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
                     const year2Color = !studentAnalytics || studentAnalytics.year2AttendancePercentage === null ? 'text-gray-400' :
                       studentAnalytics.year2AttendancePercentage >= 75 ? 'text-green-700' :
                       studentAnalytics.year2AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
-                    const examColor = !studentAnalytics ? 'text-gray-400' :
+                    const examColor = !studentAnalytics || studentAnalytics.avgExamScore === null ? 'text-gray-400' :
                       studentAnalytics.avgExamScore >= 75 ? 'text-green-700' :
                       studentAnalytics.avgExamScore >= 60 ? 'text-yellow-700' : 'text-red-700'
 
@@ -712,6 +835,28 @@ function StudentsManagementContent() {
                           )}
                         </td>
                         <td className="p-3">
+                          {student.enrollments?.[0]?.yearLevel === 'YEAR_2' && student.enrollments?.[0]?.status === 'ACTIVE' ? (
+                            studentAnalytics?.graduationEligible ? (
+                              <Badge className="bg-green-100 text-green-800 border border-green-300">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Eligible
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Review
+                              </Badge>
+                            )
+                          ) : student.enrollments?.[0]?.status === 'GRADUATED' ? (
+                            <Badge className="bg-green-100 text-green-800 border border-green-300">
+                              <GraduationCap className="h-3 w-3 mr-1" />
+                              Graduated
+                            </Badge>
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
+                        </td>
+                        <td className="p-3">
                           {student.enrollments?.[0]?.status === 'ACTIVE' && (
                             <Badge className="bg-green-100 text-green-800">Active</Badge>
                           )}
@@ -747,13 +892,13 @@ function StudentsManagementContent() {
               {filteredStudents.map(student => {
                 const studentAnalytics = analytics.find(a => a.studentId === student.id)
                 const isExpanded = expandedStudent === student.id
-                const year1Color = !studentAnalytics ? 'text-gray-400' :
+                const year1Color = !studentAnalytics || studentAnalytics.year1AttendancePercentage === null ? 'text-gray-400' :
                   studentAnalytics.year1AttendancePercentage >= 75 ? 'text-green-700' :
                   studentAnalytics.year1AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
                 const year2Color = !studentAnalytics || studentAnalytics.year2AttendancePercentage === null ? 'text-gray-400' :
                   studentAnalytics.year2AttendancePercentage >= 75 ? 'text-green-700' :
                   studentAnalytics.year2AttendancePercentage >= 60 ? 'text-yellow-700' : 'text-red-700'
-                const examColor = !studentAnalytics ? 'text-gray-400' :
+                const examColor = !studentAnalytics || studentAnalytics.avgExamScore === null ? 'text-gray-400' :
                   studentAnalytics.avgExamScore >= 75 ? 'text-green-700' :
                   studentAnalytics.avgExamScore >= 60 ? 'text-yellow-700' : 'text-red-700'
 
@@ -891,30 +1036,14 @@ function StudentsManagementContent() {
         </Card>
       </div>
 
-      {/* Graduate Confirmation Dialog */}
-      <Dialog open={showGraduateDialog} onOpenChange={setShowGraduateDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Mark Students as Graduated</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to mark {selectedStudents.size} student(s) as graduated?
-              This will archive them from the active student list.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowGraduateDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => updateEnrollmentStatus(Array.from(selectedStudents), 'GRADUATED')}
-              className="gap-1 bg-green-600 hover:bg-green-700"
-            >
-              <GraduationCap className="h-4 w-4" />
-              Confirm Graduation
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Graduation Dialog with Exception Handling */}
+      <GraduationDialog
+        open={showGraduateDialog}
+        onOpenChange={setShowGraduateDialog}
+        selectedStudents={students.filter(s => selectedStudents.has(s.id))}
+        analytics={analytics}
+        onGraduate={handleGraduateStudents}
+      />
 
       {/* Student Details Modal */}
       <StudentDetailsModal
