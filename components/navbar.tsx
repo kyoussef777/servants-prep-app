@@ -46,7 +46,8 @@ export function Navbar() {
 
     if (role === 'STUDENT') {
       return [
-        { href: '/dashboard/student', label: 'My Progress' }
+        { href: '/dashboard/student', label: 'My Progress' },
+        { href: '/dashboard/student/lessons', label: 'My Lessons' }
       ]
     }
 

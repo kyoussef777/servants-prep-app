@@ -593,7 +593,7 @@ export function StudentDetailsModal({
                             value={selectedFatherId}
                             onChange={(e) => updateFatherOfConfession(e.target.value)}
                             disabled={savingFather || !enrollmentId}
-                            className="border rounded px-2 py-1 text-sm w-full sm:w-auto sm:max-w-[180px] truncate"
+                            className="border rounded px-2 py-1 text-sm w-full sm:w-auto sm:max-w-[180px] truncate dark:bg-gray-800 dark:text-white dark:border-gray-600"
                           >
                             <option value="">Not assigned</option>
                             {fathersList.map((father) => (
@@ -1026,7 +1026,7 @@ export function StudentDetailsModal({
                             <select
                               value={record.status}
                               onChange={(e) => updateAttendance(record.id, e.target.value as 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED')}
-                              className="border rounded px-2 py-1 text-sm"
+                              className="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
                             >
                               <option value="PRESENT">Present</option>
                               <option value="LATE">Late</option>

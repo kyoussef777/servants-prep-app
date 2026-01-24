@@ -38,9 +38,7 @@ export async function GET(
     }
 
     const { searchParams } = new URL(request.url)
-    const academicYearId = searchParams.get('academicYearId')
-
-    // academicYearId is now optional - if not provided, aggregate across all years
+    let academicYearId = searchParams.get('academicYearId')
 
     // Get enrollment
     const enrollment = await prisma.studentEnrollment.findUnique({
@@ -70,6 +68,20 @@ export async function GET(
         { error: "Enrollment not found" },
         { status: 404 }
       )
+    }
+
+    // For STUDENT users, apply year-level filtering logic:
+    // - Year 1 students: Only see active academic year data
+    // - Year 2 students: See all data (no filter)
+    // Admins and mentors can optionally filter by academicYearId via query param
+    if (user.role === UserRole.STUDENT && enrollment.yearLevel === 'YEAR_1') {
+      const activeAcademicYear = await prisma.academicYear.findFirst({
+        where: { isActive: true },
+        select: { id: true }
+      })
+      if (activeAcademicYear) {
+        academicYearId = activeAcademicYear.id
+      }
     }
 
     // Build lesson filter - if academicYearId provided, filter by it; otherwise include all
@@ -122,10 +134,11 @@ export async function GET(
 
     // Build exam filter - if academicYearId provided, filter by it; otherwise include all
     // Map yearLevel to ExamYearLevel (BOTH is always included, plus the student's current year)
-    const validYearLevels: ExamYearLevel[] = [
-      ExamYearLevel.BOTH,
-      enrollment.yearLevel === 'YEAR_1' ? ExamYearLevel.YEAR_1 : ExamYearLevel.YEAR_2
-    ]
+    // Year 2 students see exams for both years
+    const validYearLevels: ExamYearLevel[] = enrollment.yearLevel === 'YEAR_2'
+      ? [ExamYearLevel.BOTH, ExamYearLevel.YEAR_1, ExamYearLevel.YEAR_2]
+      : [ExamYearLevel.BOTH, ExamYearLevel.YEAR_1]
+
     const examWhereClause = academicYearId
       ? {
           studentId,

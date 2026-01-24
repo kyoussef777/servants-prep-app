@@ -361,7 +361,7 @@ export default function AttendancePage() {
                 <select
                   value={selectedYearId}
                   onChange={(e) => setSelectedYearId(e.target.value)}
-                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm flex-1 sm:flex-none"
+                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm flex-1 sm:flex-none dark:bg-gray-800 dark:text-white dark:border-gray-600"
                 >
                   <option value="all">All Years</option>
                   {academicYears.map(year => (
@@ -373,7 +373,7 @@ export default function AttendancePage() {
                 <select
                   value={lessonStatusFilter}
                   onChange={(e) => setLessonStatusFilter(e.target.value)}
-                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm"
+                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
                 >
                   <option value="all">All Statuses</option>
                   <option value="SCHEDULED">Scheduled</option>
@@ -418,11 +418,11 @@ export default function AttendancePage() {
               <div>
                 <button
                   onClick={() => setShowCompletedLessons(!showCompletedLessons)}
-                  className="flex items-center gap-2 text-base sm:text-lg font-semibold mb-2 sm:mb-3 hover:text-gray-700"
+                  className="w-full flex items-center gap-2 text-base sm:text-lg font-semibold mb-2 sm:mb-3 hover:text-gray-700 transition-colors dark:hover:text-gray-300"
                 >
                   {showCompletedLessons ? <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" /> : <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />}
                   <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                  Completed ({completedLessons.length})
+                  <span>Completed ({completedLessons.length})</span>
                 </button>
                 {showCompletedLessons && (
                   <div className="grid gap-2">
@@ -472,7 +472,7 @@ export default function AttendancePage() {
                   className="h-8 sm:h-10 text-xs sm:text-sm w-28 sm:max-w-xs"
                 />
                 <select
-                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm"
+                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
                   value={filterYearLevel}
                   onChange={(e) => setFilterYearLevel(e.target.value)}
                 >

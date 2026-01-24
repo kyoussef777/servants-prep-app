@@ -154,16 +154,24 @@ export default function StudentDashboard() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Welcome, {session?.user?.name}</h1>
-          <p className="text-gray-600 mt-1">
-            Year {analytics.enrollment.yearLevel === 'YEAR_1' ? '1' : '2'} Student{academicYearName ? ` - ${academicYearName}` : ''}
-          </p>
-          {analytics.enrollment.mentor && (
-            <p className="text-gray-600">
-              Mentor: {analytics.enrollment.mentor.name}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Welcome, {session?.user?.name}</h1>
+            <p className="text-gray-600 mt-1">
+              Year {analytics.enrollment.yearLevel === 'YEAR_1' ? '1' : '2'} Student{academicYearName ? ` - ${academicYearName}` : ''}
             </p>
-          )}
+            {analytics.enrollment.mentor && (
+              <p className="text-gray-600">
+                Mentor: {analytics.enrollment.mentor.name}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => router.push('/dashboard/student/lessons')}
+            className="px-4 py-2 bg-maroon-600 text-white rounded-md hover:bg-maroon-700 transition-colors text-sm font-medium"
+          >
+            View My Lessons
+          </button>
         </div>
 
         {/* Graduation Status */}
@@ -246,38 +254,31 @@ export default function StudentDashboard() {
             <CardTitle className="flex items-center gap-2">
               Exam Average
               <span className="text-sm font-normal text-gray-500">
-                ({analytics.exams.examsTaken}/{analytics.exams.totalApplicableExams} taken)
+                ({analytics.exams.examsTaken}/{analytics.exams.totalApplicableExams} exams taken)
               </span>
             </CardTitle>
             <CardDescription>
-              {analytics.exams.overallAverageMet ? '✓' : '❌'} {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(1)}%` : '—'} (Need {analytics.exams.requiredAverage}%)
+              {analytics.exams.overallAverageMet ? '✓' : '❌'} {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(1)}%` : '—'} (Need {analytics.exams.requiredAverage}% • Based on exams taken)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Progress value={analytics.exams.overallAverage || 0} className="h-4" />
 
             <div className="space-y-3">
-              {Object.keys(sectionDisplayNames).map((section) => {
-                const sectionData = analytics.exams.sectionAverages.find(s => s.section === section)
-
-                if (!sectionData) {
-                  return (
-                    <div key={section} className="flex justify-between items-center">
-                      <span className="text-sm">{sectionDisplayNames[section]}</span>
-                      <Badge variant="outline" className="text-gray-500">Not taken yet</Badge>
-                    </div>
-                  )
-                }
-
-                return (
-                  <div key={section} className="flex justify-between items-center">
-                    <span className="text-sm">{sectionDisplayNames[section]}</span>
+              {analytics.exams.sectionAverages.length > 0 ? (
+                analytics.exams.sectionAverages.map((sectionData) => (
+                  <div key={sectionData.section} className="flex justify-between items-center">
+                    <span className="text-sm">{sectionDisplayNames[sectionData.section] || sectionData.section}</span>
                     <span className={`text-sm font-medium ${sectionData.passingMet ? 'text-green-600' : 'text-red-600'}`}>
-                      {sectionData.average.toFixed(1)}% {sectionData.passingMet ? '✓' : `❌`}
+                      {sectionData.average.toFixed(1)}% {sectionData.passingMet ? '✓' : '❌'}
                     </span>
                   </div>
-                )
-              })}
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  No exam scores yet
+                </div>
+              )}
             </div>
 
             {/* Missing Exams */}
