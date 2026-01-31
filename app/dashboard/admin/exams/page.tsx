@@ -464,7 +464,7 @@ function ExamsPageContent() {
               </p>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {!selectedExam && (
               <>
                 <select
@@ -481,7 +481,7 @@ function ExamsPageContent() {
                     const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
                     router.replace(newUrl, { scroll: false })
                   }}
-                  className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  className="h-10 px-3 rounded-md border border-input bg-background text-sm flex-1 sm:flex-none min-w-0"
                 >
                   <option value="all">All Sections</option>
                   {examSections.map(section => (
@@ -493,7 +493,7 @@ function ExamsPageContent() {
                 <select
                   value={selectedYearId}
                   onChange={(e) => setSelectedYearId(e.target.value)}
-                  className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  className="h-10 px-3 rounded-md border border-input bg-background text-sm flex-1 sm:flex-none min-w-0"
                 >
                   <option value="all">All Academic Years</option>
                   {academicYears.map(year => (
@@ -503,7 +503,7 @@ function ExamsPageContent() {
                   ))}
                 </select>
                 {canEdit && (
-                  <Button onClick={() => setShowCreateExam(true)}>
+                  <Button onClick={() => setShowCreateExam(true)} className="w-full sm:w-auto">
                     Create New Exam
                   </Button>
                 )}
