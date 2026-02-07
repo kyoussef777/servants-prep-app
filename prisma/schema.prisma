@@ -60,6 +60,30 @@ enum ExamYearLevel {
   BOTH
 }
 
+enum NoteSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SundaySchoolGrade {
+  PRE_K
+  KINDERGARTEN
+  GRADE_1
+  GRADE_2
+  GRADE_3
+  GRADE_4
+  GRADE_5
+  GRADE_6_PLUS
+}
+
+enum SundaySchoolLogStatus {
+  VERIFIED
+  MANUAL
+  EXCUSED
+  REJECTED
+}
+
 model User {
   id                 String   @id @default(cuid())
   email              String   @unique
@@ -83,6 +107,17 @@ model User {
   studentNotes          StudentNote[]       @relation("StudentNotes")
   authoredNotes         StudentNote[]       @relation("AuthoredNotes")
 
+  // Async notes relations
+  noteSubmissions           AsyncNoteSubmission[] @relation("StudentNoteSubmissions")
+  reviewedNoteSubmissions   AsyncNoteSubmission[] @relation("ReviewedNoteSubmissions")
+  asyncApprovedEnrollments  StudentEnrollment[]   @relation("AsyncApprovedBy")
+
+  // Sunday School relations
+  sundaySchoolAssignments  SundaySchoolAssignment[] @relation("SundaySchoolAssignments")
+  assignedSundaySchool     SundaySchoolAssignment[] @relation("AssignedSundaySchool")
+  generatedCodes           SundaySchoolCode[]       @relation("GeneratedCodes")
+  markedSundaySchoolLogs   SundaySchoolLog[]        @relation("MarkedSundaySchoolLogs")
+
   @@index([email])
   @@index([role])
 }
@@ -97,10 +132,11 @@ model AcademicYear {
   updatedAt DateTime @updatedAt
 
   // Relations
-  lessons              Lesson[]
-  exams                Exam[]
-  enrollments          StudentEnrollment[] @relation("EnrollmentYear")
-  graduatedEnrollments StudentEnrollment[] @relation("GraduationYear")
+  lessons                  Lesson[]
+  exams                    Exam[]
+  enrollments              StudentEnrollment[]      @relation("EnrollmentYear")
+  graduatedEnrollments     StudentEnrollment[]      @relation("GraduationYear")
+  sundaySchoolAssignments  SundaySchoolAssignment[]
 
   @@index([isActive])
 }
@@ -123,12 +159,19 @@ model StudentEnrollment {
   graduationNote          String?            @db.Text  // Required if graduating without meeting requirements (exception)
   updatedAt               DateTime           @updatedAt @default(now())
 
+  // Async student fields
+  isAsyncStudent          Boolean            @default(false)
+  asyncApprovedAt         DateTime?
+  asyncApprovedBy         String?
+  asyncReason             String?            @db.Text
+
   // Relations
   student               User                 @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
   mentor                User?                @relation("MentorServant", fields: [mentorId], references: [id])
   academicYear          AcademicYear?        @relation("EnrollmentYear", fields: [academicYearId], references: [id])
   graduatedAcademicYear AcademicYear?        @relation("GraduationYear", fields: [graduatedAcademicYearId], references: [id])
   fatherOfConfession    FatherOfConfession?  @relation(fields: [fatherOfConfessionId], references: [id], onDelete: SetNull)
+  asyncApprover         User?                @relation("AsyncApprovedBy", fields: [asyncApprovedBy], references: [id], onDelete: SetNull)
 
   @@index([studentId])
   @@index([mentorId])
@@ -139,6 +182,7 @@ model StudentEnrollment {
   @@index([fatherOfConfessionId])
   @@index([mentorId, isActive]) // Compound index for mentor filtering with active status
   @@index([mentorId, status]) // Compound index for mentor filtering with enrollment status
+  @@index([isAsyncStudent])
 }
 
 model ExamSection {
@@ -170,11 +214,12 @@ model Lesson {
   updatedAt          DateTime     @updatedAt
 
   // Relations
-  academicYear      AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  examSection       ExamSection        @relation(fields: [examSectionId], references: [id])
-  creator           User?              @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  attendanceRecords AttendanceRecord[]
-  resources         LessonResource[]
+  academicYear         AcademicYear          @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  examSection          ExamSection           @relation(fields: [examSectionId], references: [id])
+  creator              User?                 @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  attendanceRecords    AttendanceRecord[]
+  resources            LessonResource[]
+  asyncNoteSubmissions AsyncNoteSubmission[]
 
   @@unique([academicYearId, lessonNumber])
   @@index([academicYearId])
@@ -209,9 +254,10 @@ model AttendanceRecord {
   updatedAt  DateTime         @updatedAt
 
   // Relations
-  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student  User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  recorder User?  @relation("RecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
+  lesson               Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student              User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  recorder             User?                @relation("RecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
+  asyncNoteSubmission  AsyncNoteSubmission?
 
   @@unique([lessonId, studentId])
   @@index([lessonId])
@@ -293,4 +339,107 @@ model FatherOfConfession {
 
   @@index([isActive])
   @@index([name])
+}
+
+// ============================================
+// ASYNC STUDENT MODELS
+// ============================================
+
+model AsyncNoteSubmission {
+  id                 String               @id @default(cuid())
+  studentId          String
+  lessonId           String
+  content            String               @db.Text
+  status             NoteSubmissionStatus  @default(PENDING)
+  submittedAt        DateTime             @default(now())
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  reviewFeedback     String?              @db.Text
+  attendanceRecordId String?              @unique
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  // Relations
+  student          User              @relation("StudentNoteSubmissions", fields: [studentId], references: [id], onDelete: Cascade)
+  lesson           Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  reviewer         User?             @relation("ReviewedNoteSubmissions", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  attendanceRecord AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, lessonId])
+  @@index([studentId])
+  @@index([lessonId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+model SundaySchoolAssignment {
+  id              String            @id @default(cuid())
+  studentId       String
+  grade           SundaySchoolGrade
+  academicYearId  String
+  yearLevel       YearLevel
+  totalWeeks      Int               @default(6)
+  startDate       DateTime
+  isActive        Boolean           @default(true)
+  assignedBy      String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  student      User              @relation("SundaySchoolAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear      @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  assigner     User?             @relation("AssignedSundaySchool", fields: [assignedBy], references: [id], onDelete: SetNull)
+  logs         SundaySchoolLog[]
+
+  @@unique([studentId, academicYearId])
+  @@index([studentId])
+  @@index([academicYearId])
+  @@index([grade])
+  @@index([isActive])
+}
+
+model SundaySchoolCode {
+  id           String            @id @default(cuid())
+  code         String            @unique
+  grade        SundaySchoolGrade
+  weekOf       DateTime
+  validUntil   DateTime
+  generatedBy  String?
+  generatedAt  DateTime          @default(now())
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+
+  // Relations
+  generator User?             @relation("GeneratedCodes", fields: [generatedBy], references: [id], onDelete: SetNull)
+  usages    SundaySchoolLog[]
+
+  @@unique([grade, weekOf])
+  @@index([code])
+  @@index([grade])
+  @@index([weekOf])
+  @@index([validUntil])
+}
+
+model SundaySchoolLog {
+  id            String                @id @default(cuid())
+  assignmentId  String
+  weekNumber    Int
+  weekOf        DateTime
+  status        SundaySchoolLogStatus
+  codeId        String?
+  markedBy      String?
+  notes         String?               @db.Text
+  studentNotes  String?               @db.Text
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  // Relations
+  assignment SundaySchoolAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  code       SundaySchoolCode?      @relation(fields: [codeId], references: [id], onDelete: SetNull)
+  marker     User?                  @relation("MarkedSundaySchoolLogs", fields: [markedBy], references: [id], onDelete: SetNull)
+
+  @@unique([assignmentId, weekNumber])
+  @@index([assignmentId])
+  @@index([status])
+  @@index([weekOf])
 }

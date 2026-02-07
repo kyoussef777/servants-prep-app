@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 
-import { canAssignMentors, canManageEnrollments } from "@/lib/roles"
+import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from "@/lib/roles"
 
 // PATCH /api/enrollments/[id] - Update an enrollment
 // - SUPER_ADMIN: Can update all fields including mentor assignment
@@ -25,7 +25,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { yearLevel, mentorId, isActive, status, notes, academicYearId, fatherOfConfessionId } = body
+    const { yearLevel, mentorId, isActive, status, notes, academicYearId, fatherOfConfessionId, isAsyncStudent, asyncReason } = body
 
     const updateData: Record<string, unknown> = {}
     if (yearLevel) updateData.yearLevel = yearLevel
@@ -37,6 +37,30 @@ export async function PATCH(
     if (notes !== undefined) updateData.notes = notes
     if (academicYearId !== undefined) updateData.academicYearId = academicYearId || null
     if (fatherOfConfessionId !== undefined) updateData.fatherOfConfessionId = fatherOfConfessionId || null
+
+    // Handle async student status change
+    if (isAsyncStudent !== undefined) {
+      if (!canSetAsyncStatus(user.role)) {
+        return NextResponse.json(
+          { error: "Forbidden: You do not have permission to set async student status" },
+          { status: 403 }
+        )
+      }
+
+      updateData.isAsyncStudent = isAsyncStudent
+
+      if (isAsyncStudent) {
+        updateData.asyncApprovedAt = new Date()
+        updateData.asyncApprovedBy = user.id
+        if (asyncReason !== undefined) {
+          updateData.asyncReason = asyncReason
+        }
+      } else {
+        updateData.asyncApprovedAt = null
+        updateData.asyncApprovedBy = null
+        updateData.asyncReason = null
+      }
+    }
 
     // Handle graduation status change
     if (status !== undefined) {

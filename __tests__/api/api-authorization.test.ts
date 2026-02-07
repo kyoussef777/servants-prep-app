@@ -113,10 +113,10 @@ describe('API Authorization Patterns', () => {
   })
 
   describe('Mentor Assignment Authorization', () => {
-    it('SUPER_ADMIN, PRIEST, and SERVANT_PREP can assign mentors', () => {
+    it('SUPER_ADMIN and SERVANT_PREP can assign mentors (PRIEST is read-only)', () => {
       expect(canAssignMentors(UserRole.SUPER_ADMIN)).toBe(true)
-      expect(canAssignMentors(UserRole.PRIEST)).toBe(true)
       expect(canAssignMentors(UserRole.SERVANT_PREP)).toBe(true)
+      expect(canAssignMentors(UserRole.PRIEST)).toBe(false)
       expect(canAssignMentors(UserRole.MENTOR)).toBe(false)
       expect(canAssignMentors(UserRole.STUDENT)).toBe(false)
     })

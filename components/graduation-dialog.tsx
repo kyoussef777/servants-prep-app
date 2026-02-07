@@ -19,6 +19,7 @@ interface StudentAnalytics {
   attendanceMet: boolean
   examAverageMet: boolean
   allSectionsMet: boolean
+  sundaySchoolMet?: boolean
 }
 
 interface Student {
@@ -73,6 +74,9 @@ export function GraduationDialog({
           }
           if (!studentAnalytics.allSectionsMet) {
             issues.push('One or more sections below 60%')
+          }
+          if (studentAnalytics.sundaySchoolMet === false) {
+            issues.push('Sunday School attendance below 75%')
           }
         } else {
           issues.push('No analytics data available')

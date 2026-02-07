@@ -43,12 +43,23 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials")
         }
 
+        // Check if student is async
+        let isAsyncStudent = false
+        if (user.role === UserRole.STUDENT) {
+          const enrollment = await prisma.studentEnrollment.findUnique({
+            where: { studentId: user.id },
+            select: { isAsyncStudent: true }
+          })
+          isAsyncStudent = enrollment?.isAsyncStudent ?? false
+        }
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
           mustChangePassword: user.mustChangePassword,
+          isAsyncStudent,
         }
       }
     })
@@ -59,6 +70,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role
         token.id = user.id
         token.mustChangePassword = user.mustChangePassword
+        token.isAsyncStudent = user.isAsyncStudent ?? false
       }
 
       // Handle session update (e.g., after password change)
@@ -75,6 +87,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as UserRole
         session.user.id = token.id as string
         session.user.mustChangePassword = token.mustChangePassword as boolean
+        session.user.isAsyncStudent = (token.isAsyncStudent as boolean) ?? false
       }
       return session
     }

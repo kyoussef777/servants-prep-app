@@ -2,13 +2,14 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canViewStudents } from "@/lib/roles"
-import { LessonStatus, UserRole } from "@prisma/client"
+import { LessonStatus, NoteSubmissionStatus, UserRole } from "@prisma/client"
 import { handleApiError } from "@/lib/api-utils"
 import {
   calculateAttendancePercentage,
   meetsAttendanceRequirement,
   type AttendanceCounts
 } from "@/lib/attendance-utils"
+import { calculateSSAttendance } from "@/lib/sunday-school-utils"
 
 // GET /api/students/analytics/batch - Get analytics for all students efficiently
 // OPTIMIZED: Uses database aggregations instead of fetching all records
@@ -50,6 +51,7 @@ export async function GET(request: Request) {
       select: {
         studentId: true,
         yearLevel: true,
+        isAsyncStudent: true,
         student: {
           select: {
             id: true,
@@ -115,8 +117,11 @@ export async function GET(request: Request) {
       }
     }
 
+    // Get async student IDs for SS queries
+    const asyncStudentIds = enrollments.filter(e => e.isAsyncStudent).map(e => e.studentId)
+
     // Run all queries in parallel for better performance
-    const [lessonsWithAttendanceCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear] = await Promise.all([
+    const [lessonsWithAttendanceCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear, ssAssignments, asyncNoteAggregates] = await Promise.all([
       // Count only lessons that have attendance records (completed lessons with attendance taken)
       prisma.lesson.count({
         where: lessonsWithAttendanceFilter
@@ -180,7 +185,24 @@ export async function GET(request: Request) {
             }
           }
         }
-      })
+      }),
+
+      // Get Sunday School assignments with logs for async students
+      asyncStudentIds.length > 0
+        ? prisma.sundaySchoolAssignment.findMany({
+            where: { studentId: { in: asyncStudentIds } },
+            include: { logs: { select: { status: true, weekNumber: true } } }
+          })
+        : Promise.resolve([]),
+
+      // Get async note submission counts for async students
+      asyncStudentIds.length > 0
+        ? prisma.asyncNoteSubmission.groupBy({
+            by: ['studentId', 'status'],
+            where: { studentId: { in: asyncStudentIds } },
+            _count: { status: true }
+          })
+        : Promise.resolve([])
     ])
 
     // Build lookup maps for O(1) access
@@ -236,6 +258,30 @@ export async function GET(request: Request) {
       else if (record.status === 'LATE') yearRecord.late++
       else if (record.status === 'ABSENT') yearRecord.absent++
       else if ((record.status as string) === 'EXCUSED') yearRecord.excused++
+    }
+
+    // Build SS assignment lookup per student
+    type SSAssignment = { studentId: string; totalWeeks: number; logs: { status: import('@prisma/client').SundaySchoolLogStatus; weekNumber: number }[] }
+    const ssAssignmentsByStudent = new Map<string, SSAssignment[]>()
+    for (const assignment of ssAssignments as SSAssignment[]) {
+      if (!ssAssignmentsByStudent.has(assignment.studentId)) {
+        ssAssignmentsByStudent.set(assignment.studentId, [])
+      }
+      ssAssignmentsByStudent.get(assignment.studentId)!.push(assignment)
+    }
+
+    // Build async note counts per student
+    type NoteAgg = { studentId: string; status: import('@prisma/client').NoteSubmissionStatus; _count: { status: number } }
+    const asyncNotesByStudent = new Map<string, { total: number; pending: number; approved: number; rejected: number }>()
+    for (const agg of asyncNoteAggregates as NoteAgg[]) {
+      if (!asyncNotesByStudent.has(agg.studentId)) {
+        asyncNotesByStudent.set(agg.studentId, { total: 0, pending: 0, approved: 0, rejected: 0 })
+      }
+      const counts = asyncNotesByStudent.get(agg.studentId)!
+      counts.total += agg._count.status
+      if (agg.status === NoteSubmissionStatus.PENDING) counts.pending = agg._count.status
+      else if (agg.status === NoteSubmissionStatus.APPROVED) counts.approved = agg._count.status
+      else if (agg.status === NoteSubmissionStatus.REJECTED) counts.rejected = agg._count.status
     }
 
     // Calculate stats for each student using pre-aggregated data
@@ -311,7 +357,21 @@ export async function GET(request: Request) {
       const examAverage = exams.count > 0 ? exams.avg : null
       const examAverageMet = examAverage === null ? true : examAverage >= 75
       // allSectionsMet is already true by default, only set to false if a section < 60%
-      const graduationEligible = attendanceMet && examAverageMet && allSectionsMet
+
+      // Sunday School check for async students
+      let sundaySchoolMet = true
+      if (enrollment.isAsyncStudent) {
+        const studentSSAssignments = ssAssignmentsByStudent.get(studentId) || []
+        for (const ssa of studentSSAssignments) {
+          const ssAttendance = calculateSSAttendance(ssa.logs, ssa.totalWeeks)
+          if (ssAttendance && !ssAttendance.met) {
+            sundaySchoolMet = false
+            break
+          }
+        }
+      }
+
+      const graduationEligible = attendanceMet && examAverageMet && allSectionsMet && sundaySchoolMet
 
       return {
         studentId,
@@ -353,7 +413,13 @@ export async function GET(request: Request) {
         year1AttendedLessons: Math.round(year1EffectivePresent * 10) / 10,
         year2AttendedLessons: year2Attendance !== null
           ? Math.round(year2EffectivePresent * 10) / 10
-          : null
+          : null,
+        // Async student fields
+        isAsyncStudent: enrollment.isAsyncStudent,
+        ...(enrollment.isAsyncStudent ? {
+          sundaySchoolMet,
+          asyncNotes: asyncNotesByStudent.get(studentId) || { total: 0, pending: 0, approved: 0, rejected: 0 }
+        } : {})
       }
     })
 

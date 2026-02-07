@@ -7,12 +7,14 @@ declare module "next-auth" {
       id: string
       role: UserRole
       mustChangePassword: boolean
+      isAsyncStudent: boolean
     } & DefaultSession["user"]
   }
 
   interface User {
     role: UserRole
     mustChangePassword: boolean
+    isAsyncStudent: boolean
   }
 }
 
@@ -21,5 +23,6 @@ declare module "next-auth/jwt" {
     role: UserRole
     id: string
     mustChangePassword: boolean
+    isAsyncStudent: boolean
   }
 }

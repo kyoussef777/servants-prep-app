@@ -147,26 +147,26 @@ describe('Role Helper Functions', () => {
   })
 
   describe('canManageData', () => {
-    it('should return true for admin roles (can take attendance and enter scores)', () => {
+    it('should return true for SUPER_ADMIN and SERVANT_PREP (PRIEST is read-only)', () => {
       expect(canManageData(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
-      expect(canManageData(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canManageData(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for MENTOR and STUDENT', () => {
+    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
+      expect(canManageData(UserRole.PRIEST as UserRoleType)).toBe(false)
       expect(canManageData(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canManageData(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
   })
 
   describe('canAssignMentors', () => {
-    it('should return true for SUPER_ADMIN, PRIEST, and SERVANT_PREP', () => {
+    it('should return true for SUPER_ADMIN and SERVANT_PREP (PRIEST is read-only)', () => {
       expect(canAssignMentors(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
-      expect(canAssignMentors(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canAssignMentors(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should return false for MENTOR and STUDENT', () => {
+    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
+      expect(canAssignMentors(UserRole.PRIEST as UserRoleType)).toBe(false)
       expect(canAssignMentors(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canAssignMentors(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
@@ -236,13 +236,13 @@ describe('Role Permission Matrix', () => {
     expect(canBeMentor(role)).toBe(true)
   })
 
-  it('PRIEST should have admin access but not user management', () => {
+  it('PRIEST should have admin view access but be fully read-only', () => {
     const role = UserRole.PRIEST as UserRoleType
     expect(isAdmin(role)).toBe(true)
-    expect(canManageUsers(role)).toBe(false) // Key difference
+    expect(canManageUsers(role)).toBe(false)
     expect(canManageAllUsers(role)).toBe(false)
-    expect(canManageData(role)).toBe(true)
-    expect(canAssignMentors(role)).toBe(true)
+    expect(canManageData(role)).toBe(false) // PRIEST is read-only
+    expect(canAssignMentors(role)).toBe(false) // PRIEST is read-only
     expect(canViewStudents(role)).toBe(true)
   })
 

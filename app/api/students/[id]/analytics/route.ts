@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { ExamYearLevel, LessonStatus, UserRole } from "@prisma/client"
+import { ExamYearLevel, LessonStatus, NoteSubmissionStatus, UserRole } from "@prisma/client"
 import { canViewStudents } from "@/lib/roles"
 import { handleApiError } from "@/lib/api-utils"
 import {
@@ -9,6 +9,7 @@ import {
   calculateAttendancePercentage,
   meetsAttendanceRequirement
 } from "@/lib/attendance-utils"
+import { calculateSSAttendance, getAssignmentWeeks } from "@/lib/sunday-school-utils"
 
 // GET /api/students/[id]/analytics - Get student analytics including graduation status
 // NOTE: academicYearId parameter is optional. If not provided, aggregates across ALL academic years.
@@ -232,8 +233,86 @@ export async function GET(
     // If no sections yet, treat as passing (not penalized)
     const allSectionsPassing = sectionAverages.length === 0 ? true : sectionAverages.every(s => s.passingMet)
 
-    // Graduation eligibility
-    const graduationEligible = attendanceMet && overallAverageMet && allSectionsPassing
+    // Async student data
+    let asyncNotes = null
+    let sundaySchool = null
+    let sundaySchoolMet = true // Default true for non-async students
+
+    if (enrollment.isAsyncStudent) {
+      // Get async note submission stats
+      const noteSubmissions = await prisma.asyncNoteSubmission.groupBy({
+        by: ['status'],
+        where: { studentId },
+        _count: { status: true }
+      })
+
+      const noteCounts = { total: 0, pending: 0, approved: 0, rejected: 0 }
+      for (const ns of noteSubmissions) {
+        noteCounts.total += ns._count.status
+        if (ns.status === NoteSubmissionStatus.PENDING) noteCounts.pending = ns._count.status
+        else if (ns.status === NoteSubmissionStatus.APPROVED) noteCounts.approved = ns._count.status
+        else if (ns.status === NoteSubmissionStatus.REJECTED) noteCounts.rejected = ns._count.status
+      }
+      asyncNotes = noteCounts
+
+      // Get Sunday School assignments with logs
+      const ssAssignments = await prisma.sundaySchoolAssignment.findMany({
+        where: { studentId },
+        include: {
+          logs: true,
+          academicYear: { select: { id: true, name: true } }
+        }
+      })
+
+      const assignmentData = ssAssignments.map(assignment => {
+        const attendance = calculateSSAttendance(assignment.logs, assignment.totalWeeks)
+        const weeks = getAssignmentWeeks(assignment.startDate, assignment.totalWeeks)
+        const weekDetails = weeks.map(w => {
+          const log = assignment.logs.find(l => l.weekNumber === w.weekNumber)
+          return {
+            weekNumber: w.weekNumber,
+            weekOf: w.weekOf,
+            status: log?.status ?? null
+          }
+        })
+
+        return {
+          id: assignment.id,
+          grade: assignment.grade,
+          yearLevel: assignment.yearLevel,
+          academicYear: assignment.academicYear,
+          totalWeeks: assignment.totalWeeks,
+          startDate: assignment.startDate,
+          isActive: assignment.isActive,
+          attendance: attendance ? {
+            present: attendance.present,
+            excused: attendance.excused,
+            absent: attendance.absent,
+            effectiveTotal: attendance.effectiveTotal,
+            percentage: attendance.percentage,
+            met: attendance.met
+          } : null,
+          weeks: weekDetails
+        }
+      })
+
+      const year1Assignment = assignmentData.find(a => a.yearLevel === 'YEAR_1')
+      const year2Assignment = assignmentData.find(a => a.yearLevel === 'YEAR_2')
+      const year1Met = year1Assignment?.attendance ? year1Assignment.attendance.met : true
+      const year2Met = year2Assignment?.attendance ? year2Assignment.attendance.met : true
+
+      sundaySchool = {
+        assignments: assignmentData,
+        year1Met,
+        year2Met,
+        allMet: year1Met && year2Met
+      }
+
+      sundaySchoolMet = sundaySchool.allMet
+    }
+
+    // Graduation eligibility (includes Sunday School for async students)
+    const graduationEligible = attendanceMet && overallAverageMet && allSectionsPassing && sundaySchoolMet
 
     return NextResponse.json({
       enrollment,
@@ -264,8 +343,10 @@ export async function GET(
         eligible: graduationEligible,
         attendanceMet,
         overallAverageMet,
-        allSectionsPassing
-      }
+        allSectionsPassing,
+        sundaySchoolMet: enrollment.isAsyncStudent ? sundaySchoolMet : undefined
+      },
+      ...(enrollment.isAsyncStudent ? { asyncNotes, sundaySchool } : {})
     })
   } catch (error: unknown) {
     return handleApiError(error)

@@ -9,7 +9,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { getRoleDisplayName, canManageUsers, canManageEnrollments } from '@/lib/roles'
-import { Menu, X, Moon, Sun } from 'lucide-react'
+import { Menu, X, Moon, Sun, ChevronDown } from 'lucide-react'
+
+interface NavLink {
+  href: string
+  label: string
+}
 
 export function Navbar() {
   const { data: session } = useSession()
@@ -41,47 +46,62 @@ export function Navbar() {
   }
 
   // Navigation links based on role
-  const getNavLinks = () => {
+  // Returns { primary, more } for admin roles, or just { primary } for others
+  const getNavLinks = (): { primary: NavLink[]; more: NavLink[] } => {
     const role = session.user.role
 
     if (role === 'STUDENT') {
-      return [
+      const links: NavLink[] = [
         { href: '/dashboard/student', label: 'My Progress' },
-        { href: '/dashboard/student/lessons', label: 'My Lessons' }
+        { href: '/dashboard/student/lessons', label: 'My Lessons' },
       ]
+      if (session.user.isAsyncStudent) {
+        links.push({ href: '/dashboard/student/async-notes', label: 'My Notes' })
+        links.push({ href: '/dashboard/student/sunday-school', label: 'Sunday School' })
+      }
+      return { primary: links, more: [] }
     }
 
     if (role === 'MENTOR') {
-      return [
-        { href: '/dashboard/mentor', label: 'Dashboard' },
-        { href: '/dashboard/mentor/my-mentees', label: 'My Mentees' }
-      ]
+      return {
+        primary: [
+          { href: '/dashboard/mentor', label: 'Dashboard' },
+          { href: '/dashboard/mentor/my-mentees', label: 'My Mentees' }
+        ],
+        more: []
+      }
     }
 
-    // SUPER_ADMIN, PRIEST, SERVANT_PREP
-    const adminLinks = [
+    // SUPER_ADMIN, PRIEST, SERVANT_PREP — split into primary tabs + "More" dropdown
+    const primary: NavLink[] = [
       { href: '/dashboard/admin', label: 'Dashboard' },
       { href: '/dashboard/admin/attendance', label: 'Attendance' },
-      { href: '/dashboard/admin/exams', label: 'Exams' },
-      { href: '/dashboard/admin/curriculum', label: 'Curriculum' },
       { href: '/dashboard/admin/students', label: 'Students' },
+      { href: '/dashboard/admin/exams', label: 'Exams' },
+    ]
+
+    const more: NavLink[] = [
+      { href: '/dashboard/admin/curriculum', label: 'Curriculum' },
       { href: '/dashboard/admin/mentees', label: 'Mentees' },
     ]
 
-    // Only show Roster page for roles that can manage enrollments (PRIEST is read-only)
+    // Async section
+    more.push({ href: '/dashboard/admin/async-students', label: 'Async Students' })
+
+    // Conditional management pages
     if (canManageEnrollments(role)) {
-      adminLinks.push({ href: '/dashboard/admin/enrollments', label: 'Roster' })
+      more.push({ href: '/dashboard/admin/enrollments', label: 'Roster' })
     }
-
-    // Only show Users page for roles that can manage users
     if (canManageUsers(role)) {
-      adminLinks.push({ href: '/dashboard/admin/users', label: 'Users' })
+      more.push({ href: '/dashboard/admin/users', label: 'Users' })
     }
 
-    return adminLinks
+    return { primary, more }
   }
 
-  const navLinks = getNavLinks()
+  const { primary: primaryLinks, more: moreLinks } = getNavLinks()
+  const allLinks = [...primaryLinks, ...moreLinks]
+  const isMoreActive = moreLinks.some(link => isActive(link.href))
 
   return (
     <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50">
@@ -102,7 +122,7 @@ export function Navbar() {
 
             {/* Navigation Links */}
             <div className="hidden lg:flex items-center gap-1">
-              {navLinks.map(link => (
+              {primaryLinks.map(link => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -115,6 +135,51 @@ export function Navbar() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* "More" dropdown for admin roles */}
+              {moreLinks.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={`inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isMoreActive
+                          ? 'bg-maroon-50 text-maroon-700 dark:bg-maroon-900/30 dark:text-maroon-300'
+                          : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      More
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    {moreLinks.map((link, index) => {
+                      // Add separator before "Async Students" and before "Roster" (or "Users" if no Roster)
+                      const needsSeparator =
+                        link.href === '/dashboard/admin/async-students' ||
+                        link.href === '/dashboard/admin/enrollments' ||
+                        (link.href === '/dashboard/admin/users' && !canManageEnrollments(session.user.role))
+
+                      return (
+                        <div key={link.href}>
+                          {needsSeparator && index > 0 && <DropdownMenuSeparator />}
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={link.href}
+                              className={`cursor-pointer w-full ${
+                                isActive(link.href)
+                                  ? 'bg-maroon-50 text-maroon-700 dark:bg-maroon-900/30 dark:text-maroon-300'
+                                  : ''
+                              }`}
+                            >
+                              {link.label}
+                            </Link>
+                          </DropdownMenuItem>
+                        </div>
+                      )
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </div>
 
@@ -207,11 +272,11 @@ export function Navbar() {
           </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile menu - flat list of all links */}
         {mobileMenuOpen && (
           <div className="lg:hidden border-t dark:border-gray-800">
             <div className="px-2 pt-2 pb-3 space-y-1">
-              {navLinks.map(link => (
+              {allLinks.map(link => (
                 <Link
                   key={link.href}
                   href={link.href}

@@ -112,6 +112,21 @@ interface FatherOfConfession {
   church?: string
 }
 
+interface AsyncNoteSubmission {
+  id: string
+  content: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  submittedAt: string
+  reviewedAt: string | null
+  reviewFeedback: string | null
+  lesson: {
+    title: string
+    lessonNumber: number
+    examSection: { displayName: string }
+  }
+  reviewer: { name: string } | null
+}
+
 interface StudentDetailsModalProps {
   studentId: string | null
   studentName: string
@@ -121,6 +136,7 @@ interface StudentDetailsModalProps {
   mentor?: Mentor | null
   fatherOfConfession?: FatherOfConfession | null
   enrollmentId?: string
+  isAsyncStudent?: boolean
   examScores: ExamScore[]
   attendanceRecords: AttendanceRecord[]
   allExams?: Exam[]
@@ -139,6 +155,7 @@ export function StudentDetailsModal({
   mentor,
   fatherOfConfession,
   enrollmentId,
+  isAsyncStudent = false,
   examScores,
   attendanceRecords,
   allExams = [],
@@ -172,16 +189,22 @@ export function StudentDetailsModal({
   const [selectedFatherId, setSelectedFatherId] = useState<string>('')
   const [savingFather, setSavingFather] = useState(false)
 
+  // Async notes state
+  const [asyncNotes, setAsyncNotes] = useState<AsyncNoteSubmission[]>([])
+  const [asyncNotesLoading, setAsyncNotesLoading] = useState(false)
+
   // Fetch notes when student changes
   useEffect(() => {
     if (studentId) {
       fetchNotes()
       fetchFathersList()
+      if (isAsyncStudent) fetchAsyncNotes()
     } else {
       setNotes([])
+      setAsyncNotes([])
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId])
+  }, [studentId, isAsyncStudent])
 
   // Update selectedFatherId when fatherOfConfession prop changes
   useEffect(() => {
@@ -201,6 +224,22 @@ export function StudentDetailsModal({
       console.error('Failed to fetch notes:', error)
     } finally {
       setNotesLoading(false)
+    }
+  }
+
+  const fetchAsyncNotes = async () => {
+    if (!studentId) return
+    setAsyncNotesLoading(true)
+    try {
+      const res = await fetch(`/api/async-notes?studentId=${studentId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setAsyncNotes(Array.isArray(data) ? data : data.data || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch async notes:', error)
+    } finally {
+      setAsyncNotesLoading(false)
     }
   }
 
@@ -480,11 +519,12 @@ export function StudentDetailsModal({
           <div className="py-8 text-center text-gray-500">Loading...</div>
         ) : (
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className={`grid w-full ${isAsyncStudent ? 'grid-cols-5' : 'grid-cols-4'}`}>
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
               <TabsTrigger value="scores">Exams</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
+              {isAsyncStudent && <TabsTrigger value="async-notes">Lesson Notes</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="profile" className="space-y-4">
@@ -1072,6 +1112,52 @@ export function StudentDetailsModal({
                 </div>
               )}
             </TabsContent>
+            {/* Async Notes Tab */}
+            {isAsyncStudent && (
+              <TabsContent value="async-notes" className="space-y-4">
+                {asyncNotesLoading ? (
+                  <div className="py-4 text-center text-gray-500">Loading...</div>
+                ) : asyncNotes.length === 0 ? (
+                  <div className="py-4 text-center text-gray-500">No lesson note submissions yet.</div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {asyncNotes.map(note => (
+                      <Card key={note.id}>
+                        <CardContent className="pt-4 pb-3 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="text-sm font-medium">
+                                Lesson {note.lesson.lessonNumber}: {note.lesson.title}
+                              </p>
+                              <p className="text-xs text-gray-500">{note.lesson.examSection.displayName}</p>
+                            </div>
+                            <Badge className={
+                              note.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                              note.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }>
+                              {note.status}
+                            </Badge>
+                          </div>
+                          <div className="bg-gray-50 dark:bg-gray-900 p-2 rounded text-sm whitespace-pre-wrap max-h-24 overflow-y-auto">
+                            {note.content}
+                          </div>
+                          {note.reviewFeedback && (
+                            <div className="bg-red-50 dark:bg-red-950 p-2 rounded text-xs text-red-600">
+                              <strong>Feedback:</strong> {note.reviewFeedback}
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-400">
+                            Submitted {new Date(note.submittedAt).toLocaleDateString()}
+                            {note.reviewer && ` • Reviewed by ${note.reviewer.name}`}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            )}
           </Tabs>
         )}
       </DialogContent>

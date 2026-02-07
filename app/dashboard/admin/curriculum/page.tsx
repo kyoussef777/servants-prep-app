@@ -366,7 +366,7 @@ export default function CurriculumPage() {
 
         {/* Add Form */}
         {showAddForm && canEdit && (
-          <Card className="bg-maroon-50 border-maroon-200">
+          <Card className="bg-maroon-50 border-maroon-200 dark:bg-maroon-950/50 dark:border-maroon-800">
             <CardContent className="pt-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>

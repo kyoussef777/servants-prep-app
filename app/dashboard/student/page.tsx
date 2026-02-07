@@ -21,6 +21,7 @@ interface Analytics {
     id: string
     yearLevel: 'YEAR_1' | 'YEAR_2'
     isActive: boolean
+    isAsyncStudent: boolean
     status: string
     mentor: {
       id: string
@@ -66,6 +67,35 @@ interface Analytics {
     attendanceMet: boolean
     overallAverageMet: boolean
     allSectionsPassing: boolean
+    sundaySchoolMet?: boolean
+  }
+  asyncNotes?: {
+    total: number
+    pending: number
+    approved: number
+    rejected: number
+  }
+  sundaySchool?: {
+    assignments: Array<{
+      id: string
+      grade: string
+      yearLevel: string
+      academicYear: { id: string; name: string }
+      totalWeeks: number
+      startDate: string
+      isActive: boolean
+      attendance: {
+        present: number
+        excused: number
+        absent: number
+        effectiveTotal: number
+        percentage: number
+        met: boolean
+      } | null
+    }>
+    year1Met: boolean
+    year2Met: boolean
+    allMet: boolean
   }
 }
 
@@ -166,12 +196,30 @@ export default function StudentDashboard() {
               </p>
             )}
           </div>
-          <button
-            onClick={() => router.push('/dashboard/student/lessons')}
-            className="px-4 py-2 bg-maroon-600 text-white rounded-md hover:bg-maroon-700 transition-colors text-sm font-medium"
-          >
-            View My Lessons
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/dashboard/student/lessons')}
+              className="px-4 py-2 bg-maroon-600 text-white rounded-md hover:bg-maroon-700 transition-colors text-sm font-medium"
+            >
+              View My Lessons
+            </button>
+            {analytics.enrollment.isAsyncStudent && (
+              <>
+                <button
+                  onClick={() => router.push('/dashboard/student/async-notes')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  My Notes
+                </button>
+                <button
+                  onClick={() => router.push('/dashboard/student/sunday-school')}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-medium"
+                >
+                  Sunday School
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Graduation Status */}
@@ -187,7 +235,7 @@ export default function StudentDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${analytics.enrollment.isAsyncStudent ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3'}`}>
               <div className={`p-3 rounded border text-center ${analytics.graduation.attendanceMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                 <div className="text-2xl mb-1">{analytics.graduation.attendanceMet ? '✓' : '✗'}</div>
                 <div className={`text-sm font-medium ${analytics.graduation.attendanceMet ? 'text-green-700' : 'text-red-700'}`}>
@@ -206,9 +254,91 @@ export default function StudentDashboard() {
                   All Sections ≥60%
                 </div>
               </div>
+              {analytics.enrollment.isAsyncStudent && analytics.graduation.sundaySchoolMet !== undefined && (
+                <div className={`p-3 rounded border text-center ${analytics.graduation.sundaySchoolMet ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <div className="text-2xl mb-1">{analytics.graduation.sundaySchoolMet ? '✓' : '✗'}</div>
+                  <div className={`text-sm font-medium ${analytics.graduation.sundaySchoolMet ? 'text-green-700' : 'text-red-700'}`}>
+                    Sunday School ≥75%
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
+
+        {/* Async Student Progress */}
+        {analytics.enrollment.isAsyncStudent && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Lesson Notes Summary */}
+            {analytics.asyncNotes && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Lesson Notes</CardTitle>
+                  <CardDescription>Your note submissions for lessons</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-2 bg-green-50 rounded border border-green-200">
+                      <div className="text-2xl font-bold text-green-700">{analytics.asyncNotes.approved}</div>
+                      <div className="text-xs text-green-600">Approved</div>
+                    </div>
+                    <div className="p-2 bg-yellow-50 rounded border border-yellow-200">
+                      <div className="text-2xl font-bold text-yellow-700">{analytics.asyncNotes.pending}</div>
+                      <div className="text-xs text-yellow-600">Pending</div>
+                    </div>
+                    <div className="p-2 bg-red-50 rounded border border-red-200">
+                      <div className="text-2xl font-bold text-red-700">{analytics.asyncNotes.rejected}</div>
+                      <div className="text-xs text-red-600">Rejected</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => router.push('/dashboard/student/async-notes')}
+                    className="mt-3 w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    View All Notes →
+                  </button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Sunday School Summary */}
+            {analytics.sundaySchool && analytics.sundaySchool.assignments.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Sunday School</CardTitle>
+                  <CardDescription>
+                    {analytics.sundaySchool.assignments[0]?.grade?.replace('_', ' ').replace('GRADE ', 'Grade ').replace('PRE K', 'Pre-K').replace('KINDERGARTEN', 'Kindergarten').replace('GRADE 6 PLUS', '6th Grade+')}
+                    {' '}&bull; {analytics.sundaySchool.assignments[0]?.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {analytics.sundaySchool.assignments.map(assignment => (
+                    <div key={assignment.id} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Attendance</span>
+                        <span className={`text-sm font-bold ${assignment.attendance?.met ? 'text-green-600' : 'text-red-600'}`}>
+                          {assignment.attendance ? `${assignment.attendance.percentage.toFixed(0)}%` : 'N/A'}
+                        </span>
+                      </div>
+                      {assignment.attendance && (
+                        <Progress value={assignment.attendance.percentage} className="h-3" />
+                      )}
+                      <div className="text-xs text-gray-500">
+                        {assignment.attendance?.present ?? 0} of {assignment.attendance?.effectiveTotal ?? assignment.totalWeeks} weeks attended (75% required)
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => router.push('/dashboard/student/sunday-school')}
+                    className="mt-3 w-full text-center text-sm text-purple-600 hover:text-purple-800 font-medium"
+                  >
+                    View Details →
+                  </button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Attendance */}
         <Card>
