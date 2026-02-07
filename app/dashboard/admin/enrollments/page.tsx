@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { canAssignMentors, canManageEnrollments } from '@/lib/roles'
+import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from '@/lib/roles'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 
@@ -31,6 +31,7 @@ interface Enrollment {
   id: string
   yearLevel: string
   isActive: boolean
+  isAsyncStudent: boolean
   status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
   student: {
     id: string
@@ -184,6 +185,32 @@ export default function EnrollmentsPage() {
       toast.error('Failed to update')
     }
   }
+
+  const handleAsyncToggle = async (enrollmentId: string, isAsyncStudent: boolean) => {
+    try {
+      const res = await fetch(`/api/enrollments/${enrollmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAsyncStudent })
+      })
+
+      if (res.ok) {
+        const updated = await res.json()
+        setEnrollments(enrollments.map(e =>
+          e.id === enrollmentId ? updated : e
+        ))
+        toast.success(isAsyncStudent ? 'Student marked as async' : 'Async status removed')
+      } else {
+        const errorData = await res.json()
+        toast.error(errorData.error || 'Failed to update async status')
+      }
+    } catch (error) {
+      console.error('Failed to update async status:', error)
+      toast.error('Failed to update async status')
+    }
+  }
+
+  const canToggleAsync = session?.user?.role && canSetAsyncStatus(session.user.role)
 
   const openAddFatherDialog = () => {
     setEditingFather(null)
@@ -439,6 +466,7 @@ export default function EnrollmentsPage() {
                     <th className="text-left p-3 font-semibold">Mentor</th>
                     <th className="text-left p-3 font-semibold">Father of Confession</th>
                     <th className="text-left p-3 font-semibold w-28">Status</th>
+                    <th className="text-center p-3 font-semibold w-20">Async</th>
                     <th className="text-left p-3 font-semibold">Academic Year</th>
                   </tr>
                 </thead>
@@ -498,6 +526,16 @@ export default function EnrollmentsPage() {
                            enrollment.status === 'GRADUATED' ? 'Graduated' : 'Withdrawn'}
                         </Badge>
                       </td>
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={enrollment.isAsyncStudent}
+                          onChange={(e) => handleAsyncToggle(enrollment.id, e.target.checked)}
+                          disabled={!canToggleAsync}
+                          className={`h-4 w-4 rounded border-gray-300 ${!canToggleAsync ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                          title={enrollment.isAsyncStudent ? 'Async student' : 'Not async'}
+                        />
+                      </td>
                       <td className="p-3">
                         <div className="text-sm">
                           {enrollment.status === 'GRADUATED' && enrollment.graduatedAcademicYear ? (
@@ -551,6 +589,21 @@ export default function EnrollmentsPage() {
                             : enrollment.academicYear?.name}
                         </Badge>
                       )}
+                      {enrollment.isAsyncStudent && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                          Async
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-gray-600">Async Student:</label>
+                      <input
+                        type="checkbox"
+                        checked={enrollment.isAsyncStudent}
+                        onChange={(e) => handleAsyncToggle(enrollment.id, e.target.checked)}
+                        disabled={!canToggleAsync}
+                        className={`h-4 w-4 rounded border-gray-300 ${!canToggleAsync ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                      />
                     </div>
                     <div>
                       <label className="text-sm text-gray-600 block mb-1">Mentor:</label>
