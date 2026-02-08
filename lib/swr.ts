@@ -108,3 +108,31 @@ export function useSundaySchoolProgress(studentId?: string, options?: SWRConfigu
     : null
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
 }
+
+// Registration system hooks
+export function useInviteCodes(statusFilter?: string, options?: SWRConfiguration) {
+  const url = statusFilter
+    ? `/api/registration/invite-codes?status=${statusFilter}`
+    : '/api/registration/invite-codes'
+  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useRegistrationSubmissions(
+  filters?: { status?: string; page?: number; limit?: number },
+  options?: SWRConfiguration
+) {
+  const params = new URLSearchParams()
+  if (filters?.status) params.set('status', filters.status)
+  if (filters?.page) params.set('page', String(filters.page))
+  if (filters?.limit) params.set('limit', String(filters.limit))
+  const query = params.toString()
+  const url = `/api/registration/submissions${query ? `?${query}` : ''}`
+  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useRegistrationSettings(options?: SWRConfiguration) {
+  return useSWR('/api/registration/settings', fetcher, {
+    ...staticDataConfig,
+    ...options,
+  })
+}

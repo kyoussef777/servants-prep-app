@@ -84,6 +84,25 @@ enum SundaySchoolLogStatus {
   REJECTED
 }
 
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StudentGrade {
+  GRADE_9
+  GRADE_10
+  GRADE_11
+  GRADE_12
+  COLLEGE_FRESHMAN
+  COLLEGE_SOPHOMORE
+  COLLEGE_JUNIOR
+  COLLEGE_SENIOR
+  POST_COLLEGE
+  OTHER
+}
+
 model User {
   id                 String   @id @default(cuid())
   email              String   @unique
@@ -117,6 +136,11 @@ model User {
   assignedSundaySchool     SundaySchoolAssignment[] @relation("AssignedSundaySchool")
   generatedCodes           SundaySchoolCode[]       @relation("GeneratedCodes")
   markedSundaySchoolLogs   SundaySchoolLog[]        @relation("MarkedSundaySchoolLogs")
+
+  // Registration relations
+  createdInviteCodes        InviteCode[]             @relation("InviteCodeCreator")
+  reviewedRegistrations     RegistrationSubmission[] @relation("RegistrationReviewer")
+  createdFromRegistration   RegistrationSubmission[] @relation("RegistrationCreatedUser")
 
   @@index([email])
   @@index([role])
@@ -442,4 +466,81 @@ model SundaySchoolLog {
   @@index([assignmentId])
   @@index([status])
   @@index([weekOf])
+}
+
+// ============================================
+// REGISTRATION SYSTEM MODELS
+// ============================================
+
+model SystemSettings {
+  id                    String   @id @default("default")
+  registrationEnabled   Boolean  @default(true)
+  updatedAt             DateTime @updatedAt
+}
+
+model InviteCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  label       String?                     // Human-readable label, e.g. "Fall 2026 Registration"
+  maxUses     Int       @default(1)       // 0 = unlimited
+  usageCount  Int       @default(0)
+  expiresAt   DateTime?                   // null = never expires
+  isActive    Boolean   @default(true)
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  creator       User                    @relation("InviteCodeCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  registrations RegistrationSubmission[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model RegistrationSubmission {
+  id                      String             @id @default(cuid())
+  inviteCodeId            String
+  status                  RegistrationStatus @default(PENDING)
+
+  // Applicant info
+  email                   String
+  fullName                String
+  dateOfBirth             DateTime
+  phone                   String
+  fatherOfConfessionName  String
+  previouslyServed        Boolean
+  currentlyServing        Boolean
+  previouslyAttendedPrep  Boolean
+  previousPrepLocation    String?            // Only if previouslyAttendedPrep = true
+  grade                   StudentGrade
+
+  // Approval form upload
+  approvalFormUrl         String             // Vercel Blob URL
+  approvalFormFilename    String             // Original filename for display
+
+  // Mentor info
+  mentorName              String
+  mentorPhone             String
+  mentorEmail             String
+
+  // Review fields
+  reviewedBy              String?
+  reviewedAt              DateTime?
+  reviewNote              String?            @db.Text  // Admin note (reason for rejection, etc.)
+  createdUserId           String?            // User.id created upon approval
+
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  // Relations
+  inviteCode    InviteCode  @relation(fields: [inviteCodeId], references: [id])
+  reviewer      User?       @relation("RegistrationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  createdUser   User?       @relation("RegistrationCreatedUser", fields: [createdUserId], references: [id], onDelete: SetNull)
+
+  @@index([inviteCodeId])
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
 }

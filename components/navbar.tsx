@@ -8,7 +8,7 @@ import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { getRoleDisplayName, canManageUsers, canManageEnrollments } from '@/lib/roles'
+import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown } from 'lucide-react'
 
 interface NavLink {
@@ -94,6 +94,9 @@ export function Navbar() {
     }
     if (canManageUsers(role)) {
       more.push({ href: '/dashboard/admin/users', label: 'Users' })
+    }
+    if (canViewRegistrations(role)) {
+      more.push({ href: '/dashboard/admin/registrations', label: 'Registrations' })
     }
 
     return { primary, more }

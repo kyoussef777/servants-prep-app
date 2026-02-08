@@ -116,6 +116,21 @@ export const canSubmitAsyncContent = (role: UserRole) => {
   return role === UserRole.STUDENT
 }
 
+// Can manage invite codes (generate, edit, revoke)
+export const canManageInviteCodes = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// Can review registration submissions (approve/reject)
+export const canReviewRegistrations = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// Can view registration submissions (read-only access)
+export const canViewRegistrations = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP || role === UserRole.PRIEST
+}
+
 // Display names for roles
 export const getRoleDisplayName = (role: UserRole): string => {
   const displayNames: Record<UserRole, string> = {
