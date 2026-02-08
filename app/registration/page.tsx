@@ -194,20 +194,20 @@ export default function RegistrationPage() {
 
   if (step === 'CODE') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-2 border-maroon-600">
-          <CardHeader className="text-center">
-            <div className="mb-4 flex justify-center">
-              <div className="w-20 h-20 bg-maroon-600 rounded-full flex items-center justify-center text-white font-bold text-3xl">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-md border-2 border-maroon-600 shadow-lg">
+          <CardHeader className="text-center space-y-4 pt-8 pb-6">
+            <div className="flex justify-center">
+              <div className="w-24 h-24 bg-maroon-600 rounded-full flex items-center justify-center text-white font-bold text-4xl">
                 SP
               </div>
             </div>
-            <CardTitle className="text-2xl">St. Paul&apos;s Servants Prep</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl">St. Paul&apos;s Servants Prep</CardTitle>
             <CardDescription className="text-base mt-2">
               Application for Servants Prep 2025-26
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 px-6 pb-8">
             <div>
               <Label htmlFor="inviteCode">Invite Code</Label>
               <Input
@@ -244,18 +244,18 @@ export default function RegistrationPage() {
 
   if (step === 'CONFIRMATION') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-2 border-green-600">
-          <CardHeader className="text-center">
-            <div className="mb-4 flex justify-center">
-              <CheckCircle2 className="w-20 h-20 text-green-600" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-md border-2 border-green-600 shadow-lg">
+          <CardHeader className="text-center space-y-4 pt-8 pb-6">
+            <div className="flex justify-center">
+              <CheckCircle2 className="w-24 h-24 text-green-600" />
             </div>
-            <CardTitle className="text-2xl text-green-600">Application Submitted!</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl text-green-600">Application Submitted!</CardTitle>
             <CardDescription className="text-base mt-2">
               Your application has been received and is under review.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 px-6 pb-8">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
               <p className="font-semibold text-green-900 mb-2">What happens next?</p>
               <ul className="list-disc list-inside space-y-1 text-green-800">
@@ -274,12 +274,12 @@ export default function RegistrationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        <Card className="border-2 border-maroon-600">
-          <CardHeader>
+    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        <Card className="border-2 border-maroon-600 shadow-lg">
+          <CardHeader className="space-y-4 pb-6">
             <div className="flex items-center justify-between mb-2">
-              <CardTitle className="text-2xl">Servants Prep Application</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">Servants Prep Application</CardTitle>
               {codeLabel && (
                 <Badge variant="outline" className="text-xs">
                   {codeLabel}
@@ -294,11 +294,11 @@ export default function RegistrationPage() {
               {Math.round(calculateProgress())}% complete
             </p>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-8">
+          <CardContent className="px-6 sm:px-8 pb-8">
+            <form onSubmit={handleSubmit} className="space-y-10">
               {/* Personal Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Personal Information</h3>
+                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Personal Information</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="fullName">Full Name *</Label>
@@ -344,7 +344,7 @@ export default function RegistrationPage() {
 
               {/* Church Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Church Information</h3>
+                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Church Information</h3>
                 <div className="space-y-2">
                   <Label htmlFor="fatherOfConfession">Your Father of Confession *</Label>
                   <Input
@@ -360,7 +360,7 @@ export default function RegistrationPage() {
 
               {/* Service History */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Service History</h3>
+                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Service History</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="previouslyServed">Have you previously served? *</Label>
@@ -432,7 +432,7 @@ export default function RegistrationPage() {
 
               {/* Academic Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Academic Information</h3>
+                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Academic Information</h3>
                 <div className="space-y-2">
                   <Label htmlFor="grade">Which Grade are you in? *</Label>
                   <Select
@@ -456,7 +456,7 @@ export default function RegistrationPage() {
 
               {/* Approval Form Upload */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Approval Form *</h3>
+                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Approval Form *</h3>
                 <div className="space-y-2">
                   <Label htmlFor="approvalForm">
                     Upload your signed form documenting approval of your mentor servant and father
@@ -511,7 +511,7 @@ export default function RegistrationPage() {
 
               {/* Mentor Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Mentor Servant Information</h3>
+                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Mentor Servant Information</h3>
                 <div className="grid gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="mentorName">Mentor Servant&apos;s Name *</Label>

@@ -31,13 +31,14 @@ export default function RegistrationsPage() {
   const [activeTab, setActiveTab] = useState('submissions')
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Registration Management</h1>
-        <p className="text-gray-600 mt-1">Manage student registration applications and invite codes</p>
-      </div>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Registration Management</h1>
+          <p className="text-gray-600 mt-1">Manage student registration applications and invite codes</p>
+        </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="submissions">Submissions</TabsTrigger>
           {canManageInviteCodes(session.user.role) && (
@@ -55,6 +56,7 @@ export default function RegistrationsPage() {
           </TabsContent>
         )}
       </Tabs>
+      </div>
     </div>
   )
 }
