@@ -176,7 +176,7 @@ function SubmissionsTab() {
                             <Eye className="w-4 h-4 mr-1" />
                             View
                           </Button>
-                          {canReviewRegistrations(session?.user?.role) && (
+                          {session?.user && canReviewRegistrations(session.user.role) && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="sm" title="Delete submission">
@@ -244,7 +244,7 @@ function SubmissionsTab() {
                         <Eye className="w-4 h-4 mr-1" />
                         View
                       </Button>
-                      {canReviewRegistrations(session?.user?.role) && (
+                      {session?.user && canReviewRegistrations(session.user.role) && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="outline" size="sm">
