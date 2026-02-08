@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner'
 import { canViewRegistrations, canManageInviteCodes, canReviewRegistrations } from '@/lib/roles'
 import { useInviteCodes, useRegistrationSubmissions, useRegistrationSettings } from '@/lib/swr'
-import { Copy, Plus, Eye, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Power, PowerOff } from 'lucide-react'
+import { Copy, Plus, Eye, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Power, PowerOff, Trash2, Ban, RefreshCw } from 'lucide-react'
 import { RegistrationStatus, StudentGrade, YearLevel } from '@prisma/client'
 import { getGradeDisplayName } from '@/lib/registration-utils'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
@@ -74,6 +74,24 @@ function SubmissionsTab() {
   const submissions = submissionsData?.submissions || []
   const pagination = submissionsData?.pagination
 
+  const handleDeleteSubmission = async (submissionId: string) => {
+    try {
+      const res = await fetch(`/api/registration/submissions/${submissionId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to delete submission')
+      }
+
+      toast.success('Submission deleted')
+      mutate()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete submission')
+    }
+  }
+
   const getStatusBadge = (status: RegistrationStatus) => {
     switch (status) {
       case RegistrationStatus.PENDING:
@@ -103,8 +121,9 @@ function SubmissionsTab() {
         </CardHeader>
         <CardContent>
           <div className="mb-4">
+            <Label className="text-sm text-gray-600 mb-2 block">Filter by status</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -116,33 +135,103 @@ function SubmissionsTab() {
             </Select>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Grade</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {submissions.length === 0 ? (
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500">
-                    No submissions found
-                  </TableCell>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Grade</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : (
-                submissions.map((submission: any) => (
-                  <TableRow key={submission.id}>
-                    <TableCell className="font-medium">{submission.fullName}</TableCell>
-                    <TableCell>{submission.email}</TableCell>
-                    <TableCell>{getGradeDisplayName(submission.grade)}</TableCell>
-                    <TableCell>{new Date(submission.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell>{getStatusBadge(submission.status)}</TableCell>
-                    <TableCell>
+              </TableHeader>
+              <TableBody>
+                {submissions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-500">
+                      No submissions found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  submissions.map((submission: any) => (
+                    <TableRow key={submission.id}>
+                      <TableCell className="font-medium">{submission.fullName}</TableCell>
+                      <TableCell>{submission.email}</TableCell>
+                      <TableCell>{getGradeDisplayName(submission.grade)}</TableCell>
+                      <TableCell>{new Date(submission.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{getStatusBadge(submission.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedSubmission(submission)
+                              setIsReviewDialogOpen(true)
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </Button>
+                          {canReviewRegistrations(session?.user?.role) && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" title="Delete submission">
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Submission?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete the submission from <strong>{submission.fullName}</strong>? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteSubmission(submission.id)} className="bg-red-600 hover:bg-red-700">
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-4">
+            {submissions.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">No submissions found</div>
+            ) : (
+              submissions.map((submission: any) => (
+                <Card key={submission.id} className="border">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-semibold">{submission.fullName}</div>
+                        <div className="text-sm text-gray-600">{submission.email}</div>
+                      </div>
+                      {getStatusBadge(submission.status)}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-600">Grade:</span> {getGradeDisplayName(submission.grade)}
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Submitted:</span> {new Date(submission.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -150,16 +239,40 @@ function SubmissionsTab() {
                           setSelectedSubmission(submission)
                           setIsReviewDialogOpen(true)
                         }}
+                        className="flex-1"
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         View
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                      {canReviewRegistrations(session?.user?.role) && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Submission?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete the submission from <strong>{submission.fullName}</strong>? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteSubmission(submission.id)} className="bg-red-600 hover:bg-red-700">
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
 
           {pagination && pagination.totalPages > 1 && (
             <div className="mt-4 text-center text-sm text-gray-600">
@@ -430,6 +543,43 @@ function InviteCodesTab() {
     }
   }
 
+  const handleToggleCodeActive = async (codeId: string, currentActive: boolean) => {
+    try {
+      const res = await fetch(`/api/registration/invite-codes/${codeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentActive }),
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to update code')
+      }
+
+      toast.success(`Code ${!currentActive ? 'activated' : 'deactivated'}`)
+      mutate()
+    } catch (error) {
+      toast.error('Failed to update code')
+    }
+  }
+
+  const handleDeleteCode = async (codeId: string) => {
+    try {
+      const res = await fetch(`/api/registration/invite-codes/${codeId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to delete code')
+      }
+
+      toast.success('Code deleted')
+      mutate()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete code')
+    }
+  }
+
   const getCodeStatusBadge = (code: any) => {
     const now = new Date()
     if (!code.isActive) {
@@ -453,24 +603,26 @@ function InviteCodesTab() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle>Invite Codes</CardTitle>
               <CardDescription>Generate and manage registration invite codes</CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant={registrationEnabled ? "destructive" : "default"}
                 size="sm"
                 onClick={handleToggleRegistration}
                 disabled={isTogglingRegistration}
+                className="w-full sm:w-auto"
               >
                 {registrationEnabled ? <PowerOff className="w-4 h-4 mr-1" /> : <Power className="w-4 h-4 mr-1" />}
-                {registrationEnabled ? 'Close Registration' : 'Open Registration'}
+                <span className="hidden sm:inline">{registrationEnabled ? 'Close Registration' : 'Open Registration'}</span>
+                <span className="sm:hidden">{registrationEnabled ? 'Close' : 'Open'}</span>
               </Button>
               <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm">
+                  <Button size="sm" className="w-full sm:w-auto">
                     <Plus className="w-4 h-4 mr-1" />
                     Generate Code
                   </Button>
@@ -484,50 +636,170 @@ function InviteCodesTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Label</TableHead>
-                <TableHead>Uses</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!inviteCodes || inviteCodes.length === 0 ? (
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500">
-                    No invite codes yet
-                  </TableCell>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Uses</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : (
-                inviteCodes.map((code: any) => (
-                  <TableRow key={code.id}>
-                    <TableCell className="font-mono font-semibold">{code.code}</TableCell>
-                    <TableCell>{code.label || '-'}</TableCell>
-                    <TableCell>
-                      {code.usageCount} / {code.maxUses === 0 ? '∞' : code.maxUses}
-                    </TableCell>
-                    <TableCell>
-                      {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString() : 'Never'}
-                    </TableCell>
-                    <TableCell>{getCodeStatusBadge(code)}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyCode(code.code)}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
+              </TableHeader>
+              <TableBody>
+                {!inviteCodes || inviteCodes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-500">
+                      No invite codes yet
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  inviteCodes.map((code: any) => (
+                    <TableRow key={code.id}>
+                      <TableCell className="font-mono font-semibold">{code.code}</TableCell>
+                      <TableCell>{code.label || '-'}</TableCell>
+                      <TableCell>
+                        {code.usageCount} / {code.maxUses === 0 ? '∞' : code.maxUses}
+                      </TableCell>
+                      <TableCell>
+                        {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString() : 'Never'}
+                      </TableCell>
+                      <TableCell>{getCodeStatusBadge(code)}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyCode(code.code)}
+                            title="Copy code"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleCodeActive(code.id, code.isActive)}
+                            title={code.isActive ? 'Deactivate' : 'Activate'}
+                          >
+                            {code.isActive ? <Ban className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
+                          </Button>
+                          {code._count.registrations === 0 && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" title="Delete code">
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Invite Code?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete code <strong>{code.code}</strong>? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteCode(code.id)} className="bg-red-600 hover:bg-red-700">
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-4">
+            {!inviteCodes || inviteCodes.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">No invite codes yet</div>
+            ) : (
+              inviteCodes.map((code: any) => (
+                <Card key={code.id} className="border">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="font-mono font-bold text-lg">{code.code}</div>
+                        {code.label && <div className="text-sm text-gray-600">{code.label}</div>}
+                      </div>
+                      {getCodeStatusBadge(code)}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-600">Uses:</span>{' '}
+                        {code.usageCount} / {code.maxUses === 0 ? '∞' : code.maxUses}
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Expires:</span>{' '}
+                        {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString() : 'Never'}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyCode(code.code)}
+                        className="flex-1"
+                      >
+                        <Copy className="w-4 h-4 mr-1" />
+                        Copy
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleCodeActive(code.id, code.isActive)}
+                        className="flex-1"
+                      >
+                        {code.isActive ? (
+                          <>
+                            <Ban className="w-4 h-4 mr-1" />
+                            Deactivate
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-1" />
+                            Activate
+                          </>
+                        )}
+                      </Button>
+                      {code._count.registrations === 0 && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Invite Code?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete code <strong>{code.code}</strong>? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteCode(code.id)} className="bg-red-600 hover:bg-red-700">
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
