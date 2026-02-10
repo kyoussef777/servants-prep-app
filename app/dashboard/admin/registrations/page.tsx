@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner'
 import { canViewRegistrations, canManageInviteCodes, canReviewRegistrations } from '@/lib/roles'
 import { useInviteCodes, useRegistrationSubmissions, useRegistrationSettings } from '@/lib/swr'
-import { Copy, Plus, Eye, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Power, PowerOff, Trash2, Ban, RefreshCw } from 'lucide-react'
+import { Copy, Plus, Eye, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Power, PowerOff, Trash2, Ban, RefreshCw, Link2 } from 'lucide-react'
 import { RegistrationStatus, StudentGrade, YearLevel } from '@prisma/client'
 import { getGradeDisplayName } from '@/lib/registration-utils'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
@@ -33,9 +33,24 @@ export default function RegistrationsPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Registration Management</h1>
-          <p className="text-gray-600 mt-1">Manage student registration applications and invite codes</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold">Registration Management</h1>
+            <p className="text-gray-600 mt-1">Manage student registration applications and invite codes</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            onClick={() => {
+              const url = `${window.location.origin}/registration`
+              navigator.clipboard.writeText(url)
+              toast.success('Registration link copied!', { description: url })
+            }}
+          >
+            <Link2 className="w-4 h-4 mr-1" />
+            Copy Registration Link
+          </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
