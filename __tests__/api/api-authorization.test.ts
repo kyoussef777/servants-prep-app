@@ -124,8 +124,8 @@ describe('API Authorization Patterns', () => {
 
   describe('Role-based filtering logic', () => {
     describe('SERVANT_PREP user filtering', () => {
-      const servantPrepAllowedRoles = [UserRole.STUDENT, UserRole.MENTOR]
-      const servantPrepVisibleRoles = [UserRole.STUDENT, UserRole.MENTOR, UserRole.SERVANT_PREP]
+      const servantPrepAllowedRoles: UserRole[] = [UserRole.STUDENT, UserRole.MENTOR]
+      const servantPrepVisibleRoles: UserRole[] = [UserRole.STUDENT, UserRole.MENTOR, UserRole.SERVANT_PREP]
 
       it('can create STUDENT users', () => {
         expect(servantPrepAllowedRoles.includes(UserRole.STUDENT)).toBe(true)
