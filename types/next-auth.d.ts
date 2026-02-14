@@ -8,6 +8,7 @@ declare module "next-auth" {
       role: UserRole
       mustChangePassword: boolean
       isAsyncStudent: boolean
+      profileImageUrl?: string | null
     } & DefaultSession["user"]
   }
 
@@ -15,6 +16,7 @@ declare module "next-auth" {
     role: UserRole
     mustChangePassword: boolean
     isAsyncStudent: boolean
+    profileImageUrl?: string | null
   }
 }
 
@@ -24,5 +26,6 @@ declare module "next-auth/jwt" {
     id: string
     mustChangePassword: boolean
     isAsyncStudent: boolean
+    profileImageUrl?: string | null
   }
 }

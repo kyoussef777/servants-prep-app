@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown } from 'lucide-react'
 
@@ -215,6 +215,9 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
+                    {session.user.profileImageUrl && (
+                      <AvatarImage src={session.user.profileImageUrl} alt={session.user.name || ''} />
+                    )}
                     <AvatarFallback className="bg-maroon-600 text-white">
                       {userInitials}
                     </AvatarFallback>
@@ -233,6 +236,11 @@ export function Navbar() {
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard" className="cursor-pointer">
                     Dashboard
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="cursor-pointer">
+                    My Account
                   </Link>
                 </DropdownMenuItem>
                 {(session.user.role === 'SUPER_ADMIN' || session.user.role === 'PRIEST' || session.user.role === 'SERVANT_PREP') && (

@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
-import { Edit, Check, X, Trash2, Send } from 'lucide-react'
+import { Edit, Check, X, Trash2, Send, Camera } from 'lucide-react'
 import { UserRole } from '@prisma/client'
-import { getRoleDisplayName, isAdmin } from '@/lib/roles'
+import { getRoleDisplayName, isAdmin, canManageUsers } from '@/lib/roles'
 import { formatDateUTC } from '@/lib/utils'
 
 interface StudentNote {
@@ -132,6 +133,7 @@ interface StudentDetailsModalProps {
   studentName: string
   studentEmail?: string
   studentPhone?: string
+  profileImageUrl?: string | null
   yearLevel?: string
   mentor?: Mentor | null
   fatherOfConfession?: FatherOfConfession | null
@@ -151,6 +153,7 @@ export function StudentDetailsModal({
   studentName,
   studentEmail = '',
   studentPhone = '',
+  profileImageUrl,
   yearLevel,
   mentor,
   fatherOfConfession,
@@ -175,6 +178,7 @@ export function StudentDetailsModal({
   const [profileEmail, setProfileEmail] = useState(studentEmail)
   const [profilePhone, setProfilePhone] = useState(studentPhone)
   const [savingProfile, setSavingProfile] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   // Notes state
   const [notes, setNotes] = useState<StudentNote[]>([])
@@ -363,6 +367,49 @@ export function StudentDetailsModal({
     setEditingProfile(false)
   }
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !studentId) return
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload PNG, JPG, or GIF')
+      return
+    }
+
+    if (file.size > 4.5 * 1024 * 1024) {
+      toast.error('File size exceeds 4.5 MB limit')
+      return
+    }
+
+    setUploadingPhoto(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('userId', studentId)
+
+      const res = await fetch('/api/profile-picture/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        toast.success('Profile picture updated!')
+        onRefresh()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to upload photo')
+      }
+    } catch (error) {
+      console.error('Failed to upload photo:', error)
+      toast.error('Failed to upload photo')
+    } finally {
+      setUploadingPhoto(false)
+      // Reset the input so the same file can be re-selected
+      e.target.value = ''
+    }
+  }
+
   const updateStudentProfile = async () => {
     if (!studentId) return
     setSavingProfile(true)
@@ -530,8 +577,43 @@ export function StudentDetailsModal({
             <TabsContent value="profile" className="space-y-4">
               <Card>
                 <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold">Student Information</h3>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="relative group">
+                      <Avatar className="h-16 w-16">
+                        {profileImageUrl && (
+                          <AvatarImage src={profileImageUrl} alt={studentName} />
+                        )}
+                        <AvatarFallback className="bg-maroon-600 text-white text-lg">
+                          {studentName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {session?.user?.role && canManageUsers(session.user.role as UserRole) && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById(`photo-upload-${studentId}`)?.click()}
+                            disabled={uploadingPhoto}
+                            className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            <Camera className="h-5 w-5 text-white" />
+                          </button>
+                          <input
+                            id={`photo-upload-${studentId}`}
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/gif"
+                            className="hidden"
+                            onChange={handlePhotoUpload}
+                            disabled={uploadingPhoto}
+                          />
+                        </>
+                      )}
+                      {uploadingPhoto && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                          <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-semibold flex-1">Student Information</h3>
                     {!editingProfile ? (
                       <Button
                         size="sm"

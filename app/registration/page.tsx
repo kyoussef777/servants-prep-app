@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
 import { StudentGrade } from '@prisma/client'
 import { getGradeDisplayName } from '@/lib/registration-utils'
-import { Upload, CheckCircle2, Loader2 } from 'lucide-react'
+import { Upload, CheckCircle2, Loader2, Download, Camera } from 'lucide-react'
 
 type RegistrationStep = 'CODE' | 'FORM' | 'CONFIRMATION'
 
@@ -28,6 +28,8 @@ interface FormData {
   grade: string
   approvalFormUrl: string
   approvalFormFilename: string
+  profileImageUrl: string
+  profileImageFilename: string
   mentorName: string
   mentorPhone: string
   mentorEmail: string
@@ -40,6 +42,7 @@ export default function RegistrationPage() {
   const [isValidating, setIsValidating] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [isUploadingProfilePic, setIsUploadingProfilePic] = useState(false)
 
   const [formData, setFormData] = useState<FormData>({
     email: '',
@@ -54,6 +57,8 @@ export default function RegistrationPage() {
     grade: '',
     approvalFormUrl: '',
     approvalFormFilename: '',
+    profileImageUrl: '',
+    profileImageFilename: '',
     mentorName: '',
     mentorPhone: '',
     mentorEmail: '',
@@ -138,10 +143,64 @@ export default function RegistrationPage() {
     }
   }
 
+  const handleProfilePicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type (images only)
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload PNG, JPG, or GIF')
+      return
+    }
+
+    // Validate file size (4.5 MB)
+    if (file.size > 4.5 * 1024 * 1024) {
+      toast.error('File size exceeds 4.5 MB limit')
+      return
+    }
+
+    setIsUploadingProfilePic(true)
+    try {
+      const uploadData = new FormData()
+      uploadData.append('file', file)
+
+      const res = await fetch('/api/registration/upload', {
+        method: 'POST',
+        headers: {
+          'x-invite-code': inviteCode.trim().toUpperCase(),
+        },
+        body: uploadData,
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Upload failed')
+      }
+
+      const data = await res.json()
+      setFormData((prev) => ({
+        ...prev,
+        profileImageUrl: data.url,
+        profileImageFilename: data.filename,
+      }))
+      toast.success('Profile picture uploaded!')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to upload profile picture')
+    } finally {
+      setIsUploadingProfilePic(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Validation
+    if (!formData.profileImageUrl) {
+      toast.error('Please upload a profile picture')
+      return
+    }
+
     if (!formData.approvalFormUrl) {
       toast.error('Please upload your signed approval form')
       return
@@ -340,6 +399,61 @@ export default function RegistrationPage() {
                     />
                   </div>
                 </div>
+
+                {/* Profile Picture */}
+                <div className="sm:col-span-2 space-y-2">
+                  <Label>Profile Picture *</Label>
+                  <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                    {formData.profileImageUrl ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <img
+                          src={formData.profileImageUrl}
+                          alt="Profile preview"
+                          className="w-24 h-24 rounded-full object-cover border-2 border-maroon-600"
+                        />
+                        <p className="text-sm text-gray-600">{formData.profileImageFilename}</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setFormData({ ...formData, profileImageUrl: '', profileImageFilename: '' })
+                          }
+                        >
+                          Change Photo
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center">
+                          <Camera className="w-8 h-8 text-gray-400" />
+                        </div>
+                        <div>
+                          <Label
+                            htmlFor="profilePic"
+                            className="cursor-pointer text-maroon-600 hover:underline"
+                          >
+                            Upload photo
+                          </Label>
+                          <Input
+                            id="profilePic"
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/gif"
+                            className="hidden"
+                            onChange={handleProfilePicUpload}
+                            disabled={isUploadingProfilePic}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          PNG, JPG, or GIF (Max 4.5 MB)
+                        </p>
+                        {isUploadingProfilePic && (
+                          <p className="text-sm text-maroon-600 font-medium">Uploading...</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Church Information */}
@@ -462,6 +576,15 @@ export default function RegistrationPage() {
                     Upload your signed form documenting approval of your mentor servant and father
                     of confession
                   </Label>
+                  <a
+                    href="https://drive.google.com/file/d/1ebGILBc8OAAPaTWbpmwLDDqjEm-lnbQ7/view?usp=drivesdk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-maroon-600 hover:underline mb-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Approval Form Template
+                  </a>
                   <div className="border-2 border-dashed rounded-lg p-6 text-center">
                     {formData.approvalFormUrl ? (
                       <div className="space-y-2">
@@ -551,7 +674,7 @@ export default function RegistrationPage() {
               <div className="pt-4">
                 <Button
                   type="submit"
-                  disabled={isSubmitting || !formData.approvalFormUrl}
+                  disabled={isSubmitting || !formData.approvalFormUrl || !formData.profileImageUrl}
                   className="w-full bg-maroon-600 hover:bg-maroon-700"
                   size="lg"
                 >

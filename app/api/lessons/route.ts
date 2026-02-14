@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canManageCurriculum } from "@/lib/roles"
+import { handleApiError } from "@/lib/api-utils"
 import { LessonStatus } from "@prisma/client"
 
 
@@ -133,10 +134,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(lessons)
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch lessons" },
-      { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }
-    )
+    return handleApiError(error)
   }
 }
 
@@ -154,65 +152,77 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { academicYearId, examSectionId, title, subtitle, description, scheduledDate, lessonNumber, resources, isExamDay, speaker } = body
+    const { academicYearId, examSectionId, title, subtitle, description, scheduledDate, resources, isExamDay, speaker } = body
 
-    if (!academicYearId || !examSectionId || !title || !scheduledDate || !lessonNumber) {
+    if (!academicYearId || !examSectionId || !title || !scheduledDate) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       )
     }
 
-    const lesson = await prisma.lesson.create({
-      data: {
-        academicYearId,
-        examSectionId,
-        title,
-        subtitle: subtitle || null,
-        description: description || null,
-        scheduledDate: new Date(scheduledDate),
-        lessonNumber,
-        isExamDay: isExamDay || false,
-        speaker: speaker || null,
-        createdBy: user.id,
-        resources: resources && resources.length > 0 ? {
-          create: resources.map((r: { title: string; url: string; type?: string }) => ({
-            title: r.title,
-            url: r.url,
-            type: r.type || null,
-          }))
-        } : undefined,
-      },
-      include: {
-        examSection: true,
-        creator: {
-          select: {
-            id: true,
-            name: true,
-          }
+    // Compute lessonNumber server-side to avoid race conditions and cross-year bugs
+    const lesson = await prisma.$transaction(async (tx) => {
+      const maxResult = await tx.lesson.aggregate({
+        where: { academicYearId },
+        _max: { lessonNumber: true },
+      })
+      const nextLessonNumber = (maxResult._max.lessonNumber ?? 0) + 1
+
+      return tx.lesson.create({
+        data: {
+          academicYearId,
+          examSectionId,
+          title,
+          subtitle: subtitle || null,
+          description: description || null,
+          scheduledDate: new Date(scheduledDate),
+          lessonNumber: nextLessonNumber,
+          isExamDay: isExamDay || false,
+          speaker: speaker || null,
+          createdBy: user.id,
+          resources: resources && resources.length > 0 ? {
+            create: resources.map((r: { title: string; url: string; type?: string }) => ({
+              title: r.title,
+              url: r.url,
+              type: r.type || null,
+            }))
+          } : undefined,
         },
-        resources: {
-          orderBy: {
-            createdAt: 'asc'
-          }
-        },
-        _count: {
-          select: {
-            attendanceRecords: {
-              where: {
-                status: { in: ['PRESENT', 'LATE'] }
+        include: {
+          examSection: true,
+          academicYear: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          creator: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          resources: {
+            orderBy: {
+              createdAt: 'asc'
+            }
+          },
+          _count: {
+            select: {
+              attendanceRecords: {
+                where: {
+                  status: { in: ['PRESENT', 'LATE'] }
+                }
               }
             }
           }
         }
-      }
+      })
     })
 
     return NextResponse.json(lesson, { status: 201 })
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create lesson" },
-      { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }
-    )
+    return handleApiError(error)
   }
 }

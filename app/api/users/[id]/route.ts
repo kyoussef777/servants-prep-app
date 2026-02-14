@@ -29,6 +29,7 @@ export async function GET(
         email: true,
         name: true,
         phone: true,
+        profileImageUrl: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -60,7 +61,7 @@ export async function PATCH(
     const currentUser = await requireAuth()
     const { id } = await params
     const body = await request.json()
-    const { email, name, phone, password, role } = body
+    const { email, name, phone, password, role, profileImageUrl } = body
 
     // Get the user being updated
     const targetUser = await prisma.user.findUnique({ where: { id } })
@@ -91,11 +92,12 @@ export async function PATCH(
       )
     }
 
-    const updateData: { email?: string; name?: string; phone?: string | null; role?: UserRole; password?: string; mustChangePassword?: boolean } = {}
+    const updateData: { email?: string; name?: string; phone?: string | null; profileImageUrl?: string | null; role?: UserRole; password?: string; mustChangePassword?: boolean } = {}
 
     if (email) updateData.email = email
     if (name) updateData.name = name
     if (phone !== undefined) updateData.phone = phone || null
+    if (profileImageUrl !== undefined) updateData.profileImageUrl = profileImageUrl || null
 
     // Role change permissions:
     // - SUPER_ADMIN: Can change any role
@@ -132,6 +134,7 @@ export async function PATCH(
         id: true,
         email: true,
         name: true,
+        profileImageUrl: true,
         role: true,
         updatedAt: true,
       }

@@ -60,6 +60,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           mustChangePassword: user.mustChangePassword,
           isAsyncStudent,
+          profileImageUrl: user.profileImageUrl,
         }
       }
     })
@@ -71,12 +72,19 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
         token.mustChangePassword = user.mustChangePassword
         token.isAsyncStudent = user.isAsyncStudent ?? false
+        token.profileImageUrl = user.profileImageUrl ?? null
       }
 
-      // Handle session update (e.g., after password change)
+      // Handle session update (e.g., after password change, profile pic, name)
       if (trigger === 'update' && session) {
         if (session.mustChangePassword !== undefined) {
           token.mustChangePassword = session.mustChangePassword
+        }
+        if (session.profileImageUrl !== undefined) {
+          token.profileImageUrl = session.profileImageUrl
+        }
+        if (session.name !== undefined) {
+          token.name = session.name
         }
       }
 
@@ -88,6 +96,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string
         session.user.mustChangePassword = token.mustChangePassword as boolean
         session.user.isAsyncStudent = (token.isAsyncStudent as boolean) ?? false
+        session.user.profileImageUrl = (token.profileImageUrl as string | null) ?? null
       }
       return session
     }

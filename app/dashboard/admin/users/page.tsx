@@ -19,15 +19,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { canManageUsers, getRoleDisplayName } from '@/lib/roles'
 import { UserRole } from '@prisma/client'
 import { toast } from 'sonner'
+import { Camera, Trash2 } from 'lucide-react'
 
 interface User {
   id: string
   name: string
   email: string
   phone?: string
+  profileImageUrl?: string | null
   role: UserRole
   isDisabled?: boolean
   _count?: {
@@ -245,6 +248,76 @@ export default function UsersPage() {
     setEditingUser(null)
     setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
     setFormError('')
+  }
+
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !editingUser) return
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload PNG, JPG, or GIF')
+      return
+    }
+    if (file.size > 4.5 * 1024 * 1024) {
+      toast.error('File size exceeds 4.5 MB limit')
+      return
+    }
+
+    setUploadingPhoto(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('userId', editingUser.id)
+
+      const res = await fetch('/api/profile-picture/upload', {
+        method: 'POST',
+        body: fd,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setEditingUser({ ...editingUser, profileImageUrl: data.url })
+        setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, profileImageUrl: data.url } : u))
+        toast.success('Profile picture updated!')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to upload photo')
+      }
+    } catch (error) {
+      console.error('Failed to upload photo:', error)
+      toast.error('Failed to upload photo')
+    } finally {
+      setUploadingPhoto(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleRemovePhoto = async () => {
+    if (!editingUser) return
+    setUploadingPhoto(true)
+    try {
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileImageUrl: null }),
+      })
+      if (res.ok) {
+        setEditingUser({ ...editingUser, profileImageUrl: null })
+        setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, profileImageUrl: null } : u))
+        toast.success('Profile picture removed!')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to remove photo')
+      }
+    } catch (error) {
+      console.error('Failed to remove photo:', error)
+      toast.error('Failed to remove photo')
+    } finally {
+      setUploadingPhoto(false)
+    }
   }
 
   // Bulk selection handlers (SUPER_ADMIN only)
@@ -515,6 +588,56 @@ export default function UsersPage() {
                   </div>
                 )}
 
+                {editingUser && (
+                  <div className="flex items-center gap-4 pb-2">
+                    <Avatar className="h-16 w-16">
+                      {editingUser.profileImageUrl && (
+                        <AvatarImage src={editingUser.profileImageUrl} alt={editingUser.name} />
+                      )}
+                      <AvatarFallback className="bg-maroon-600 text-white text-lg">
+                        {editingUser.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={uploadingPhoto}
+                          onClick={() => document.getElementById(`edit-user-photo-${editingUser.id}`)?.click()}
+                          className="gap-1"
+                        >
+                          <Camera className="h-4 w-4" />
+                          {uploadingPhoto ? 'Uploading...' : 'Change Photo'}
+                        </Button>
+                        {editingUser.profileImageUrl && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={uploadingPhoto}
+                            onClick={handleRemovePhoto}
+                            className="gap-1 text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">PNG, JPG, or GIF. Max 4.5 MB.</p>
+                      <input
+                        id={`edit-user-photo-${editingUser.id}`}
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/gif"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                        disabled={uploadingPhoto}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Full Name</Label>
@@ -665,16 +788,28 @@ export default function UsersPage() {
                         )}
                         <td className="p-2 text-gray-500">{index + 1}</td>
                         <td className="p-2 font-medium">
-                          {user.role === 'STUDENT' ? (
-                            <Link href={`/dashboard/admin/students?student=${user.id}`} className="hover:text-blue-600 hover:underline">
-                              {user.name}
-                            </Link>
-                          ) : (
-                            user.name
-                          )}
-                          {isCurrentUser && (
-                            <Badge variant="outline" className="ml-2 text-xs">You</Badge>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-7 w-7 shrink-0">
+                              {user.profileImageUrl && (
+                                <AvatarImage src={user.profileImageUrl} alt={user.name} />
+                              )}
+                              <AvatarFallback className="bg-maroon-600 text-white text-xs">
+                                {user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>
+                              {user.role === 'STUDENT' ? (
+                                <Link href={`/dashboard/admin/students?student=${user.id}`} className="hover:text-blue-600 hover:underline">
+                                  {user.name}
+                                </Link>
+                              ) : (
+                                user.name
+                              )}
+                              {isCurrentUser && (
+                                <Badge variant="outline" className="ml-2 text-xs">You</Badge>
+                              )}
+                            </span>
+                          </div>
                         </td>
                         <td className="p-2 text-gray-600">{user.email}</td>
                         <td className="p-2 text-gray-600">{user.phone || '-'}</td>
@@ -762,7 +897,15 @@ export default function UsersPage() {
                         )}
                       </div>
                     )}
-                    {/* Name & Role */}
+                    {/* Avatar + Name & Role */}
+                    <Avatar className="h-7 w-7 shrink-0">
+                      {user.profileImageUrl && (
+                        <AvatarImage src={user.profileImageUrl} alt={user.name} />
+                      )}
+                      <AvatarFallback className="bg-maroon-600 text-white text-[10px]">
+                        {user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {user.role === 'STUDENT' ? (

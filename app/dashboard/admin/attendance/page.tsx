@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { isAdmin, canManageData } from '@/lib/roles'
 import { ChevronDown, ChevronRight, Calendar, Settings2, Check, Clock, X, Shield } from 'lucide-react'
 import { toast } from 'sonner'
@@ -38,6 +39,7 @@ interface Student {
   id: string
   name: string
   email: string
+  profileImageUrl?: string | null
   enrollments: Array<{
     yearLevel: string
     mentorId: string
@@ -548,7 +550,19 @@ export default function AttendancePage() {
                       return (
                         <tr key={student.id} className="border-b hover:bg-gray-50">
                           <td className="p-2 text-gray-500">{index + 1}</td>
-                          <td className="p-2 font-medium">{student.name}</td>
+                          <td className="p-2 font-medium">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-7 w-7 shrink-0">
+                                {student.profileImageUrl && (
+                                  <AvatarImage src={student.profileImageUrl} alt={student.name} />
+                                )}
+                                <AvatarFallback className="bg-maroon-600 text-white text-xs">
+                                  {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                </AvatarFallback>
+                              </Avatar>
+                              {student.name}
+                            </div>
+                          </td>
                           <td className="p-2 text-center">
                             <Badge variant="outline" className="text-xs">
                               {yearBadge}
@@ -653,6 +667,14 @@ export default function AttendancePage() {
                       {/* Compact Row - Always Visible */}
                       <div className="flex items-center gap-2 sm:gap-3">
                         <span className="text-[10px] sm:text-xs text-gray-400 w-4 sm:w-5 shrink-0">{index + 1}</span>
+                        <Avatar className="h-6 w-6 shrink-0">
+                          {student.profileImageUrl && (
+                            <AvatarImage src={student.profileImageUrl} alt={student.name} />
+                          )}
+                          <AvatarFallback className="bg-maroon-600 text-white text-[9px]">
+                            {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1 sm:gap-2">
                             <span className="font-medium text-xs sm:text-sm leading-tight line-clamp-2 sm:truncate">{student.name}</span>

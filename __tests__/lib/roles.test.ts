@@ -11,10 +11,17 @@ import {
   canManageAllUsers,
   canAccessAdmin,
   canManageData,
+  canManageCurriculum,
+  canManageExams,
+  canManageEnrollments,
+  isReadOnlyAdmin,
   canAssignMentors,
   canSelfAssignMentees,
   canBeMentor,
   canViewStudents,
+  canManageInviteCodes,
+  canReviewRegistrations,
+  canViewRegistrations,
   getRoleDisplayName,
 } from '@/lib/roles'
 
@@ -218,6 +225,97 @@ describe('Role Helper Functions', () => {
       expect(getRoleDisplayName(UserRole.SERVANT_PREP as UserRoleType)).toBe('Servants Prep Leader')
       expect(getRoleDisplayName(UserRole.MENTOR as UserRoleType)).toBe('Mentor')
       expect(getRoleDisplayName(UserRole.STUDENT as UserRoleType)).toBe('Student')
+    })
+  })
+
+  describe('canManageCurriculum', () => {
+    it('should return true for SUPER_ADMIN and SERVANT_PREP', () => {
+      expect(canManageCurriculum(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canManageCurriculum(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+    })
+
+    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
+      expect(canManageCurriculum(UserRole.PRIEST as UserRoleType)).toBe(false)
+      expect(canManageCurriculum(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(canManageCurriculum(UserRole.STUDENT as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canManageExams', () => {
+    it('should return true for SUPER_ADMIN and SERVANT_PREP', () => {
+      expect(canManageExams(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canManageExams(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+    })
+
+    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
+      expect(canManageExams(UserRole.PRIEST as UserRoleType)).toBe(false)
+      expect(canManageExams(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(canManageExams(UserRole.STUDENT as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canManageEnrollments', () => {
+    it('should return true for SUPER_ADMIN and SERVANT_PREP', () => {
+      expect(canManageEnrollments(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canManageEnrollments(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+    })
+
+    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
+      expect(canManageEnrollments(UserRole.PRIEST as UserRoleType)).toBe(false)
+      expect(canManageEnrollments(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(canManageEnrollments(UserRole.STUDENT as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('isReadOnlyAdmin', () => {
+    it('should return true only for PRIEST', () => {
+      expect(isReadOnlyAdmin(UserRole.PRIEST as UserRoleType)).toBe(true)
+    })
+
+    it('should return false for all other roles', () => {
+      expect(isReadOnlyAdmin(UserRole.SUPER_ADMIN as UserRoleType)).toBe(false)
+      expect(isReadOnlyAdmin(UserRole.SERVANT_PREP as UserRoleType)).toBe(false)
+      expect(isReadOnlyAdmin(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(isReadOnlyAdmin(UserRole.STUDENT as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canManageInviteCodes', () => {
+    it('should return true for SUPER_ADMIN and SERVANT_PREP', () => {
+      expect(canManageInviteCodes(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canManageInviteCodes(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+    })
+
+    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
+      expect(canManageInviteCodes(UserRole.PRIEST as UserRoleType)).toBe(false)
+      expect(canManageInviteCodes(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(canManageInviteCodes(UserRole.STUDENT as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canReviewRegistrations', () => {
+    it('should return true for SUPER_ADMIN and SERVANT_PREP', () => {
+      expect(canReviewRegistrations(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canReviewRegistrations(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+    })
+
+    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
+      expect(canReviewRegistrations(UserRole.PRIEST as UserRoleType)).toBe(false)
+      expect(canReviewRegistrations(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(canReviewRegistrations(UserRole.STUDENT as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canViewRegistrations', () => {
+    it('should return true for SUPER_ADMIN, SERVANT_PREP, and PRIEST', () => {
+      expect(canViewRegistrations(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canViewRegistrations(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+      expect(canViewRegistrations(UserRole.PRIEST as UserRoleType)).toBe(true)
+    })
+
+    it('should return false for MENTOR and STUDENT', () => {
+      expect(canViewRegistrations(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(canViewRegistrations(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
   })
 })

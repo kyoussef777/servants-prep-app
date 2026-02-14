@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { isAdmin } from '@/lib/roles'
 import { toast } from 'sonner'
 import { ChevronUp, ChevronDown, ChevronRight, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, XCircle, GraduationCap } from 'lucide-react'
@@ -21,6 +22,7 @@ interface Student {
   name: string
   email: string
   phone?: string
+  profileImageUrl?: string | null
   enrollments?: Array<{
     id: string
     yearLevel: 'YEAR_1' | 'YEAR_2'
@@ -765,11 +767,23 @@ function StudentsManagementContent() {
                           />
                         </td>
                         <td className="p-3">
-                          <div className="font-medium">{student.name}</div>
-                          <div className="text-xs text-gray-500">{student.email}</div>
-                          {student.phone && (
-                            <div className="text-xs text-gray-500">{student.phone}</div>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8 shrink-0">
+                              {student.profileImageUrl && (
+                                <AvatarImage src={student.profileImageUrl} alt={student.name} />
+                              )}
+                              <AvatarFallback className="bg-maroon-600 text-white text-xs">
+                                {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{student.name}</div>
+                              <div className="text-xs text-gray-500">{student.email}</div>
+                              {student.phone && (
+                                <div className="text-xs text-gray-500">{student.phone}</div>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td className="p-3">
                           {student.enrollments?.[0] ? (
@@ -913,6 +927,14 @@ function StudentsManagementContent() {
                             onChange={() => toggleStudent(student.id)}
                             className="rounded mt-1"
                           />
+                          <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                            {student.profileImageUrl && (
+                              <AvatarImage src={student.profileImageUrl} alt={student.name} />
+                            )}
+                            <AvatarFallback className="bg-maroon-600 text-white text-xs">
+                              {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-gray-900 truncate">{student.name}</div>
                             <div className="text-sm text-gray-500 truncate">{student.email}</div>
@@ -1051,6 +1073,7 @@ function StudentsManagementContent() {
         studentName={students.find(s => s.id === viewingStudent)?.name || ''}
         studentEmail={students.find(s => s.id === viewingStudent)?.email || ''}
         studentPhone={students.find(s => s.id === viewingStudent)?.phone || ''}
+        profileImageUrl={studentDetails?.student?.profileImageUrl}
         yearLevel={studentDetails?.student?.enrollments?.[0]?.yearLevel}
         mentor={studentDetails?.student?.enrollments?.[0]?.mentor}
         fatherOfConfession={studentDetails?.student?.enrollments?.[0]?.fatherOfConfession}

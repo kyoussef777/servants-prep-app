@@ -85,6 +85,7 @@ export async function POST(
             password: hashedPassword,
             role: UserRole.STUDENT,
             phone: submission.phone,
+            profileImageUrl: submission.profileImageUrl,
             mustChangePassword: true,
             isDisabled: false,
           },

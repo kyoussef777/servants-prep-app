@@ -86,6 +86,19 @@ export async function PATCH(request: Request) {
     // 1. Validate each lesson's fields synchronously
     for (let i = 0; i < lessons.length; i++) {
       validateLessonUpdate(lessons[i], i)
+
+      // Validate resources if provided
+      if (lessons[i].resources !== undefined) {
+        for (let j = 0; j < lessons[i].resources!.length; j++) {
+          const r = lessons[i].resources![j]
+          if (!r.title || !r.title.trim()) {
+            throw new Error(`Lesson at index ${i}: resource ${j} title cannot be empty`)
+          }
+          if (!r.url || !r.url.trim()) {
+            throw new Error(`Lesson at index ${i}: resource ${j} URL cannot be empty`)
+          }
+        }
+      }
     }
 
     // 2. Collect unique examSectionIds that need DB verification

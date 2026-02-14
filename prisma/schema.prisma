@@ -110,6 +110,7 @@ model User {
   password           String
   role               UserRole
   phone              String?
+  profileImageUrl    String?
   mustChangePassword Boolean  @default(true)
   isDisabled         Boolean  @default(false)
   createdAt          DateTime @default(now())
@@ -520,6 +521,10 @@ model RegistrationSubmission {
   // Approval form upload
   approvalFormUrl         String             // Vercel Blob URL
   approvalFormFilename    String             // Original filename for display
+
+  // Profile image upload
+  profileImageUrl         String?            // Vercel Blob URL for profile picture
+  profileImageFilename    String?            // Original filename for display
 
   // Mentor info
   mentorName              String

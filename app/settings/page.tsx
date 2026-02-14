@@ -7,8 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getRoleDisplayName } from '@/lib/roles'
 import { toast } from 'sonner'
+import { Camera, Trash2 } from 'lucide-react'
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession()
@@ -17,6 +19,10 @@ export default function SettingsPage() {
   // Name change
   const [name, setName] = useState('')
   const [nameLoading, setNameLoading] = useState(false)
+
+  // Profile picture
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [removingPhoto, setRemovingPhoto] = useState(false)
 
   // Password change
   const [currentPassword, setCurrentPassword] = useState('')
@@ -55,6 +61,71 @@ export default function SettingsPage() {
       toast.error('Failed to update name')
     } finally {
       setNameLoading(false)
+    }
+  }
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload PNG, JPG, or GIF')
+      return
+    }
+
+    if (file.size > 4.5 * 1024 * 1024) {
+      toast.error('File size exceeds 4.5 MB limit')
+      return
+    }
+
+    setUploadingPhoto(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/profile-picture/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        await update({ profileImageUrl: data.url })
+        toast.success('Profile picture updated!')
+      } else {
+        const error = await res.json()
+        toast.error(error.error || 'Failed to upload photo')
+      }
+    } catch (error) {
+      console.error('Failed to upload photo:', error)
+      toast.error('Failed to upload photo')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const handleRemovePhoto = async () => {
+    setRemovingPhoto(true)
+    try {
+      const res = await fetch(`/api/users/${session?.user?.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileImageUrl: null }),
+      })
+
+      if (res.ok) {
+        await update({ profileImageUrl: null })
+        toast.success('Profile picture removed!')
+      } else {
+        const error = await res.json()
+        toast.error(error.error || 'Failed to remove photo')
+      }
+    } catch (error) {
+      console.error('Failed to remove photo:', error)
+      toast.error('Failed to remove photo')
+    } finally {
+      setRemovingPhoto(false)
     }
   }
 
@@ -133,6 +204,64 @@ export default function SettingsPage() {
               <span className="text-sm font-medium">
                 {session?.user?.role && getRoleDisplayName(session.user.role)}
               </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Profile Picture */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile Picture</CardTitle>
+            <CardDescription>Update your profile photo</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              <Avatar className="h-20 w-20">
+                {session?.user?.profileImageUrl && (
+                  <AvatarImage src={session.user.profileImageUrl} alt={session.user.name || ''} />
+                )}
+                <AvatarFallback className="bg-maroon-600 text-white text-xl">
+                  {session?.user?.name
+                    ?.split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase() || '??'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadingPhoto}
+                    onClick={() => document.getElementById('profile-photo-input')?.click()}
+                    className="gap-1"
+                  >
+                    <Camera className="h-4 w-4" />
+                    {uploadingPhoto ? 'Uploading...' : 'Change Photo'}
+                  </Button>
+                  {session?.user?.profileImageUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={removingPhoto}
+                      onClick={handleRemovePhoto}
+                      className="gap-1 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {removingPhoto ? 'Removing...' : 'Remove'}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">PNG, JPG, or GIF. Max 4.5 MB.</p>
+                <input
+                  id="profile-photo-input"
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/gif"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

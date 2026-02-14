@@ -406,6 +406,15 @@ function SubmissionDetailDialog({
           {/* Personal Info */}
           <div>
             <h4 className="font-semibold mb-2">Personal Information</h4>
+            {submission.profileImageUrl && (
+              <div className="mb-3">
+                <img
+                  src={submission.profileImageUrl}
+                  alt={`${submission.fullName}'s profile`}
+                  className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><span className="text-gray-600">Email:</span> {submission.email}</div>
               <div><span className="text-gray-600">Phone:</span> {submission.phone}</div>

@@ -104,10 +104,13 @@ export async function DELETE(
       )
     }
 
-    // Delete the uploaded file from Vercel Blob
+    // Delete uploaded files from Vercel Blob
     try {
       if (submission.approvalFormUrl) {
         await del(submission.approvalFormUrl)
+      }
+      if (submission.profileImageUrl) {
+        await del(submission.profileImageUrl)
       }
     } catch (blobError) {
       console.error('Error deleting blob file:', blobError)

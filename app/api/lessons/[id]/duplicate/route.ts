@@ -49,64 +49,64 @@ export async function POST(
       orderBy: { createdAt: "asc" },
     })
 
-    // Determine the next lesson number: max existing + 1 within the same academic year
-    const maxResult = await prisma.lesson.aggregate({
-      where: { academicYearId: source.academicYearId },
-      _max: { lessonNumber: true },
-    })
-    const nextLessonNumber = (maxResult._max.lessonNumber ?? 0) + 1
+    // Wrap in transaction to avoid race condition on lessonNumber
+    const duplicate = await prisma.$transaction(async (tx) => {
+      const maxResult = await tx.lesson.aggregate({
+        where: { academicYearId: source.academicYearId },
+        _max: { lessonNumber: true },
+      })
+      const nextLessonNumber = (maxResult._max.lessonNumber ?? 0) + 1
 
-    // Build data using Record to avoid Prisma conditional type issues
-    // when the generated client may not be fully up-to-date
-    const createData: Record<string, unknown> = {
-      academicYearId: source.academicYearId,
-      examSectionId: source.examSectionId,
-      title: source.title,
-      subtitle: source.subtitle,
-      description: source.description,
-      isExamDay: source.isExamDay,
-      scheduledDate: parsedDate,
-      lessonNumber: nextLessonNumber,
-      status: "SCHEDULED",
-      createdBy: user.id,
-    }
-
-    // Copy speaker if present on the source record
-    if ("speaker" in source) {
-      createData.speaker = (source as Record<string, unknown>).speaker
-    }
-
-    // Copy resources
-    if (sourceResources.length > 0) {
-      createData.resources = {
-        create: sourceResources.map((r) => ({
-          title: r.title,
-          url: r.url,
-          type: r.type,
-        })),
+      const createData: Record<string, unknown> = {
+        academicYearId: source.academicYearId,
+        examSectionId: source.examSectionId,
+        title: source.title,
+        subtitle: source.subtitle,
+        description: source.description,
+        isExamDay: source.isExamDay,
+        scheduledDate: parsedDate,
+        lessonNumber: nextLessonNumber,
+        status: "SCHEDULED",
+        createdBy: user.id,
       }
-    }
 
-    const duplicate = await prisma.lesson.create({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: createData as any,
-      include: {
-        examSection: true,
-        academicYear: {
-          select: {
-            id: true,
-            name: true,
+      // Copy speaker if present on the source record
+      if ("speaker" in source) {
+        createData.speaker = (source as Record<string, unknown>).speaker
+      }
+
+      // Copy resources
+      if (sourceResources.length > 0) {
+        createData.resources = {
+          create: sourceResources.map((r) => ({
+            title: r.title,
+            url: r.url,
+            type: r.type,
+          })),
+        }
+      }
+
+      return tx.lesson.create({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data: createData as any,
+        include: {
+          examSection: true,
+          academicYear: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          resources: {
+            orderBy: { createdAt: "asc" },
+          },
+          _count: {
+            select: {
+              attendanceRecords: true,
+            },
           },
         },
-        resources: {
-          orderBy: { createdAt: "asc" },
-        },
-        _count: {
-          select: {
-            attendanceRecords: true,
-          },
-        },
-      },
+      })
     })
 
     return NextResponse.json(duplicate, { status: 201 })

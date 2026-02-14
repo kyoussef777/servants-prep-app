@@ -82,6 +82,7 @@ export async function GET(request: Request) {
         email: true,
         name: true,
         phone: true,
+        profileImageUrl: true,
         role: true,
         isDisabled: true,
         createdAt: true,

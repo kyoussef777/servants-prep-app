@@ -1095,10 +1095,6 @@ export default function CurriculumPage() {
     }
 
     try {
-      const nextLessonNumber = lessons.length > 0
-        ? Math.max(...lessons.map(l => l.lessonNumber)) + 1
-        : 1
-
       const res = await fetch('/api/lessons', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1110,7 +1106,6 @@ export default function CurriculumPage() {
           scheduledDate: new Date(newLesson.scheduledDate).toISOString(),
           examSectionId: newLesson.examSectionId,
           academicYearId: formAcademicYearId,
-          lessonNumber: nextLessonNumber,
           isExamDay: newLesson.isExamDay,
         }),
       })

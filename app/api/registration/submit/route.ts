@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
       grade,
       approvalFormUrl,
       approvalFormFilename,
+      profileImageUrl,
+      profileImageFilename,
       mentorName,
       mentorPhone,
       mentorEmail,
@@ -43,6 +45,8 @@ export async function POST(req: NextRequest) {
       !grade ||
       !approvalFormUrl ||
       !approvalFormFilename ||
+      !profileImageUrl ||
+      !profileImageFilename ||
       !mentorName ||
       !mentorPhone ||
       !mentorEmail
@@ -153,6 +157,8 @@ export async function POST(req: NextRequest) {
           grade: grade as StudentGrade,
           approvalFormUrl,
           approvalFormFilename,
+          profileImageUrl,
+          profileImageFilename,
           mentorName,
           mentorPhone,
           mentorEmail,
