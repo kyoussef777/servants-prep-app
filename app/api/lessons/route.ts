@@ -154,7 +154,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { academicYearId, examSectionId, title, subtitle, description, scheduledDate, lessonNumber, resources, isExamDay } = body
+    const { academicYearId, examSectionId, title, subtitle, description, scheduledDate, lessonNumber, resources, isExamDay, speaker } = body
 
     if (!academicYearId || !examSectionId || !title || !scheduledDate || !lessonNumber) {
       return NextResponse.json(
@@ -173,6 +173,7 @@ export async function POST(request: Request) {
         scheduledDate: new Date(scheduledDate),
         lessonNumber,
         isExamDay: isExamDay || false,
+        speaker: speaker || null,
         createdBy: user.id,
         resources: resources && resources.length > 0 ? {
           create: resources.map((r: { title: string; url: string; type?: string }) => ({

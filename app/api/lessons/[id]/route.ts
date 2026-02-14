@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canManageCurriculum } from "@/lib/roles"
+import { handleApiError } from "@/lib/api-utils"
 
 
 // PATCH /api/lessons/[id] - Update a lesson (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
@@ -21,7 +22,7 @@ export async function PATCH(
     }
     const { id } = await params
     const body = await request.json()
-    const { title, subtitle, description, scheduledDate, examSectionId, status, cancellationReason, resources, isExamDay } = body
+    const { title, subtitle, description, scheduledDate, examSectionId, status, cancellationReason, resources, isExamDay, speaker } = body
 
     const updateData: Record<string, unknown> = {}
     if (title) updateData.title = title
@@ -32,6 +33,7 @@ export async function PATCH(
     if (status) updateData.status = status
     if (cancellationReason !== undefined) updateData.cancellationReason = cancellationReason
     if (isExamDay !== undefined) updateData.isExamDay = isExamDay
+    if (speaker !== undefined) updateData.speaker = speaker || null
 
     // Handle resources update: delete all existing and recreate
     if (resources !== undefined) {
@@ -71,10 +73,7 @@ export async function PATCH(
 
     return NextResponse.json(lesson)
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update lesson" },
-      { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }
-    )
+    return handleApiError(error)
   }
 }
 
@@ -101,9 +100,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Lesson deleted successfully" })
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to delete lesson" },
-      { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }
-    )
+    return handleApiError(error)
   }
 }

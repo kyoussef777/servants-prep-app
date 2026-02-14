@@ -286,11 +286,17 @@
   .border-green-200 {
     @apply dark:border-green-800;
   }
+  .border-green-300 {
+    @apply dark:border-green-700;
+  }
   .border-green-100 {
     @apply dark:border-green-900;
   }
   .border-red-200 {
     @apply dark:border-red-800;
+  }
+  .border-red-300 {
+    @apply dark:border-red-700;
   }
   .border-red-100 {
     @apply dark:border-red-900;
