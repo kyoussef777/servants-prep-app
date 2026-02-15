@@ -15,7 +15,8 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -273,13 +274,13 @@ function SortableRow({
         {/* Lesson # */}
         <td className="p-2 text-gray-500 w-8 text-center">{index + 1}</td>
         {/* Date */}
-        <td className="p-2 w-36">
+        <td className="p-2 w-32">
           {canEdit ? (
             <Input
               type="date"
               value={edits?.scheduledDate ?? lesson.scheduledDate.slice(0, 10)}
               onChange={(e) => onEdit(lesson.id, 'scheduledDate', e.target.value)}
-              className="h-8 text-sm"
+              className="h-8 text-xs"
             />
           ) : (
             <span className="text-sm">
@@ -832,10 +833,13 @@ export default function CurriculumPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // DnD sensors
+  // DnD sensors — MouseSensor for desktop, TouchSensor (press-hold) for iPad/touch
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 300, tolerance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -1339,19 +1343,20 @@ export default function CurriculumPage() {
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
+                autoScroll={false}
               >
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" style={{ minWidth: canEdit ? 820 : 640 }}>
                   <thead className="bg-gray-50 border-b">
                     <tr>
                       {canEdit && <th className="p-1 w-8"></th>}
                       <th className="text-center p-2 w-8">#</th>
-                      <th className="text-left p-2 w-36">Date</th>
+                      <th className="text-left p-2 w-32">Date</th>
                       <th className="text-left p-2">Topic</th>
-                      <th className="text-left p-2 w-40">Speaker</th>
-                      <th className="text-left p-2 w-44">Section</th>
-                      <th className="text-center p-2 w-16">Exam</th>
+                      <th className="text-left p-2 w-32">Speaker</th>
+                      <th className="text-left p-2 w-36">Section</th>
+                      <th className="text-center p-2 w-14">Exam</th>
                       <th className="text-center p-2 w-20">Status</th>
-                      <th className="text-center p-2 w-24"></th>
+                      <th className="text-center p-2 w-20"></th>
                     </tr>
                   </thead>
                   <SortableContext
