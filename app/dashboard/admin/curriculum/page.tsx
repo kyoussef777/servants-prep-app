@@ -45,7 +45,7 @@ interface Lesson {
   speaker?: string
   scheduledDate: string
   lessonNumber: number
-  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
+  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'NO_CLASS'
   cancellationReason?: string
   isExamDay: boolean
   examSection: {
@@ -364,22 +364,25 @@ function SortableRow({
                 className={`h-7 rounded-md border px-1 text-xs font-medium ${
                   currentStatus === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700' :
                   currentStatus === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-700' :
+                  currentStatus === 'NO_CLASS' ? 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600' :
                   'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
                 }`}
               >
                 <option value="SCHEDULED">Scheduled</option>
                 <option value="COMPLETED">Completed</option>
                 <option value="CANCELLED">Cancelled</option>
+                <option value="NO_CLASS">No Class</option>
               </select>
             ) : (
               <Badge
                 className={`text-xs ${
                   currentStatus === 'COMPLETED' ? 'bg-green-500' :
                   currentStatus === 'CANCELLED' ? 'bg-red-500' :
+                  currentStatus === 'NO_CLASS' ? 'bg-slate-400' :
                   'bg-maroon-600'
                 }`}
               >
-                {currentStatus}
+                {currentStatus === 'NO_CLASS' ? 'No Class' : currentStatus}
               </Badge>
             )}
             {hasAttendance && (
@@ -539,22 +542,25 @@ function MobileLessonCard({
                   className={`h-6 rounded border px-1 text-xs font-medium ${
                     currentStatus === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700' :
                     currentStatus === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-700' :
+                    currentStatus === 'NO_CLASS' ? 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600' :
                     'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
                   }`}
                 >
                   <option value="SCHEDULED">Scheduled</option>
                   <option value="COMPLETED">Completed</option>
                   <option value="CANCELLED">Cancelled</option>
+                  <option value="NO_CLASS">No Class</option>
                 </select>
               ) : (
                 <Badge
                   className={`text-xs ${
                     currentStatus === 'COMPLETED' ? 'bg-green-500' :
                     currentStatus === 'CANCELLED' ? 'bg-red-500' :
+                    currentStatus === 'NO_CLASS' ? 'bg-slate-400' :
                     'bg-maroon-600'
                   }`}
                 >
-                  {currentStatus}
+                  {currentStatus === 'NO_CLASS' ? 'No Class' : currentStatus}
                 </Badge>
               )}
               {currentIsExamDay && (

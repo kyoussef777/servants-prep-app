@@ -51,6 +51,7 @@ enum AttendanceStatus {
 enum LessonStatus {
   SCHEDULED
   CANCELLED
+  NO_CLASS
   COMPLETED
 }
 

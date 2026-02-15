@@ -67,8 +67,8 @@ export async function GET(request: Request) {
     // Only count lessons that have attendance records (i.e., attendance was taken)
     // Exclude exam day lessons and cancelled lessons from attendance calculations
     const lessonFilter = academicYearId
-      ? { academicYearId, isExamDay: false, status: { not: LessonStatus.CANCELLED } }
-      : { isExamDay: false, status: { not: LessonStatus.CANCELLED } }
+      ? { academicYearId, isExamDay: false, status: { notIn: [LessonStatus.CANCELLED, LessonStatus.NO_CLASS] } }
+      : { isExamDay: false, status: { notIn: [LessonStatus.CANCELLED, LessonStatus.NO_CLASS] } }
 
     // Filter for lessons with attendance records (excludes exam days)
     const lessonsWithAttendanceFilter = {

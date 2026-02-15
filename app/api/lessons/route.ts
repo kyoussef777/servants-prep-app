@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     // Handle status filtering - excludeCancelled takes precedence
     if (excludeCancelled) {
       // Exclude CANCELLED status using notIn for explicit filtering
-      where.status = { notIn: [LessonStatus.CANCELLED] }
+      where.status = { notIn: [LessonStatus.CANCELLED, LessonStatus.NO_CLASS] }
     } else if (status) {
       where.status = status
     }

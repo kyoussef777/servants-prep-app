@@ -38,7 +38,7 @@ export async function GET(
     // Year 1 students: Only see active academic year lessons
     // Year 2 students: See lessons from all years (both Year 1 and Year 2)
     let lessonWhereClause: Record<string, unknown> = {
-      status: { not: 'CANCELLED' },
+      status: { notIn: ['CANCELLED', 'NO_CLASS'] },
       isExamDay: false
     }
 

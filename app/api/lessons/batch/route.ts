@@ -23,6 +23,7 @@ const VALID_STATUSES = new Set<string>([
   LessonStatus.SCHEDULED,
   LessonStatus.COMPLETED,
   LessonStatus.CANCELLED,
+  LessonStatus.NO_CLASS,
 ])
 
 /**
@@ -46,7 +47,7 @@ function validateLessonUpdate(lesson: LessonUpdate, index: number): void {
   // status must be one of the LessonStatus enum values
   if (lesson.status !== undefined && !VALID_STATUSES.has(lesson.status)) {
     throw new Error(
-      `Lesson at index ${index}: status must be one of SCHEDULED, COMPLETED, CANCELLED`
+      `Lesson at index ${index}: status must be one of SCHEDULED, COMPLETED, CANCELLED, NO_CLASS`
     )
   }
 
