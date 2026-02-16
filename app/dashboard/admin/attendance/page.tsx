@@ -74,6 +74,7 @@ export default function AttendancePage() {
   const [compactMode, setCompactMode] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
+  const [viewingPhoto, setViewingPhoto] = useState<{ name: string; url: string } | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -552,7 +553,10 @@ export default function AttendancePage() {
                           <td className="p-2 text-gray-500">{index + 1}</td>
                           <td className="p-2 font-medium">
                             <div className="flex items-center gap-2">
-                              <Avatar className="h-7 w-7 shrink-0">
+                              <Avatar
+                                className={`h-7 w-7 shrink-0 ${student.profileImageUrl ? 'cursor-pointer hover:ring-2 hover:ring-maroon-400' : ''}`}
+                                onClick={() => student.profileImageUrl && setViewingPhoto({ name: student.name, url: student.profileImageUrl })}
+                              >
                                 {student.profileImageUrl && (
                                   <AvatarImage src={student.profileImageUrl} alt={student.name} />
                                 )}
@@ -663,11 +667,14 @@ export default function AttendancePage() {
 
                 return (
                   <Card key={student.id} className="overflow-hidden">
-                    <CardContent className="p-2 sm:p-3">
-                      {/* Row 1: Index, Avatar, Name, Year Badge, Expand */}
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <span className="text-[10px] sm:text-xs text-gray-400 w-4 shrink-0">{index + 1}</span>
-                        <Avatar className="h-6 w-6 shrink-0">
+                    <CardContent className="px-2 py-1.5 sm:p-3">
+                      {/* Single row: # Avatar Name [Y1] [P][L][A][E] [>] */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-gray-400 w-3 shrink-0 text-center">{index + 1}</span>
+                        <Avatar
+                          className={`h-7 w-7 shrink-0 ${student.profileImageUrl ? 'cursor-pointer hover:ring-2 hover:ring-maroon-400' : ''}`}
+                          onClick={() => student.profileImageUrl && setViewingPhoto({ name: student.name, url: student.profileImageUrl })}
+                        >
                           {student.profileImageUrl && (
                             <AvatarImage src={student.profileImageUrl} alt={student.name} className="object-cover" />
                           )}
@@ -675,74 +682,69 @@ export default function AttendancePage() {
                             {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="font-medium text-xs sm:text-sm leading-tight truncate">{student.name}</span>
-                            <Badge variant="outline" className="text-[10px] shrink-0 px-1">
-                              {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
-                            </Badge>
-                          </div>
+                        <span className="font-medium text-sm leading-tight truncate flex-1 min-w-0">{student.name}</span>
+                        <Badge variant="outline" className="text-[9px] shrink-0 px-0.5 py-0">
+                          {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
+                        </Badge>
+                        <div className="flex shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
+                            disabled={!userCanManageData}
+                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
+                              currentStatus === 'PRESENT'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-100 text-gray-400'
+                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateAttendance(student.id, 'status', 'LATE')}
+                            disabled={!userCanManageData}
+                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
+                              currentStatus === 'LATE'
+                                ? 'bg-yellow-500 text-white'
+                                : 'bg-gray-100 text-gray-400'
+                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                          >
+                            <Clock className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
+                            disabled={!userCanManageData}
+                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
+                              currentStatus === 'ABSENT'
+                                ? 'bg-red-500 text-white'
+                                : 'bg-gray-100 text-gray-400'
+                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
+                            disabled={!userCanManageData}
+                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
+                              currentStatus === 'EXCUSED'
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-100 text-gray-400'
+                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                          >
+                            <Shield className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                         {!compactMode && (
                           <button
                             type="button"
                             onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
-                            className="p-1 text-gray-400 hover:text-gray-600 shrink-0"
+                            className="p-0.5 text-gray-400 hover:text-gray-600 shrink-0"
                           >
                             {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                           </button>
                         )}
-                      </div>
-                      {/* Row 2: Status Buttons - full width */}
-                      <div className="flex gap-1 mt-1.5 ml-[calc(1rem+1.5rem+0.375rem)] sm:ml-[calc(1rem+1.5rem+0.5rem)]">
-                        <button
-                          type="button"
-                          onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
-                          disabled={!userCanManageData}
-                          className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
-                            currentStatus === 'PRESENT'
-                              ? 'bg-green-500 text-white'
-                              : 'bg-gray-100 text-gray-500'
-                          } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                        >
-                          <Check className="h-3 w-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateAttendance(student.id, 'status', 'LATE')}
-                          disabled={!userCanManageData}
-                          className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
-                            currentStatus === 'LATE'
-                              ? 'bg-yellow-500 text-white'
-                              : 'bg-gray-100 text-gray-500'
-                          } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                        >
-                          <Clock className="h-3 w-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
-                          disabled={!userCanManageData}
-                          className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
-                            currentStatus === 'ABSENT'
-                              ? 'bg-red-500 text-white'
-                              : 'bg-gray-100 text-gray-500'
-                          } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
-                          disabled={!userCanManageData}
-                          className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
-                            currentStatus === 'EXCUSED'
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-100 text-gray-500'
-                          } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                        >
-                          <Shield className="h-3 w-3" />
-                        </button>
                       </div>
 
                       {/* Expanded Details */}
@@ -803,6 +805,29 @@ export default function AttendancePage() {
           </>
         )}
       </div>
+
+      {/* Photo Viewer Lightbox */}
+      {viewingPhoto && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6"
+          onClick={() => setViewingPhoto(null)}
+        >
+          <div className="relative max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={viewingPhoto.url}
+              alt={viewingPhoto.name}
+              className="w-full rounded-xl object-cover aspect-square"
+            />
+            <p className="text-center text-white text-sm font-medium mt-3">{viewingPhoto.name}</p>
+            <button
+              onClick={() => setViewingPhoto(null)}
+              className="absolute -top-3 -right-3 bg-white dark:bg-gray-800 rounded-full p-1.5 shadow-lg text-gray-600 hover:text-gray-900 dark:text-gray-300"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -873,14 +898,13 @@ function LessonCard({
         <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-medium text-sm">L{lesson.lessonNumber}</span>
-              <span className="text-sm truncate">{lesson.title}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-              <span>{formatDateUTC(lesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+              <span className="font-medium text-sm">{formatDateUTC(lesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
               {attendanceCount > 0 && (
-                <span className="text-green-600">• {attendanceCount}</span>
+                <span className="text-xs text-green-600">• {attendanceCount}</span>
               )}
+            </div>
+            <div className="text-xs text-gray-500 truncate">
+              L{lesson.lessonNumber}: {lesson.title}
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">

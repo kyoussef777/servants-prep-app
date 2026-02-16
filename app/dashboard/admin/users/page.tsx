@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -23,7 +23,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { canManageUsers, getRoleDisplayName } from '@/lib/roles'
 import { UserRole } from '@prisma/client'
 import { toast } from 'sonner'
-import { Camera, Trash2 } from 'lucide-react'
+import { Camera, Trash2, Pencil, X } from 'lucide-react'
+import { ImageCropDialog } from '@/components/image-crop-dialog'
 
 interface User {
   id: string
@@ -230,6 +231,8 @@ export default function UsersPage() {
     }
   }
 
+  const editFormRef = useRef<HTMLDivElement>(null)
+
   const startEdit = (user: User) => {
     setEditingUser(user)
     setFormData({
@@ -241,6 +244,10 @@ export default function UsersPage() {
     })
     setShowCreateForm(false)
     setFormError('')
+    // Scroll to the inline form after render
+    setTimeout(() => {
+      editFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }, 50)
   }
 
   const cancelForm = () => {
@@ -251,10 +258,13 @@ export default function UsersPage() {
   }
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null)
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !editingUser) return
+    e.target.value = ''
 
     const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif']
     if (!allowedTypes.includes(file.type)) {
@@ -266,10 +276,21 @@ export default function UsersPage() {
       return
     }
 
+    setPendingPhotoFile(file)
+    const reader = new FileReader()
+    reader.onload = () => setCropImageSrc(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setCropImageSrc(null)
+    if (!editingUser) return
     setUploadingPhoto(true)
     try {
+      const fileName = pendingPhotoFile?.name || 'profile.jpg'
+      const croppedFile = new File([croppedBlob], fileName, { type: 'image/jpeg' })
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', croppedFile)
       fd.append('userId', editingUser.id)
 
       const res = await fetch('/api/profile-picture/upload', {
@@ -291,7 +312,7 @@ export default function UsersPage() {
       toast.error('Failed to upload photo')
     } finally {
       setUploadingPhoto(false)
-      e.target.value = ''
+      setPendingPhotoFile(null)
     }
   }
 
@@ -574,156 +595,46 @@ export default function UsersPage() {
           </CardContent>
         </Card>
 
-        {/* Create/Edit Form */}
-        {(showCreateForm || editingUser) && (
+        {/* Create Form (only for new user) */}
+        {showCreateForm && (
           <Card>
             <CardHeader>
-              <CardTitle>{editingUser ? 'Edit User' : 'Create New User'}</CardTitle>
+              <CardTitle>Create New User</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="space-y-4">
+              <form onSubmit={handleCreateUser} className="space-y-4">
                 {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+                  <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded text-sm">
                     {formError}
                   </div>
                 )}
-
-                {editingUser && (
-                  <div className="flex items-center gap-4 pb-2">
-                    <Avatar className="h-16 w-16">
-                      {editingUser.profileImageUrl && (
-                        <AvatarImage src={editingUser.profileImageUrl} alt={editingUser.name} />
-                      )}
-                      <AvatarFallback className="bg-maroon-600 text-white text-lg">
-                        {editingUser.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={uploadingPhoto}
-                          onClick={() => document.getElementById(`edit-user-photo-${editingUser.id}`)?.click()}
-                          className="gap-1"
-                        >
-                          <Camera className="h-4 w-4" />
-                          {uploadingPhoto ? 'Uploading...' : 'Change Photo'}
-                        </Button>
-                        {editingUser.profileImageUrl && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={uploadingPhoto}
-                            onClick={handleRemovePhoto}
-                            className="gap-1 text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Remove
-                          </Button>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">PNG, JPG, or GIF. Max 4.5 MB.</p>
-                      <input
-                        id={`edit-user-photo-${editingUser.id}`}
-                        type="file"
-                        accept="image/png,image/jpeg,image/jpg,image/gif"
-                        className="hidden"
-                        onChange={handlePhotoUpload}
-                        disabled={uploadingPhoto}
-                      />
-                    </div>
-                  </div>
-                )}
-
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                    />
+                    <Input id="name" type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
                   </div>
-
                   <div>
                     <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                    />
+                    <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
                   </div>
-
                   <div>
                     <Label htmlFor="phone">Phone (optional)</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="(555) 123-4567"
-                    />
+                    <Input id="phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="(555) 123-4567" />
                   </div>
-
-                  {!editingUser ? (
-                    <div>
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        required
-                      />
-                    </div>
-                  ) : session?.user?.role === 'SUPER_ADMIN' && (
-                    <div>
-                      <Label htmlFor="password">New Password (optional)</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="Leave blank to keep current"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        User will be prompted to change password on next login
-                      </p>
-                    </div>
-                  )}
-
+                  <div>
+                    <Label htmlFor="password">Password</Label>
+                    <Input id="password" type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
+                  </div>
                   <div>
                     <Label htmlFor="role">Role</Label>
-                    <select
-                      id="role"
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      required
-                    >
-                      {roleOptions.map(role => (
-                        <option key={role} value={role}>
-                          {getRoleDisplayName(role)}
-                        </option>
-                      ))}
+                    <select id="role" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
+                      {roleOptions.map(role => (<option key={role} value={role}>{getRoleDisplayName(role)}</option>))}
                     </select>
                   </div>
                 </div>
-
                 <div className="flex gap-2">
-                  <Button type="submit">
-                    {editingUser ? 'Update User' : 'Create User'}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={cancelForm}>
-                    Cancel
-                  </Button>
+                  <Button type="submit">Create User</Button>
+                  <Button type="button" variant="outline" onClick={cancelForm}>Cancel</Button>
                 </div>
               </form>
             </CardContent>
@@ -762,104 +673,176 @@ export default function UsersPage() {
                     <th className="text-center p-2 w-40">Role</th>
                     <th className="text-center p-2 w-24">Status</th>
                     <th className="text-center p-2 w-24">Mentees</th>
-                    <th className="text-center p-2 w-40">Actions</th>
+                    <th className="text-center p-2 w-32">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user, index) => {
                     const isCurrentUser = user.id === session?.user?.id
                     const canSelect = user.role !== 'SUPER_ADMIN' && !isCurrentUser
+                    const isEditing = editingUser?.id === user.id
 
                     return (
-                      <tr key={user.id} className={`border-b hover:bg-gray-50 ${user.isDisabled ? 'bg-red-50' : ''}`}>
-                        {isSuperAdmin && (
+                      <React.Fragment key={user.id}>
+                        <tr className={`border-b ${isEditing ? 'bg-blue-50 dark:bg-blue-950/20' : user.isDisabled ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                          {isSuperAdmin && (
+                            <td className="p-2 text-center">
+                              {canSelect ? (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedUsers.has(user.id)}
+                                  onChange={() => toggleUserSelection(user.id)}
+                                  className="h-4 w-4 rounded border-gray-300"
+                                />
+                              ) : (
+                                <span className="text-gray-300">-</span>
+                              )}
+                            </td>
+                          )}
+                          <td className="p-2 text-gray-500">{index + 1}</td>
+                          <td className="p-2 font-medium">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-7 w-7 shrink-0">
+                                {user.profileImageUrl && (
+                                  <AvatarImage src={user.profileImageUrl} alt={user.name} />
+                                )}
+                                <AvatarFallback className="bg-maroon-600 text-white text-xs">
+                                  {user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>
+                                {user.role === 'STUDENT' ? (
+                                  <Link href={`/dashboard/admin/students?student=${user.id}`} className="hover:text-blue-600 hover:underline">
+                                    {user.name}
+                                  </Link>
+                                ) : (
+                                  user.name
+                                )}
+                                {isCurrentUser && (
+                                  <Badge variant="outline" className="ml-2 text-xs">You</Badge>
+                                )}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-2 text-gray-600">{user.email}</td>
+                          <td className="p-2 text-gray-600">{user.phone || '-'}</td>
                           <td className="p-2 text-center">
-                            {canSelect ? (
-                              <input
-                                type="checkbox"
-                                checked={selectedUsers.has(user.id)}
-                                onChange={() => toggleUserSelection(user.id)}
-                                className="h-4 w-4 rounded border-gray-300"
-                              />
+                            <Badge
+                              className={
+                                user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
+                                user.role === 'PRIEST' ? 'bg-maroon-600' :
+                                user.role === 'SERVANT_PREP' ? 'bg-green-600' :
+                                user.role === 'MENTOR' ? 'bg-yellow-600' :
+                                'bg-gray-600'
+                              }
+                            >
+                              {getRoleDisplayName(user.role)}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-center">
+                            {user.isDisabled ? (
+                              <Badge className="bg-red-500">Disabled</Badge>
                             ) : (
-                              <span className="text-gray-300">-</span>
+                              <Badge variant="outline" className="text-green-600 border-green-300">Active</Badge>
                             )}
                           </td>
-                        )}
-                        <td className="p-2 text-gray-500">{index + 1}</td>
-                        <td className="p-2 font-medium">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-7 w-7 shrink-0">
-                              {user.profileImageUrl && (
-                                <AvatarImage src={user.profileImageUrl} alt={user.name} />
-                              )}
-                              <AvatarFallback className="bg-maroon-600 text-white text-xs">
-                                {user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span>
-                              {user.role === 'STUDENT' ? (
-                                <Link href={`/dashboard/admin/students?student=${user.id}`} className="hover:text-blue-600 hover:underline">
-                                  {user.name}
-                                </Link>
+                          <td className="p-2 text-center">
+                            {user.role === 'MENTOR' || user.role === 'SERVANT_PREP' ? (
+                              <span className="font-medium">{user._count?.mentoredStudents || 0}</span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            <div className="flex justify-center gap-1">
+                              {isEditing ? (
+                                <Button size="sm" variant="ghost" onClick={cancelForm} className="h-7 px-2 text-xs gap-1">
+                                  <X className="h-3 w-3" /> Close
+                                </Button>
                               ) : (
-                                user.name
+                                <>
+                                  <Button size="sm" variant="ghost" onClick={() => startEdit(user)} className="h-7 px-2 text-xs gap-1">
+                                    <Pencil className="h-3 w-3" /> Edit
+                                  </Button>
+                                  <Button size="sm" variant="ghost" onClick={() => handleDeleteUser(user.id)} disabled={isCurrentUser} className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </>
                               )}
-                              {isCurrentUser && (
-                                <Badge variant="outline" className="ml-2 text-xs">You</Badge>
-                              )}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="p-2 text-gray-600">{user.email}</td>
-                        <td className="p-2 text-gray-600">{user.phone || '-'}</td>
-                        <td className="p-2 text-center">
-                          <Badge
-                            className={
-                              user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
-                              user.role === 'PRIEST' ? 'bg-maroon-600' :
-                              user.role === 'SERVANT_PREP' ? 'bg-green-600' :
-                              user.role === 'MENTOR' ? 'bg-yellow-600' :
-                              'bg-gray-600'
-                            }
-                          >
-                            {getRoleDisplayName(user.role)}
-                          </Badge>
-                        </td>
-                        <td className="p-2 text-center">
-                          {user.isDisabled ? (
-                            <Badge className="bg-red-500">Disabled</Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-green-600 border-green-300">Active</Badge>
-                          )}
-                        </td>
-                        <td className="p-2 text-center">
-                          {user.role === 'MENTOR' || user.role === 'SERVANT_PREP' ? (
-                            <span className="font-medium">{user._count?.mentoredStudents || 0}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          <div className="flex justify-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => startEdit(user)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeleteUser(user.id)}
-                              disabled={isCurrentUser}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
+                            </div>
+                          </td>
+                        </tr>
+                        {/* Inline Edit Form - Desktop */}
+                        {isEditing && (
+                          <tr>
+                            <td colSpan={isSuperAdmin ? 9 : 8} className="p-0">
+                              <div ref={editFormRef} className="bg-blue-50/50 dark:bg-blue-950/10 border-b-2 border-blue-200 dark:border-blue-800 px-4 py-4">
+                                <form onSubmit={handleUpdateUser} className="space-y-3">
+                                  {formError && (
+                                    <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded text-sm">{formError}</div>
+                                  )}
+                                  <div className="flex gap-6">
+                                    {/* Photo section */}
+                                    <div className="flex flex-col items-center gap-2 shrink-0">
+                                      <Avatar className="h-16 w-16">
+                                        {editingUser.profileImageUrl && (
+                                          <AvatarImage src={editingUser.profileImageUrl} alt={editingUser.name} />
+                                        )}
+                                        <AvatarFallback className="bg-maroon-600 text-white text-lg">
+                                          {editingUser.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex gap-1">
+                                        <Button type="button" variant="outline" size="sm" disabled={uploadingPhoto} onClick={() => document.getElementById(`edit-user-photo-${editingUser.id}`)?.click()} className="h-7 px-2 text-xs gap-1">
+                                          <Camera className="h-3 w-3" />
+                                          {uploadingPhoto ? '...' : 'Photo'}
+                                        </Button>
+                                        {editingUser.profileImageUrl && (
+                                          <Button type="button" variant="outline" size="sm" disabled={uploadingPhoto} onClick={handleRemovePhoto} className="h-7 px-2 text-xs text-red-600 hover:text-red-700">
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <input id={`edit-user-photo-${editingUser.id}`} type="file" accept="image/png,image/jpeg,image/jpg,image/gif" className="hidden" onChange={handlePhotoSelect} disabled={uploadingPhoto} />
+                                    </div>
+                                    {/* Fields */}
+                                    <div className="flex-1 grid grid-cols-2 xl:grid-cols-3 gap-3">
+                                      <div>
+                                        <Label htmlFor="edit-name" className="text-xs">Name</Label>
+                                        <Input id="edit-name" type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required className="h-9" />
+                                      </div>
+                                      <div>
+                                        <Label htmlFor="edit-email" className="text-xs">Email</Label>
+                                        <Input id="edit-email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required className="h-9" />
+                                      </div>
+                                      <div>
+                                        <Label htmlFor="edit-phone" className="text-xs">Phone</Label>
+                                        <Input id="edit-phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="(555) 123-4567" className="h-9" />
+                                      </div>
+                                      <div>
+                                        <Label htmlFor="edit-role" className="text-xs">Role</Label>
+                                        <select id="edit-role" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm" required>
+                                          {roleOptions.map(role => (<option key={role} value={role}>{getRoleDisplayName(role)}</option>))}
+                                        </select>
+                                      </div>
+                                      {session?.user?.role === 'SUPER_ADMIN' && (
+                                        <div>
+                                          <Label htmlFor="edit-password" className="text-xs">New Password</Label>
+                                          <Input id="edit-password" type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Leave blank to keep" className="h-9" />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2 justify-end">
+                                    <Button type="button" variant="outline" size="sm" onClick={cancelForm}>Cancel</Button>
+                                    <Button type="submit" size="sm">Save Changes</Button>
+                                  </div>
+                                </form>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     )
                   })}
                 </tbody>
@@ -874,93 +857,125 @@ export default function UsersPage() {
               )}
             </div>
 
-            {/* Mobile View - Compact */}
+            {/* Mobile View */}
             <div className="lg:hidden space-y-1">
               {users.map((user) => {
                 const isCurrentUser = user.id === session?.user?.id
                 const canSelect = user.role !== 'SUPER_ADMIN' && !isCurrentUser
+                const isEditing = editingUser?.id === user.id
 
                 return (
-                  <div key={user.id} className={`flex items-center gap-2 p-2 border rounded-md ${user.isDisabled ? 'bg-red-50' : 'bg-white'}`}>
-                    {/* Checkbox for SUPER_ADMIN */}
-                    {isSuperAdmin && (
-                      <div className="shrink-0">
-                        {canSelect ? (
-                          <input
-                            type="checkbox"
-                            checked={selectedUsers.has(user.id)}
-                            onChange={() => toggleUserSelection(user.id)}
-                            className="h-4 w-4 rounded border-gray-300"
-                          />
+                  <div key={user.id}>
+                    <div className={`flex items-center gap-2 p-2 border rounded-md ${isEditing ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 rounded-b-none' : user.isDisabled ? 'bg-red-50' : 'bg-white dark:bg-gray-900'}`}>
+                      {isSuperAdmin && (
+                        <div className="shrink-0">
+                          {canSelect ? (
+                            <input type="checkbox" checked={selectedUsers.has(user.id)} onChange={() => toggleUserSelection(user.id)} className="h-4 w-4 rounded border-gray-300" />
+                          ) : (
+                            <div className="w-4" />
+                          )}
+                        </div>
+                      )}
+                      <Avatar className="h-7 w-7 shrink-0">
+                        {user.profileImageUrl && (<AvatarImage src={user.profileImageUrl} alt={user.name} />)}
+                        <AvatarFallback className="bg-maroon-600 text-white text-[10px]">
+                          {user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {user.role === 'STUDENT' ? (
+                            <Link href={`/dashboard/admin/students?student=${user.id}`} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">{user.name}</Link>
+                          ) : (
+                            <span className="font-medium text-sm truncate">{user.name}</span>
+                          )}
+                          {isCurrentUser && <Badge variant="outline" className="text-[10px] px-1 py-0">You</Badge>}
+                          {user.isDisabled && <Badge className="bg-red-500 text-[10px] px-1 py-0">Disabled</Badge>}
+                          <Badge className={`text-[10px] px-1.5 py-0 ${user.role === 'SUPER_ADMIN' ? 'bg-purple-600' : user.role === 'PRIEST' ? 'bg-maroon-600' : user.role === 'SERVANT_PREP' ? 'bg-green-600' : user.role === 'MENTOR' ? 'bg-yellow-600' : 'bg-gray-600'}`}>
+                            {user.role === 'SUPER_ADMIN' ? 'Admin' : user.role === 'PRIEST' ? 'Priest' : user.role === 'SERVANT_PREP' ? 'Prep' : user.role === 'MENTOR' ? 'Mentor' : 'Student'}
+                          </Badge>
+                          {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && user._count?.mentoredStudents ? (
+                            <span className="text-[10px] text-gray-500">({user._count.mentoredStudents})</span>
+                          ) : null}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        {isEditing ? (
+                          <Button size="sm" variant="ghost" onClick={cancelForm} className="h-7 w-7 p-0">
+                            <X className="h-4 w-4" />
+                          </Button>
                         ) : (
-                          <div className="w-4" />
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => startEdit(user)} className="h-7 w-7 p-0">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleDeleteUser(user.id)} disabled={isCurrentUser} className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
                         )}
+                      </div>
+                    </div>
+                    {/* Inline Edit Form - Mobile */}
+                    {isEditing && (
+                      <div ref={editFormRef} className="border border-t-0 border-blue-200 dark:border-blue-800 rounded-b-md bg-blue-50/50 dark:bg-blue-950/10 p-3">
+                        <form onSubmit={handleUpdateUser} className="space-y-3">
+                          {formError && (
+                            <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded text-sm">{formError}</div>
+                          )}
+                          {/* Photo */}
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-12 w-12 shrink-0">
+                              {editingUser.profileImageUrl && (<AvatarImage src={editingUser.profileImageUrl} alt={editingUser.name} />)}
+                              <AvatarFallback className="bg-maroon-600 text-white">{editingUser.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex gap-1.5">
+                              <Button type="button" variant="outline" size="sm" disabled={uploadingPhoto} onClick={() => document.getElementById(`edit-user-photo-m-${editingUser.id}`)?.click()} className="h-7 px-2 text-xs gap-1">
+                                <Camera className="h-3 w-3" /> {uploadingPhoto ? '...' : 'Photo'}
+                              </Button>
+                              {editingUser.profileImageUrl && (
+                                <Button type="button" variant="outline" size="sm" disabled={uploadingPhoto} onClick={handleRemovePhoto} className="h-7 px-2 text-xs text-red-600">
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                            <input id={`edit-user-photo-m-${editingUser.id}`} type="file" accept="image/png,image/jpeg,image/jpg,image/gif" className="hidden" onChange={handlePhotoSelect} disabled={uploadingPhoto} />
+                          </div>
+                          {/* Fields */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs">Name</Label>
+                              <Input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required className="h-8 text-sm" />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Email</Label>
+                              <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required className="h-8 text-sm" />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Phone</Label>
+                              <Input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="Optional" className="h-8 text-sm" />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Role</Label>
+                              <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm" required>
+                                {roleOptions.map(role => (<option key={role} value={role}>{getRoleDisplayName(role)}</option>))}
+                              </select>
+                            </div>
+                            {session?.user?.role === 'SUPER_ADMIN' && (
+                              <div className="col-span-2">
+                                <Label className="text-xs">New Password</Label>
+                                <Input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Leave blank to keep current" className="h-8 text-sm" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button type="button" variant="outline" size="sm" onClick={cancelForm} className="h-8 text-xs">Cancel</Button>
+                            <Button type="submit" size="sm" className="h-8 text-xs">Save</Button>
+                          </div>
+                        </form>
                       </div>
                     )}
-                    {/* Avatar + Name & Role */}
-                    <Avatar className="h-7 w-7 shrink-0">
-                      {user.profileImageUrl && (
-                        <AvatarImage src={user.profileImageUrl} alt={user.name} />
-                      )}
-                      <AvatarFallback className="bg-maroon-600 text-white text-[10px]">
-                        {user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {user.role === 'STUDENT' ? (
-                          <Link href={`/dashboard/admin/students?student=${user.id}`} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">
-                            {user.name}
-                          </Link>
-                        ) : (
-                          <span className="font-medium text-sm truncate">{user.name}</span>
-                        )}
-                        {isCurrentUser && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0">You</Badge>
-                        )}
-                        {user.isDisabled && (
-                          <Badge className="bg-red-500 text-[10px] px-1 py-0">Disabled</Badge>
-                        )}
-                        <Badge
-                          className={`text-[10px] px-1.5 py-0 ${
-                            user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
-                            user.role === 'PRIEST' ? 'bg-maroon-600' :
-                            user.role === 'SERVANT_PREP' ? 'bg-green-600' :
-                            user.role === 'MENTOR' ? 'bg-yellow-600' :
-                            'bg-gray-600'
-                          }`}
-                        >
-                          {user.role === 'SUPER_ADMIN' ? 'Admin' :
-                           user.role === 'PRIEST' ? 'Priest' :
-                           user.role === 'SERVANT_PREP' ? 'Prep' :
-                           user.role === 'MENTOR' ? 'Mentor' : 'Student'}
-                        </Badge>
-                        {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && user._count?.mentoredStudents ? (
-                          <span className="text-[10px] text-gray-500">({user._count.mentoredStudents})</span>
-                        ) : null}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate">{user.email}</div>
-                    </div>
-                    {/* Actions */}
-                    <div className="flex gap-1 shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => startEdit(user)}
-                        className="h-7 px-2 text-xs"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteUser(user.id)}
-                        disabled={isCurrentUser}
-                        className="h-7 px-2 text-xs"
-                      >
-                        Del
-                      </Button>
-                    </div>
                   </div>
                 )
               })}
@@ -1055,6 +1070,15 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Crop Dialog */}
+      {cropImageSrc && (
+        <ImageCropDialog
+          imageSrc={cropImageSrc}
+          onCropComplete={handleCropComplete}
+          onCancel={() => { setCropImageSrc(null); setPendingPhotoFile(null) }}
+        />
+      )}
     </div>
   )
 }

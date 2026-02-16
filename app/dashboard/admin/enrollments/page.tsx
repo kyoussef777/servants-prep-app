@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from '@/lib/roles'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users } from 'lucide-react'
 
 interface AcademicYear {
   id: string
@@ -51,6 +52,7 @@ interface Mentor {
   id: string
   name: string
   email: string
+  profileImageUrl?: string | null
 }
 
 export default function EnrollmentsPage() {
@@ -66,6 +68,7 @@ export default function EnrollmentsPage() {
   const [filterYear, setFilterYear] = useState<string>('all')
   const [filterAcademicYear, setFilterAcademicYear] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('ACTIVE')
+  const [workloadExpanded, setWorkloadExpanded] = useState(false)
 
   // Father of Confession management
   const [showFathersListDialog, setShowFathersListDialog] = useState(false)
@@ -354,47 +357,100 @@ export default function EnrollmentsPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Student Roster</h1>
-            <p className="text-gray-600 mt-1">Manage student assignments ({filteredEnrollments.length} students)</p>
+            <p className="text-gray-600 mt-1">{filteredEnrollments.length} students{filterMentor !== 'all' || filterYear !== 'all' || filterStatus !== 'ACTIVE' || searchTerm ? ' (filtered)' : ''}</p>
           </div>
           <Button variant="outline" onClick={() => setShowFathersListDialog(true)}>
             Manage Priests ({fathersOfConfession.length})
           </Button>
         </div>
 
-        {/* Mentor Workload Summary */}
+        {/* Mentor Workload - Collapsible */}
         <Card>
-          <CardHeader>
-            <CardTitle>Mentor Workload</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {mentors.map(mentor => (
-                <div key={mentor.id} className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer" onClick={() => setFilterMentor(mentor.id)}>
-                  <div className="font-medium text-sm truncate" title={mentor.name}>{mentor.name}</div>
-                  <div className="text-2xl font-bold text-maroon-600">
-                    {mentorWorkload.get(mentor.id) || 0}
-                  </div>
-                  <div className="text-xs text-gray-600">mentees</div>
+          <button
+            type="button"
+            className="w-full flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
+            onClick={() => setWorkloadExpanded(!workloadExpanded)}
+          >
+            <div className="flex items-center gap-3">
+              <Users className="h-4 w-4 text-maroon-600 shrink-0" />
+              <span className="font-semibold text-sm sm:text-base">Mentor Workload</span>
+              {!workloadExpanded && (
+                <div className="hidden sm:flex items-center gap-1 ml-2">
+                  {mentors.slice(0, 6).map(mentor => (
+                    <div key={mentor.id} className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-xs">
+                      <Avatar className="h-4 w-4">
+                        {mentor.profileImageUrl && <AvatarImage src={mentor.profileImageUrl} alt={mentor.name} />}
+                        <AvatarFallback className="bg-maroon-600 text-white text-[6px]">
+                          {mentor.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-maroon-600">{mentorWorkload.get(mentor.id) || 0}</span>
+                    </div>
+                  ))}
+                  {mentors.length > 6 && <span className="text-xs text-gray-400">+{mentors.length - 6}</span>}
                 </div>
-              ))}
+              )}
             </div>
-          </CardContent>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">{mentors.length} mentors</span>
+              {workloadExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+            </div>
+          </button>
+          {workloadExpanded && (
+            <CardContent className="pt-0 pb-4 px-4 sm:px-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
+                {mentors.map(mentor => {
+                  const isActive = filterMentor === mentor.id
+                  return (
+                    <div
+                      key={mentor.id}
+                      className={`p-2.5 sm:p-3 border rounded-lg cursor-pointer transition-all ${
+                        isActive
+                          ? 'border-maroon-400 bg-maroon-50 dark:bg-maroon-950/20 ring-1 ring-maroon-300'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                      }`}
+                      onClick={() => setFilterMentor(isActive ? 'all' : mentor.id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-7 w-7 shrink-0">
+                          {mentor.profileImageUrl && (
+                            <AvatarImage src={mentor.profileImageUrl} alt={mentor.name} />
+                          )}
+                          <AvatarFallback className="bg-maroon-600 text-white text-[10px]">
+                            {mentor.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate" title={mentor.name}>{mentor.name}</div>
+                          <div className="text-xs text-gray-500">
+                            <span className="text-lg font-bold text-maroon-600 leading-none">{mentorWorkload.get(mentor.id) || 0}</span>
+                            {' '}mentees
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          )}
         </Card>
 
-        {/* Filters */}
+        {/* Enrollments Table with Integrated Filters */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-3">
+          {/* Filters Bar */}
+          <div className="px-4 py-3 sm:px-6 border-b space-y-2">
+            <div className="flex flex-wrap gap-2 items-center">
               <Input
                 placeholder="Search students..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:w-64"
+                className="h-9 w-full sm:w-56 text-sm"
               />
               <select
                 value={filterMentor}
                 onChange={(e) => setFilterMentor(e.target.value)}
-                className="h-10 px-3 rounded-md border border-input bg-background"
+                className="h-9 px-2 text-sm rounded-md border border-input bg-background dark:bg-gray-800 dark:text-white dark:border-gray-600"
               >
                 <option value="all">All Mentors</option>
                 <option value="unassigned">Unassigned</option>
@@ -407,7 +463,7 @@ export default function EnrollmentsPage() {
               <select
                 value={filterYear}
                 onChange={(e) => setFilterYear(e.target.value)}
-                className="h-10 px-3 rounded-md border border-input bg-background"
+                className="h-9 px-2 text-sm rounded-md border border-input bg-background dark:bg-gray-800 dark:text-white dark:border-gray-600"
               >
                 <option value="all">All Years</option>
                 <option value="YEAR_1">Year 1</option>
@@ -416,7 +472,7 @@ export default function EnrollmentsPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="h-10 px-3 rounded-md border border-input bg-background"
+                className="h-9 px-2 text-sm rounded-md border border-input bg-background dark:bg-gray-800 dark:text-white dark:border-gray-600"
               >
                 <option value="all">All Status</option>
                 <option value="ACTIVE">Active</option>
@@ -426,35 +482,31 @@ export default function EnrollmentsPage() {
               <select
                 value={filterAcademicYear}
                 onChange={(e) => setFilterAcademicYear(e.target.value)}
-                className="h-10 px-3 rounded-md border border-input bg-background"
+                className="h-9 px-2 text-sm rounded-md border border-input bg-background dark:bg-gray-800 dark:text-white dark:border-gray-600"
               >
                 <option value="all">All Academic Years</option>
                 {academicYears.map(year => (
-                  <option key={year.id} value={year.id}>
-                    {year.name}
-                  </option>
+                  <option key={year.id} value={year.id}>{year.name}</option>
                 ))}
               </select>
-              {(searchTerm || filterMentor !== 'all' || filterYear !== 'all' || filterStatus !== 'all' || filterAcademicYear !== 'all') && (
+              {(searchTerm || filterMentor !== 'all' || filterYear !== 'all' || filterStatus !== 'ACTIVE' || filterAcademicYear !== 'all') && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setSearchTerm('')
                     setFilterMentor('all')
                     setFilterYear('all')
-                    setFilterStatus('all')
+                    setFilterStatus('ACTIVE')
                     setFilterAcademicYear('all')
                   }}
+                  className="text-xs h-9"
                 >
-                  Clear Filters
+                  Clear
                 </Button>
               )}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Enrollments Table */}
-        <Card>
+          </div>
           <CardContent className="p-0">
             {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto">
