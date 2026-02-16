@@ -345,7 +345,7 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-8 overflow-x-hidden">
       <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
@@ -654,7 +654,7 @@ export default function AttendancePage() {
             </Card>
 
             {/* Mobile Card Layout - Compact */}
-            <div className="md:hidden space-y-2 pb-20">
+            <div className="md:hidden space-y-2 pb-20 overflow-x-hidden">
               {filteredStudents.map((student, index) => {
                 const record = attendance.get(student.id)
                 const yearLevel = student.enrollments[0]?.yearLevel
@@ -663,87 +663,86 @@ export default function AttendancePage() {
 
                 return (
                   <Card key={student.id} className="overflow-hidden">
-                    <CardContent className="p-3">
-                      {/* Compact Row - Always Visible */}
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <span className="text-[10px] sm:text-xs text-gray-400 w-4 sm:w-5 shrink-0">{index + 1}</span>
+                    <CardContent className="p-2 sm:p-3">
+                      {/* Row 1: Index, Avatar, Name, Year Badge, Expand */}
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="text-[10px] sm:text-xs text-gray-400 w-4 shrink-0">{index + 1}</span>
                         <Avatar className="h-6 w-6 shrink-0">
                           {student.profileImageUrl && (
-                            <AvatarImage src={student.profileImageUrl} alt={student.name} />
+                            <AvatarImage src={student.profileImageUrl} alt={student.name} className="object-cover" />
                           )}
                           <AvatarFallback className="bg-maroon-600 text-white text-[9px]">
                             {student.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1 sm:gap-2">
-                            <span className="font-medium text-xs sm:text-sm leading-tight line-clamp-2 sm:truncate">{student.name}</span>
-                            <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0 px-1 sm:px-2">
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium text-xs sm:text-sm leading-tight truncate">{student.name}</span>
+                            <Badge variant="outline" className="text-[10px] shrink-0 px-1">
                               {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
                             </Badge>
                           </div>
                         </div>
-                        {/* Status Buttons */}
-                        <div className="flex gap-0.5 sm:gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
-                            disabled={!userCanManageData}
-                            className={`p-1.5 sm:p-2 rounded transition-colors ${
-                              currentStatus === 'PRESENT'
-                                ? 'bg-green-500 text-white'
-                                : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                          >
-                            <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateAttendance(student.id, 'status', 'LATE')}
-                            disabled={!userCanManageData}
-                            className={`p-1.5 sm:p-2 rounded transition-colors ${
-                              currentStatus === 'LATE'
-                                ? 'bg-yellow-500 text-white'
-                                : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                          >
-                            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
-                            disabled={!userCanManageData}
-                            className={`p-1.5 sm:p-2 rounded transition-colors ${
-                              currentStatus === 'ABSENT'
-                                ? 'bg-red-500 text-white'
-                                : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                          >
-                            <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
-                            disabled={!userCanManageData}
-                            className={`p-1.5 sm:p-2 rounded transition-colors ${
-                              currentStatus === 'EXCUSED'
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                          >
-                            <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          </button>
-                        </div>
-                        {/* Expand button for details */}
                         {!compactMode && (
                           <button
                             type="button"
                             onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
-                            className="p-1 text-gray-400 hover:text-gray-600"
+                            className="p-1 text-gray-400 hover:text-gray-600 shrink-0"
                           >
-                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                           </button>
                         )}
+                      </div>
+                      {/* Row 2: Status Buttons - full width */}
+                      <div className="flex gap-1 mt-1.5 ml-[calc(1rem+1.5rem+0.375rem)] sm:ml-[calc(1rem+1.5rem+0.5rem)]">
+                        <button
+                          type="button"
+                          onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
+                          disabled={!userCanManageData}
+                          className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
+                            currentStatus === 'PRESENT'
+                              ? 'bg-green-500 text-white'
+                              : 'bg-gray-100 text-gray-500'
+                          } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                        >
+                          <Check className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateAttendance(student.id, 'status', 'LATE')}
+                          disabled={!userCanManageData}
+                          className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
+                            currentStatus === 'LATE'
+                              ? 'bg-yellow-500 text-white'
+                              : 'bg-gray-100 text-gray-500'
+                          } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                        >
+                          <Clock className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
+                          disabled={!userCanManageData}
+                          className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
+                            currentStatus === 'ABSENT'
+                              ? 'bg-red-500 text-white'
+                              : 'bg-gray-100 text-gray-500'
+                          } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
+                          disabled={!userCanManageData}
+                          className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
+                            currentStatus === 'EXCUSED'
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-100 text-gray-500'
+                          } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                        >
+                          <Shield className="h-3 w-3" />
+                        </button>
                       </div>
 
                       {/* Expanded Details */}

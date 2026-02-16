@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getRoleDisplayName } from '@/lib/roles'
 import { toast } from 'sonner'
 import { Camera, Trash2 } from 'lucide-react'
+import { ImageCropDialog } from '@/components/image-crop-dialog'
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession()
@@ -23,6 +24,8 @@ export default function SettingsPage() {
   // Profile picture
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [removingPhoto, setRemovingPhoto] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
 
   // Password change
   const [currentPassword, setCurrentPassword] = useState('')
@@ -64,9 +67,12 @@ export default function SettingsPage() {
     }
   }
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Reset input so re-selecting the same file works
+    e.target.value = ''
 
     const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif']
     if (!allowedTypes.includes(file.type)) {
@@ -79,10 +85,21 @@ export default function SettingsPage() {
       return
     }
 
+    // Open crop dialog
+    setPendingFile(file)
+    const reader = new FileReader()
+    reader.onload = () => setCropImageSrc(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setCropImageSrc(null)
     setUploadingPhoto(true)
     try {
+      const fileName = pendingFile?.name || 'profile.jpg'
+      const croppedFile = new File([croppedBlob], fileName, { type: 'image/jpeg' })
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', croppedFile)
 
       const res = await fetch('/api/profile-picture/upload', {
         method: 'POST',
@@ -102,7 +119,13 @@ export default function SettingsPage() {
       toast.error('Failed to upload photo')
     } finally {
       setUploadingPhoto(false)
+      setPendingFile(null)
     }
+  }
+
+  const handleCropCancel = () => {
+    setCropImageSrc(null)
+    setPendingFile(null)
   }
 
   const handleRemovePhoto = async () => {
@@ -253,18 +276,27 @@ export default function SettingsPage() {
                     </Button>
                   )}
                 </div>
-                <p className="text-xs text-gray-500">PNG, JPG, or GIF. Max 4.5 MB.</p>
+                <p className="text-xs text-gray-500">PNG, JPG, or GIF. Max 4.5 MB. Use a close-up of your face.</p>
                 <input
                   id="profile-photo-input"
                   type="file"
                   accept="image/png,image/jpeg,image/jpg,image/gif"
                   className="hidden"
-                  onChange={handlePhotoUpload}
+                  onChange={handlePhotoSelect}
                 />
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Crop Dialog */}
+        {cropImageSrc && (
+          <ImageCropDialog
+            imageSrc={cropImageSrc}
+            onCropComplete={handleCropComplete}
+            onCancel={handleCropCancel}
+          />
+        )}
 
         {/* Update Name */}
         <Card>
