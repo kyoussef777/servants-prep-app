@@ -72,6 +72,15 @@ export async function POST(
     // Handle APPROVED
     if (status === "APPROVED") {
       const result = await prisma.$transaction(async (tx) => {
+        // Re-fetch inside transaction for fresh state (prevents race condition)
+        const current = await tx.asyncNoteSubmission.findUnique({
+          where: { id },
+          select: { status: true }
+        })
+        if (current?.status === NoteSubmissionStatus.APPROVED) {
+          throw new Error("Submission has already been approved")
+        }
+
         // Create or update attendance record (PRESENT, recorded by reviewer)
         const attendanceRecord = await tx.attendanceRecord.upsert({
           where: {
@@ -137,6 +146,15 @@ export async function POST(
     // Handle REJECTED
     if (status === "REJECTED") {
       const result = await prisma.$transaction(async (tx) => {
+        // Re-fetch inside transaction for fresh state (prevents race condition)
+        const current = await tx.asyncNoteSubmission.findUnique({
+          where: { id },
+          select: { status: true, attendanceRecordId: true }
+        })
+        if (current?.status === NoteSubmissionStatus.REJECTED) {
+          throw new Error("Submission has already been rejected")
+        }
+
         // If previously approved, delete the linked attendance record
         if (
           submission.status === NoteSubmissionStatus.APPROVED &&
@@ -190,6 +208,15 @@ export async function POST(
     // Handle PENDING (revert)
     if (status === "PENDING") {
       const result = await prisma.$transaction(async (tx) => {
+        // Re-fetch inside transaction for fresh state (prevents race condition)
+        const current = await tx.asyncNoteSubmission.findUnique({
+          where: { id },
+          select: { status: true, attendanceRecordId: true }
+        })
+        if (current?.status === NoteSubmissionStatus.PENDING) {
+          throw new Error("Submission is already pending")
+        }
+
         // Delete linked attendance record if it exists
         if (submission.attendanceRecordId) {
           await tx.attendanceRecord.delete({

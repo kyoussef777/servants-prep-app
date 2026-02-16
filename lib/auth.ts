@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
+import { checkLoginRateLimit, resetLoginRateLimit } from "./rate-limit"
 
 async function getUserSessionData(user: { id: string; role: UserRole }) {
   let isAsyncStudent = false
@@ -37,6 +38,12 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials")
         }
 
+        // Rate limit check
+        const rateLimit = checkLoginRateLimit(credentials.email)
+        if (!rateLimit.allowed) {
+          throw new Error(`Too many login attempts. Please try again in ${rateLimit.retryAfterSeconds} seconds.`)
+        }
+
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
@@ -60,6 +67,9 @@ export const authOptions: NextAuthOptions = {
         if (!isCorrectPassword) {
           throw new Error("Invalid credentials")
         }
+
+        // Successful login - reset rate limit
+        resetLoginRateLimit(credentials.email)
 
         const { isAsyncStudent } = await getUserSessionData(user)
 
@@ -85,12 +95,8 @@ export const authOptions: NextAuthOptions = {
           where: { email: user.email }
         })
 
-        if (!existingUser) {
-          return "/login?error=NoAccount"
-        }
-
-        if (existingUser.isDisabled) {
-          return "/login?error=AccountDisabled"
+        if (!existingUser || existingUser.isDisabled) {
+          return "/login?error=GoogleSignInFailed"
         }
 
         return true

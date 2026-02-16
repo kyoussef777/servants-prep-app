@@ -33,6 +33,26 @@ export async function GET(request: Request) {
 
     // academicYearId is now optional - if not provided, aggregate across all years
 
+    // Mentors can only view their own mentees' analytics
+    if (user.role === UserRole.MENTOR) {
+      const menteeEnrollments = await prisma.studentEnrollment.findMany({
+        where: { mentorId: user.id, isActive: true },
+        select: { studentId: true }
+      })
+      const menteeIds = new Set(menteeEnrollments.map(e => e.studentId))
+
+      if (studentIdsParam) {
+        const requestedIds = studentIdsParam.split(',').filter(id => id.trim())
+        const unauthorized = requestedIds.filter(id => !menteeIds.has(id))
+        if (unauthorized.length > 0) {
+          return NextResponse.json(
+            { error: "Forbidden" },
+            { status: 403 }
+          )
+        }
+      }
+    }
+
     // Build enrollment filter - if studentIds provided, filter to those; otherwise get all active
     const enrollmentFilter: { isActive: boolean; studentId?: { in: string[] } } = {
       isActive: true

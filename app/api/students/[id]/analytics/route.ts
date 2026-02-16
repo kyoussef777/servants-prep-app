@@ -38,6 +38,20 @@ export async function GET(
       )
     }
 
+    // Mentors can only view their own mentees' analytics
+    if (user.role === UserRole.MENTOR) {
+      const enrollment = await prisma.studentEnrollment.findUnique({
+        where: { studentId },
+        select: { mentorId: true }
+      })
+      if (!enrollment || enrollment.mentorId !== user.id) {
+        return NextResponse.json(
+          { error: "Forbidden" },
+          { status: 403 }
+        )
+      }
+    }
+
     const { searchParams } = new URL(request.url)
     let academicYearId = searchParams.get('academicYearId')
 

@@ -45,10 +45,8 @@ function LoginForm() {
   // Show error from URL params (e.g., Google sign-in rejection)
   useEffect(() => {
     const errorParam = searchParams.get('error')
-    if (errorParam === 'NoAccount') {
-      setError('No account found with this Google email. Please sign in with your credentials or contact an administrator.')
-    } else if (errorParam === 'AccountDisabled') {
-      setError('Your account has been disabled. Please contact an administrator.')
+    if (errorParam === 'GoogleSignInFailed') {
+      setError('Unable to sign in with this Google account. Please use your credentials or contact an administrator.')
     }
   }, [searchParams])
 
