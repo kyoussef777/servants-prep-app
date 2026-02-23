@@ -10,23 +10,11 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { PageLoading } from '@/components/ui/page-loading'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
 import { formatDateUTC } from '@/lib/utils'
-
-interface AcademicYear {
-  id: string
-  name: string
-  isActive: boolean
-}
-
-interface ExamSection {
-  id: string
-  name: string
-  displayName: string
-  passingScore: number
-  averageRequirement: number
-}
+import type { AcademicYear, ExamSection } from '@/lib/types'
 
 interface Exam {
   id: string
@@ -62,11 +50,7 @@ interface ExamScore {
 
 export default function ExamsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    }>
+    <Suspense fallback={<PageLoading />}>
       <ExamsPageContent />
     </Suspense>
   )
@@ -437,11 +421,7 @@ function ExamsPageContent() {
   const canEdit = session?.user?.role && canManageExams(session.user.role)
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   return (

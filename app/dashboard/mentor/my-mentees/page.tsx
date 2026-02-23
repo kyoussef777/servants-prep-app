@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { UserRole } from '@prisma/client'
+import { PageLoading } from '@/components/ui/page-loading'
 import { getRoleDisplayName, isAdmin } from '@/lib/roles'
 import {
   Users,
@@ -198,11 +199,7 @@ export default function MyMenteesPage() {
   }, [expandedMentee, mentees])
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   const isPriest = session?.user?.role === 'PRIEST'

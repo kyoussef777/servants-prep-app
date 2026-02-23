@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { PageLoading } from '@/components/ui/page-loading'
 import { isAdmin } from '@/lib/roles'
+import type { AcademicYear } from '@/lib/types'
 import { toast } from 'sonner'
 import { ChevronUp, ChevronDown, ChevronRight, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, XCircle, GraduationCap } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
@@ -63,14 +65,6 @@ interface StudentAnalytics {
   attendanceMet: boolean
   examAverageMet: boolean
   allSectionsMet: boolean
-}
-
-interface AcademicYear {
-  id: string
-  name: string
-  startDate: string
-  endDate: string
-  isActive: boolean
 }
 
 interface ExamScore {
@@ -497,11 +491,7 @@ function StudentsManagementContent() {
   }
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   const filteredStudents = getFilteredStudents()

@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { PageLoading } from '@/components/ui/page-loading'
 import { isAdmin, canAssignMentors, canManageUsers } from '@/lib/roles'
 import { useDashboardStats } from '@/lib/swr'
 import {
@@ -132,11 +133,7 @@ export default function AdminDashboard() {
   }, [status])
 
   if (status === 'loading' || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   const userRole = session?.user?.role

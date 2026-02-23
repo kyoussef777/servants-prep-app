@@ -25,6 +25,7 @@ import { UserRole } from '@prisma/client'
 import { toast } from 'sonner'
 import { Camera, Trash2, Pencil, X } from 'lucide-react'
 import { ImageCropDialog } from '@/components/image-crop-dialog'
+import { PageLoading } from '@/components/ui/page-loading'
 
 interface User {
   id: string
@@ -450,11 +451,7 @@ export default function UsersPage() {
   const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   // SERVANT_PREP can only create STUDENT and MENTOR users, SUPER_ADMIN can create all

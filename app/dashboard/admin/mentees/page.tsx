@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { PageLoading } from '@/components/ui/page-loading'
 import { isAdmin } from "@/lib/roles"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -156,11 +157,7 @@ export default function MenteesPage() {
   }, [session])
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   const atRiskMentees = mentees.filter(m => m.analytics && !m.analytics.graduation.eligible)

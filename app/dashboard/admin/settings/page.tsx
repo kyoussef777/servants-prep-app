@@ -26,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { PageLoading } from '@/components/ui/page-loading'
 import { isAdmin } from '@/lib/roles'
 import { toast } from 'sonner'
 import { Calendar, Plus, Pencil, Trash2, Check, BookOpen, GraduationCap } from 'lucide-react'
@@ -246,11 +247,7 @@ export default function SettingsPage() {
   }
 
   if (status === 'loading' || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   return (
