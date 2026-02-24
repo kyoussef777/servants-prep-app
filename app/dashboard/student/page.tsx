@@ -7,15 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { PageLoading } from '@/components/ui/page-loading'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-
-interface MissingExam {
-  id: string
-  examDate: string
-  totalPoints: number
-  yearLevel: string
-  sectionName: string
-  sectionDisplayName: string
-}
+import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
+import type { AttendanceAnalytics, ExamAnalytics, GraduationStatus } from '@/lib/types'
 
 interface Analytics {
   enrollment: {
@@ -35,41 +28,9 @@ interface Analytics {
       email: string
     }
   }
-  attendance: {
-    totalLessons: number
-    allLessons: number
-    presentCount: number
-    lateCount: number
-    absentCount: number
-    excusedCount: number
-    effectivePresent: number
-    percentage: number | null
-    met: boolean
-    required: number
-  }
-  exams: {
-    sectionAverages: Array<{
-      section: string
-      average: number
-      scores: number[]
-      passingMet: boolean
-    }>
-    overallAverage: number | null
-    overallAverageMet: boolean
-    allSectionsPassing: boolean
-    requiredAverage: number
-    requiredMinimum: number
-    missingExams: MissingExam[]
-    totalApplicableExams: number
-    examsTaken: number
-  }
-  graduation: {
-    eligible: boolean
-    attendanceMet: boolean
-    overallAverageMet: boolean
-    allSectionsPassing: boolean
-    sundaySchoolMet?: boolean
-  }
+  attendance: AttendanceAnalytics
+  exams: ExamAnalytics
+  graduation: GraduationStatus
   asyncNotes?: {
     total: number
     pending: number
@@ -166,16 +127,6 @@ export default function StudentDashboard() {
     )
   }
 
-  const sectionDisplayNames: { [key: string]: string } = {
-    BIBLE_STUDIES: 'Bible Studies',
-    DOGMA: 'Dogma',
-    COMPARATIVE_THEOLOGY: 'Comparative Theology',
-    RITUAL_THEOLOGY_SACRAMENTS: 'Ritual Theology & Sacraments',
-    CHURCH_HISTORY_COPTIC_HERITAGE: 'Church History & Coptic Heritage',
-    SPIRITUALITY_OF_SERVANT: 'Spirituality of the Servant',
-    PSYCHOLOGY_METHODOLOGY: 'Psychology & Methodology',
-    MISCELLANEOUS: 'Miscellaneous',
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -395,7 +346,7 @@ export default function StudentDashboard() {
               {analytics.exams.sectionAverages.length > 0 ? (
                 analytics.exams.sectionAverages.map((sectionData) => (
                   <div key={sectionData.section} className="flex justify-between items-center">
-                    <span className="text-sm">{sectionDisplayNames[sectionData.section] || sectionData.section}</span>
+                    <span className="text-sm">{SECTION_DISPLAY_NAMES[sectionData.section] || sectionData.section}</span>
                     <span className={`text-sm font-medium ${sectionData.passingMet ? 'text-green-600' : 'text-red-600'}`}>
                       {sectionData.average.toFixed(1)}% {sectionData.passingMet ? '✓' : '❌'}
                     </span>

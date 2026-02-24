@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { canManageCurriculum } from '@/lib/roles'
 import { toast } from 'sonner'
+import { formatToastTimestamp } from '@/lib/utils'
 import {
   DndContext,
   closestCenter,
@@ -272,10 +273,7 @@ export default function CurriculumPage() {
       const now = new Date()
       setLastSaved(now)
       toast.success(`Saved ${updates.length} lesson${updates.length > 1 ? 's' : ''}`, {
-        description: now.toLocaleString('en-US', {
-          month: 'short', day: 'numeric', year: 'numeric',
-          hour: 'numeric', minute: '2-digit',
-        }),
+        description: formatToastTimestamp(now),
       })
     } catch (error) {
       console.error('Failed to save:', error)
@@ -375,10 +373,7 @@ export default function CurriculumPage() {
       const now = new Date()
       setLastSaved(now)
       toast.success('Lesson created', {
-        description: now.toLocaleString('en-US', {
-          month: 'short', day: 'numeric', year: 'numeric',
-          hour: 'numeric', minute: '2-digit',
-        }),
+        description: formatToastTimestamp(now),
       })
     } catch (error) {
       console.error('Failed to create lesson:', error)

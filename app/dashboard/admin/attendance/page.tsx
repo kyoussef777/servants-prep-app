@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,7 +13,7 @@ import { PageHeader } from '@/components/admin/page-header'
 import { isAdmin, canManageData } from '@/lib/roles'
 import { ChevronDown, ChevronRight, Calendar, Settings2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDateUTC } from '@/lib/utils'
+import { formatDateUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
 import type { AcademicYear } from '@/lib/types'
 
 interface Lesson {
@@ -52,8 +51,7 @@ interface AttendanceRecord {
 }
 
 export default function AttendancePage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(isAdmin)
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
   const [students, setStudents] = useState<Student[]>([])
@@ -73,14 +71,6 @@ export default function AttendancePage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
   const [viewingPhoto, setViewingPhoto] = useState<{ name: string; url: string } | null>(null)
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !isAdmin(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   // Fetch academic years and students on mount
   useEffect(() => {
@@ -111,25 +101,8 @@ export default function AttendancePage() {
         setSelectedYearId(activeYear?.id || 'all')
 
         // Build student map from enrollments
-        const studentMap = new Map()
-        if (Array.isArray(enrollmentsData)) {
-          for (const enrollment of enrollmentsData) {
-            if (enrollment.isActive) {
-              const student = enrollment.student
-              if (!studentMap.has(student.id)) {
-                studentMap.set(student.id, {
-                  ...student,
-                  enrollments: []
-                })
-              }
-              studentMap.get(student.id).enrollments.push({
-                yearLevel: enrollment.yearLevel,
-                mentorId: enrollment.mentor?.id
-              })
-            }
-          }
-        }
-        setStudents(Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name)))
+        const studentList = buildStudentMapFromEnrollments(enrollmentsData)
+        setStudents(studentList.sort((a, b) => a.name.localeCompare(b.name)) as unknown as Student[])
       } catch {
         setStudents([])
         setAcademicYears([])
@@ -264,13 +237,7 @@ export default function AttendancePage() {
       setLastSaved(now)
       setHasUnsavedChanges(false)
       toast.success('Attendance saved successfully!', {
-        description: `${result.created} created, ${result.updated} updated • ${now.toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        })}`
+        description: `${result.created} created, ${result.updated} updated • ${formatToastTimestamp(now)}`
       })
       setSelectedLesson(null)
     } catch (error) {

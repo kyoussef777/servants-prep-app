@@ -40,6 +40,69 @@ export interface StudentEnrollment {
   graduatedAcademicYear?: AcademicYear | null
 }
 
+/**
+ * Analytics sub-types shared between mentees pages, student dashboard, and admin dashboard.
+ */
+
+export interface SectionAverage {
+  section: string
+  average: number
+  scores: number[]
+  passingMet: boolean
+}
+
+export interface MissingExam {
+  id: string
+  examDate: string
+  totalPoints: number
+  yearLevel: string
+  sectionName: string
+  sectionDisplayName: string
+}
+
+export interface AttendanceAnalytics {
+  totalLessons: number
+  allLessons: number
+  presentCount: number
+  lateCount: number
+  absentCount: number
+  excusedCount: number
+  effectivePresent: number
+  percentage: number | null
+  met: boolean
+  required: number
+}
+
+export interface ExamAnalytics {
+  sectionAverages: SectionAverage[]
+  overallAverage: number | null
+  overallAverageMet: boolean
+  allSectionsPassing: boolean
+  requiredAverage: number
+  requiredMinimum: number
+  missingExams: MissingExam[]
+  totalApplicableExams: number
+  examsTaken: number
+}
+
+export interface GraduationStatus {
+  eligible: boolean
+  attendanceMet: boolean
+  overallAverageMet: boolean
+  allSectionsPassing: boolean
+  sundaySchoolMet?: boolean
+}
+
+export interface MenteeAnalytics {
+  enrollment: {
+    yearLevel: string
+    status: string
+  }
+  attendance: AttendanceAnalytics
+  exams: ExamAnalytics
+  graduation: GraduationStatus
+}
+
 export interface StudentAnalytics {
   studentId: string
   studentName: string

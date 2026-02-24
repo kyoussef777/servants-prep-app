@@ -1,8 +1,7 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,8 +43,7 @@ interface AcademicYear {
 }
 
 export default function SettingsPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { status } = useAdminGuard(isAdmin)
 
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,14 +60,6 @@ export default function SettingsPage() {
   const [formStartDate, setFormStartDate] = useState('')
   const [formEndDate, setFormEndDate] = useState('')
   const [formIsActive, setFormIsActive] = useState(false)
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !isAdmin(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     fetchAcademicYears()

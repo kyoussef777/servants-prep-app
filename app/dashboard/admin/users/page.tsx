@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,8 +40,7 @@ interface User {
 }
 
 export default function UsersPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(canManageUsers)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [isFiltering, setIsFiltering] = useState(false)
@@ -85,14 +83,6 @@ export default function UsersPage() {
     role: 'STUDENT' as UserRole
   })
   const [formError, setFormError] = useState('')
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !canManageUsers(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   const fetchUsers = useCallback(async (search?: string, role?: string, isInitialLoad = false) => {
     try {

@@ -13,6 +13,8 @@ import { toast } from 'sonner'
 import { UserRole } from '@prisma/client'
 import { PageLoading } from '@/components/ui/page-loading'
 import { getRoleDisplayName, isAdmin } from '@/lib/roles'
+import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
+import type { MenteeAnalytics } from '@/lib/types'
 import {
   Users,
   AlertTriangle,
@@ -39,22 +41,6 @@ interface StudentNote {
   }
 }
 
-interface SectionAverage {
-  section: string
-  average: number
-  scores: number[]
-  passingMet: boolean
-}
-
-interface MissingExam {
-  id: string
-  examDate: string
-  totalPoints: number
-  yearLevel: string
-  sectionName: string
-  sectionDisplayName: string
-}
-
 interface Mentee {
   id: string
   student: {
@@ -65,53 +51,9 @@ interface Mentee {
   }
   yearLevel: string
   status: string
-  analytics?: {
-    enrollment: {
-      yearLevel: string
-      status: string
-    }
-    attendance: {
-      totalLessons: number
-      allLessons: number
-      presentCount: number
-      lateCount: number
-      absentCount: number
-      excusedCount: number
-      effectivePresent: number
-      percentage: number | null
-      met: boolean
-      required: number
-    }
-    exams: {
-      sectionAverages: SectionAverage[]
-      overallAverage: number | null
-      overallAverageMet: boolean
-      allSectionsPassing: boolean
-      requiredAverage: number
-      requiredMinimum: number
-      missingExams: MissingExam[]
-      totalApplicableExams: number
-      examsTaken: number
-    }
-    graduation: {
-      eligible: boolean
-      attendanceMet: boolean
-      overallAverageMet: boolean
-      allSectionsPassing: boolean
-    }
-  }
+  analytics?: MenteeAnalytics
 }
 
-const SECTION_DISPLAY_NAMES: { [key: string]: string } = {
-  'BIBLE_STUDIES': 'Bible Studies',
-  'DOGMA': 'Dogma',
-  'COMPARATIVE_THEOLOGY': 'Comparative Theology',
-  'RITUAL_THEOLOGY_SACRAMENTS': 'Ritual & Sacraments',
-  'CHURCH_HISTORY_COPTIC_HERITAGE': 'Church History',
-  'SPIRITUALITY_OF_SERVANT': 'Spirituality',
-  'PSYCHOLOGY_METHODOLOGY': 'Psychology & Methodology',
-  'MISCELLANEOUS': 'Miscellaneous'
-}
 
 export default function MyMenteesPage() {
   const { data: session, status } = useSession()

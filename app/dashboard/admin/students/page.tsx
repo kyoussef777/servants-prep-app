@@ -1,8 +1,8 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { PageLoading } from '@/components/ui/page-loading'
 import { isAdmin } from '@/lib/roles'
 import type { AcademicYear } from '@/lib/types'
+import { formatToastTimestamp } from '@/lib/utils'
 import { toast } from 'sonner'
 import { ChevronUp, ChevronDown, ChevronRight, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, XCircle, GraduationCap } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
@@ -148,7 +149,7 @@ interface StudentDetails {
 }
 
 function StudentsManagementContent() {
-  const { data: session, status } = useSession()
+  const { session, status } = useAdminGuard(isAdmin)
   const router = useRouter()
   const searchParams = useSearchParams()
   const [students, setStudents] = useState<Student[]>([])
@@ -167,14 +168,6 @@ function StudentsManagementContent() {
   const [studentDetails, setStudentDetails] = useState<StudentDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [, setAcademicYearId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !isAdmin(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     if (session?.user) {
@@ -310,13 +303,7 @@ function StudentsManagementContent() {
       const now = new Date()
       setLastSaved(now)
       toast.success(`Updated ${enrollmentIds.length} student(s) to ${yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}`, {
-        description: now.toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        })
+        description: formatToastTimestamp(now)
       })
 
       await fetchStudents()
@@ -357,13 +344,7 @@ function StudentsManagementContent() {
       setLastSaved(now)
       const statusText = status === 'GRADUATED' ? 'Graduated' : status === 'WITHDRAWN' ? 'Withdrawn' : 'Active'
       toast.success(`Marked ${enrollmentIds.length} student(s) as ${statusText}`, {
-        description: now.toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        })
+        description: formatToastTimestamp(now)
       })
 
       await fetchStudents()
@@ -399,13 +380,7 @@ function StudentsManagementContent() {
       toast.success(`Graduated ${enrollmentIds.length} student(s)`, {
         description: graduationNote
           ? 'Exception noted: ' + graduationNote.substring(0, 50) + (graduationNote.length > 50 ? '...' : '')
-          : now.toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit'
-            })
+          : formatToastTimestamp(now)
       })
 
       await fetchStudents()
@@ -509,13 +484,7 @@ function StudentsManagementContent() {
           <p className="text-gray-600 mt-1">Manage student year levels, graduation status, and notes</p>
           {lastSaved && (
             <p className="text-xs text-gray-500 mt-1">
-              Last saved {lastSaved.toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit'
-              })}
+              Last saved {formatToastTimestamp(lastSaved)}
             </p>
           )}
         </div>

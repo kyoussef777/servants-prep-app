@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -53,8 +52,7 @@ interface Mentor {
 }
 
 export default function EnrollmentsPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(canAssignMentors)
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
@@ -73,14 +71,6 @@ export default function EnrollmentsPage() {
   const [editingFather, setEditingFather] = useState<FatherOfConfession | null>(null)
   const [fatherForm, setFatherForm] = useState({ name: '', phone: '', church: '' })
   const [savingFather, setSavingFather] = useState(false)
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !canAssignMentors(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     const fetchData = async () => {
