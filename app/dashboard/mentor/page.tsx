@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { PageLoading } from '@/components/ui/page-loading'
 import { useEnrollments, useClassAverages, useMenteeAnalytics } from '@/lib/swr'
 import { Users, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react'
 
@@ -110,11 +111,7 @@ export default function MentorDashboard() {
   const isLoading = classLoading || menteeLoading
 
   if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   const classData = classAverages as ClassAveragesData | undefined

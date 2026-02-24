@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { PageLoading } from '@/components/ui/page-loading'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -180,7 +181,7 @@ export default function AsyncNotesPage() {
   }
 
   if (loading || authStatus === 'loading') {
-    return <div className="min-h-screen flex items-center justify-center"><div className="text-lg">Loading...</div></div>
+    return <PageLoading />
   }
 
   return (

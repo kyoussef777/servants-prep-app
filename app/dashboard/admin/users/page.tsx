@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,6 +24,7 @@ import { UserRole } from '@prisma/client'
 import { toast } from 'sonner'
 import { Camera, Trash2, Pencil, X } from 'lucide-react'
 import { ImageCropDialog } from '@/components/image-crop-dialog'
+import { PageLoading } from '@/components/ui/page-loading'
 
 interface User {
   id: string
@@ -40,8 +40,7 @@ interface User {
 }
 
 export default function UsersPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(canManageUsers)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [isFiltering, setIsFiltering] = useState(false)
@@ -84,14 +83,6 @@ export default function UsersPage() {
     role: 'STUDENT' as UserRole
   })
   const [formError, setFormError] = useState('')
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !canManageUsers(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   const fetchUsers = useCallback(async (search?: string, role?: string, isInitialLoad = false) => {
     try {
@@ -450,11 +441,7 @@ export default function UsersPage() {
   const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   // SERVANT_PREP can only create STUDENT and MENTOR users, SUPER_ADMIN can create all

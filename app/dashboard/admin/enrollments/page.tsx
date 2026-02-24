@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,14 +10,11 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from '@/lib/roles'
+import { PageLoading } from '@/components/ui/page-loading'
+import type { AcademicYear } from '@/lib/types'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users } from 'lucide-react'
-
-interface AcademicYear {
-  id: string
-  name: string
-}
 
 interface FatherOfConfession {
   id: string
@@ -56,8 +52,7 @@ interface Mentor {
 }
 
 export default function EnrollmentsPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(canAssignMentors)
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
@@ -76,14 +71,6 @@ export default function EnrollmentsPage() {
   const [editingFather, setEditingFather] = useState<FatherOfConfession | null>(null)
   const [fatherForm, setFatherForm] = useState({ name: '', phone: '', church: '' })
   const [savingFather, setSavingFather] = useState(false)
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !canAssignMentors(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -305,11 +292,7 @@ export default function EnrollmentsPage() {
   const canEdit = session?.user?.role && canManageEnrollments(session.user.role)
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   // Filter enrollments

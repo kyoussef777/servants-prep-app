@@ -1,13 +1,13 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { PageLoading } from '@/components/ui/page-loading'
 import { isAdmin, canAssignMentors, canManageUsers } from '@/lib/roles'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useDashboardStats } from '@/lib/swr'
 import {
   Users,
@@ -95,21 +95,12 @@ interface Analytics {
 }
 
 export default function AdminDashboard() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(isAdmin)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [, setAnalyticsLoading] = useState(true)
 
   // Use SWR for caching - automatically revalidates and caches
   const { data: stats, isLoading } = useDashboardStats()
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !isAdmin(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -132,11 +123,7 @@ export default function AdminDashboard() {
   }, [status])
 
   if (status === 'loading' || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   const userRole = session?.user?.role

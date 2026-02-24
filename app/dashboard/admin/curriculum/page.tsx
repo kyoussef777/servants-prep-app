@@ -5,12 +5,11 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { canManageCurriculum } from '@/lib/roles'
 import { toast } from 'sonner'
-import { formatDateUTC } from '@/lib/utils'
+import { formatToastTimestamp } from '@/lib/utils'
 import {
   DndContext,
   closestCenter,
@@ -25,757 +24,14 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-
-interface LessonResource {
-  id: string
-  title: string
-  url: string
-  type?: string
-}
-
-interface Lesson {
-  id: string
-  title: string
-  subtitle?: string
-  description?: string
-  speaker?: string
-  scheduledDate: string
-  lessonNumber: number
-  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'NO_CLASS'
-  cancellationReason?: string
-  isExamDay: boolean
-  examSection: {
-    id: string
-    displayName: string
-    name: string
-  }
-  academicYear?: {
-    id: string
-    name: string
-  }
-  resources: LessonResource[]
-  _count: {
-    attendanceRecords: number
-  }
-}
-
-interface Section {
-  id: string
-  name: string
-  displayName: string
-}
-
-interface AcademicYear {
-  id: string
-  name: string
-  isActive: boolean
-}
-
-// Track edits per lesson
-interface LessonEdits {
-  title?: string
-  speaker?: string
-  examSectionId?: string
-  isExamDay?: boolean
-  scheduledDate?: string
-  status?: string
-  subtitle?: string
-  description?: string
-  cancellationReason?: string
-  resources?: { title: string; url: string }[]
-}
-
-// ─── Editable Expanded Details (shared by desktop and mobile) ───────────────
-
-function ExpandedEditableDetails({
-  lesson,
-  edits,
-  onEdit,
-  onEditResources,
-}: {
-  lesson: Lesson
-  edits: LessonEdits | undefined
-  onEdit: (id: string, field: keyof LessonEdits, value: string | boolean) => void
-  onEditResources: (id: string, resources: { title: string; url: string }[]) => void
-}) {
-  const currentSubtitle = edits?.subtitle ?? lesson.subtitle ?? ''
-  const currentDescription = edits?.description ?? lesson.description ?? ''
-  const currentCancellationReason = edits?.cancellationReason ?? lesson.cancellationReason ?? ''
-  const currentStatus = (edits?.status ?? lesson.status) as Lesson['status']
-  const currentResources: { title: string; url: string }[] = edits?.resources ?? lesson.resources.map(r => ({ title: r.title, url: r.url }))
-
-  const handleResourceChange = (idx: number, field: 'title' | 'url', value: string) => {
-    const updated = [...currentResources]
-    updated[idx] = { ...updated[idx], [field]: value }
-    onEditResources(lesson.id, updated)
-  }
-
-  const handleRemoveResource = (idx: number) => {
-    const updated = currentResources.filter((_, i) => i !== idx)
-    onEditResources(lesson.id, updated)
-  }
-
-  const handleAddResource = () => {
-    onEditResources(lesson.id, [...currentResources, { title: '', url: '' }])
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      {/* Subtitle */}
-      <div>
-        <label className="text-xs font-medium text-gray-500">Subtitle</label>
-        <Input
-          value={currentSubtitle}
-          onChange={(e) => onEdit(lesson.id, 'subtitle', e.target.value)}
-          className="h-8 text-sm mt-0.5"
-          placeholder="Subtitle (optional)"
-        />
-      </div>
-
-      {/* Cancellation reason - only when CANCELLED */}
-      {currentStatus === 'CANCELLED' && (
-        <div>
-          <label className="text-xs font-medium text-gray-500">Cancellation Reason</label>
-          <Textarea
-            value={currentCancellationReason}
-            onChange={(e) => onEdit(lesson.id, 'cancellationReason', e.target.value)}
-            className="text-sm mt-0.5 min-h-[60px]"
-            placeholder="Reason for cancellation"
-          />
-        </div>
-      )}
-
-      {/* Description */}
-      <div className="md:col-span-2">
-        <label className="text-xs font-medium text-gray-500">Description</label>
-        <Textarea
-          value={currentDescription}
-          onChange={(e) => onEdit(lesson.id, 'description', e.target.value)}
-          className="text-sm mt-0.5 min-h-[80px]"
-          placeholder="Lesson description (optional)"
-        />
-      </div>
-
-      {/* Resources */}
-      <div className="md:col-span-2">
-        <label className="text-xs font-medium text-gray-500">Resources</label>
-        <div className="space-y-2 mt-1">
-          {currentResources.map((resource, idx) => (
-            <div key={idx} className="flex gap-2 items-center">
-              <Input
-                value={resource.title}
-                onChange={(e) => handleResourceChange(idx, 'title', e.target.value)}
-                className="h-8 text-sm flex-1"
-                placeholder="Resource title"
-              />
-              <Input
-                value={resource.url}
-                onChange={(e) => handleResourceChange(idx, 'url', e.target.value)}
-                className="h-8 text-sm flex-[2]"
-                placeholder="https://..."
-              />
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 px-2 text-xs text-red-600 hover:text-red-700 shrink-0"
-                onClick={() => handleRemoveResource(idx)}
-                title="Remove resource"
-              >
-                ✕
-              </Button>
-            </div>
-          ))}
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            onClick={handleAddResource}
-          >
-            + Add Resource
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Sortable Table Row ─────────────────────────────────────────────────────
-
-function SortableRow({
-  lesson,
-  index,
-  canEdit,
-  canDrag,
-  sections,
-  edits,
-  onEdit,
-  onEditResources,
-  onDelete,
-  onDuplicate,
-  onToggleExpand,
-  isExpanded,
-}: {
-  lesson: Lesson
-  index: number
-  canEdit: boolean
-  canDrag: boolean
-  sections: Section[]
-  edits: LessonEdits | undefined
-  onEdit: (id: string, field: keyof LessonEdits, value: string | boolean) => void
-  onEditResources: (id: string, resources: { title: string; url: string }[]) => void
-  onDelete: (id: string) => void
-  onDuplicate: (id: string) => void
-  onToggleExpand: (id: string) => void
-  isExpanded: boolean
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: lesson.id, disabled: !canDrag })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
-  const isPast = new Date(lesson.scheduledDate) < new Date()
-  const currentTitle = edits?.title ?? lesson.title
-  const currentSpeaker = edits?.speaker ?? lesson.speaker ?? ''
-  const currentSectionId = edits?.examSectionId ?? lesson.examSection.id
-  const currentIsExamDay = edits?.isExamDay ?? lesson.isExamDay
-  const currentStatus = (edits?.status ?? lesson.status) as Lesson['status']
-  const hasAttendance = (lesson._count?.attendanceRecords || 0) > 0
-
-  return (
-    <>
-      <tr
-        ref={setNodeRef}
-        style={style}
-        className={`border-b hover:bg-gray-50 ${isPast ? 'opacity-60' : ''} ${isDragging ? 'bg-blue-50 shadow-lg' : ''}`}
-      >
-        {/* Drag handle */}
-        {canEdit && (
-          <td
-            className={`p-1 w-8 text-center ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
-            {...(canDrag ? { ...attributes, ...listeners } : {})}
-          >
-            <span className={`select-none ${canDrag ? 'text-gray-400' : 'text-gray-200 dark:text-gray-700'}`}>⠿</span>
-          </td>
-        )}
-        {/* Lesson # */}
-        <td className="p-2 text-gray-500 w-8 text-center">{index + 1}</td>
-        {/* Date */}
-        <td className="p-2 w-32">
-          {canEdit ? (
-            <Input
-              type="date"
-              value={edits?.scheduledDate ?? lesson.scheduledDate.slice(0, 10)}
-              onChange={(e) => onEdit(lesson.id, 'scheduledDate', e.target.value)}
-              className="h-8 text-xs"
-            />
-          ) : (
-            <span className="text-sm">
-              {formatDateUTC(lesson.scheduledDate, {
-                weekday: undefined,
-                month: 'short',
-                day: 'numeric',
-                year: undefined,
-              })}
-            </span>
-          )}
-        </td>
-        {/* Topic */}
-        <td className="p-2">
-          {canEdit ? (
-            <Input
-              value={currentTitle}
-              onChange={(e) => onEdit(lesson.id, 'title', e.target.value)}
-              className="h-8 text-sm"
-              placeholder="Topic title"
-            />
-          ) : (
-            <span className="text-sm font-medium">{currentTitle}</span>
-          )}
-        </td>
-        {/* Speaker */}
-        <td className="p-2">
-          {canEdit ? (
-            <Input
-              value={currentSpeaker}
-              onChange={(e) => onEdit(lesson.id, 'speaker', e.target.value)}
-              className="h-8 text-sm"
-              placeholder="Speaker name"
-            />
-          ) : (
-            <span className="text-sm text-gray-600">{currentSpeaker || '—'}</span>
-          )}
-        </td>
-        {/* Section */}
-        <td className="p-2">
-          {canEdit ? (
-            <select
-              value={currentSectionId}
-              onChange={(e) => onEdit(lesson.id, 'examSectionId', e.target.value)}
-              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs dark:bg-gray-800 dark:text-white dark:border-gray-600"
-            >
-              {sections.map(section => (
-                <option key={section.id} value={section.id}>
-                  {section.displayName}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <Badge variant="outline" className="text-xs">{lesson.examSection.displayName}</Badge>
-          )}
-        </td>
-        {/* Exam Day */}
-        <td className="p-2 text-center">
-          {canEdit ? (
-            <input
-              type="checkbox"
-              checked={currentIsExamDay}
-              onChange={(e) => onEdit(lesson.id, 'isExamDay', e.target.checked)}
-              className="h-4 w-4"
-            />
-          ) : (
-            currentIsExamDay && (
-              <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
-                Exam
-              </Badge>
-            )
-          )}
-        </td>
-        {/* Status + Attendance */}
-        <td className="p-2 text-center">
-          <div className="flex items-center justify-center gap-1">
-            {canEdit ? (
-              <select
-                value={currentStatus}
-                onChange={(e) => onEdit(lesson.id, 'status', e.target.value)}
-                className={`h-7 rounded-md border px-1 text-xs font-medium ${
-                  currentStatus === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700' :
-                  currentStatus === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-700' :
-                  currentStatus === 'NO_CLASS' ? 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600' :
-                  'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
-                }`}
-              >
-                <option value="SCHEDULED">Scheduled</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="CANCELLED">Cancelled</option>
-                <option value="NO_CLASS">No Class</option>
-              </select>
-            ) : (
-              <Badge
-                className={`text-xs ${
-                  currentStatus === 'COMPLETED' ? 'bg-green-500' :
-                  currentStatus === 'CANCELLED' ? 'bg-red-500' :
-                  currentStatus === 'NO_CLASS' ? 'bg-slate-400' :
-                  'bg-maroon-600'
-                }`}
-              >
-                {currentStatus === 'NO_CLASS' ? 'No Class' : currentStatus}
-              </Badge>
-            )}
-            {hasAttendance && (
-              <span className="text-xs text-gray-500">{lesson._count.attendanceRecords}</span>
-            )}
-          </div>
-        </td>
-        {/* Actions */}
-        <td className="p-2 text-center">
-          <div className="flex gap-1 justify-center">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 px-2 text-xs"
-              onClick={() => onToggleExpand(lesson.id)}
-              title={isExpanded ? 'Collapse details' : 'Expand details'}
-            >
-              {isExpanded ? '▲' : '▼'}
-            </Button>
-            {canEdit && (
-              <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-xs text-gray-500 hover:text-gray-700"
-                  onClick={() => onDuplicate(lesson.id)}
-                  title="Duplicate lesson"
-                >
-                  ⧉
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
-                  onClick={() => onDelete(lesson.id)}
-                  disabled={hasAttendance}
-                  title={hasAttendance ? 'Cannot delete: has attendance records' : 'Delete lesson'}
-                >
-                  ✕
-                </Button>
-              </>
-            )}
-          </div>
-        </td>
-      </tr>
-      {/* Expanded detail row */}
-      {isExpanded && (
-        <tr className="border-b bg-gray-50 dark:bg-gray-900/40">
-          <td colSpan={canEdit ? 9 : 8} className="p-4">
-            {canEdit ? (
-              <ExpandedEditableDetails
-                lesson={lesson}
-                edits={edits}
-                onEdit={onEdit}
-                onEditResources={onEditResources}
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">Subtitle:</span>
-                  <span className="ml-2 text-gray-600 dark:text-gray-400">{lesson.subtitle || '—'}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">Status:</span>
-                  <span className="ml-2">{lesson.status}</span>
-                  {lesson.cancellationReason && (
-                    <span className="ml-1 text-gray-500">({lesson.cancellationReason})</span>
-                  )}
-                </div>
-                <div className="md:col-span-2">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">Description:</span>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1">{lesson.description || '—'}</p>
-                </div>
-                {lesson.resources && lesson.resources.length > 0 && (
-                  <div className="md:col-span-2">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">Resources:</span>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {lesson.resources.map((r, idx) => (
-                        <a
-                          key={idx}
-                          href={r.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:underline"
-                        >
-                          {r.title}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </td>
-        </tr>
-      )}
-    </>
-  )
-}
-
-// ─── Mobile Card Row ────────────────────────────────────────────────────────
-
-function MobileLessonCard({
-  lesson,
-  index,
-  totalCount,
-  canEdit,
-  canReorder,
-  isReordering,
-  sections,
-  edits,
-  onEdit,
-  onEditResources,
-  onDelete,
-  onDuplicate,
-  onMoveUp,
-  onMoveDown,
-  isExpanded,
-  onToggleExpand,
-}: {
-  lesson: Lesson
-  index: number
-  totalCount: number
-  canEdit: boolean
-  canReorder: boolean
-  isReordering: boolean
-  sections: Section[]
-  edits: LessonEdits | undefined
-  onEdit: (id: string, field: keyof LessonEdits, value: string | boolean) => void
-  onEditResources: (id: string, resources: { title: string; url: string }[]) => void
-  onDelete: (id: string) => void
-  onDuplicate: (id: string) => void
-  onMoveUp: (id: string) => void
-  onMoveDown: (id: string) => void
-  isExpanded: boolean
-  onToggleExpand: (id: string) => void
-}) {
-  const isPast = new Date(lesson.scheduledDate) < new Date()
-  const currentTitle = edits?.title ?? lesson.title
-  const currentSpeaker = edits?.speaker ?? lesson.speaker ?? ''
-  const currentSectionId = edits?.examSectionId ?? lesson.examSection.id
-  const currentIsExamDay = edits?.isExamDay ?? lesson.isExamDay
-  const currentStatus = (edits?.status ?? lesson.status) as Lesson['status']
-  const hasAttendance = (lesson._count?.attendanceRecords || 0) > 0
-
-  return (
-    <Card className={isPast ? 'opacity-60' : ''}>
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm text-gray-500">#{index + 1}</span>
-              {canEdit ? (
-                <select
-                  value={currentStatus}
-                  onChange={(e) => onEdit(lesson.id, 'status', e.target.value)}
-                  className={`h-6 rounded border px-1 text-xs font-medium ${
-                    currentStatus === 'COMPLETED' ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700' :
-                    currentStatus === 'CANCELLED' ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-700' :
-                    currentStatus === 'NO_CLASS' ? 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600' :
-                    'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
-                  }`}
-                >
-                  <option value="SCHEDULED">Scheduled</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="CANCELLED">Cancelled</option>
-                  <option value="NO_CLASS">No Class</option>
-                </select>
-              ) : (
-                <Badge
-                  className={`text-xs ${
-                    currentStatus === 'COMPLETED' ? 'bg-green-500' :
-                    currentStatus === 'CANCELLED' ? 'bg-red-500' :
-                    currentStatus === 'NO_CLASS' ? 'bg-slate-400' :
-                    'bg-maroon-600'
-                  }`}
-                >
-                  {currentStatus === 'NO_CLASS' ? 'No Class' : currentStatus}
-                </Badge>
-              )}
-              {currentIsExamDay && (
-                <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
-                  Exam Day
-                </Badge>
-              )}
-            </div>
-            {/* Date - editable in edit mode */}
-            {canEdit ? (
-              <Input
-                type="date"
-                value={edits?.scheduledDate ?? lesson.scheduledDate.slice(0, 10)}
-                onChange={(e) => onEdit(lesson.id, 'scheduledDate', e.target.value)}
-                className="h-7 text-xs mt-0.5 w-40"
-              />
-            ) : (
-              <div className="text-xs text-gray-500 mb-1">
-                {formatDateUTC(lesson.scheduledDate, {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {hasAttendance && (
-              <Badge variant="outline" className="text-xs">{lesson._count.attendanceRecords} att.</Badge>
-            )}
-            {canEdit && canReorder && (
-              <div className="flex flex-col">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-700"
-                  onClick={() => onMoveUp(lesson.id)}
-                  disabled={index === 0 || isReordering}
-                >
-                  ▲
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-700"
-                  onClick={() => onMoveDown(lesson.id)}
-                  disabled={index === totalCount - 1 || isReordering}
-                >
-                  ▼
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Topic */}
-        <div>
-          <label className="text-xs font-medium text-gray-500">Topic</label>
-          {canEdit ? (
-            <Input
-              value={currentTitle}
-              onChange={(e) => onEdit(lesson.id, 'title', e.target.value)}
-              className="h-8 text-sm mt-0.5"
-              placeholder="Topic title"
-            />
-          ) : (
-            <p className="text-sm font-medium">{currentTitle}</p>
-          )}
-        </div>
-
-        {/* Speaker */}
-        <div>
-          <label className="text-xs font-medium text-gray-500">Speaker</label>
-          {canEdit ? (
-            <Input
-              value={currentSpeaker}
-              onChange={(e) => onEdit(lesson.id, 'speaker', e.target.value)}
-              className="h-8 text-sm mt-0.5"
-              placeholder="Speaker name"
-            />
-          ) : (
-            <p className="text-sm text-gray-600">{currentSpeaker || '—'}</p>
-          )}
-        </div>
-
-        {/* Section + Exam Day */}
-        <div className="flex gap-3 items-end">
-          <div className="flex-1">
-            <label className="text-xs font-medium text-gray-500">Section</label>
-            {canEdit ? (
-              <select
-                value={currentSectionId}
-                onChange={(e) => onEdit(lesson.id, 'examSectionId', e.target.value)}
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600"
-              >
-                {sections.map(section => (
-                  <option key={section.id} value={section.id}>
-                    {section.displayName}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-sm"><Badge variant="outline" className="text-xs">{lesson.examSection.displayName}</Badge></p>
-            )}
-          </div>
-          {canEdit && (
-            <label className="flex items-center gap-1.5 cursor-pointer pb-1">
-              <input
-                type="checkbox"
-                checked={currentIsExamDay}
-                onChange={(e) => onEdit(lesson.id, 'isExamDay', e.target.checked)}
-                className="h-4 w-4"
-              />
-              <span className="text-xs">Exam Day</span>
-            </label>
-          )}
-        </div>
-
-        {/* Expand/Collapse toggle */}
-        <div className="pt-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full text-xs text-gray-500 hover:text-gray-700 h-7"
-            onClick={() => onToggleExpand(lesson.id)}
-          >
-            {isExpanded ? '▲ Hide Details' : '▼ Show Details'}
-          </Button>
-        </div>
-
-        {/* Expanded details */}
-        {isExpanded && (
-          <div className="pt-2 border-t space-y-3">
-            {canEdit ? (
-              <ExpandedEditableDetails
-                lesson={lesson}
-                edits={edits}
-                onEdit={onEdit}
-                onEditResources={onEditResources}
-              />
-            ) : (
-              <>
-                {lesson.subtitle && (
-                  <div>
-                    <span className="text-xs font-medium text-gray-500">Subtitle</span>
-                    <p className="text-sm text-gray-600">{lesson.subtitle}</p>
-                  </div>
-                )}
-                {lesson.description && (
-                  <div>
-                    <span className="text-xs font-medium text-gray-500">Description</span>
-                    <p className="text-sm text-gray-600">{lesson.description}</p>
-                  </div>
-                )}
-                {lesson.cancellationReason && (
-                  <div>
-                    <span className="text-xs font-medium text-gray-500">Cancellation Reason</span>
-                    <p className="text-sm text-gray-600">{lesson.cancellationReason}</p>
-                  </div>
-                )}
-                {lesson.resources && lesson.resources.length > 0 && (
-                  <div>
-                    <span className="text-xs font-medium text-gray-500">Resources</span>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {lesson.resources.map((r, idx) => (
-                        <a
-                          key={idx}
-                          href={r.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          {r.title}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {!lesson.subtitle && !lesson.description && (!lesson.resources || lesson.resources.length === 0) && (
-                  <p className="text-xs text-gray-400 italic">No additional details</p>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Actions: Duplicate + Delete */}
-        {canEdit && (
-          <div className="pt-2 border-t flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 text-xs"
-              onClick={() => onDuplicate(lesson.id)}
-            >
-              Duplicate
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="flex-1 text-xs"
-              onClick={() => onDelete(lesson.id)}
-              disabled={hasAttendance}
-            >
-              {hasAttendance ? 'Cannot Delete' : 'Delete'}
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Main Page ──────────────────────────────────────────────────────────────
+import { PageLoading } from '@/components/ui/page-loading'
+import { PageHeader } from '@/components/admin/page-header'
+import { SortableRow } from '@/components/curriculum/sortable-row'
+import { MobileLessonCard } from '@/components/curriculum/mobile-lesson-card'
+import type { Lesson, Section, LessonEdits } from '@/components/curriculum/types'
+import type { AcademicYear } from '@/lib/types'
 
 export default function CurriculumPage() {
   const { data: session, status } = useSession()
@@ -839,7 +95,7 @@ export default function CurriculumPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  // DnD sensors — MouseSensor for desktop, TouchSensor (press-hold) for iPad/touch
+  // DnD sensors
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: { distance: 8 },
@@ -942,7 +198,6 @@ export default function CurriculumPage() {
     })
   }, [])
 
-  // Duplicate a lesson
   const handleDuplicate = async (lessonId: string) => {
     try {
       const res = await fetch(`/api/lessons/${lessonId}/duplicate`, {
@@ -979,7 +234,19 @@ export default function CurriculumPage() {
     })
   }, [])
 
-  // Save all changes
+  const fetchLessonsUrl = () =>
+    selectedYearId && selectedYearId !== 'all'
+      ? `/api/lessons?academicYearId=${selectedYearId}`
+      : '/api/lessons'
+
+  const refetchLessons = async () => {
+    const lessonsRes = await fetch(fetchLessonsUrl())
+    if (lessonsRes.ok) {
+      const lessonsData = await lessonsRes.json()
+      setLessons(Array.isArray(lessonsData) ? lessonsData : [])
+    }
+  }
+
   const handleSaveAll = async () => {
     if (editedLessons.size === 0) return
     setSaving(true)
@@ -1001,24 +268,12 @@ export default function CurriculumPage() {
         throw new Error(data.error || 'Failed to save')
       }
 
-      // Refetch lessons to get fresh data
-      const url = selectedYearId && selectedYearId !== 'all'
-        ? `/api/lessons?academicYearId=${selectedYearId}`
-        : '/api/lessons'
-      const lessonsRes = await fetch(url)
-      if (lessonsRes.ok) {
-        const lessonsData = await lessonsRes.json()
-        setLessons(Array.isArray(lessonsData) ? lessonsData : [])
-      }
-
+      await refetchLessons()
       setEditedLessons(new Map())
       const now = new Date()
       setLastSaved(now)
       toast.success(`Saved ${updates.length} lesson${updates.length > 1 ? 's' : ''}`, {
-        description: now.toLocaleString('en-US', {
-          month: 'short', day: 'numeric', year: 'numeric',
-          hour: 'numeric', minute: '2-digit',
-        }),
+        description: formatToastTimestamp(now),
       })
     } catch (error) {
       console.error('Failed to save:', error)
@@ -1029,13 +284,10 @@ export default function CurriculumPage() {
   }
   saveRef.current = handleSaveAll
 
-  // Handle drag-and-drop reorder
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    // Use filteredLessons for index lookup - this matches the visual table order
-    // (filteredLessons is sorted by lessonNumber, which is the displayed order)
     const currentFiltered = lessons
       .filter(lesson => {
         if (searchTerm) {
@@ -1055,7 +307,6 @@ export default function CurriculumPage() {
 
     const reorderedFiltered = arrayMove(currentFiltered, oldIndex, newIndex)
 
-    // Persist reorder via API - send only the visible lessons in new order
     setReordering(true)
     try {
       const res = await fetch('/api/lessons/batch/reorder', {
@@ -1069,35 +320,17 @@ export default function CurriculumPage() {
         throw new Error(data.error || 'Failed to reorder')
       }
 
-      // Refetch to get updated dates/numbers
-      const url = selectedYearId && selectedYearId !== 'all'
-        ? `/api/lessons?academicYearId=${selectedYearId}`
-        : '/api/lessons'
-      const lessonsRes = await fetch(url)
-      if (lessonsRes.ok) {
-        const lessonsData = await lessonsRes.json()
-        setLessons(Array.isArray(lessonsData) ? lessonsData : [])
-      }
-
+      await refetchLessons()
       toast.success('Lessons reordered')
     } catch (error) {
       console.error('Failed to reorder:', error)
       toast.error('Failed to reorder lessons')
-      // Revert on failure
-      const url = selectedYearId && selectedYearId !== 'all'
-        ? `/api/lessons?academicYearId=${selectedYearId}`
-        : '/api/lessons'
-      const lessonsRes = await fetch(url)
-      if (lessonsRes.ok) {
-        const lessonsData = await lessonsRes.json()
-        setLessons(Array.isArray(lessonsData) ? lessonsData : [])
-      }
+      await refetchLessons()
     } finally {
       setReordering(false)
     }
   }
 
-  // Add new lesson
   const handleAddLesson = async () => {
     if (!newLesson.title || !newLesson.scheduledDate || !formAcademicYearId) {
       toast.error('Title and date are required')
@@ -1140,10 +373,7 @@ export default function CurriculumPage() {
       const now = new Date()
       setLastSaved(now)
       toast.success('Lesson created', {
-        description: now.toLocaleString('en-US', {
-          month: 'short', day: 'numeric', year: 'numeric',
-          hour: 'numeric', minute: '2-digit',
-        }),
+        description: formatToastTimestamp(now),
       })
     } catch (error) {
       console.error('Failed to create lesson:', error)
@@ -1151,7 +381,6 @@ export default function CurriculumPage() {
     }
   }
 
-  // Delete lesson
   const handleDelete = async (lessonId: string) => {
     if (!confirm('Are you sure you want to delete this lesson?')) return
 
@@ -1172,14 +401,12 @@ export default function CurriculumPage() {
     }
   }
 
-  // Discard changes
   const handleDiscardChanges = () => {
     if (editedLessons.size > 0 && confirm('Discard all unsaved changes?')) {
       setEditedLessons(new Map())
     }
   }
 
-  // Mobile move up/down (swap two adjacent lessons)
   const handleMobileMove = async (lessonId: string, direction: 'up' | 'down') => {
     const idx = filteredLessons.findIndex(l => l.id === lessonId)
     if (idx === -1) return
@@ -1201,14 +428,7 @@ export default function CurriculumPage() {
         throw new Error(data.error || 'Failed to reorder')
       }
 
-      const url = selectedYearId && selectedYearId !== 'all'
-        ? `/api/lessons?academicYearId=${selectedYearId}`
-        : '/api/lessons'
-      const lessonsRes = await fetch(url)
-      if (lessonsRes.ok) {
-        const lessonsData = await lessonsRes.json()
-        setLessons(Array.isArray(lessonsData) ? lessonsData : [])
-      }
+      await refetchLessons()
       toast.success('Lesson moved')
     } catch (error) {
       console.error('Failed to move lesson:', error)
@@ -1220,7 +440,6 @@ export default function CurriculumPage() {
 
   const filtersActive = searchTerm !== '' || filterSection !== 'all'
 
-  // Filter lessons
   const filteredLessons = lessons
     .filter(lesson => {
       if (searchTerm) {
@@ -1238,11 +457,7 @@ export default function CurriculumPage() {
     .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   const canEdit = session?.user?.role && canManageCurriculum(session.user.role)
@@ -1250,40 +465,24 @@ export default function CurriculumPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-          <div>
-            <h1 className="text-2xl font-bold">Curriculum</h1>
-            <p className="text-sm text-gray-600">
-              {canEdit ? 'Edit lessons inline, drag to reorder, save all at once' : 'Lesson schedule and curriculum'}
-            </p>
-            {lastSaved && (
-              <p className="text-xs text-gray-500 mt-1">
-                Last saved {lastSaved.toLocaleString('en-US', {
-                  month: 'short', day: 'numeric', year: 'numeric',
-                  hour: 'numeric', minute: '2-digit',
-                })}
-              </p>
-            )}
-          </div>
-          {canEdit && (
-            <div className="flex items-center gap-2">
-              {hasUnsavedChanges && (
-                <>
-                  <span className="text-sm text-amber-600 font-medium">
-                    {editedLessons.size} unsaved change{editedLessons.size > 1 ? 's' : ''}
-                  </span>
-                  <Button variant="outline" size="sm" onClick={handleDiscardChanges}>
-                    Discard
-                  </Button>
-                  <Button size="sm" onClick={handleSaveAll} disabled={saving}>
-                    {saving ? 'Saving...' : 'Save All Changes'}
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        <PageHeader
+          title="Curriculum"
+          description={canEdit ? 'Edit lessons inline, drag to reorder, save all at once' : 'Lesson schedule and curriculum'}
+          lastSaved={lastSaved}
+          actions={canEdit && hasUnsavedChanges ? (
+            <>
+              <span className="text-sm text-amber-600 font-medium">
+                {editedLessons.size} unsaved change{editedLessons.size > 1 ? 's' : ''}
+              </span>
+              <Button variant="outline" size="sm" onClick={handleDiscardChanges}>
+                Discard
+              </Button>
+              <Button size="sm" onClick={handleSaveAll} disabled={saving}>
+                {saving ? 'Saving...' : 'Save All Changes'}
+              </Button>
+            </>
+          ) : undefined}
+        />
 
         {/* Filters */}
         <Card>
@@ -1370,7 +569,6 @@ export default function CurriculumPage() {
                     strategy={verticalListSortingStrategy}
                   >
                     <tbody>
-                      {/* Add New Lesson Row - Full-width grid layout */}
                       {canEdit && showAddRow && (
                         <tr className="border-b bg-green-50 dark:bg-green-900/20">
                           <td colSpan={9} className="p-4">
@@ -1381,95 +579,44 @@ export default function CurriculumPage() {
                               </Button>
                             </div>
                             <div className="grid grid-cols-4 gap-3">
-                              {/* Row 1: Title, Speaker, Date, Section */}
                               <div>
                                 <label className="text-xs font-medium text-gray-500">Title *</label>
-                                <Input
-                                  value={newLesson.title}
-                                  onChange={(e) => setNewLesson(prev => ({ ...prev, title: e.target.value }))}
-                                  className="h-8 text-sm mt-0.5"
-                                  placeholder="Topic title"
-                                  autoFocus
-                                />
+                                <Input value={newLesson.title} onChange={(e) => setNewLesson(prev => ({ ...prev, title: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Topic title" autoFocus />
                               </div>
                               <div>
                                 <label className="text-xs font-medium text-gray-500">Speaker</label>
-                                <Input
-                                  value={newLesson.speaker}
-                                  onChange={(e) => setNewLesson(prev => ({ ...prev, speaker: e.target.value }))}
-                                  className="h-8 text-sm mt-0.5"
-                                  placeholder="Speaker name"
-                                />
+                                <Input value={newLesson.speaker} onChange={(e) => setNewLesson(prev => ({ ...prev, speaker: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Speaker name" />
                               </div>
                               <div>
                                 <label className="text-xs font-medium text-gray-500">Date *</label>
-                                <Input
-                                  type="date"
-                                  value={newLesson.scheduledDate}
-                                  onChange={(e) => setNewLesson(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                                  className="h-8 text-sm mt-0.5"
-                                />
+                                <Input type="date" value={newLesson.scheduledDate} onChange={(e) => setNewLesson(prev => ({ ...prev, scheduledDate: e.target.value }))} className="h-8 text-sm mt-0.5" />
                               </div>
                               <div>
                                 <label className="text-xs font-medium text-gray-500">Section</label>
-                                <select
-                                  value={newLesson.examSectionId}
-                                  onChange={(e) => setNewLesson(prev => ({ ...prev, examSectionId: e.target.value }))}
-                                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                                >
-                                  {sections.map(section => (
-                                    <option key={section.id} value={section.id}>
-                                      {section.displayName}
-                                    </option>
-                                  ))}
+                                <select value={newLesson.examSectionId} onChange={(e) => setNewLesson(prev => ({ ...prev, examSectionId: e.target.value }))} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600">
+                                  {sections.map(section => (<option key={section.id} value={section.id}>{section.displayName}</option>))}
                                 </select>
                               </div>
-                              {/* Row 2: Subtitle, Description, Academic Year + Exam Day, Actions */}
                               <div>
                                 <label className="text-xs font-medium text-gray-500">Subtitle</label>
-                                <Input
-                                  value={newLesson.subtitle}
-                                  onChange={(e) => setNewLesson(prev => ({ ...prev, subtitle: e.target.value }))}
-                                  className="h-8 text-sm mt-0.5"
-                                  placeholder="Subtitle (optional)"
-                                />
+                                <Input value={newLesson.subtitle} onChange={(e) => setNewLesson(prev => ({ ...prev, subtitle: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Subtitle (optional)" />
                               </div>
                               <div>
                                 <label className="text-xs font-medium text-gray-500">Description</label>
-                                <Input
-                                  value={newLesson.description}
-                                  onChange={(e) => setNewLesson(prev => ({ ...prev, description: e.target.value }))}
-                                  className="h-8 text-sm mt-0.5"
-                                  placeholder="Description (optional)"
-                                />
+                                <Input value={newLesson.description} onChange={(e) => setNewLesson(prev => ({ ...prev, description: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Description (optional)" />
                               </div>
                               <div>
                                 <label className="text-xs font-medium text-gray-500">Academic Year</label>
-                                <select
-                                  value={formAcademicYearId}
-                                  onChange={(e) => setFormAcademicYearId(e.target.value)}
-                                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                                >
-                                  {academicYears.map(year => (
-                                    <option key={year.id} value={year.id}>
-                                      {year.name} {year.isActive ? '(Active)' : ''}
-                                    </option>
-                                  ))}
+                                <select value={formAcademicYearId} onChange={(e) => setFormAcademicYearId(e.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600">
+                                  {academicYears.map(year => (<option key={year.id} value={year.id}>{year.name} {year.isActive ? '(Active)' : ''}</option>))}
                                 </select>
                               </div>
                               <div className="flex items-end gap-3">
                                 <label className="flex items-center gap-1.5 cursor-pointer pb-1.5">
-                                  <input
-                                    type="checkbox"
-                                    checked={newLesson.isExamDay}
-                                    onChange={(e) => setNewLesson(prev => ({ ...prev, isExamDay: e.target.checked }))}
-                                    className="h-4 w-4"
-                                  />
+                                  <input type="checkbox" checked={newLesson.isExamDay} onChange={(e) => setNewLesson(prev => ({ ...prev, isExamDay: e.target.checked }))} className="h-4 w-4" />
                                   <span className="text-xs">Exam Day</span>
                                 </label>
-                                <Button size="sm" className="h-8 px-4 text-xs" onClick={handleAddLesson}>
-                                  Create Lesson
-                                </Button>
+                                <Button size="sm" className="h-8 px-4 text-xs" onClick={handleAddLesson}>Create Lesson</Button>
                               </div>
                             </div>
                           </td>
@@ -1498,18 +645,14 @@ export default function CurriculumPage() {
               </DndContext>
 
               {filteredLessons.length === 0 && !showAddRow && (
-                <div className="text-center py-8 text-gray-500">
-                  No lessons found
-                </div>
+                <div className="text-center py-8 text-gray-500">No lessons found</div>
               )}
             </div>
-
           </CardContent>
         </Card>
 
         {/* Mobile: Card Layout */}
         <div className="md:hidden space-y-3">
-          {/* Reordering indicator for mobile */}
           {reordering && (
             <Card className="bg-gray-50 border-gray-200 sticky top-0 z-10">
               <CardContent className="p-3 flex items-center justify-center gap-2">
@@ -1518,7 +661,6 @@ export default function CurriculumPage() {
               </CardContent>
             </Card>
           )}
-          {/* Unsaved changes bar for mobile */}
           {canEdit && hasUnsavedChanges && (
             <Card className="bg-amber-50 border-amber-200 sticky top-0 z-10">
               <CardContent className="p-3 flex items-center justify-between">
@@ -1526,116 +668,59 @@ export default function CurriculumPage() {
                   {editedLessons.size} unsaved change{editedLessons.size > 1 ? 's' : ''}
                 </span>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleDiscardChanges}>
-                    Discard
-                  </Button>
-                  <Button size="sm" onClick={handleSaveAll} disabled={saving}>
-                    {saving ? 'Saving...' : 'Save All'}
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleDiscardChanges}>Discard</Button>
+                  <Button size="sm" onClick={handleSaveAll} disabled={saving}>{saving ? 'Saving...' : 'Save All'}</Button>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Mobile Add Lesson */}
           {canEdit && showAddRow && (
             <Card className="bg-green-50 border-green-200">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium text-sm">Add New Lesson</h3>
-                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setShowAddRow(false)}>
-                    ✕ Cancel
-                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setShowAddRow(false)}>✕ Cancel</Button>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">Topic *</label>
-                  <Input
-                    value={newLesson.title}
-                    onChange={(e) => setNewLesson(prev => ({ ...prev, title: e.target.value }))}
-                    className="h-8 text-sm mt-0.5"
-                    placeholder="Topic title"
-                  />
+                  <Input value={newLesson.title} onChange={(e) => setNewLesson(prev => ({ ...prev, title: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Topic title" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">Speaker</label>
-                  <Input
-                    value={newLesson.speaker}
-                    onChange={(e) => setNewLesson(prev => ({ ...prev, speaker: e.target.value }))}
-                    className="h-8 text-sm mt-0.5"
-                    placeholder="Speaker name"
-                  />
+                  <Input value={newLesson.speaker} onChange={(e) => setNewLesson(prev => ({ ...prev, speaker: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Speaker name" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">Date *</label>
-                  <Input
-                    type="date"
-                    value={newLesson.scheduledDate}
-                    onChange={(e) => setNewLesson(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                    className="h-8 text-sm mt-0.5"
-                  />
+                  <Input type="date" value={newLesson.scheduledDate} onChange={(e) => setNewLesson(prev => ({ ...prev, scheduledDate: e.target.value }))} className="h-8 text-sm mt-0.5" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">Section</label>
-                  <select
-                    value={newLesson.examSectionId}
-                    onChange={(e) => setNewLesson(prev => ({ ...prev, examSectionId: e.target.value }))}
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                  >
-                    {sections.map(section => (
-                      <option key={section.id} value={section.id}>
-                        {section.displayName}
-                      </option>
-                    ))}
+                  <select value={newLesson.examSectionId} onChange={(e) => setNewLesson(prev => ({ ...prev, examSectionId: e.target.value }))} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600">
+                    {sections.map(section => (<option key={section.id} value={section.id}>{section.displayName}</option>))}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">Academic Year</label>
-                  <select
-                    value={formAcademicYearId}
-                    onChange={(e) => setFormAcademicYearId(e.target.value)}
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                  >
-                    {academicYears.map(year => (
-                      <option key={year.id} value={year.id}>
-                        {year.name} {year.isActive ? '(Active)' : ''}
-                      </option>
-                    ))}
+                  <select value={formAcademicYearId} onChange={(e) => setFormAcademicYearId(e.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs mt-0.5 dark:bg-gray-800 dark:text-white dark:border-gray-600">
+                    {academicYears.map(year => (<option key={year.id} value={year.id}>{year.name} {year.isActive ? '(Active)' : ''}</option>))}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">Subtitle</label>
-                  <Input
-                    value={newLesson.subtitle}
-                    onChange={(e) => setNewLesson(prev => ({ ...prev, subtitle: e.target.value }))}
-                    className="h-8 text-sm mt-0.5"
-                    placeholder="Subtitle (optional)"
-                  />
+                  <Input value={newLesson.subtitle} onChange={(e) => setNewLesson(prev => ({ ...prev, subtitle: e.target.value }))} className="h-8 text-sm mt-0.5" placeholder="Subtitle (optional)" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">Description</label>
-                  <Textarea
-                    value={newLesson.description}
-                    onChange={(e) => setNewLesson(prev => ({ ...prev, description: e.target.value }))}
-                    className="text-sm mt-0.5 min-h-[60px]"
-                    placeholder="Description (optional)"
-                  />
+                  <Textarea value={newLesson.description} onChange={(e) => setNewLesson(prev => ({ ...prev, description: e.target.value }))} className="text-sm mt-0.5 min-h-[60px]" placeholder="Description (optional)" />
                 </div>
                 <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newLesson.isExamDay}
-                    onChange={(e) => setNewLesson(prev => ({ ...prev, isExamDay: e.target.checked }))}
-                    className="h-4 w-4"
-                  />
+                  <input type="checkbox" checked={newLesson.isExamDay} onChange={(e) => setNewLesson(prev => ({ ...prev, isExamDay: e.target.checked }))} className="h-4 w-4" />
                   <span className="text-xs">Exam Day</span>
                 </label>
                 <div className="flex gap-2 pt-2">
-                  <Button size="sm" className="flex-1" onClick={handleAddLesson}>
-                    Create Lesson
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowAddRow(false)}>
-                    Cancel
-                  </Button>
+                  <Button size="sm" className="flex-1" onClick={handleAddLesson}>Create Lesson</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowAddRow(false)}>Cancel</Button>
                 </div>
               </CardContent>
             </Card>
@@ -1643,9 +728,7 @@ export default function CurriculumPage() {
 
           {filteredLessons.length === 0 && !showAddRow ? (
             <Card>
-              <CardContent className="p-6 text-center text-gray-500">
-                No lessons found
-              </CardContent>
+              <CardContent className="p-6 text-center text-gray-500">No lessons found</CardContent>
             </Card>
           ) : (
             filteredLessons.map((lesson, index) => (

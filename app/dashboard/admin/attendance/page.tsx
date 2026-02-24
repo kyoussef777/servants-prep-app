@@ -1,23 +1,20 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { PageLoading } from '@/components/ui/page-loading'
+import { AttendanceStatusButtons } from '@/components/attendance-status-buttons'
+import { PageHeader } from '@/components/admin/page-header'
 import { isAdmin, canManageData } from '@/lib/roles'
-import { ChevronDown, ChevronRight, Calendar, Settings2, Check, Clock, X, Shield } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Settings2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDateUTC } from '@/lib/utils'
-
-interface AcademicYear {
-  id: string
-  name: string
-  isActive: boolean
-}
+import { formatDateUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
+import type { AcademicYear } from '@/lib/types'
 
 interface Lesson {
   id: string
@@ -54,8 +51,7 @@ interface AttendanceRecord {
 }
 
 export default function AttendancePage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(isAdmin)
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
   const [students, setStudents] = useState<Student[]>([])
@@ -75,14 +71,6 @@ export default function AttendancePage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
   const [viewingPhoto, setViewingPhoto] = useState<{ name: string; url: string } | null>(null)
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !isAdmin(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   // Fetch academic years and students on mount
   useEffect(() => {
@@ -113,25 +101,8 @@ export default function AttendancePage() {
         setSelectedYearId(activeYear?.id || 'all')
 
         // Build student map from enrollments
-        const studentMap = new Map()
-        if (Array.isArray(enrollmentsData)) {
-          for (const enrollment of enrollmentsData) {
-            if (enrollment.isActive) {
-              const student = enrollment.student
-              if (!studentMap.has(student.id)) {
-                studentMap.set(student.id, {
-                  ...student,
-                  enrollments: []
-                })
-              }
-              studentMap.get(student.id).enrollments.push({
-                yearLevel: enrollment.yearLevel,
-                mentorId: enrollment.mentor?.id
-              })
-            }
-          }
-        }
-        setStudents(Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name)))
+        const studentList = buildStudentMapFromEnrollments(enrollmentsData)
+        setStudents(studentList.sort((a, b) => a.name.localeCompare(b.name)) as unknown as Student[])
       } catch {
         setStudents([])
         setAcademicYears([])
@@ -266,13 +237,7 @@ export default function AttendancePage() {
       setLastSaved(now)
       setHasUnsavedChanges(false)
       toast.success('Attendance saved successfully!', {
-        description: `${result.created} created, ${result.updated} updated • ${now.toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        })}`
+        description: `${result.created} created, ${result.updated} updated • ${formatToastTimestamp(now)}`
       })
       setSelectedLesson(null)
     } catch (error) {
@@ -338,59 +303,56 @@ export default function AttendancePage() {
   const userCanManageData = session?.user?.role ? canManageData(session.user.role) : false
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   return (
     <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-8 overflow-x-hidden">
       <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold">Take Attendance</h1>
-            <p className="text-xs sm:text-sm text-gray-600">
-              {selectedYearId === 'all'
-                ? 'All academic years'
-                : `${academicYears.find(y => y.id === selectedYearId)?.name || 'Selected year'} • ${lessons.length} lessons`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-            {!selectedLesson && (
-              <>
-                <select
-                  value={selectedYearId}
-                  onChange={(e) => setSelectedYearId(e.target.value)}
-                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm flex-1 sm:flex-none dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                >
-                  <option value="all">All Years</option>
-                  {academicYears.map(year => (
-                    <option key={year.id} value={year.id}>
-                      {year.name.replace('Academic Year ', '')}{year.isActive ? ' ✓' : ''}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={lessonStatusFilter}
-                  onChange={(e) => setLessonStatusFilter(e.target.value)}
-                  className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="SCHEDULED">Scheduled</option>
-                  <option value="COMPLETED">Completed</option>
-                </select>
-              </>
-            )}
-            {selectedLesson && (
-              <Button variant="outline" size="sm" onClick={() => setSelectedLesson(null)} className="text-xs sm:text-sm">
-                Change Lesson
-              </Button>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          title="Take Attendance"
+          description={
+            selectedYearId === 'all'
+              ? 'All academic years'
+              : `${academicYears.find(y => y.id === selectedYearId)?.name || 'Selected year'} • ${lessons.length} lessons`
+          }
+          lastSaved={lastSaved}
+          actions={
+            <>
+              {!selectedLesson && (
+                <>
+                  <select
+                    value={selectedYearId}
+                    onChange={(e) => setSelectedYearId(e.target.value)}
+                    className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm flex-1 sm:flex-none dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  >
+                    <option value="all">All Years</option>
+                    {academicYears.map(year => (
+                      <option key={year.id} value={year.id}>
+                        {year.name.replace('Academic Year ', '')}{year.isActive ? ' ✓' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={lessonStatusFilter}
+                    onChange={(e) => setLessonStatusFilter(e.target.value)}
+                    className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="SCHEDULED">Scheduled</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </>
+              )}
+              {selectedLesson && (
+                <Button variant="outline" size="sm" onClick={() => setSelectedLesson(null)} className="text-xs sm:text-sm">
+                  Change Lesson
+                </Button>
+              )}
+            </>
+          }
+        />
 
         {/* Lesson Selection */}
         {!selectedLesson ? (
@@ -573,59 +535,13 @@ export default function AttendancePage() {
                             </Badge>
                           </td>
                           <td className="p-2">
-                            <div className="flex justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
+                            <div className="flex justify-center">
+                              <AttendanceStatusButtons
+                                currentStatus={currentStatus}
+                                onStatusChange={(status) => updateAttendance(student.id, 'status', status)}
                                 disabled={!userCanManageData}
-                                className={`p-1.5 rounded transition-colors ${
-                                  currentStatus === 'PRESENT'
-                                    ? 'bg-green-500 text-white'
-                                    : 'bg-gray-100 text-gray-400 hover:bg-green-100 hover:text-green-600'
-                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                                title="Present"
-                              >
-                                <Check className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updateAttendance(student.id, 'status', 'LATE')}
-                                disabled={!userCanManageData}
-                                className={`p-1.5 rounded transition-colors ${
-                                  currentStatus === 'LATE'
-                                    ? 'bg-yellow-500 text-white'
-                                    : 'bg-gray-100 text-gray-400 hover:bg-yellow-100 hover:text-yellow-600'
-                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                                title="Late"
-                              >
-                                <Clock className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
-                                disabled={!userCanManageData}
-                                className={`p-1.5 rounded transition-colors ${
-                                  currentStatus === 'ABSENT'
-                                    ? 'bg-red-500 text-white'
-                                    : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600'
-                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                                title="Absent"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
-                                disabled={!userCanManageData}
-                                className={`p-1.5 rounded transition-colors ${
-                                  currentStatus === 'EXCUSED'
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-100 text-gray-400 hover:bg-blue-100 hover:text-blue-600'
-                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                                title="Excused (not counted)"
-                              >
-                                <Shield className="h-4 w-4" />
-                              </button>
+                                size="md"
+                              />
                             </div>
                           </td>
                           {!compactMode && (
@@ -686,55 +602,13 @@ export default function AttendancePage() {
                         <Badge variant="outline" className="text-[9px] shrink-0 px-0.5 py-0">
                           {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
                         </Badge>
-                        <div className="flex shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
+                        <div className="shrink-0">
+                          <AttendanceStatusButtons
+                            currentStatus={currentStatus}
+                            onStatusChange={(status) => updateAttendance(student.id, 'status', status)}
                             disabled={!userCanManageData}
-                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
-                              currentStatus === 'PRESENT'
-                                ? 'bg-green-500 text-white'
-                                : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateAttendance(student.id, 'status', 'LATE')}
-                            disabled={!userCanManageData}
-                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
-                              currentStatus === 'LATE'
-                                ? 'bg-yellow-500 text-white'
-                                : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                          >
-                            <Clock className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
-                            disabled={!userCanManageData}
-                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
-                              currentStatus === 'ABSENT'
-                                ? 'bg-red-500 text-white'
-                                : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
-                            disabled={!userCanManageData}
-                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
-                              currentStatus === 'EXCUSED'
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
-                          >
-                            <Shield className="h-3.5 w-3.5" />
-                          </button>
+                            size="sm"
+                          />
                         </div>
                         {!compactMode && (
                           <button
