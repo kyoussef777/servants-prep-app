@@ -54,6 +54,7 @@ export function Navbar() {
       const links: NavLink[] = [
         { href: '/dashboard/student', label: 'My Progress' },
         { href: '/dashboard/student/lessons', label: 'My Lessons' },
+        { href: '/dashboard/files', label: 'Files' },
       ]
       if (session.user.isAsyncStudent) {
         links.push({ href: '/dashboard/student/async-notes', label: 'My Notes' })
@@ -66,7 +67,8 @@ export function Navbar() {
       return {
         primary: [
           { href: '/dashboard/mentor', label: 'Dashboard' },
-          { href: '/dashboard/mentor/my-mentees', label: 'My Mentees' }
+          { href: '/dashboard/mentor/my-mentees', label: 'My Mentees' },
+          { href: '/dashboard/files', label: 'Files' },
         ],
         more: []
       }
@@ -83,6 +85,7 @@ export function Navbar() {
     const more: NavLink[] = [
       { href: '/dashboard/admin/curriculum', label: 'Curriculum' },
       { href: '/dashboard/admin/mentees', label: 'Mentees' },
+      { href: '/dashboard/files', label: 'Files' },
     ]
 
     // Async section

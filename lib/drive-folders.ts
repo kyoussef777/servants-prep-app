@@ -1,0 +1,2 @@
+export const DRIVE_FOLDER_ID = "0ByflSbu6LLHWZVR1aDg2WjBHQ1E"
+export const DRIVE_RESOURCE_KEY = "0-CMdz-90PDFKBVc8EaqffCw"
