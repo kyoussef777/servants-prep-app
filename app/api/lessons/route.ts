@@ -111,27 +111,6 @@ export async function GET(request: Request) {
     // No pagination - return all (backwards compatible)
     const lessons = await prisma.lesson.findMany(queryOptions)
 
-    // Auto-complete lessons that have passed their scheduled date
-    const now = new Date()
-    const lessonsToComplete = lessons.filter(
-      lesson => lesson.status === 'SCHEDULED' && new Date(lesson.scheduledDate) < now
-    )
-
-    if (lessonsToComplete.length > 0) {
-      // Use updateMany for efficient batch update (single query instead of N queries)
-      await prisma.lesson.updateMany({
-        where: {
-          id: { in: lessonsToComplete.map(lesson => lesson.id) }
-        },
-        data: { status: 'COMPLETED' }
-      })
-
-      // Update the lessons array to reflect the new status
-      lessonsToComplete.forEach(lesson => {
-        lesson.status = 'COMPLETED'
-      })
-    }
-
     return NextResponse.json(lessons)
   } catch (error: unknown) {
     return handleApiError(error)
