@@ -5,6 +5,17 @@ import type { DriveFile } from '@/lib/drive'
 import { mimeLabel, isFolder, formatSize, formatDate } from '@/lib/drive'
 import { DRIVE_FOLDER_ID, DRIVE_RESOURCE_KEY } from '@/lib/drive-folders'
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+  return isMobile
+}
+
 interface Crumb {
   id: string
   name: string
@@ -76,6 +87,7 @@ function FileIcon({ mimeType }: { mimeType: string }) {
 
 function PreviewPanel({ file, onClose }: { file: DriveFile; onClose: () => void }) {
   const [loaded, setLoaded] = useState(false)
+  const isMobile = useIsMobile()
 
   useEffect(() => setLoaded(false), [file.id])
 
@@ -110,6 +122,7 @@ function PreviewPanel({ file, onClose }: { file: DriveFile; onClose: () => void 
           <button
             onClick={onClose}
             title="Close preview"
+            style={{ touchAction: 'manipulation' }}
             className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 hover:text-maroon-600"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,23 +132,56 @@ function PreviewPanel({ file, onClose }: { file: DriveFile; onClose: () => void 
         </div>
       </div>
 
-      {/* iframe preview */}
-      <div className="relative flex-1 bg-gray-50 dark:bg-gray-800">
-        {!loaded && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-maroon-600 border-t-transparent rounded-full animate-spin" />
+      {/* On mobile, iframes capture all touch events and freeze the page.
+          Show a simple open-in-browser fallback instead. */}
+      {isMobile ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-5 p-6 text-center">
+          <div className="w-12 h-12">
+            <FileIcon mimeType={file.mimeType} />
           </div>
-        )}
-        <iframe
-          key={file.id}
-          src={previewUrl(file)}
-          className="w-full h-full border-0"
-          style={{ minHeight: 480 }}
-          onLoad={() => setLoaded(true)}
-          allow="autoplay"
-          title={file.name}
-        />
-      </div>
+          <div>
+            <p className="font-semibold text-gray-900 dark:text-white">{file.name}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {mimeLabel(file.mimeType)}
+              {file.size ? ` · ${formatSize(file.size)}` : ''}
+            </p>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+            File preview is not supported on mobile. Tap below to open it in your browser.
+          </p>
+          <a
+            href={file.webViewLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ touchAction: 'manipulation' }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-maroon-600 hover:bg-maroon-700 active:bg-maroon-800 text-white text-sm font-medium transition-colors"
+          >
+            Open in Browser
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
+      ) : (
+        /* Desktop: full iframe preview */
+        <div className="relative flex-1 bg-gray-50 dark:bg-gray-800">
+          {!loaded && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-maroon-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+          <iframe
+            key={file.id}
+            src={previewUrl(file)}
+            className="w-full h-full border-0"
+            style={{ minHeight: 480 }}
+            onLoad={() => setLoaded(true)}
+            allow="autoplay"
+            title={file.name}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -174,6 +220,16 @@ export default function DriveFileBrowser() {
     setSearch('')
     setSelected(null)
   }, [current.id, load])
+
+  // Prevent body scroll while preview is open (critical on mobile)
+  useEffect(() => {
+    if (selected) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [selected])
 
   const openFolder = (f: DriveFile) =>
     setCrumbs((prev) => [...prev, { id: f.id, name: f.name }])
@@ -356,7 +412,7 @@ export default function DriveFileBrowser() {
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+          style={{ backgroundColor: 'rgba(0,0,0,0.55)', touchAction: 'manipulation' }}
           onClick={() => setSelected(null)}
         >
           <div
