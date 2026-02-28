@@ -1,9 +1,21 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import type { DriveFile } from '@/lib/drive'
 import { mimeLabel, isFolder, formatSize, formatDate } from '@/lib/drive'
 import { DRIVE_FOLDER_ID, DRIVE_RESOURCE_KEY } from '@/lib/drive-folders'
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+  return isMobile
+}
 
 interface Crumb {
   id: string
@@ -141,6 +153,8 @@ function PreviewPanel({ file, onClose }: { file: DriveFile; onClose: () => void 
 }
 
 export default function DriveFileBrowser() {
+  const router = useRouter()
+  const isMobile = useIsMobile()
   const [crumbs, setCrumbs] = useState<Crumb[]>([
     { id: DRIVE_FOLDER_ID, name: 'Files', resourceKey: DRIVE_RESOURCE_KEY },
   ])
@@ -151,6 +165,23 @@ export default function DriveFileBrowser() {
   const [selected, setSelected] = useState<DriveFile | null>(null)
 
   const current = crumbs[crumbs.length - 1]
+
+  // On mobile, navigate to the full-page preview route instead of opening a
+  // modal — iframes inside modals capture all touch events on mobile browsers,
+  // making the page freeze and impossible to close.
+  const openFile = (file: DriveFile) => {
+    if (isMobile) {
+      const params = new URLSearchParams({
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        webViewLink: file.webViewLink ?? '',
+      })
+      router.push(`/dashboard/files/preview?${params}`)
+    } else {
+      setSelected(file)
+    }
+  }
 
   const load = useCallback(async (folderId: string, resourceKey?: string) => {
     setLoading(true)
@@ -174,6 +205,16 @@ export default function DriveFileBrowser() {
     setSearch('')
     setSelected(null)
   }, [current.id, load])
+
+  // Prevent body scroll while preview is open (critical on mobile)
+  useEffect(() => {
+    if (selected) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [selected])
 
   const openFolder = (f: DriveFile) =>
     setCrumbs((prev) => [...prev, { id: f.id, name: f.name }])
@@ -280,7 +321,7 @@ export default function DriveFileBrowser() {
           return (
             <div
               key={file.id}
-              onClick={() => folder ? openFolder(file) : setSelected(file)}
+              onClick={() => folder ? openFolder(file) : openFile(file)}
               className={[
                 'group flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors border-l-2',
                 isSelected
@@ -309,7 +350,7 @@ export default function DriveFileBrowser() {
               <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 {!folder && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); setSelected(file) }}
+                    onClick={(e) => { e.stopPropagation(); openFile(file) }}
                     title="Preview"
                     className="p-1.5 rounded hover:bg-white dark:hover:bg-gray-700 text-gray-400 hover:text-maroon-600 dark:hover:text-maroon-400 transition-colors"
                   >
@@ -356,7 +397,7 @@ export default function DriveFileBrowser() {
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+          style={{ backgroundColor: 'rgba(0,0,0,0.55)', touchAction: 'manipulation' }}
           onClick={() => setSelected(null)}
         >
           <div
