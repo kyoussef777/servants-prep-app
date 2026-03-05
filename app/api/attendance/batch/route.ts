@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { canManageData } from "@/lib/roles"
 import { AttendanceStatus } from "@prisma/client"
 import { parseTimeString, handleApiError } from "@/lib/api-utils"
+import { notifyAttendanceRecorded } from "@/lib/notifications"
 
 interface AttendanceRecord {
   studentId: string
@@ -155,6 +156,27 @@ export async function POST(request: Request) {
         }
       }
     })
+
+    // Send attendance notifications to mentors (non-blocking)
+    const studentIds = records.map((r: AttendanceRecord) => r.studentId)
+    prisma.user.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, name: true },
+    }).then((students) => {
+      const studentRecords = records.map((r: AttendanceRecord) => ({
+        studentId: r.studentId,
+        studentName: students.find((s) => s.id === r.studentId)?.name || 'Student',
+        status: r.status,
+      }))
+      const lessonDate = lesson.scheduledDate
+        ? new Date(lesson.scheduledDate).toLocaleDateString()
+        : 'N/A'
+      notifyAttendanceRecorded({
+        lessonTitle: lesson.title,
+        lessonDate,
+        studentRecords,
+      }).catch(() => {})
+    }).catch(() => {})
 
     return NextResponse.json({
       success: true,

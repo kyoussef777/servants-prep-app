@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown } from 'lucide-react'
+import { NotificationBell } from '@/components/notifications/notification-bell'
 
 interface NavLink {
   href: string
@@ -191,6 +192,9 @@ export function Navbar() {
 
           {/* Right side - User menu */}
           <div className="flex items-center gap-4">
+            {/* Notification bell */}
+            <NotificationBell />
+
             {/* Mobile menu button */}
             <Button
               variant="ghost"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isInviteCodeValid } from '@/lib/registration-utils'
 import { StudentGrade, RegistrationStatus } from '@prisma/client'
+import { notifyNewRegistration } from '@/lib/notifications'
 
 /**
  * POST /api/registration/submit
@@ -177,6 +178,12 @@ export async function POST(req: NextRequest) {
 
       return newSubmission
     })
+
+    // Notify admins about new registration (non-blocking)
+    notifyNewRegistration({
+      applicantName: fullName,
+      registrationId: submission.id,
+    }).catch(() => {})
 
     return NextResponse.json(
       {

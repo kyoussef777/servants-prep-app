@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { canManageCurriculum } from "@/lib/roles"
 import { handleApiError } from "@/lib/api-utils"
 import { LessonStatus } from "@prisma/client"
+import { notifyLessonScheduled } from "@/lib/notifications"
 
 
 // GET /api/lessons - List lessons
@@ -199,6 +200,15 @@ export async function POST(request: Request) {
         }
       })
     })
+
+    // Notify students about the new lesson (non-blocking)
+    if (lesson.examSection?.displayName) {
+      notifyLessonScheduled({
+        lessonTitle: lesson.title,
+        lessonDate: new Date(scheduledDate).toLocaleDateString(),
+        examSection: lesson.examSection.displayName,
+      }).catch(() => {})
+    }
 
     return NextResponse.json(lesson, { status: 201 })
   } catch (error: unknown) {

@@ -6,6 +6,7 @@ import { canReviewRegistrations } from '@/lib/roles'
 import { RegistrationStatus, UserRole, YearLevel } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { generateTempPassword } from '@/lib/registration-utils'
+import { notifyRegistrationReviewed } from '@/lib/notifications'
 
 /**
  * POST /api/registration/submissions/[id]/review
@@ -167,6 +168,15 @@ export async function POST(
           tempPassword,
         }
       })
+
+      // Notify the newly approved user (non-blocking)
+      if (result.submission.createdUser) {
+        notifyRegistrationReviewed({
+          userId: result.submission.createdUser.id,
+          status: 'APPROVED',
+          applicantName: result.submission.fullName,
+        }).catch(() => {})
+      }
 
       return NextResponse.json({
         submission: result.submission,
