@@ -21,7 +21,7 @@ export function NotificationProvider() {
       // If user already granted notification permission, auto-subscribe
       const { supported, permission } = getPushPermissionState()
       if (supported && permission === 'granted') {
-        subscribeToPush()
+        subscribeToPush().catch(() => {})
       }
     })
   }, [session])

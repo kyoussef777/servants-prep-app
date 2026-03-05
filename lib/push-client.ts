@@ -20,28 +20,55 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 }
 
 /**
- * Subscribe to push notifications
+ * Subscribe to push notifications.
+ * Returns { success: true } or { success: false, reason: string } for better error messages.
  */
-export async function subscribeToPush(): Promise<boolean> {
+export async function subscribeToPush(): Promise<{ success: boolean; reason?: string }> {
   try {
-    const registration = await navigator.serviceWorker.ready
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return { success: false, reason: 'Push notifications are not supported in this browser.' }
+    }
+
+    // Ensure service worker is registered
+    let registration = await navigator.serviceWorker.getRegistration('/')
+    if (!registration) {
+      registration = await registerServiceWorker() ?? undefined
+    }
+    if (!registration) {
+      return { success: false, reason: 'Service worker failed to register. Try refreshing the page.' }
+    }
+
+    // Wait for the SW to become active (with timeout)
+    if (!registration.active) {
+      await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+      ])
+      registration = await navigator.serviceWorker.getRegistration('/')
+      if (!registration?.active) {
+        return { success: false, reason: 'Service worker not ready. Try refreshing the page.' }
+      }
+    }
 
     // Get VAPID public key from server
     const res = await fetch('/api/push/vapid')
-    if (!res.ok) return false
+    if (!res.ok) {
+      return { success: false, reason: 'Push notifications are not configured on the server.' }
+    }
     const { publicKey } = await res.json()
-
-    if (!publicKey) return false
+    if (!publicKey) {
+      return { success: false, reason: 'Push notifications are not configured on the server.' }
+    }
 
     // Check if already subscribed
     let subscription = await registration.pushManager.getSubscription()
 
     if (!subscription) {
-      // Subscribe
+      // Subscribe — this triggers the browser permission prompt
       const keyArray = urlBase64ToUint8Array(publicKey)
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: keyArray.buffer as ArrayBuffer,
+        applicationServerKey: keyArray as Uint8Array<ArrayBuffer>,
       })
     }
 
@@ -59,10 +86,20 @@ export async function subscribeToPush(): Promise<boolean> {
       }),
     })
 
-    return response.ok
+    if (!response.ok) {
+      return { success: false, reason: 'Failed to save subscription. Please try again.' }
+    }
+
+    return { success: true }
   } catch (error) {
     console.error('Push subscription failed:', error)
-    return false
+
+    // Detect permission denial
+    if (error instanceof DOMException && error.name === 'NotAllowedError') {
+      return { success: false, reason: 'Notification permission was denied. Please enable notifications in your browser settings.' }
+    }
+
+    return { success: false, reason: 'Something went wrong. Please try again.' }
   }
 }
 

@@ -40,12 +40,12 @@ export function PushNotificationPrompt() {
   }, [session])
 
   const handleEnable = async () => {
-    const success = await subscribeToPush()
-    if (success) {
+    const result = await subscribeToPush()
+    if (result.success) {
       toast.success('Push notifications enabled!')
       setShowPrompt(false)
     } else {
-      toast.error('Failed to enable notifications. Please check browser permissions.')
+      toast.error(result.reason ?? 'Failed to enable notifications.')
     }
   }
 
