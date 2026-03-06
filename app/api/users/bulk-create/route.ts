@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
+import { backfillAttendanceForStudent } from "@/lib/api-utils"
 
 // POST /api/users/bulk-create - Create multiple students at once (SUPER_ADMIN only)
 export async function POST(request: Request) {
@@ -106,13 +107,23 @@ export async function POST(request: Request) {
 
             // Create enrollment if yearLevel is provided
             if (student.yearLevel && (student.yearLevel === 'YEAR_1' || student.yearLevel === 'YEAR_2')) {
+              // Find active academic year for backfill
+              const activeYear = await tx.academicYear.findFirst({
+                where: { isActive: true },
+                select: { id: true },
+              })
+
               await tx.studentEnrollment.create({
                 data: {
                   studentId: newUser.id,
                   yearLevel: student.yearLevel,
-                  isActive: true
+                  isActive: true,
+                  academicYearId: activeYear?.id || null,
                 }
               })
+
+              // Backfill attendance records for all past lessons
+              await backfillAttendanceForStudent(newUser.id, activeYear?.id || null, tx)
             }
 
             users.push({

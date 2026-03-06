@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import { isAdmin, canManageEnrollments } from "@/lib/roles"
+import { backfillAttendanceForStudent } from "@/lib/api-utils"
 
 // GET /api/enrollments - List enrollments
 // Query params:
@@ -184,35 +185,42 @@ export async function POST(request: Request) {
       }
     }
 
-    const enrollment = await prisma.studentEnrollment.create({
-      data: {
-        studentId,
-        yearLevel,
-        mentorId: mentorId || null,
-        isActive: isActive !== undefined ? isActive : true,
-        academicYearId: enrollmentAcademicYearId || null,
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          }
+    const enrollment = await prisma.$transaction(async (tx) => {
+      const created = await tx.studentEnrollment.create({
+        data: {
+          studentId,
+          yearLevel,
+          mentorId: mentorId || null,
+          isActive: isActive !== undefined ? isActive : true,
+          academicYearId: enrollmentAcademicYearId || null,
         },
-        mentor: {
-          select: {
-            id: true,
-            name: true,
-          }
-        },
-        academicYear: {
-          select: {
-            id: true,
-            name: true,
+        include: {
+          student: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          mentor: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          academicYear: {
+            select: {
+              id: true,
+              name: true,
+            }
           }
         }
-      }
+      })
+
+      // Backfill attendance records for all past lessons in this academic year
+      await backfillAttendanceForStudent(studentId, enrollmentAcademicYearId || null, tx)
+
+      return created
     })
 
     return NextResponse.json(enrollment, { status: 201 })

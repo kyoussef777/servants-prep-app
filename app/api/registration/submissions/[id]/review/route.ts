@@ -7,6 +7,7 @@ import { RegistrationStatus, UserRole, YearLevel } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { generateTempPassword } from '@/lib/registration-utils'
 import { notifyRegistrationReviewed } from '@/lib/notifications'
+import { backfillAttendanceForStudent } from '@/lib/api-utils'
 
 /**
  * POST /api/registration/submissions/[id]/review
@@ -128,6 +129,9 @@ export async function POST(
             notes: `Registered via invite code on ${new Date().toLocaleDateString()}`,
           },
         })
+
+        // Backfill attendance records for all past lessons in this academic year
+        await backfillAttendanceForStudent(newUser.id, targetAcademicYearId || null, tx)
 
         // Update submission status
         const updatedSubmission = await tx.registrationSubmission.update({

@@ -337,6 +337,16 @@ export default function AttendancePage() {
   // Check if user can manage data (PRIEST is read-only)
   const userCanManageData = session?.user?.role ? canManageData(session.user.role) : false
 
+  // Check if selected lesson is today or in the past (attendance can only be taken on or after the lesson date)
+  const isLessonEditable = useMemo(() => {
+    if (!selectedLesson) return false
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const lessonDate = new Date(selectedLesson.scheduledDate)
+    lessonDate.setHours(0, 0, 0, 0)
+    return lessonDate <= today
+  }, [selectedLesson])
+
   if (loading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -465,6 +475,13 @@ export default function AttendancePage() {
               </CardContent>
             </Card>
 
+            {/* Future lesson warning */}
+            {!isLessonEditable && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Attendance cannot be edited until the lesson date ({formatDateUTC(selectedLesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}).
+              </div>
+            )}
+
             {/* Sticky Filters & Actions */}
             <div className="sticky top-0 z-20 bg-gray-50 py-2 -mx-2 px-2 sm:-mx-4 sm:px-4 md:-mx-8 md:px-8 space-y-2">
               <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
@@ -493,7 +510,7 @@ export default function AttendancePage() {
                   <span className="hidden sm:inline">My Mentees</span>
                   <span className="sm:hidden">Mine</span>
                 </label>
-                <Button onClick={handleMarkAllPresent} variant="outline" size="sm" className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3">
+                <Button onClick={handleMarkAllPresent} variant="outline" size="sm" disabled={!isLessonEditable} className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3">
                   <span className="hidden sm:inline">Mark All Present</span>
                   <span className="sm:hidden">All ✓</span>
                 </Button>
@@ -577,12 +594,12 @@ export default function AttendancePage() {
                               <button
                                 type="button"
                                 onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
-                                disabled={!userCanManageData}
+                                disabled={!userCanManageData || !isLessonEditable}
                                 className={`p-1.5 rounded transition-colors ${
                                   currentStatus === 'PRESENT'
                                     ? 'bg-green-500 text-white'
                                     : 'bg-gray-100 text-gray-400 hover:bg-green-100 hover:text-green-600'
-                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                                } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
                                 title="Present"
                               >
                                 <Check className="h-4 w-4" />
@@ -590,12 +607,12 @@ export default function AttendancePage() {
                               <button
                                 type="button"
                                 onClick={() => updateAttendance(student.id, 'status', 'LATE')}
-                                disabled={!userCanManageData}
+                                disabled={!userCanManageData || !isLessonEditable}
                                 className={`p-1.5 rounded transition-colors ${
                                   currentStatus === 'LATE'
                                     ? 'bg-yellow-500 text-white'
                                     : 'bg-gray-100 text-gray-400 hover:bg-yellow-100 hover:text-yellow-600'
-                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                                } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
                                 title="Late"
                               >
                                 <Clock className="h-4 w-4" />
@@ -603,12 +620,12 @@ export default function AttendancePage() {
                               <button
                                 type="button"
                                 onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
-                                disabled={!userCanManageData}
+                                disabled={!userCanManageData || !isLessonEditable}
                                 className={`p-1.5 rounded transition-colors ${
                                   currentStatus === 'ABSENT'
                                     ? 'bg-red-500 text-white'
                                     : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600'
-                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                                } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
                                 title="Absent"
                               >
                                 <X className="h-4 w-4" />
@@ -616,12 +633,12 @@ export default function AttendancePage() {
                               <button
                                 type="button"
                                 onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
-                                disabled={!userCanManageData}
+                                disabled={!userCanManageData || !isLessonEditable}
                                 className={`p-1.5 rounded transition-colors ${
                                   currentStatus === 'EXCUSED'
                                     ? 'bg-blue-500 text-white'
                                     : 'bg-gray-100 text-gray-400 hover:bg-blue-100 hover:text-blue-600'
-                                } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                                } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
                                 title="Excused (not counted)"
                               >
                                 <Shield className="h-4 w-4" />
@@ -690,48 +707,48 @@ export default function AttendancePage() {
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'PRESENT')}
-                            disabled={!userCanManageData}
+                            disabled={!userCanManageData || !isLessonEditable}
                             className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
                               currentStatus === 'PRESENT'
                                 ? 'bg-green-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                            } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
                             <Check className="h-3.5 w-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'LATE')}
-                            disabled={!userCanManageData}
+                            disabled={!userCanManageData || !isLessonEditable}
                             className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
                               currentStatus === 'LATE'
                                 ? 'bg-yellow-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                            } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
                             <Clock className="h-3.5 w-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'ABSENT')}
-                            disabled={!userCanManageData}
+                            disabled={!userCanManageData || !isLessonEditable}
                             className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
                               currentStatus === 'ABSENT'
                                 ? 'bg-red-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                            } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateAttendance(student.id, 'status', 'EXCUSED')}
-                            disabled={!userCanManageData}
+                            disabled={!userCanManageData || !isLessonEditable}
                             className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
                               currentStatus === 'EXCUSED'
                                 ? 'bg-blue-500 text-white'
                                 : 'bg-gray-100 text-gray-400'
-                            } ${!userCanManageData ? 'cursor-not-allowed opacity-60' : ''}`}
+                            } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
                           >
                             <Shield className="h-3.5 w-3.5" />
                           </button>
@@ -793,11 +810,11 @@ export default function AttendancePage() {
                 {userCanManageData && (
                   <Button
                     onClick={saveAttendance}
-                    disabled={saving}
+                    disabled={saving || !isLessonEditable}
                     size="lg"
                     className="px-8"
                   >
-                    {saving ? 'Saving...' : 'Save Attendance'}
+                    {saving ? 'Saving...' : !isLessonEditable ? 'Future Lesson' : 'Save Attendance'}
                   </Button>
                 )}
               </div>

@@ -53,6 +53,18 @@ export async function POST(request: Request) {
       )
     }
 
+    // Prevent editing attendance for future lessons
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const lessonDate = new Date(lesson.scheduledDate)
+    lessonDate.setHours(0, 0, 0, 0)
+    if (lessonDate > today) {
+      return NextResponse.json(
+        { error: "Cannot edit attendance before the lesson date" },
+        { status: 400 }
+      )
+    }
+
     // Get existing attendance records for this lesson
     const existingRecords = await prisma.attendanceRecord.findMany({
       where: { lessonId },

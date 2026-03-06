@@ -205,3 +205,59 @@ export function withAdminAuth<T extends unknown[]>(
 ) {
   return withRole([UserRole.SUPER_ADMIN, UserRole.PRIEST, UserRole.SERVANT_PREP], handler)
 }
+
+/**
+ * Backfill attendance records for a newly enrolled student.
+ * Creates ABSENT records for all lessons in the student's academic year
+ * that already have attendance taken (i.e., other students have records).
+ * This ensures the new student appears in all past lesson attendance views.
+ *
+ * Can be called with a Prisma transaction client or the default prisma client.
+ */
+export async function backfillAttendanceForStudent(
+  studentId: string,
+  academicYearId: string | null,
+  tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+) {
+  if (!academicYearId) return
+
+  const db = tx || prisma
+
+  // Find all non-cancelled, non-exam-day lessons in this academic year
+  // that already have at least one attendance record (attendance was taken)
+  const lessonsWithAttendance = await db.lesson.findMany({
+    where: {
+      academicYearId,
+      status: { not: 'CANCELLED' },
+      isExamDay: false,
+      attendanceRecords: { some: {} },
+    },
+    select: { id: true },
+  })
+
+  if (lessonsWithAttendance.length === 0) return
+
+  // Check which of these lessons the student already has records for
+  const existingRecords = await db.attendanceRecord.findMany({
+    where: {
+      studentId,
+      lessonId: { in: lessonsWithAttendance.map(l => l.id) },
+    },
+    select: { lessonId: true },
+  })
+  const existingLessonIds = new Set(existingRecords.map(r => r.lessonId))
+
+  // Create ABSENT records for lessons the student doesn't have records for
+  const toCreate = lessonsWithAttendance
+    .filter(l => !existingLessonIds.has(l.id))
+    .map(l => ({
+      lessonId: l.id,
+      studentId,
+      status: 'ABSENT' as const,
+      recordedBy: null,
+    }))
+
+  if (toCreate.length > 0) {
+    await db.attendanceRecord.createMany({ data: toCreate })
+  }
+}
