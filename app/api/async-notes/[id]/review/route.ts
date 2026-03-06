@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { NoteSubmissionStatus, AttendanceStatus } from "@prisma/client"
 import { canReviewAsyncNotes } from "@/lib/roles"
 import { handleApiError } from "@/lib/api-utils"
+import { notifyAsyncNoteReviewed } from "@/lib/notifications"
 
 // POST /api/async-notes/[id]/review - Review (approve/reject/revert) a submission
 // Auth: SUPER_ADMIN, SERVANT_PREP only
@@ -68,6 +69,12 @@ export async function POST(
         { status: 400 }
       )
     }
+
+    // Get lesson title for notification
+    const submissionWithLesson = await prisma.asyncNoteSubmission.findUnique({
+      where: { id },
+      include: { lesson: { select: { title: true } } },
+    })
 
     // Handle APPROVED
     if (status === "APPROVED") {
@@ -140,6 +147,14 @@ export async function POST(
         return updated
       })
 
+      // Notify student (non-blocking)
+      notifyAsyncNoteReviewed({
+        studentId: submission.studentId,
+        lessonTitle: submissionWithLesson?.lesson?.title || 'Lesson',
+        status: 'APPROVED',
+        feedback: feedback || undefined,
+      }).catch(() => {})
+
       return NextResponse.json(result)
     }
 
@@ -201,6 +216,14 @@ export async function POST(
 
         return updated
       })
+
+      // Notify student about rejection (non-blocking)
+      notifyAsyncNoteReviewed({
+        studentId: submission.studentId,
+        lessonTitle: submissionWithLesson?.lesson?.title || 'Lesson',
+        status: 'REJECTED',
+        feedback: feedback || undefined,
+      }).catch(() => {})
 
       return NextResponse.json(result)
     }
