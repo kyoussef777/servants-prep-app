@@ -8,6 +8,8 @@ import { ProfilePhotoReminder } from "@/components/profile-photo-reminder";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationProvider } from "@/components/notifications/notification-provider";
 import { PushNotificationPrompt } from "@/components/notifications/push-prompt";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "Servants Preparation Program",
@@ -45,6 +47,8 @@ export default function RootLayout({
           {children}
           <PushNotificationPrompt />
           <Toaster />
+          <Analytics />
+          <SpeedInsights />
         </Providers>
       </body>
     </html>
