@@ -80,6 +80,7 @@ interface Mentee {
       percentage: number | null
       met: boolean
       required: number
+      conductDismissalCount: number
     }
     exams: {
       sectionAverages: SectionAverage[]
@@ -416,6 +417,14 @@ export default function MyMenteesPage() {
                             {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(0)}%` : '—'}
                           </div>
                         </div>
+                        {analytics.attendance.conductDismissalCount > 0 && (
+                          <div className="text-center md:text-right">
+                            <div className="text-[10px] md:text-xs text-gray-500 uppercase">Removed</div>
+                            <div className="text-sm md:text-lg font-bold text-orange-600">
+                              {analytics.attendance.conductDismissalCount}x
+                            </div>
+                          </div>
+                        )}
                         <div className="text-center md:text-right">
                           <div className="text-[10px] md:text-xs text-gray-500 uppercase">Exam</div>
                           <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
@@ -508,6 +517,14 @@ export default function MyMenteesPage() {
                           <p className="text-[10px] md:text-xs text-gray-500 mt-1">
                             (Present + Late÷2) ÷ (Total - Excused) = {analytics.attendance.effectivePresent.toFixed(1)} ÷ {analytics.attendance.totalLessons}
                           </p>
+                          {analytics.attendance.conductDismissalCount > 0 && (
+                            <div className="flex items-center gap-1.5 mt-2 p-1.5 md:p-2 bg-orange-50 border border-orange-200 rounded text-[10px] md:text-xs text-orange-700">
+                              <AlertCircle className="h-3 w-3 shrink-0" />
+                              <span>
+                                Removed from lesson {analytics.attendance.conductDismissalCount} time{analytics.attendance.conductDismissalCount !== 1 ? 's' : ''} (each counts as an absence)
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
 

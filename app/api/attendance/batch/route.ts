@@ -4,13 +4,15 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { canManageData } from "@/lib/roles"
 import { AttendanceStatus } from "@prisma/client"
 import { parseTimeString, handleApiError } from "@/lib/api-utils"
-import { notifyAttendanceRecorded } from "@/lib/notifications"
+import { notifyAttendanceRecorded, notifyConductRemoval } from "@/lib/notifications"
 
 interface AttendanceRecord {
   studentId: string
   status: 'PRESENT' | 'LATE' | 'ABSENT'
   arrivedAt?: string | null
   notes?: string | null
+  conductRemoval?: boolean
+  conductNote?: string | null
 }
 
 interface BatchRequest {
@@ -75,6 +77,16 @@ export async function POST(request: Request) {
       existingRecords.map(r => [r.studentId, r.id])
     )
 
+    // Validate conduct removals: must have a non-empty note
+    for (const record of records) {
+      if (record.conductRemoval === true && (!record.conductNote || !record.conductNote.trim())) {
+        return NextResponse.json(
+          { error: `A reason is required when removing a student from a lesson` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Separate into creates and updates
     const toCreate: Array<{
       lessonId: string
@@ -83,6 +95,8 @@ export async function POST(request: Request) {
       arrivedAt: Date | null
       notes: string | null
       recordedBy: string
+      conductRemoval: boolean
+      conductNote: string | null
     }> = []
 
     const toUpdate: Array<{
@@ -90,19 +104,25 @@ export async function POST(request: Request) {
       status: 'PRESENT' | 'LATE' | 'ABSENT'
       arrivedAt: Date | null
       notes: string | null
+      conductRemoval: boolean
+      conductNote: string | null
     }> = []
 
     for (const record of records) {
       const existingId = existingByStudent.get(record.studentId)
       // Parse arrivedAt using utility function
       const arrivedAt = parseTimeString(record.arrivedAt)
+      const conductRemoval = record.conductRemoval === true
+      const conductNote = conductRemoval ? (record.conductNote || null) : null
 
       if (existingId) {
         toUpdate.push({
           id: existingId,
           status: record.status,
           arrivedAt,
-          notes: record.notes || null
+          notes: record.notes || null,
+          conductRemoval,
+          conductNote,
         })
       } else {
         toCreate.push({
@@ -111,7 +131,9 @@ export async function POST(request: Request) {
           status: record.status,
           arrivedAt,
           notes: record.notes || null,
-          recordedBy: user.id
+          recordedBy: user.id,
+          conductRemoval,
+          conductNote,
         })
       }
     }
@@ -126,14 +148,13 @@ export async function POST(request: Request) {
       }
 
       // Batch update existing records
-      // Group updates by status for better performance
       if (toUpdate.length > 0) {
-        // Group updates that have the same status (most common case)
+        // Group simple status-only updates (no arrivedAt, notes, or conductRemoval)
         const updateGroups = new Map<string, typeof toUpdate>()
         const complexUpdates: typeof toUpdate = []
 
         for (const update of toUpdate) {
-          if (update.arrivedAt === null && update.notes === null) {
+          if (update.arrivedAt === null && update.notes === null && !update.conductRemoval) {
             // Simple status-only updates can be grouped
             if (!updateGroups.has(update.status)) {
               updateGroups.set(update.status, [])
@@ -145,12 +166,12 @@ export async function POST(request: Request) {
           }
         }
 
-        // Execute grouped updates
-        for (const [status, records] of updateGroups) {
-          if (records.length > 0) {
+        // Execute grouped updates (clears conduct removal when not flagged)
+        for (const [status, groupedRecords] of updateGroups) {
+          if (groupedRecords.length > 0) {
             await tx.attendanceRecord.updateMany({
-              where: { id: { in: records.map(r => r.id) } },
-              data: { status: status as AttendanceStatus }
+              where: { id: { in: groupedRecords.map(r => r.id) } },
+              data: { status: status as AttendanceStatus, conductRemoval: false, conductNote: null }
             })
           }
         }
@@ -162,19 +183,22 @@ export async function POST(request: Request) {
             data: {
               status: update.status,
               arrivedAt: update.arrivedAt,
-              notes: update.notes
+              notes: update.notes,
+              conductRemoval: update.conductRemoval,
+              conductNote: update.conductNote,
             }
           })
         }
       }
     })
 
-    // Send attendance notifications to mentors (non-blocking)
+    // Send notifications to mentors (non-blocking)
     const studentIds = records.map((r: AttendanceRecord) => r.studentId)
+    const conductRemovals = records.filter((r: AttendanceRecord) => r.conductRemoval === true)
     prisma.user.findMany({
       where: { id: { in: studentIds } },
       select: { id: true, name: true },
-    }).then((students) => {
+    }).then(async (students) => {
       const studentRecords = records.map((r: AttendanceRecord) => ({
         studentId: r.studentId,
         studentName: students.find((s) => s.id === r.studentId)?.name || 'Student',
@@ -183,11 +207,24 @@ export async function POST(request: Request) {
       const lessonDate = lesson.scheduledDate
         ? new Date(lesson.scheduledDate).toLocaleDateString()
         : 'N/A'
-      notifyAttendanceRecorded({
+      await notifyAttendanceRecorded({
         lessonTitle: lesson.title,
         lessonDate,
         studentRecords,
       }).catch(() => {})
+
+      // Notify mentors for each conduct removal (non-blocking)
+      const removedByName = user.name || 'Admin'
+      for (const removal of conductRemovals) {
+        const studentName = students.find((s) => s.id === removal.studentId)?.name || 'Student'
+        notifyConductRemoval({
+          studentId: removal.studentId,
+          studentName,
+          lessonTitle: lesson.title,
+          conductNote: removal.conductNote || '',
+          removedByName,
+        }).catch(() => {})
+      }
     }).catch(() => {})
 
     return NextResponse.json({

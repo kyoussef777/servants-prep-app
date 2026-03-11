@@ -141,7 +141,7 @@ export async function GET(request: Request) {
     const asyncStudentIds = enrollments.filter(e => e.isAsyncStudent).map(e => e.studentId)
 
     // Run all queries in parallel for better performance
-    const [lessonsWithAttendanceCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear, ssAssignments, asyncNoteAggregates] = await Promise.all([
+    const [lessonsWithAttendanceCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear, ssAssignments, asyncNoteAggregates, conductRemovalCounts] = await Promise.all([
       // Count only lessons that have attendance records (completed lessons with attendance taken)
       prisma.lesson.count({
         where: lessonsWithAttendanceFilter
@@ -222,7 +222,17 @@ export async function GET(request: Request) {
             where: { studentId: { in: asyncStudentIds } },
             _count: { status: true }
           })
-        : Promise.resolve([])
+        : Promise.resolve([]),
+
+      // Count conduct removals per student
+      prisma.attendanceRecord.groupBy({
+        by: ['studentId'],
+        where: {
+          studentId: { in: studentIds },
+          conductRemoval: true,
+        },
+        _count: { id: true }
+      })
     ])
 
     // Build lookup maps for O(1) access
@@ -288,6 +298,12 @@ export async function GET(request: Request) {
         ssAssignmentsByStudent.set(assignment.studentId, [])
       }
       ssAssignmentsByStudent.get(assignment.studentId)!.push(assignment)
+    }
+
+    // Build conduct removal counts per student
+    const conductRemovalByStudent = new Map<string, number>()
+    for (const agg of conductRemovalCounts) {
+      conductRemovalByStudent.set(agg.studentId, agg._count.id)
     }
 
     // Build async note counts per student
@@ -434,6 +450,8 @@ export async function GET(request: Request) {
         year2AttendedLessons: year2Attendance !== null
           ? Math.round(year2EffectivePresent * 10) / 10
           : null,
+        // Conduct removals count
+        conductDismissalCount: conductRemovalByStudent.get(studentId) || 0,
         // Async student fields
         isAsyncStudent: enrollment.isAsyncStudent,
         ...(enrollment.isAsyncStudent ? {

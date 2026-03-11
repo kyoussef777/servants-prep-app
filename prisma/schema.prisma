@@ -296,15 +296,17 @@ model LessonResource {
 }
 
 model AttendanceRecord {
-  id         String           @id @default(cuid())
-  lessonId   String
-  studentId  String
-  status     AttendanceStatus
-  arrivedAt  DateTime?
-  notes      String?          @db.Text
-  recordedBy String?
-  recordedAt DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  id              String           @id @default(cuid())
+  lessonId        String
+  studentId       String
+  status          AttendanceStatus
+  arrivedAt       DateTime?
+  notes           String?          @db.Text
+  recordedBy      String?
+  recordedAt      DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  conductRemoval  Boolean          @default(false)  // True if student was removed from lesson for conduct
+  conductNote     String?          @db.Text          // Required reason when conductRemoval is true
 
   // Relations
   lesson               Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
@@ -316,6 +318,7 @@ model AttendanceRecord {
   @@index([lessonId])
   @@index([studentId])
   @@index([status])
+  @@index([conductRemoval])
   @@index([studentId, lessonId]) // Compound index for student+lesson queries
 }
 
@@ -593,6 +596,7 @@ enum NotificationType {
   ASYNC_NOTE_REVIEWED
   MENTOR_ASSIGNED
   ANNOUNCEMENT
+  CONDUCT_REMOVAL
 }
 
 model PushSubscription {
