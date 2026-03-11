@@ -427,6 +427,39 @@ export async function notifyMentorAssigned({
 }
 
 /**
+ * Notify a student's mentor when the student is removed from a lesson for conduct
+ */
+export async function notifyConductRemoval({
+  studentId,
+  studentName,
+  lessonTitle,
+  conductNote,
+  removedByName,
+}: {
+  studentId: string
+  studentName: string
+  lessonTitle: string
+  conductNote: string
+  removedByName: string
+}) {
+  const enrollment = await prisma.studentEnrollment.findUnique({
+    where: { studentId },
+    select: { mentorId: true },
+  })
+
+  if (enrollment?.mentorId) {
+    await createNotification({
+      userId: enrollment.mentorId,
+      type: NotificationType.CONDUCT_REMOVAL,
+      title: 'Student Removed from Lesson',
+      body: `${studentName} was removed from "${lessonTitle}" by ${removedByName}. Reason: ${conductNote}`,
+      url: '/dashboard/mentor/my-mentees',
+      metadata: { studentId, studentName, lessonTitle, conductNote, removedByName },
+    })
+  }
+}
+
+/**
  * Send an announcement to users by role
  */
 export async function sendAnnouncement({

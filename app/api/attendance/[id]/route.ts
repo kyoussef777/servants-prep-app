@@ -21,7 +21,7 @@ export async function PATCH(
       )
     }
     const body = await request.json()
-    const { status, arrivedAt, notes } = body
+    const { status, arrivedAt, notes, conductRemoval, conductNote } = body
 
     // Check if record exists
     const record = await prisma.attendanceRecord.findUnique({
@@ -38,9 +38,23 @@ export async function PATCH(
       )
     }
 
+    // Validate conduct removal requires a note
+    if (conductRemoval === true && (!conductNote || !conductNote.trim())) {
+      return NextResponse.json(
+        { error: "A reason is required when removing a student from a lesson" },
+        { status: 400 }
+      )
+    }
+
     // Note: Admins can edit attendance records at any time
 
-    const updateData: { status?: AttendanceStatus; arrivedAt?: Date | null; notes?: string } = {}
+    const updateData: {
+      status?: AttendanceStatus
+      arrivedAt?: Date | null
+      notes?: string
+      conductRemoval?: boolean
+      conductNote?: string | null
+    } = {}
     if (status) updateData.status = status
     if (arrivedAt !== undefined) {
       // Validate arrivedAt - only set if it's a valid date
@@ -52,6 +66,10 @@ export async function PATCH(
       }
     }
     if (notes !== undefined) updateData.notes = notes
+    if (conductRemoval !== undefined) {
+      updateData.conductRemoval = conductRemoval
+      updateData.conductNote = conductRemoval ? (conductNote || null) : null
+    }
 
     const updatedRecord = await prisma.attendanceRecord.update({
       where: { id },
