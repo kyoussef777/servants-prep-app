@@ -33,22 +33,6 @@ export const staticDataConfig: SWRConfiguration = {
 }
 
 // Custom hooks for common data fetching patterns
-export function useUsers(role?: string, options?: SWRConfiguration) {
-  const url = role ? `/api/users?role=${role}` : '/api/users'
-  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
-}
-
-export function useAcademicYears(options?: SWRConfiguration) {
-  return useSWR('/api/academic-years', fetcher, { ...staticDataConfig, ...options })
-}
-
-export function useLessons(academicYearId?: string, options?: SWRConfiguration) {
-  const url = academicYearId
-    ? `/api/lessons?academicYearId=${academicYearId}`
-    : '/api/lessons'
-  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
-}
-
 export function useEnrollments(mentorId?: string, options?: SWRConfiguration) {
   const url = mentorId
     ? `/api/enrollments?mentorId=${mentorId}`
@@ -62,51 +46,6 @@ export function useDashboardStats(options?: SWRConfiguration) {
     refreshInterval: 30000, // Refresh every 30 seconds
     ...options
   })
-}
-
-export function useStudentAnalytics(academicYearId?: string, options?: SWRConfiguration) {
-  const url = academicYearId
-    ? `/api/students/analytics/batch?academicYearId=${academicYearId}`
-    : null
-  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
-}
-
-export function useExamSections(options?: SWRConfiguration) {
-  return useSWR('/api/exam-sections', fetcher, { ...staticDataConfig, ...options })
-}
-
-export function useAsyncNotes(filters?: { studentId?: string; status?: string; academicYearId?: string }, options?: SWRConfiguration) {
-  const params = new URLSearchParams()
-  if (filters?.studentId) params.set('studentId', filters.studentId)
-  if (filters?.status) params.set('status', filters.status)
-  if (filters?.academicYearId) params.set('academicYearId', filters.academicYearId)
-  const query = params.toString()
-  const url = `/api/async-notes${query ? `?${query}` : ''}`
-  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
-}
-
-export function useSundaySchoolAssignments(filters?: { studentId?: string; academicYearId?: string; isActive?: string }, options?: SWRConfiguration) {
-  const params = new URLSearchParams()
-  if (filters?.studentId) params.set('studentId', filters.studentId)
-  if (filters?.academicYearId) params.set('academicYearId', filters.academicYearId)
-  if (filters?.isActive) params.set('isActive', filters.isActive)
-  const query = params.toString()
-  const url = `/api/sunday-school/assignments${query ? `?${query}` : ''}`
-  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
-}
-
-export function useSundaySchoolCodes(weekOf?: string, options?: SWRConfiguration) {
-  const url = weekOf
-    ? `/api/sunday-school/codes?weekOf=${weekOf}`
-    : '/api/sunday-school/codes'
-  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
-}
-
-export function useSundaySchoolProgress(studentId?: string, options?: SWRConfiguration) {
-  const url = studentId
-    ? `/api/sunday-school/progress?studentId=${studentId}`
-    : null
-  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
 }
 
 // Registration system hooks

@@ -1,8 +1,8 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isAdmin, canManageExams } from "@/lib/roles"
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,23 +10,11 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { PageLoading } from '@/components/ui/page-loading'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
-import { formatDateUTC } from '@/lib/utils'
-
-interface AcademicYear {
-  id: string
-  name: string
-  isActive: boolean
-}
-
-interface ExamSection {
-  id: string
-  name: string
-  displayName: string
-  passingScore: number
-  averageRequirement: number
-}
+import { formatDateUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
+import type { AcademicYear, ExamSection } from '@/lib/types'
 
 interface Exam {
   id: string
@@ -62,18 +50,14 @@ interface ExamScore {
 
 export default function ExamsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    }>
+    <Suspense fallback={<PageLoading />}>
       <ExamsPageContent />
     </Suspense>
   )
 }
 
 function ExamsPageContent() {
-  const { data: session, status } = useSession()
+  const { session, status } = useAdminGuard(isAdmin)
   const router = useRouter()
   const searchParams = useSearchParams()
   const [exams, setExams] = useState<Exam[]>([])
@@ -100,14 +84,6 @@ function ExamsPageContent() {
     examDate: '',
     totalPoints: 100
   })
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !isAdmin(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   // Read URL params for section filter
   useEffect(() => {
@@ -145,25 +121,7 @@ function ExamsPageContent() {
         setSelectedYearId('all')
 
         // Build student map from enrollments
-        const studentMap = new Map()
-        if (Array.isArray(enrollmentsData)) {
-          for (const enrollment of enrollmentsData) {
-            if (enrollment.isActive) {
-              const student = enrollment.student
-              if (!studentMap.has(student.id)) {
-                studentMap.set(student.id, {
-                  ...student,
-                  enrollments: []
-                })
-              }
-              studentMap.get(student.id).enrollments.push({
-                yearLevel: enrollment.yearLevel,
-                mentorId: enrollment.mentor?.id
-              })
-            }
-          }
-        }
-        setStudents(Array.from(studentMap.values()))
+        setStudents(buildStudentMapFromEnrollments(enrollmentsData) as unknown as Student[])
       } catch (error) {
         console.error('Failed to fetch initial data:', error)
       } finally {
@@ -232,13 +190,7 @@ function ExamsPageContent() {
         const now = new Date()
         setLastSaved(now)
         toast.success('Exam created successfully!', {
-          description: now.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
-          })
+          description: formatToastTimestamp(now)
         })
       } else {
         toast.error('Failed to create exam')
@@ -337,13 +289,7 @@ function ExamsPageContent() {
       const now = new Date()
       setLastSaved(now)
       toast.success('Scores saved successfully!', {
-        description: now.toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        })
+        description: formatToastTimestamp(now)
       })
 
       // Refresh all score state from the server to ensure consistency
@@ -437,11 +383,7 @@ function ExamsPageContent() {
   const canEdit = session?.user?.role && canManageExams(session.user.role)
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   return (
@@ -454,13 +396,7 @@ function ExamsPageContent() {
             <p className="text-sm text-gray-600">Create exams and enter scores</p>
             {lastSaved && (
               <p className="text-xs text-gray-500 mt-1">
-                Last saved {lastSaved.toLocaleString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })}
+                Last saved {formatToastTimestamp(lastSaved)}
               </p>
             )}
           </div>

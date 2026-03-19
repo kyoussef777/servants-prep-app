@@ -1,13 +1,14 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { PageLoading } from '@/components/ui/page-loading'
+import { PageHeader } from '@/components/admin/page-header'
 import { isAdmin, canAssignMentors, canManageUsers } from '@/lib/roles'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useDashboardStats } from '@/lib/swr'
 import {
   Users,
@@ -95,21 +96,12 @@ interface Analytics {
 }
 
 export default function AdminDashboard() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(isAdmin)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [, setAnalyticsLoading] = useState(true)
 
   // Use SWR for caching - automatically revalidates and caches
   const { data: stats, isLoading } = useDashboardStats()
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role && !isAdmin(session.user.role)) {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -132,11 +124,7 @@ export default function AdminDashboard() {
   }, [status])
 
   if (status === 'loading' || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   const userRole = session?.user?.role
@@ -162,19 +150,18 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header with Settings Button */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-gray-600 mt-1">Welcome back, {session?.user?.name}</p>
-          </div>
-          <Link href="/dashboard/admin/settings">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </Button>
-          </Link>
-        </div>
+        <PageHeader
+          title="Dashboard"
+          description={`Welcome back, ${session?.user?.name}`}
+          actions={
+            <Link href="/dashboard/admin/settings">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
+          }
+        />
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

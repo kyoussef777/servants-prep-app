@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +9,12 @@ import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { UserRole } from '@prisma/client'
-import { getRoleDisplayName, isAdmin } from '@/lib/roles'
+import { PageLoading } from '@/components/ui/page-loading'
+import { PageHeader } from '@/components/admin/page-header'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
+import { getRoleDisplayName, isAdmin, canViewStudents } from '@/lib/roles'
+import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
+import type { MenteeAnalytics } from '@/lib/types'
 import {
   Users,
   AlertTriangle,
@@ -38,22 +41,6 @@ interface StudentNote {
   }
 }
 
-interface SectionAverage {
-  section: string
-  average: number
-  scores: number[]
-  passingMet: boolean
-}
-
-interface MissingExam {
-  id: string
-  examDate: string
-  totalPoints: number
-  yearLevel: string
-  sectionName: string
-  sectionDisplayName: string
-}
-
 interface Mentee {
   id: string
   student: {
@@ -64,58 +51,12 @@ interface Mentee {
   }
   yearLevel: string
   status: string
-  analytics?: {
-    enrollment: {
-      yearLevel: string
-      status: string
-    }
-    attendance: {
-      totalLessons: number
-      allLessons: number
-      presentCount: number
-      lateCount: number
-      absentCount: number
-      excusedCount: number
-      effectivePresent: number
-      percentage: number | null
-      met: boolean
-      required: number
-      conductDismissalCount: number
-    }
-    exams: {
-      sectionAverages: SectionAverage[]
-      overallAverage: number | null
-      overallAverageMet: boolean
-      allSectionsPassing: boolean
-      requiredAverage: number
-      requiredMinimum: number
-      missingExams: MissingExam[]
-      totalApplicableExams: number
-      examsTaken: number
-    }
-    graduation: {
-      eligible: boolean
-      attendanceMet: boolean
-      overallAverageMet: boolean
-      allSectionsPassing: boolean
-    }
-  }
+  analytics?: MenteeAnalytics
 }
 
-const SECTION_DISPLAY_NAMES: { [key: string]: string } = {
-  'BIBLE_STUDIES': 'Bible Studies',
-  'DOGMA': 'Dogma',
-  'COMPARATIVE_THEOLOGY': 'Comparative Theology',
-  'RITUAL_THEOLOGY_SACRAMENTS': 'Ritual & Sacraments',
-  'CHURCH_HISTORY_COPTIC_HERITAGE': 'Church History',
-  'SPIRITUALITY_OF_SERVANT': 'Spirituality',
-  'PSYCHOLOGY_METHODOLOGY': 'Psychology & Methodology',
-  'MISCELLANEOUS': 'Miscellaneous'
-}
 
 export default function MyMenteesPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(canViewStudents)
   const [mentees, setMentees] = useState<Mentee[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedMentee, setExpandedMentee] = useState<string | null>(null)
@@ -125,18 +66,6 @@ export default function MyMenteesPage() {
   const [notesLoading, setNotesLoading] = useState<Record<string, boolean>>({})
   const [newNoteContent, setNewNoteContent] = useState<Record<string, string>>({})
   const [submittingNote, setSubmittingNote] = useState<Record<string, boolean>>({})
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role &&
-               session.user.role !== 'MENTOR' &&
-               session.user.role !== 'SUPER_ADMIN' &&
-               session.user.role !== 'PRIEST' &&
-               session.user.role !== 'SERVANT_PREP') {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     const fetchMentees = async () => {
@@ -199,11 +128,7 @@ export default function MyMenteesPage() {
   }, [expandedMentee, mentees])
 
   if (loading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
+    return <PageLoading />
   }
 
   const isPriest = session?.user?.role === 'PRIEST'
@@ -294,33 +219,28 @@ export default function MyMenteesPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2 dark:text-white">
-              <Users className="h-8 w-8" />
-              {isPriest ? 'All Students' : 'My Mentees'}
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              {isPriest
-                ? `Viewing all ${mentees.length} enrolled student${mentees.length !== 1 ? 's' : ''}`
-                : `You are mentoring ${mentees.length} student${mentees.length !== 1 ? 's' : ''}`}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {atRiskMentees.length > 0 && (
-              <Badge className="bg-red-500 text-white px-3 py-1">
-                <AlertTriangle className="h-4 w-4 mr-1" />
-                {atRiskMentees.length} At Risk
-              </Badge>
-            )}
-            {onTrackMentees.length > 0 && (
-              <Badge className="bg-green-500 text-white px-3 py-1">
-                <CheckCircle className="h-4 w-4 mr-1" />
-                {onTrackMentees.length} On Track
-              </Badge>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          title={isPriest ? 'All Students' : 'My Mentees'}
+          description={isPriest
+            ? `Viewing all ${mentees.length} enrolled student${mentees.length !== 1 ? 's' : ''}`
+            : `You are mentoring ${mentees.length} student${mentees.length !== 1 ? 's' : ''}`}
+          actions={
+            <>
+              {atRiskMentees.length > 0 && (
+                <Badge className="bg-red-500 text-white px-3 py-1">
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  {atRiskMentees.length} At Risk
+                </Badge>
+              )}
+              {onTrackMentees.length > 0 && (
+                <Badge className="bg-green-500 text-white px-3 py-1">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  {onTrackMentees.length} On Track
+                </Badge>
+              )}
+            </>
+          }
+        />
 
         {/* Summary Stats */}
         {mentees.length > 0 && (

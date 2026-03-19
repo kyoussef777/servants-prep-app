@@ -9,26 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { GraduationCap, ArrowUpCircle, CalendarPlus, X, Calendar, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
-
-interface AcademicYear {
-  id: string
-  name: string
-  startDate: string
-  endDate: string
-  isActive: boolean
-}
-
-interface StudentAnalytics {
-  studentId: string
-  studentName: string
-  yearLevel: 'YEAR_1' | 'YEAR_2'
-  attendancePercentage: number | null
-  examAverage: number | null
-  graduationEligible: boolean
-  attendanceMet: boolean
-  examAverageMet: boolean
-  allSectionsMet: boolean
-}
+import type { AcademicYear, StudentAnalytics } from '@/lib/types'
 
 interface YearEndReviewPanelProps {
   activeYear: AcademicYear | null

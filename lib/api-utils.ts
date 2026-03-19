@@ -28,44 +28,6 @@ export function handleApiError(error: unknown): NextResponse {
 }
 
 /**
- * Parse pagination parameters from URL search params
- */
-export function parsePaginationParams(searchParams: URLSearchParams) {
-  const pageStr = searchParams.get('page')
-  const limitStr = searchParams.get('limit')
-
-  const page = pageStr ? parseInt(pageStr, 10) : null
-  const limit = limitStr ? parseInt(limitStr, 10) : 50
-
-  return {
-    page,
-    limit,
-    skip: page !== null ? (page - 1) * limit : undefined,
-    take: page !== null ? limit : undefined
-  }
-}
-
-/**
- * Create a paginated response with metadata
- */
-export function createPaginatedResponse<T>(
-  data: T[],
-  total: number,
-  page: number,
-  limit: number
-) {
-  return {
-    data,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit)
-    }
-  }
-}
-
-/**
  * Parse time string (HH:MM or HH:MM:SS) into a Date object
  * Returns null if invalid or empty
  */
@@ -78,19 +40,6 @@ export function parseTimeString(timeStr: string | null | undefined): Date | null
   const trimmed = timeStr.trim()
   const parsedDate = new Date(`1970-01-01T${trimmed}`)
 
-  return !isNaN(parsedDate.getTime()) ? parsedDate : null
-}
-
-/**
- * Parse a date string or ISO timestamp into a Date object
- * Returns null if invalid or empty
- */
-export function parseDateString(dateStr: string | null | undefined): Date | null {
-  if (!dateStr || typeof dateStr !== 'string' || !dateStr.trim()) {
-    return null
-  }
-
-  const parsedDate = new Date(dateStr.trim())
   return !isNaN(parsedDate.getTime()) ? parsedDate : null
 }
 
@@ -109,32 +58,6 @@ export async function getMentorStudentIds(userId: string, userRole: UserRole): P
   })
 
   return mentees.map(m => m.studentId)
-}
-
-/**
- * Create a Prisma where clause filter for mentor access
- * Returns a filter that limits results to mentor's assigned students
- */
-export async function createMentorFilter(
-  userId: string,
-  userRole: UserRole,
-  studentIdField: string = 'studentId'
-): Promise<Record<string, { in: string[] }> | undefined> {
-  const studentIds = await getMentorStudentIds(userId, userRole)
-
-  if (studentIds === undefined) {
-    return undefined
-  }
-
-  return { [studentIdField]: { in: studentIds } }
-}
-
-/**
- * Check if user has admin-level access (SUPER_ADMIN, PRIEST, or SERVANT_PREP)
- */
-export function isAdminRole(role: UserRole): boolean {
-  const adminRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.PRIEST, UserRole.SERVANT_PREP]
-  return adminRoles.includes(role)
 }
 
 /**

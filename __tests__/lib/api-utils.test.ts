@@ -3,17 +3,12 @@ import { NextResponse } from 'next/server'
 import { UserRole } from '@prisma/client'
 import {
   handleApiError,
-  parsePaginationParams,
-  createPaginatedResponse,
   parseTimeString,
-  parseDateString,
-  isAdminRole,
   withErrorHandler,
   withAuth,
   withRole,
   withAdminAuth,
   getMentorStudentIds,
-  createMentorFilter,
 } from '@/lib/api-utils'
 
 // Mock prisma
@@ -81,75 +76,6 @@ describe('handleApiError', () => {
   })
 })
 
-describe('parsePaginationParams', () => {
-  it('should return defaults when no params provided', () => {
-    const params = new URLSearchParams()
-    const result = parsePaginationParams(params)
-    expect(result).toEqual({ page: null, limit: 50, skip: undefined, take: undefined })
-  })
-
-  it('should parse page and use default limit', () => {
-    const params = new URLSearchParams({ page: '2' })
-    const result = parsePaginationParams(params)
-    expect(result).toEqual({ page: 2, limit: 50, skip: 50, take: 50 })
-  })
-
-  it('should parse both page and limit', () => {
-    const params = new URLSearchParams({ page: '3', limit: '10' })
-    const result = parsePaginationParams(params)
-    expect(result).toEqual({ page: 3, limit: 10, skip: 20, take: 10 })
-  })
-
-  it('should handle page 1 with skip 0', () => {
-    const params = new URLSearchParams({ page: '1' })
-    const result = parsePaginationParams(params)
-    expect(result.skip).toBe(0)
-  })
-
-  it('should handle custom limit without page', () => {
-    const params = new URLSearchParams({ limit: '25' })
-    const result = parsePaginationParams(params)
-    expect(result).toEqual({ page: null, limit: 25, skip: undefined, take: undefined })
-  })
-
-  it('should handle NaN page gracefully', () => {
-    const params = new URLSearchParams({ page: 'abc' })
-    const result = parsePaginationParams(params)
-    expect(result.page).toBeNaN()
-  })
-})
-
-describe('createPaginatedResponse', () => {
-  it('should calculate totalPages correctly', () => {
-    const result = createPaginatedResponse(['a', 'b'], 10, 1, 5)
-    expect(result.pagination.totalPages).toBe(2)
-  })
-
-  it('should handle total exactly divisible by limit', () => {
-    const result = createPaginatedResponse([], 20, 1, 10)
-    expect(result.pagination.totalPages).toBe(2)
-  })
-
-  it('should round up totalPages for partial pages', () => {
-    const result = createPaginatedResponse([], 11, 1, 10)
-    expect(result.pagination.totalPages).toBe(2)
-  })
-
-  it('should handle empty data', () => {
-    const result = createPaginatedResponse([], 0, 1, 10)
-    expect(result.data).toEqual([])
-    expect(result.pagination.totalPages).toBe(0)
-  })
-
-  it('should include all pagination metadata', () => {
-    const result = createPaginatedResponse(['item'], 100, 5, 20)
-    expect(result).toEqual({
-      data: ['item'],
-      pagination: { page: 5, limit: 20, total: 100, totalPages: 5 },
-    })
-  })
-})
-
 describe('parseTimeString', () => {
   it('should parse HH:MM format', () => {
     const result = parseTimeString('14:30')
@@ -205,62 +131,6 @@ describe('parseTimeString', () => {
   })
 })
 
-describe('parseDateString', () => {
-  it('should parse valid ISO date string', () => {
-    const result = parseDateString('2025-06-15')
-    expect(result).toBeInstanceOf(Date)
-  })
-
-  it('should parse full ISO timestamp', () => {
-    const result = parseDateString('2025-06-15T10:30:00Z')
-    expect(result).toBeInstanceOf(Date)
-    expect(result!.getUTCHours()).toBe(10)
-  })
-
-  it('should return null for null input', () => {
-    expect(parseDateString(null)).toBeNull()
-  })
-
-  it('should return null for undefined input', () => {
-    expect(parseDateString(undefined)).toBeNull()
-  })
-
-  it('should return null for empty string', () => {
-    expect(parseDateString('')).toBeNull()
-  })
-
-  it('should return null for invalid date string', () => {
-    expect(parseDateString('not-a-date')).toBeNull()
-  })
-
-  it('should trim whitespace before parsing', () => {
-    const result = parseDateString('  2025-06-15  ')
-    expect(result).toBeInstanceOf(Date)
-  })
-})
-
-describe('isAdminRole', () => {
-  it('should return true for SUPER_ADMIN', () => {
-    expect(isAdminRole(UserRole.SUPER_ADMIN)).toBe(true)
-  })
-
-  it('should return true for PRIEST', () => {
-    expect(isAdminRole(UserRole.PRIEST)).toBe(true)
-  })
-
-  it('should return true for SERVANT_PREP', () => {
-    expect(isAdminRole(UserRole.SERVANT_PREP)).toBe(true)
-  })
-
-  it('should return false for MENTOR', () => {
-    expect(isAdminRole(UserRole.MENTOR)).toBe(false)
-  })
-
-  it('should return false for STUDENT', () => {
-    expect(isAdminRole(UserRole.STUDENT)).toBe(false)
-  })
-})
-
 describe('getMentorStudentIds', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -297,38 +167,6 @@ describe('getMentorStudentIds', () => {
 
     const result = await getMentorStudentIds('mentor1', UserRole.MENTOR)
     expect(result).toEqual([])
-  })
-})
-
-describe('createMentorFilter', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('should return undefined for non-MENTOR role', async () => {
-    const result = await createMentorFilter('user1', UserRole.SUPER_ADMIN)
-    expect(result).toBeUndefined()
-  })
-
-  it('should return filter with studentId field for MENTOR', async () => {
-    const { prisma } = await import('@/lib/prisma')
-    vi.mocked(prisma.studentEnrollment.findMany).mockResolvedValue([
-      { studentId: 's1' },
-      { studentId: 's2' },
-    ] as never)
-
-    const result = await createMentorFilter('mentor1', UserRole.MENTOR)
-    expect(result).toEqual({ studentId: { in: ['s1', 's2'] } })
-  })
-
-  it('should use custom studentIdField', async () => {
-    const { prisma } = await import('@/lib/prisma')
-    vi.mocked(prisma.studentEnrollment.findMany).mockResolvedValue([
-      { studentId: 's1' },
-    ] as never)
-
-    const result = await createMentorFilter('mentor1', UserRole.MENTOR, 'userId')
-    expect(result).toEqual({ userId: { in: ['s1'] } })
   })
 })
 
