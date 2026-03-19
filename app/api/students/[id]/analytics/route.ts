@@ -127,12 +127,18 @@ export async function GET(
       select: {
         status: true,
         arrivedAt: true,
+        conductRemoval: true,
         lesson: {
           select: {
             status: true
           }
         }
       }
+    })
+
+    // Count conduct removals across all lessons (not filtered by academicYearId)
+    const conductDismissalCount = await prisma.attendanceRecord.count({
+      where: { studentId, conductRemoval: true }
     })
 
     // Calculate attendance using shared utility
@@ -340,7 +346,8 @@ export async function GET(
         effectivePresent,
         percentage: attendancePercentage,
         met: attendanceMet,
-        required: 75
+        required: 75,
+        conductDismissalCount,
       },
       exams: {
         sectionAverages,

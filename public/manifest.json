@@ -1,0 +1,24 @@
+{
+  "name": "Servants Preparation Program",
+  "short_name": "Servants Prep",
+  "description": "Coptic Church Servants 2-Year Preparation Program",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/sp-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/sp-logo.avif",
+      "sizes": "512x512",
+      "type": "image/avif",
+      "purpose": "any"
+    }
+  ]
+}

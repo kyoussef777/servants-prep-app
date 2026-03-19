@@ -71,6 +71,7 @@ export interface AttendanceAnalytics {
   percentage: number | null
   met: boolean
   required: number
+  conductDismissalCount: number
 }
 
 export interface ExamAnalytics {

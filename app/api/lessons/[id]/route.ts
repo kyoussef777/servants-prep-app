@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canManageCurriculum } from "@/lib/roles"
 import { handleApiError } from "@/lib/api-utils"
+import { notifyLessonCancelled } from "@/lib/notifications"
 
 
 // PATCH /api/lessons/[id] - Update a lesson (SUPER_ADMIN and SERVANT_PREP only, PRIEST is read-only)
@@ -53,6 +54,12 @@ export async function PATCH(
       }
     }
 
+    // Get the current lesson state before update (to detect cancellation)
+    const currentLesson = await prisma.lesson.findUnique({
+      where: { id },
+      select: { status: true, title: true, scheduledDate: true },
+    })
+
     const lesson = await prisma.lesson.update({
       where: { id },
       data: updateData,
@@ -70,6 +77,19 @@ export async function PATCH(
         }
       }
     })
+
+    // Notify students if lesson was just cancelled
+    if (
+      status === 'CANCELLED' &&
+      currentLesson &&
+      currentLesson.status !== 'CANCELLED'
+    ) {
+      notifyLessonCancelled({
+        lessonTitle: lesson.title,
+        lessonDate: new Date(lesson.scheduledDate).toLocaleDateString(),
+        reason: cancellationReason || undefined,
+      }).catch(() => {})
+    }
 
     return NextResponse.json(lesson)
   } catch (error: unknown) {

@@ -21,6 +21,7 @@ interface MobileLessonCardProps {
   onEditResources: (id: string, resources: { title: string; url: string }[]) => void
   onDelete: (id: string) => void
   onDuplicate: (id: string) => void
+  onResetAttendance: (id: string) => void
   onMoveUp: (id: string) => void
   onMoveDown: (id: string) => void
   isExpanded: boolean
@@ -40,6 +41,7 @@ export function MobileLessonCard({
   onEditResources,
   onDelete,
   onDuplicate,
+  onResetAttendance,
   onMoveUp,
   onMoveDown,
   isExpanded,
@@ -272,9 +274,9 @@ export function MobileLessonCard({
           </div>
         )}
 
-        {/* Actions: Duplicate + Delete */}
+        {/* Actions: Duplicate + Reset Attendance + Delete */}
         {canEdit && (
-          <div className="pt-2 border-t flex gap-2">
+          <div className="pt-2 border-t flex gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -283,6 +285,16 @@ export function MobileLessonCard({
             >
               Duplicate
             </Button>
+            {hasAttendance && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs text-amber-600 border-amber-300 hover:bg-amber-50"
+                onClick={() => onResetAttendance(lesson.id)}
+              >
+                Reset Attendance
+              </Button>
+            )}
             <Button
               variant="destructive"
               size="sm"

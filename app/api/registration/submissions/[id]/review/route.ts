@@ -6,6 +6,8 @@ import { canReviewRegistrations } from '@/lib/roles'
 import { RegistrationStatus, UserRole, YearLevel } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { generateTempPassword } from '@/lib/registration-utils'
+import { notifyRegistrationReviewed } from '@/lib/notifications'
+import { backfillAttendanceForStudent } from '@/lib/api-utils'
 
 /**
  * POST /api/registration/submissions/[id]/review
@@ -128,6 +130,9 @@ export async function POST(
           },
         })
 
+        // Backfill attendance records for all past lessons in this academic year
+        await backfillAttendanceForStudent(newUser.id, targetAcademicYearId || null, tx)
+
         // Update submission status
         const updatedSubmission = await tx.registrationSubmission.update({
           where: { id },
@@ -167,6 +172,15 @@ export async function POST(
           tempPassword,
         }
       })
+
+      // Notify the newly approved user (non-blocking)
+      if (result.submission.createdUser) {
+        notifyRegistrationReviewed({
+          userId: result.submission.createdUser.id,
+          status: 'APPROVED',
+          applicantName: result.submission.fullName,
+        }).catch(() => {})
+      }
 
       return NextResponse.json({
         submission: result.submission,

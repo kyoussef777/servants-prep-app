@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +10,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { UserRole } from '@prisma/client'
 import { PageLoading } from '@/components/ui/page-loading'
-import { getRoleDisplayName, isAdmin } from '@/lib/roles'
+import { PageHeader } from '@/components/admin/page-header'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
+import { getRoleDisplayName, isAdmin, canViewStudents } from '@/lib/roles'
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
 import type { MenteeAnalytics } from '@/lib/types'
 import {
@@ -56,8 +56,7 @@ interface Mentee {
 
 
 export default function MyMenteesPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(canViewStudents)
   const [mentees, setMentees] = useState<Mentee[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedMentee, setExpandedMentee] = useState<string | null>(null)
@@ -67,18 +66,6 @@ export default function MyMenteesPage() {
   const [notesLoading, setNotesLoading] = useState<Record<string, boolean>>({})
   const [newNoteContent, setNewNoteContent] = useState<Record<string, string>>({})
   const [submittingNote, setSubmittingNote] = useState<Record<string, boolean>>({})
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role &&
-               session.user.role !== 'MENTOR' &&
-               session.user.role !== 'SUPER_ADMIN' &&
-               session.user.role !== 'PRIEST' &&
-               session.user.role !== 'SERVANT_PREP') {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     const fetchMentees = async () => {
@@ -232,33 +219,28 @@ export default function MyMenteesPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2 dark:text-white">
-              <Users className="h-8 w-8" />
-              {isPriest ? 'All Students' : 'My Mentees'}
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              {isPriest
-                ? `Viewing all ${mentees.length} enrolled student${mentees.length !== 1 ? 's' : ''}`
-                : `You are mentoring ${mentees.length} student${mentees.length !== 1 ? 's' : ''}`}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {atRiskMentees.length > 0 && (
-              <Badge className="bg-red-500 text-white px-3 py-1">
-                <AlertTriangle className="h-4 w-4 mr-1" />
-                {atRiskMentees.length} At Risk
-              </Badge>
-            )}
-            {onTrackMentees.length > 0 && (
-              <Badge className="bg-green-500 text-white px-3 py-1">
-                <CheckCircle className="h-4 w-4 mr-1" />
-                {onTrackMentees.length} On Track
-              </Badge>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          title={isPriest ? 'All Students' : 'My Mentees'}
+          description={isPriest
+            ? `Viewing all ${mentees.length} enrolled student${mentees.length !== 1 ? 's' : ''}`
+            : `You are mentoring ${mentees.length} student${mentees.length !== 1 ? 's' : ''}`}
+          actions={
+            <>
+              {atRiskMentees.length > 0 && (
+                <Badge className="bg-red-500 text-white px-3 py-1">
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  {atRiskMentees.length} At Risk
+                </Badge>
+              )}
+              {onTrackMentees.length > 0 && (
+                <Badge className="bg-green-500 text-white px-3 py-1">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  {onTrackMentees.length} On Track
+                </Badge>
+              )}
+            </>
+          }
+        />
 
         {/* Summary Stats */}
         {mentees.length > 0 && (
@@ -355,6 +337,14 @@ export default function MyMenteesPage() {
                             {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(0)}%` : '—'}
                           </div>
                         </div>
+                        {analytics.attendance.conductDismissalCount > 0 && (
+                          <div className="text-center md:text-right">
+                            <div className="text-[10px] md:text-xs text-gray-500 uppercase">Removed</div>
+                            <div className="text-sm md:text-lg font-bold text-orange-600">
+                              {analytics.attendance.conductDismissalCount}x
+                            </div>
+                          </div>
+                        )}
                         <div className="text-center md:text-right">
                           <div className="text-[10px] md:text-xs text-gray-500 uppercase">Exam</div>
                           <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
@@ -447,6 +437,14 @@ export default function MyMenteesPage() {
                           <p className="text-[10px] md:text-xs text-gray-500 mt-1">
                             (Present + Late÷2) ÷ (Total - Excused) = {analytics.attendance.effectivePresent.toFixed(1)} ÷ {analytics.attendance.totalLessons}
                           </p>
+                          {analytics.attendance.conductDismissalCount > 0 && (
+                            <div className="flex items-center gap-1.5 mt-2 p-1.5 md:p-2 bg-orange-50 border border-orange-200 rounded text-[10px] md:text-xs text-orange-700">
+                              <AlertCircle className="h-3 w-3 shrink-0" />
+                              <span>
+                                Removed from lesson {analytics.attendance.conductDismissalCount} time{analytics.attendance.conductDismissalCount !== 1 ? 's' : ''} (each counts as an absence)
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
 

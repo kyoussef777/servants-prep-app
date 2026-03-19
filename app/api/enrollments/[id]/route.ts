@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 
 import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from "@/lib/roles"
+import { notifyMentorAssigned } from "@/lib/notifications"
 
 // PATCH /api/enrollments/[id] - Update an enrollment
 // - SUPER_ADMIN: Can update all fields including mentor assignment
@@ -123,6 +124,14 @@ export async function PATCH(
         }
       }
     })
+
+    // Notify student when a mentor is assigned (non-blocking)
+    if (mentorId && enrollment.mentor) {
+      notifyMentorAssigned({
+        studentId: enrollment.student.id,
+        mentorName: enrollment.mentor.name,
+      }).catch(() => {})
+    }
 
     return NextResponse.json(enrollment)
   } catch (error: unknown) {

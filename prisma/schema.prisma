@@ -147,6 +147,10 @@ model User {
   // OAuth relations
   accounts Account[]
 
+  // Push notification relations
+  pushSubscriptions PushSubscription[]
+  notifications     Notification[]
+
   @@index([email])
   @@index([role])
 }
@@ -292,15 +296,17 @@ model LessonResource {
 }
 
 model AttendanceRecord {
-  id         String           @id @default(cuid())
-  lessonId   String
-  studentId  String
-  status     AttendanceStatus
-  arrivedAt  DateTime?
-  notes      String?          @db.Text
-  recordedBy String?
-  recordedAt DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  id              String           @id @default(cuid())
+  lessonId        String
+  studentId       String
+  status          AttendanceStatus
+  arrivedAt       DateTime?
+  notes           String?          @db.Text
+  recordedBy      String?
+  recordedAt      DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  conductRemoval  Boolean          @default(false)  // True if student was removed from lesson for conduct
+  conductNote     String?          @db.Text          // Required reason when conductRemoval is true
 
   // Relations
   lesson               Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
@@ -312,6 +318,7 @@ model AttendanceRecord {
   @@index([lessonId])
   @@index([studentId])
   @@index([status])
+  @@index([conductRemoval])
   @@index([studentId, lessonId]) // Compound index for student+lesson queries
 }
 
@@ -571,5 +578,59 @@ model RegistrationSubmission {
   @@index([inviteCodeId])
   @@index([status])
   @@index([email])
+  @@index([createdAt])
+}
+
+// ============================================
+// PUSH NOTIFICATION MODELS
+// ============================================
+
+enum NotificationType {
+  GRADE_POSTED
+  ATTENDANCE_RECORDED
+  LESSON_SCHEDULED
+  LESSON_CANCELLED
+  REGISTRATION_RECEIVED
+  REGISTRATION_APPROVED
+  REGISTRATION_REJECTED
+  ASYNC_NOTE_REVIEWED
+  MENTOR_ASSIGNED
+  ANNOUNCEMENT
+  CONDUCT_REMOVAL
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @db.Text
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String           @db.Text
+  url       String?          // Deep link URL within the app
+  isRead    Boolean          @default(false)
+  metadata  Json?            // Extra data (studentId, examId, etc.)
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
   @@index([createdAt])
 }

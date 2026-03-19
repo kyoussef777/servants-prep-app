@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
+import { isStudent } from '@/lib/roles'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageLoading } from '@/components/ui/page-loading'
+import { PageHeader } from '@/components/admin/page-header'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
@@ -62,20 +64,12 @@ interface Analytics {
 }
 
 export default function StudentDashboard() {
-  const { data: session, status } = useSession()
+  const { session, status } = useAdminGuard(isStudent)
   const router = useRouter()
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [, setAcademicYearId] = useState<string | null>(null)
   const [academicYearName, setAcademicYearName] = useState<string>('')
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'STUDENT') {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -132,43 +126,39 @@ export default function StudentDashboard() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Welcome, {session?.user?.name}</h1>
-            <p className="text-gray-600 mt-1">
-              Year {analytics.enrollment.yearLevel === 'YEAR_1' ? '1' : '2'} Student{academicYearName ? ` - ${academicYearName}` : ''}
-            </p>
-            {analytics.enrollment.mentor && (
-              <p className="text-gray-600">
-                Mentor: {analytics.enrollment.mentor.name}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => router.push('/dashboard/student/lessons')}
-              className="px-4 py-2 bg-maroon-600 text-white rounded-md hover:bg-maroon-700 transition-colors text-sm font-medium"
-            >
-              View My Lessons
-            </button>
-            {analytics.enrollment.isAsyncStudent && (
-              <>
-                <button
-                  onClick={() => router.push('/dashboard/student/async-notes')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                  My Notes
-                </button>
-                <button
-                  onClick={() => router.push('/dashboard/student/sunday-school')}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-medium"
-                >
-                  Sunday School
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          title={`Welcome, ${session?.user?.name}`}
+          description={[
+            `Year ${analytics.enrollment.yearLevel === 'YEAR_1' ? '1' : '2'} Student${academicYearName ? ` - ${academicYearName}` : ''}`,
+            analytics.enrollment.mentor ? `Mentor: ${analytics.enrollment.mentor.name}` : '',
+          ].filter(Boolean).join(' · ')}
+          actions={
+            <>
+              <button
+                onClick={() => router.push('/dashboard/student/lessons')}
+                className="px-4 py-2 bg-maroon-600 text-white rounded-md hover:bg-maroon-700 transition-colors text-sm font-medium"
+              >
+                View My Lessons
+              </button>
+              {analytics.enrollment.isAsyncStudent && (
+                <>
+                  <button
+                    onClick={() => router.push('/dashboard/student/async-notes')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    My Notes
+                  </button>
+                  <button
+                    onClick={() => router.push('/dashboard/student/sunday-school')}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-medium"
+                  >
+                    Sunday School
+                  </button>
+                </>
+              )}
+            </>
+          }
+        />
 
         {/* Graduation Status */}
         <Card className={analytics.graduation.eligible ? 'border-green-500' : 'border-yellow-500'}>

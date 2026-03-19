@@ -14,7 +14,7 @@ import { isAdmin } from '@/lib/roles'
 import type { AcademicYear } from '@/lib/types'
 import { formatToastTimestamp } from '@/lib/utils'
 import { toast } from 'sonner'
-import { ChevronUp, ChevronDown, ChevronRight, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, XCircle, GraduationCap } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronRight, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, XCircle, GraduationCap, UserX } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
 import { BulkStudentImport } from '@/components/bulk-student-import'
 import { YearEndReviewPanel } from '@/components/year-end-review-panel'
@@ -66,6 +66,8 @@ interface StudentAnalytics {
   attendanceMet: boolean
   examAverageMet: boolean
   allSectionsMet: boolean
+  // Conduct removals
+  conductDismissalCount: number
 }
 
 interface ExamScore {
@@ -741,6 +743,14 @@ function StudentsManagementContent() {
                               {student.phone && (
                                 <div className="text-xs text-gray-500">{student.phone}</div>
                               )}
+                              {studentAnalytics && studentAnalytics.conductDismissalCount > 0 && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 text-orange-700 border-orange-300 bg-orange-50">
+                                    <UserX className="h-2.5 w-2.5 mr-0.5" />
+                                    {studentAnalytics.conductDismissalCount} removal{studentAnalytics.conductDismissalCount !== 1 ? 's' : ''}
+                                  </Badge>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -914,6 +924,12 @@ function StudentsManagementContent() {
                               )}
                               {student.enrollments?.[0]?.status === 'WITHDRAWN' && (
                                 <Badge className="bg-gray-100 text-gray-800 text-xs">Withdrawn</Badge>
+                              )}
+                              {studentAnalytics && studentAnalytics.conductDismissalCount > 0 && (
+                                <Badge variant="outline" className="text-xs text-orange-700 border-orange-300 bg-orange-50">
+                                  <UserX className="h-3 w-3 mr-0.5" />
+                                  {studentAnalytics.conductDismissalCount} removal{studentAnalytics.conductDismissalCount !== 1 ? 's' : ''}
+                                </Badge>
                               )}
                             </div>
                           </div>

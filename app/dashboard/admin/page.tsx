@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PageLoading } from '@/components/ui/page-loading'
+import { PageHeader } from '@/components/admin/page-header'
 import { isAdmin, canAssignMentors, canManageUsers } from '@/lib/roles'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useDashboardStats } from '@/lib/swr'
@@ -149,19 +150,18 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header with Settings Button */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-gray-600 mt-1">Welcome back, {session?.user?.name}</p>
-          </div>
-          <Link href="/dashboard/admin/settings">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </Button>
-          </Link>
-        </div>
+        <PageHeader
+          title="Dashboard"
+          description={`Welcome back, ${session?.user?.name}`}
+          actions={
+            <Link href="/dashboard/admin/settings">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
+          }
+        />
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -656,20 +656,20 @@ export default function AdminDashboard() {
 
             {/* Other Alerts */}
             {stats && stats.unassignedStudents > 0 && (
-              <Card className="border-yellow-200 bg-yellow-50">
+              <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/30">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
-                    <UserCheck className="h-5 w-5 text-yellow-600" />
-                    <CardTitle className="text-yellow-900">Unassigned Students</CardTitle>
+                    <UserCheck className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                    <CardTitle className="text-yellow-900 dark:text-yellow-300">Unassigned Students</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-yellow-800 mb-3">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-400 mb-3">
                     {stats.unassignedStudents} student{stats.unassignedStudents !== 1 ? 's' : ''} {stats.unassignedStudents !== 1 ? 'need' : 'needs'} a mentor assignment
                   </p>
                   {canAssign && (
                     <Link href="/dashboard/admin/enrollments">
-                      <Button size="sm" variant="outline" className="border-yellow-300 text-yellow-700 hover:bg-yellow-100">
+                      <Button size="sm" variant="outline" className="border-yellow-300 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-700 dark:text-yellow-300 dark:hover:bg-yellow-900/50">
                         Assign Mentors
                       </Button>
                     </Link>
@@ -679,19 +679,19 @@ export default function AdminDashboard() {
             )}
 
             {stats && stats.upcomingLessons > 0 && (
-              <Card className="border-maroon-200 bg-maroon-50">
+              <Card className="border-maroon-200 bg-maroon-50 dark:border-maroon-800 dark:bg-maroon-900/30">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-maroon-600" />
-                    <CardTitle className="text-maroon-900">Upcoming Lessons</CardTitle>
+                    <Clock className="h-5 w-5 text-maroon-600 dark:text-maroon-300" />
+                    <CardTitle className="text-maroon-900 dark:text-maroon-200">Upcoming Lessons</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-maroon-800 mb-3">
+                  <p className="text-sm text-maroon-800 dark:text-maroon-300 mb-3">
                     {stats.upcomingLessons} lesson{stats.upcomingLessons !== 1 ? 's' : ''} scheduled
                   </p>
                   <Link href="/dashboard/admin/curriculum">
-                    <Button size="sm" variant="outline" className="border-maroon-300 text-maroon-700 hover:bg-maroon-100">
+                    <Button size="sm" variant="outline" className="border-maroon-300 text-maroon-700 hover:bg-maroon-100 dark:border-maroon-700 dark:text-maroon-300 dark:hover:bg-maroon-900/50">
                       View Schedule
                     </Button>
                   </Link>

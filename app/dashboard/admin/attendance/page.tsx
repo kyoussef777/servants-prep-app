@@ -11,9 +11,12 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { AttendanceStatusButtons } from '@/components/attendance-status-buttons'
 import { PageHeader } from '@/components/admin/page-header'
 import { isAdmin, canManageData } from '@/lib/roles'
-import { ChevronDown, ChevronRight, Calendar, Settings2, Check, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Settings2, Check, X, UserX } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDateUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import type { AcademicYear } from '@/lib/types'
 
 interface Lesson {
@@ -48,6 +51,8 @@ interface AttendanceRecord {
   status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
   arrivedAt?: string
   notes?: string
+  conductRemoval?: boolean
+  conductNote?: string
 }
 
 export default function AttendancePage() {
@@ -71,6 +76,8 @@ export default function AttendancePage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
   const [viewingPhoto, setViewingPhoto] = useState<{ name: string; url: string } | null>(null)
+  const [conductRemovalDialog, setConductRemovalDialog] = useState<{ studentId: string; studentName: string } | null>(null)
+  const [conductNoteInput, setConductNoteInput] = useState('')
 
   // Fetch academic years and students on mount
   useEffect(() => {
@@ -151,7 +158,7 @@ export default function AttendancePage() {
         const records = await res.json()
 
         const recordsMap = new Map<string, AttendanceRecord>()
-        records.forEach((record: AttendanceRecord & { studentId: string }) => {
+        records.forEach((record: AttendanceRecord & { studentId: string; conductRemoval?: boolean; conductNote?: string }) => {
           recordsMap.set(record.studentId, record)
         })
         setExistingAttendance(recordsMap)
@@ -162,7 +169,9 @@ export default function AttendancePage() {
             studentId: record.studentId,
             status: record.status,
             arrivedAt: record.arrivedAt,
-            notes: record.notes
+            notes: record.notes,
+            conductRemoval: record.conductRemoval,
+            conductNote: record.conductNote,
           })
         })
         setAttendance(attendanceMap)
@@ -180,9 +189,16 @@ export default function AttendancePage() {
       status: 'PRESENT' as const,
     }
 
+    // Changing the status directly clears any conduct removal
+    const updates: Partial<AttendanceRecord> = { [field]: value }
+    if (field === 'status') {
+      updates.conductRemoval = false
+      updates.conductNote = undefined
+    }
+
     setAttendance(new Map(attendance.set(studentId, {
       ...record,
-      [field]: value
+      ...updates,
     })))
     setHasUnsavedChanges(true)
   }
@@ -202,6 +218,43 @@ export default function AttendancePage() {
     setHasUnsavedChanges(true)
   }
 
+  const handleConductRemovalClick = (studentId: string, studentName: string) => {
+    const record = attendance.get(studentId)
+    if (record?.conductRemoval) {
+      // Toggle off - clear the conduct removal
+      setAttendance(new Map(attendance.set(studentId, {
+        ...record,
+        status: 'ABSENT',
+        conductRemoval: false,
+        conductNote: undefined,
+      })))
+      setHasUnsavedChanges(true)
+    } else {
+      // Open dialog to get reason
+      setConductNoteInput('')
+      setConductRemovalDialog({ studentId, studentName })
+    }
+  }
+
+  const confirmConductRemoval = () => {
+    if (!conductRemovalDialog) return
+    if (!conductNoteInput.trim()) {
+      toast.error('A reason is required', { description: 'Please provide a reason for removing the student.' })
+      return
+    }
+    const { studentId } = conductRemovalDialog
+    const record = attendance.get(studentId) || { studentId, status: 'ABSENT' as const }
+    setAttendance(new Map(attendance.set(studentId, {
+      ...record,
+      status: 'ABSENT',
+      conductRemoval: true,
+      conductNote: conductNoteInput.trim(),
+    })))
+    setHasUnsavedChanges(true)
+    setConductRemovalDialog(null)
+    setConductNoteInput('')
+  }
+
   const saveAttendance = async () => {
     if (!selectedLesson) return
 
@@ -215,6 +268,8 @@ export default function AttendancePage() {
           status: record?.status || 'ABSENT',
           arrivedAt: record?.arrivedAt || null,
           notes: record?.notes || null,
+          conductRemoval: record?.conductRemoval || false,
+          conductNote: record?.conductNote || null,
         }
       })
 
@@ -301,6 +356,16 @@ export default function AttendancePage() {
 
   // Check if user can manage data (PRIEST is read-only)
   const userCanManageData = session?.user?.role ? canManageData(session.user.role) : false
+
+  // Check if selected lesson is today or in the past (attendance can only be taken on or after the lesson date)
+  const isLessonEditable = useMemo(() => {
+    if (!selectedLesson) return false
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const lessonDate = new Date(selectedLesson.scheduledDate)
+    lessonDate.setHours(0, 0, 0, 0)
+    return lessonDate <= today
+  }, [selectedLesson])
 
   if (loading || status === 'loading') {
     return <PageLoading />
@@ -427,6 +492,13 @@ export default function AttendancePage() {
               </CardContent>
             </Card>
 
+            {/* Future lesson warning */}
+            {!isLessonEditable && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                Attendance cannot be edited until the lesson date ({formatDateUTC(selectedLesson.scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' })}).
+              </div>
+            )}
+
             {/* Sticky Filters & Actions */}
             <div className="sticky top-0 z-20 bg-gray-50 py-2 -mx-2 px-2 sm:-mx-4 sm:px-4 md:-mx-8 md:px-8 space-y-2">
               <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
@@ -455,7 +527,7 @@ export default function AttendancePage() {
                   <span className="hidden sm:inline">My Mentees</span>
                   <span className="sm:hidden">Mine</span>
                 </label>
-                <Button onClick={handleMarkAllPresent} variant="outline" size="sm" className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3">
+                <Button onClick={handleMarkAllPresent} variant="outline" size="sm" disabled={!isLessonEditable} className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-3">
                   <span className="hidden sm:inline">Mark All Present</span>
                   <span className="sm:hidden">All ✓</span>
                 </Button>
@@ -535,14 +607,32 @@ export default function AttendancePage() {
                             </Badge>
                           </td>
                           <td className="p-2">
-                            <div className="flex justify-center">
+                            <div className="flex justify-center gap-1">
                               <AttendanceStatusButtons
                                 currentStatus={currentStatus}
                                 onStatusChange={(status) => updateAttendance(student.id, 'status', status)}
-                                disabled={!userCanManageData}
+                                disabled={!userCanManageData || !isLessonEditable}
                                 size="md"
                               />
+                              <button
+                                type="button"
+                                onClick={() => handleConductRemovalClick(student.id, student.name)}
+                                disabled={!userCanManageData || !isLessonEditable}
+                                className={`p-1.5 rounded transition-colors ${
+                                  record?.conductRemoval
+                                    ? 'bg-orange-600 text-white'
+                                    : 'bg-gray-100 text-gray-400 hover:bg-orange-100 hover:text-orange-600'
+                                } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
+                                title={record?.conductRemoval ? `Removed from lesson: ${record.conductNote}` : 'Remove from Lesson (conduct)'}
+                              >
+                                <UserX className="h-4 w-4" />
+                              </button>
                             </div>
+                            {record?.conductRemoval && record.conductNote && (
+                              <p className="text-[10px] text-orange-600 mt-1 text-center max-w-[200px] mx-auto truncate" title={record.conductNote}>
+                                {record.conductNote}
+                              </p>
+                            )}
                           </td>
                           {!compactMode && (
                             <>
@@ -602,13 +692,26 @@ export default function AttendancePage() {
                         <Badge variant="outline" className="text-[9px] shrink-0 px-0.5 py-0">
                           {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
                         </Badge>
-                        <div className="shrink-0">
+                        <div className="flex shrink-0">
                           <AttendanceStatusButtons
                             currentStatus={currentStatus}
                             onStatusChange={(status) => updateAttendance(student.id, 'status', status)}
-                            disabled={!userCanManageData}
+                            disabled={!userCanManageData || !isLessonEditable}
                             size="sm"
                           />
+                          <button
+                            type="button"
+                            onClick={() => handleConductRemovalClick(student.id, student.name)}
+                            disabled={!userCanManageData || !isLessonEditable}
+                            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
+                              record?.conductRemoval
+                                ? 'bg-orange-600 text-white'
+                                : 'bg-gray-100 text-gray-400'
+                            } ${!userCanManageData || !isLessonEditable ? 'cursor-not-allowed opacity-60' : ''}`}
+                            title={record?.conductRemoval ? `Removed: ${record.conductNote}` : 'Remove from Lesson'}
+                          >
+                            <UserX className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                         {!compactMode && (
                           <button
@@ -667,11 +770,11 @@ export default function AttendancePage() {
                 {userCanManageData && (
                   <Button
                     onClick={saveAttendance}
-                    disabled={saving}
+                    disabled={saving || !isLessonEditable}
                     size="lg"
                     className="px-8"
                   >
-                    {saving ? 'Saving...' : 'Save Attendance'}
+                    {saving ? 'Saving...' : !isLessonEditable ? 'Future Lesson' : 'Save Attendance'}
                   </Button>
                 )}
               </div>
@@ -679,6 +782,45 @@ export default function AttendancePage() {
           </>
         )}
       </div>
+
+      {/* Conduct Removal Dialog */}
+      <Dialog open={!!conductRemovalDialog} onOpenChange={(open) => { if (!open) setConductRemovalDialog(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove from Lesson</DialogTitle>
+            <DialogDescription>
+              {conductRemovalDialog && (
+                <>
+                  You are marking <strong>{conductRemovalDialog.studentName}</strong> as removed from this lesson.
+                  This will count as an absence in their attendance record.
+                  A reason is required.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="conduct-note">Reason for Removal <span className="text-red-500">*</span></Label>
+            <Textarea
+              id="conduct-note"
+              placeholder="Describe the reason for removing this student from the lesson..."
+              value={conductNoteInput}
+              onChange={(e) => setConductNoteInput(e.target.value)}
+              rows={3}
+              className="resize-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConductRemovalDialog(null)}>Cancel</Button>
+            <Button
+              onClick={confirmConductRemoval}
+              disabled={!conductNoteInput.trim()}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              Confirm Removal
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Photo Viewer Lightbox */}
       {viewingPhoto && (

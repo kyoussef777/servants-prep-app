@@ -20,6 +20,7 @@ interface SortableRowProps {
   onEditResources: (id: string, resources: { title: string; url: string }[]) => void
   onDelete: (id: string) => void
   onDuplicate: (id: string) => void
+  onResetAttendance: (id: string) => void
   onToggleExpand: (id: string) => void
   isExpanded: boolean
 }
@@ -35,6 +36,7 @@ export function SortableRow({
   onEditResources,
   onDelete,
   onDuplicate,
+  onResetAttendance,
   onToggleExpand,
   isExpanded,
 }: SortableRowProps) {
@@ -219,6 +221,17 @@ export function SortableRow({
                 >
                   ⧉
                 </Button>
+                {hasAttendance && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs text-amber-600 hover:text-amber-700"
+                    onClick={() => onResetAttendance(lesson.id)}
+                    title="Reset attendance — deletes all records and sets status to Scheduled"
+                  >
+                    ↺
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"

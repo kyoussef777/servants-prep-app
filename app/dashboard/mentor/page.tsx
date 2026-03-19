@@ -1,13 +1,14 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PageLoading } from '@/components/ui/page-loading'
+import { PageHeader } from '@/components/admin/page-header'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
+import { canBeMentor } from '@/lib/roles'
 import { useEnrollments, useClassAverages, useMenteeAnalytics } from '@/lib/swr'
 import { Users, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react'
 
@@ -44,8 +45,7 @@ interface Enrollment {
 }
 
 export default function MentorDashboard() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard(canBeMentor)
 
   const userId = session?.user?.id
   const { data: enrollments } = useEnrollments(userId)
@@ -58,17 +58,6 @@ export default function MentorDashboard() {
   }, [enrollments])
 
   const { data: menteeAnalytics, isLoading: menteeLoading } = useMenteeAnalytics(menteeIds)
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role &&
-               session.user.role !== 'MENTOR' &&
-               session.user.role !== 'SUPER_ADMIN' &&
-               session.user.role !== 'SERVANT_PREP') {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   // Compute mentee section averages
   const menteeSectionAverages = useMemo(() => {
@@ -120,11 +109,10 @@ export default function MentorDashboard() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Mentor Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome, {session?.user?.name}</p>
-          <p className="text-sm text-gray-500">Track your mentees&apos; performance against class averages</p>
-        </div>
+        <PageHeader
+          title="Mentor Dashboard"
+          description={`Welcome, ${session?.user?.name ?? ''}. Track your mentees' performance against class averages.`}
+        />
 
         {/* Quick Actions + Mentee Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

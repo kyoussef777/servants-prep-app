@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { UserRole } from '@prisma/client'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
+import { PageHeader } from '@/components/admin/page-header'
 import { PageLoading } from '@/components/ui/page-loading'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -50,7 +52,7 @@ interface Lesson {
 }
 
 export default function AsyncNotesPage() {
-  const { data: session, status: authStatus } = useSession()
+  const { session, status: authStatus } = useAdminGuard((role: UserRole) => role === 'STUDENT')
   const router = useRouter()
   const [submissions, setSubmissions] = useState<NoteSubmission[]>([])
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -86,9 +88,9 @@ export default function AsyncNotesPage() {
   }, [session?.user?.id])
 
   useEffect(() => {
-    if (authStatus === 'unauthenticated') router.push('/login')
-    else if (authStatus === 'authenticated' && session?.user?.role !== 'STUDENT') router.push('/dashboard')
-    else if (authStatus === 'authenticated' && !session?.user?.isAsyncStudent) router.push('/dashboard/student')
+    if (authStatus === 'authenticated' && !session?.user?.isAsyncStudent) {
+      router.push('/dashboard/student')
+    }
   }, [authStatus, session, router])
 
   useEffect(() => {
@@ -192,13 +194,17 @@ export default function AsyncNotesPage() {
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold dark:text-white">My Lesson Notes</h1>
-            <p className="text-gray-600 dark:text-gray-400">Submit notes for lessons to count as attendance</p>
+            <PageHeader
+              title="My Lesson Notes"
+              description="Submit notes for lessons to count as attendance"
+              actions={
+                <Button onClick={() => openNew()} className="bg-blue-600 hover:bg-blue-700">
+                  <Send className="h-4 w-4 mr-2" />
+                  Submit Notes
+                </Button>
+              }
+            />
           </div>
-          <Button onClick={() => openNew()} className="bg-blue-600 hover:bg-blue-700">
-            <Send className="h-4 w-4 mr-2" />
-            Submit Notes
-          </Button>
         </div>
 
         {/* Stats */}

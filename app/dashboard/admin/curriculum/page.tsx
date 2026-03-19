@@ -381,6 +381,30 @@ export default function CurriculumPage() {
     }
   }
 
+  // Reset attendance for a lesson
+  const handleResetAttendance = async (lessonId: string) => {
+    if (!confirm('Reset all attendance records for this lesson? This will permanently delete all attendance data and set the status back to Scheduled.')) return
+
+    try {
+      const res = await fetch(`/api/lessons/${lessonId}/reset-attendance`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to reset attendance')
+      }
+      setLessons(prev => prev.map(l =>
+        l.id === lessonId
+          ? { ...l, status: 'SCHEDULED', _count: { attendanceRecords: 0 } }
+          : l
+      ))
+      toast.success('Attendance reset', { description: 'All records deleted — lesson set to Scheduled' })
+    } catch (error) {
+      console.error('Failed to reset attendance:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to reset attendance')
+    }
+  }
+
   const handleDelete = async (lessonId: string) => {
     if (!confirm('Are you sure you want to delete this lesson?')) return
 
@@ -635,6 +659,7 @@ export default function CurriculumPage() {
                           onEditResources={handleEditResources}
                           onDelete={handleDelete}
                           onDuplicate={handleDuplicate}
+                          onResetAttendance={handleResetAttendance}
                           onToggleExpand={handleToggleExpand}
                           isExpanded={expandedIds.has(lesson.id)}
                         />
@@ -746,6 +771,7 @@ export default function CurriculumPage() {
                 onEditResources={handleEditResources}
                 onDelete={handleDelete}
                 onDuplicate={handleDuplicate}
+                onResetAttendance={handleResetAttendance}
                 onMoveUp={(id) => handleMobileMove(id, 'up')}
                 onMoveDown={(id) => handleMobileMove(id, 'down')}
                 isExpanded={expandedIds.has(lesson.id)}

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import { isAdmin, canManageExams } from "@/lib/roles"
+import { notifyGradePosted } from "@/lib/notifications"
 
 
 // GET /api/exams/[id]/scores - Get scores for an exam (Admins see all, Mentors see only their mentees)
@@ -122,6 +123,12 @@ export async function POST(
       )
     }
 
+    // Get exam section info for notification
+    const examWithSection = await prisma.exam.findUnique({
+      where: { id: examId },
+      include: { examSection: { select: { displayName: true } } },
+    })
+
     const examScore = await prisma.examScore.create({
       data: {
         examId,
@@ -140,6 +147,14 @@ export async function POST(
         }
       }
     })
+
+    // Send notification (non-blocking)
+    notifyGradePosted({
+      studentId,
+      studentName: examScore.student.name,
+      examSection: examWithSection?.examSection?.displayName || 'Exam',
+      percentage,
+    }).catch(() => {})
 
     return NextResponse.json(examScore, { status: 201 })
   } catch (error: unknown) {

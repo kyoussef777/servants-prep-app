@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { PageLoading } from '@/components/ui/page-loading'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { PageHeader } from '@/components/admin/page-header'
 import { formatDateUTC } from '@/lib/utils'
 import {
   extractGoogleDriveFileId,
@@ -53,22 +54,13 @@ interface Lesson {
 }
 
 export default function StudentLessonsPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { session, status } = useAdminGuard((role) => role === 'STUDENT')
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterSection, setFilterSection] = useState<string>('all')
   const [filterAttendance, setFilterAttendance] = useState<string>('all')
   const [expandedLesson, setExpandedLesson] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login')
-    } else if (status === 'authenticated' && session?.user?.role !== 'STUDENT') {
-      router.push('/dashboard')
-    }
-  }, [status, session, router])
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -153,12 +145,10 @@ export default function StudentLessonsPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-2 sm:p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
         {/* Header */}
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold dark:text-white">My Lessons</h1>
-          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-            View your lessons, resources, and attendance
-          </p>
-        </div>
+        <PageHeader
+          title="My Lessons"
+          description="View your lessons, resources, and attendance"
+        />
 
         {/* Filters */}
         <Card>
@@ -170,26 +160,22 @@ export default function StudentLessonsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-8 sm:h-10 text-xs sm:text-sm w-full sm:max-w-xs"
               />
-              <select
-                className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
+              <FilterSelect
                 value={filterSection}
-                onChange={(e) => setFilterSection(e.target.value)}
-              >
-                <option value="all">All Sections</option>
-                {sections.map(section => (
-                  <option key={section} value={section}>{section}</option>
-                ))}
-              </select>
-              <select
-                className="h-8 sm:h-10 px-2 sm:px-3 rounded-md border border-input bg-background text-xs sm:text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                onChange={setFilterSection}
+                options={sections.map(section => ({ value: section, label: section }))}
+                placeholder="All Sections"
+              />
+              <FilterSelect
                 value={filterAttendance}
-                onChange={(e) => setFilterAttendance(e.target.value)}
-              >
-                <option value="all">All Attendance</option>
-                <option value="present">Present</option>
-                <option value="late">Late</option>
-                <option value="absent">Absent</option>
-              </select>
+                onChange={setFilterAttendance}
+                options={[
+                  { value: 'present', label: 'Present' },
+                  { value: 'late', label: 'Late' },
+                  { value: 'absent', label: 'Absent' },
+                ]}
+                placeholder="All Attendance"
+              />
             </div>
           </CardContent>
         </Card>
