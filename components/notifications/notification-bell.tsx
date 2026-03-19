@@ -9,6 +9,7 @@ import {
   Check,
   CheckCheck,
   X,
+  Trash2,
   BookOpen,
   Calendar,
   CalendarX,
@@ -128,6 +129,39 @@ export function NotificationBell() {
     [mutate]
   )
 
+  const dismiss = useCallback(
+    async (id: string) => {
+      // Optimistic update
+      mutate(
+        (current) =>
+          current
+            ? {
+                ...current,
+                notifications: current.notifications.filter((n) => n.id !== id),
+                unreadCount: current.notifications.find((n) => n.id === id && !n.isRead)
+                  ? current.unreadCount - 1
+                  : current.unreadCount,
+              }
+            : current,
+        false
+      )
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: [id] }),
+      })
+      mutate()
+    },
+    [mutate]
+  )
+
+  const clearAll = useCallback(async () => {
+    // Optimistic update
+    mutate({ notifications: [], unreadCount: 0, nextCursor: null }, false)
+    await fetch('/api/notifications', { method: 'DELETE' })
+    mutate()
+  }, [mutate])
+
   const handleNotificationClick = useCallback(
     (notification: Notification) => {
       if (!notification.isRead) {
@@ -205,6 +239,16 @@ export function NotificationBell() {
                     <span className="hidden sm:inline">Mark all read</span>
                   </button>
                 )}
+                {notifications.length > 0 && (
+                  <button
+                    onClick={clearAll}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded hover:bg-accent"
+                    title="Clear all notifications"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Clear all</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setIsOpen(false)}
                   className="sm:hidden rounded p-1 hover:bg-accent transition-colors ml-1"
@@ -220,56 +264,73 @@ export function NotificationBell() {
               {notifications.length === 0 ? (
                 <div className="px-4 py-12 text-center text-sm text-muted-foreground">
                   <Bell className="h-8 w-8 mx-auto mb-3 opacity-25" />
-                  No notifications yet
+                  No notifications
                 </div>
               ) : (
                 notifications.map((notification) => {
                   const { icon: Icon, color } = getNotificationMeta(notification.type)
                   return (
-                    <button
+                    <div
                       key={notification.id}
-                      onClick={() => handleNotificationClick(notification)}
-                      className={`w-full text-left px-4 py-3.5 border-b last:border-b-0 hover:bg-accent/50 transition-colors ${
+                      className={`group relative border-b last:border-b-0 ${
                         !notification.isRead ? 'bg-accent/20' : ''
                       }`}
                     >
-                      <div className="flex items-start gap-3">
-                        {/* Type icon */}
-                        <div className={`flex-shrink-0 rounded-full p-2 mt-0.5 ${color}`}>
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-medium truncate leading-tight">
-                              {notification.title}
-                            </p>
-                            {!notification.isRead && (
-                              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
-                            )}
+                      <button
+                        onClick={() => handleNotificationClick(notification)}
+                        className="w-full text-left px-4 py-3.5 hover:bg-accent/50 transition-colors pr-10"
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Type icon */}
+                          <div className={`flex-shrink-0 rounded-full p-2 mt-0.5 ${color}`}>
+                            <Icon className="h-3.5 w-3.5" />
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
-                            {notification.body}
-                          </p>
-                          <span className="text-[10px] text-muted-foreground mt-1 block">
-                            {formatDistanceToNow(notification.createdAt)}
-                          </span>
-                        </div>
 
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-medium truncate leading-tight">
+                                {notification.title}
+                              </p>
+                              {!notification.isRead && (
+                                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
+                              {notification.body}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground mt-1 block">
+                              {formatDistanceToNow(notification.createdAt)}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Action buttons — always visible on mobile, hover on desktop */}
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         {!notification.isRead && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
                               markRead(notification.id)
                             }}
-                            className="flex-shrink-0 mt-1 rounded p-1 hover:bg-accent transition-colors"
+                            className="rounded p-1.5 hover:bg-accent transition-colors"
                             title="Mark as read"
                           >
                             <Check className="h-3.5 w-3.5 text-muted-foreground" />
                           </button>
                         )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            dismiss(notification.id)
+                          }}
+                          className="rounded p-1.5 hover:bg-accent transition-colors"
+                          title="Dismiss"
+                        >
+                          <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   )
                 })
               )}

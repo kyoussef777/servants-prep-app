@@ -2,6 +2,39 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 
+// DELETE /api/notifications - Delete notifications for the current user
+// Body: { notificationIds: string[] } to delete specific ones, or omit for clear all
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await requireAuth()
+    let notificationIds: string[] | undefined
+
+    try {
+      const body = await request.json()
+      if (Array.isArray(body.notificationIds)) {
+        notificationIds = body.notificationIds
+      }
+    } catch {
+      // No body = clear all
+    }
+
+    if (notificationIds && notificationIds.length > 0) {
+      await prisma.notification.deleteMany({
+        where: { id: { in: notificationIds }, userId: user.id },
+      })
+    } else {
+      await prisma.notification.deleteMany({ where: { userId: user.id } })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to delete notifications' },
+      { status: error instanceof Error && error.message === 'Unauthorized' ? 401 : 500 }
+    )
+  }
+}
+
 // GET /api/notifications - Get notifications for the current user
 export async function GET(request: NextRequest) {
   try {
