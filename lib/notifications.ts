@@ -193,7 +193,7 @@ export async function notifyGradePosted({
       type: NotificationType.GRADE_POSTED,
       title: 'Mentee Grade Posted',
       body: `${studentName}'s ${examSection} exam grade: ${percentage.toFixed(1)}%`,
-      url: '/dashboard/mentor',
+      url: '/dashboard/mentor/my-mentees',
       metadata: { studentId, studentName, examSection, percentage },
     })
   }
@@ -253,7 +253,7 @@ export async function notifyAttendanceRecorded({
       type: NotificationType.ATTENDANCE_RECORDED,
       title: 'Attendance Update',
       body,
-      url: '/dashboard/mentor',
+      url: '/dashboard/mentor/my-mentees',
       metadata: { lessonTitle, mentees },
     })
   }
@@ -291,7 +291,7 @@ export async function notifyLessonScheduled({
     type: NotificationType.LESSON_SCHEDULED,
     title: 'New Lesson Scheduled',
     body: `"${lessonTitle}" (${examSection}) scheduled for ${lessonDate}`,
-    url: '/dashboard/student',
+    url: '/dashboard/student/lessons',
     metadata: { lessonTitle, lessonDate, examSection },
   })
 }
@@ -320,7 +320,7 @@ export async function notifyLessonCancelled({
     type: NotificationType.LESSON_CANCELLED,
     title: 'Lesson Cancelled',
     body: `"${lessonTitle}" on ${lessonDate} has been cancelled${reason ? `: ${reason}` : ''}.`,
-    url: '/dashboard/student',
+    url: '/dashboard/student/lessons',
     metadata: { lessonTitle, lessonDate, reason },
   })
 }
