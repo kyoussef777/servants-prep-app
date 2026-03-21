@@ -9,6 +9,7 @@ import {
   Check,
   CheckCheck,
   X,
+  Trash2,
   BookOpen,
   Calendar,
   CalendarX,
@@ -128,6 +129,41 @@ export function NotificationBell() {
     [mutate]
   )
 
+  const dismissNotification = useCallback(
+    async (id: string) => {
+      mutate(
+        (current) =>
+          current
+            ? {
+                ...current,
+                notifications: current.notifications.filter((n) => n.id !== id),
+                unreadCount: current.notifications.find((n) => n.id === id && !n.isRead)
+                  ? current.unreadCount - 1
+                  : current.unreadCount,
+              }
+            : current,
+        false
+      )
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: [id] }),
+      })
+      mutate()
+    },
+    [mutate]
+  )
+
+  const clearAll = useCallback(async () => {
+    mutate({ notifications: [], unreadCount: 0, nextCursor: null }, false)
+    await fetch('/api/notifications', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clearAll: true }),
+    })
+    mutate()
+  }, [mutate])
+
   const handleNotificationClick = useCallback(
     (notification: Notification) => {
       if (!notification.isRead) {
@@ -205,6 +241,16 @@ export function NotificationBell() {
                     <span className="hidden sm:inline">Mark all read</span>
                   </button>
                 )}
+                {notifications.length > 0 && (
+                  <button
+                    onClick={clearAll}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded hover:bg-accent"
+                    title="Clear all notifications"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Clear all</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setIsOpen(false)}
                   className="sm:hidden rounded p-1 hover:bg-accent transition-colors ml-1"
@@ -226,50 +272,66 @@ export function NotificationBell() {
                 notifications.map((notification) => {
                   const { icon: Icon, color } = getNotificationMeta(notification.type)
                   return (
-                    <button
+                    <div
                       key={notification.id}
-                      onClick={() => handleNotificationClick(notification)}
-                      className={`w-full text-left px-4 py-3.5 border-b last:border-b-0 hover:bg-accent/50 transition-colors ${
+                      className={`group relative w-full border-b last:border-b-0 transition-colors ${
                         !notification.isRead ? 'bg-accent/20' : ''
-                      }`}
+                      } hover:bg-accent/50`}
                     >
-                      <div className="flex items-start gap-3">
-                        {/* Type icon */}
-                        <div className={`flex-shrink-0 rounded-full p-2 mt-0.5 ${color}`}>
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-medium truncate leading-tight">
-                              {notification.title}
-                            </p>
-                            {!notification.isRead && (
-                              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
-                            )}
+                      <button
+                        onClick={() => handleNotificationClick(notification)}
+                        className="w-full text-left px-4 py-3.5 pr-10"
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Type icon */}
+                          <div className={`flex-shrink-0 rounded-full p-2 mt-0.5 ${color}`}>
+                            <Icon className="h-3.5 w-3.5" />
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
-                            {notification.body}
-                          </p>
-                          <span className="text-[10px] text-muted-foreground mt-1 block">
-                            {formatDistanceToNow(notification.createdAt)}
-                          </span>
-                        </div>
 
-                        {!notification.isRead && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              markRead(notification.id)
-                            }}
-                            className="flex-shrink-0 mt-1 rounded p-1 hover:bg-accent transition-colors"
-                            title="Mark as read"
-                          >
-                            <Check className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
-                        )}
-                      </div>
-                    </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-medium truncate leading-tight">
+                                {notification.title}
+                              </p>
+                              {!notification.isRead && (
+                                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
+                              {notification.body}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground mt-1 block">
+                              {formatDistanceToNow(notification.createdAt)}
+                            </span>
+                          </div>
+
+                          {!notification.isRead && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                markRead(notification.id)
+                              }}
+                              className="flex-shrink-0 mt-1 rounded p-1 hover:bg-accent transition-colors"
+                              title="Mark as read"
+                            >
+                              <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          )}
+                        </div>
+                      </button>
+                      {/* Dismiss button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          dismissNotification(notification.id)
+                        }}
+                        className="absolute top-2 right-2 rounded p-1 opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
+                        title="Dismiss notification"
+                        aria-label="Dismiss notification"
+                      >
+                        <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                      </button>
+                    </div>
                   )
                 })
               )}
