@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
 import type { AttendanceAnalytics, ExamAnalytics, GraduationStatus } from '@/lib/types'
+import { Phone, Mail, Church } from 'lucide-react'
 
 interface Analytics {
   enrollment: {
@@ -23,6 +24,13 @@ interface Analytics {
       id: string
       name: string
       email: string
+      phone: string | null
+    } | null
+    fatherOfConfession: {
+      id: string
+      name: string
+      phone: string | null
+      church: string | null
     } | null
     student: {
       id: string
@@ -203,6 +211,56 @@ export default function StudentDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Contacts */}
+        {(analytics.enrollment.mentor || analytics.enrollment.fatherOfConfession) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {analytics.enrollment.mentor && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Mentor</CardTitle>
+                  <CardDescription>{analytics.enrollment.mentor.name}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-1 text-sm">
+                  {analytics.enrollment.mentor.email && (
+                    <a href={`mailto:${analytics.enrollment.mentor.email}`} className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
+                      <Mail className="h-4 w-4 shrink-0" />
+                      {analytics.enrollment.mentor.email}
+                    </a>
+                  )}
+                  {analytics.enrollment.mentor.phone && (
+                    <a href={`tel:${analytics.enrollment.mentor.phone}`} className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
+                      <Phone className="h-4 w-4 shrink-0" />
+                      {analytics.enrollment.mentor.phone}
+                    </a>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            {analytics.enrollment.fatherOfConfession && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Father of Confession</CardTitle>
+                  <CardDescription>{analytics.enrollment.fatherOfConfession.name}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-1 text-sm">
+                  {analytics.enrollment.fatherOfConfession.church && (
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Church className="h-4 w-4 shrink-0" />
+                      {analytics.enrollment.fatherOfConfession.church}
+                    </div>
+                  )}
+                  {analytics.enrollment.fatherOfConfession.phone && (
+                    <a href={`tel:${analytics.enrollment.fatherOfConfession.phone}`} className="flex items-center gap-2 text-gray-600 hover:text-blue-600">
+                      <Phone className="h-4 w-4 shrink-0" />
+                      {analytics.enrollment.fatherOfConfession.phone}
+                    </a>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Async Student Progress */}
         {analytics.enrollment.isAsyncStudent && (

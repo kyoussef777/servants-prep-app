@@ -73,6 +73,15 @@ export async function GET(
             id: true,
             name: true,
             email: true,
+            phone: true,
+          }
+        },
+        fatherOfConfession: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            church: true,
           }
         }
       }

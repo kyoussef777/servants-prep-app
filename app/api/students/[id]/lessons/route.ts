@@ -88,7 +88,8 @@ export async function GET(
             id: true,
             status: true,
             arrivedAt: true,
-            notes: true
+            notes: true,
+            conductRemoval: true,
           }
         }
       },

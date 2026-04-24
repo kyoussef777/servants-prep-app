@@ -17,7 +17,7 @@ import {
   extractDomain,
   getTitleFromUrl
 } from '@/lib/link-metadata'
-import { Check, Clock, X, Shield, Calendar, BookOpen, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react'
+import { Check, Clock, X, Shield, Calendar, BookOpen, ExternalLink, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 
 interface LessonResource {
   id: string
@@ -51,6 +51,7 @@ interface Lesson {
     status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
     arrivedAt: string | null
     notes: string | null
+    conductRemoval: boolean
   } | null
 }
 
@@ -136,6 +137,16 @@ export default function StudentLessonsPage() {
       case 'EXCUSED':
         return <Badge className="bg-blue-100 text-blue-800 text-xs">Excused</Badge>
     }
+  }
+
+  const getLessonStatusBadge = (lessonStatus: string) => {
+    if (lessonStatus === 'COMPLETED') {
+      return <Badge className="bg-green-100 text-green-800 text-xs">Completed</Badge>
+    }
+    if (lessonStatus === 'SCHEDULED') {
+      return <Badge className="bg-blue-100 text-blue-800 text-xs">Upcoming</Badge>
+    }
+    return null
   }
 
   if (loading || status === 'loading') {
@@ -252,6 +263,7 @@ export default function StudentLessonsPage() {
                                 <Badge variant="outline" className="text-xs">
                                   {lesson.examSection.displayName}
                                 </Badge>
+                                {getLessonStatusBadge(lesson.status)}
                               </div>
                               {lesson.subtitle && (
                                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -284,6 +296,12 @@ export default function StudentLessonsPage() {
 
                             {/* Attendance Badge & Expand Icon */}
                             <div className="flex items-center gap-2 shrink-0">
+                              {lesson.attendance?.conductRemoval && (
+                                <Badge className="bg-orange-100 text-orange-800 text-xs flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Conduct
+                                </Badge>
+                              )}
                               {getAttendanceBadge(lesson.attendance)}
                               {isExpanded ?
                                 <ChevronDown className="h-4 w-4 text-gray-400" /> :
