@@ -88,7 +88,8 @@ export async function GET(
             id: true,
             status: true,
             arrivedAt: true,
-            notes: true
+            notes: true,
+            conductRemoval: true,
           }
         }
       },
@@ -103,6 +104,7 @@ export async function GET(
       id: lesson.id,
       title: lesson.title,
       subtitle: lesson.subtitle,
+      speaker: lesson.speaker,
       description: lesson.description,
       scheduledDate: lesson.scheduledDate,
       lessonNumber: lesson.lessonNumber,
