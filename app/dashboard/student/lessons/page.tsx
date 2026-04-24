@@ -30,6 +30,7 @@ interface Lesson {
   id: string
   title: string
   subtitle: string | null
+  speaker: string | null
   description: string | null
   scheduledDate: string
   lessonNumber: number
@@ -255,6 +256,11 @@ export default function StudentLessonsPage() {
                               {lesson.subtitle && (
                                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
                                   {lesson.subtitle}
+                                </p>
+                              )}
+                              {lesson.speaker && (
+                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                  Speaker: {lesson.speaker}
                                 </p>
                               )}
                               <div className="flex items-center gap-2 sm:gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400 flex-wrap">

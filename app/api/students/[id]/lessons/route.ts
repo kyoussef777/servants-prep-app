@@ -103,6 +103,7 @@ export async function GET(
       id: lesson.id,
       title: lesson.title,
       subtitle: lesson.subtitle,
+      speaker: lesson.speaker,
       description: lesson.description,
       scheduledDate: lesson.scheduledDate,
       lessonNumber: lesson.lessonNumber,
