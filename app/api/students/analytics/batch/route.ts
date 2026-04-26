@@ -33,17 +33,26 @@ export async function GET(request: Request) {
 
     // academicYearId is now optional - if not provided, aggregate across all years
 
-    // Mentors can only view their own mentees' analytics
+    // Build enrollment filter - if studentIds provided, filter to those; otherwise get all active
+    const enrollmentFilter: { isActive: boolean; studentId?: { in: string[] } } = {
+      isActive: true
+    }
+
+    // Mentors can only view their own mentees' analytics. Resolve the mentee
+    // set up-front and use it as a hard floor on filtering, so the route never
+    // returns analytics for non-mentees - whether or not the caller passed
+    // studentIds.
+    let mentorMenteeIds: Set<string> | null = null
     if (user.role === UserRole.MENTOR) {
       const menteeEnrollments = await prisma.studentEnrollment.findMany({
         where: { mentorId: user.id, isActive: true },
         select: { studentId: true }
       })
-      const menteeIds = new Set(menteeEnrollments.map(e => e.studentId))
+      mentorMenteeIds = new Set(menteeEnrollments.map(e => e.studentId))
 
       if (studentIdsParam) {
         const requestedIds = studentIdsParam.split(',').filter(id => id.trim())
-        const unauthorized = requestedIds.filter(id => !menteeIds.has(id))
+        const unauthorized = requestedIds.filter(id => !mentorMenteeIds!.has(id))
         if (unauthorized.length > 0) {
           return NextResponse.json(
             { error: "Forbidden" },
@@ -53,16 +62,14 @@ export async function GET(request: Request) {
       }
     }
 
-    // Build enrollment filter - if studentIds provided, filter to those; otherwise get all active
-    const enrollmentFilter: { isActive: boolean; studentId?: { in: string[] } } = {
-      isActive: true
-    }
-
     if (studentIdsParam) {
       const requestedStudentIds = studentIdsParam.split(',').filter(id => id.trim())
       if (requestedStudentIds.length > 0) {
         enrollmentFilter.studentId = { in: requestedStudentIds }
       }
+    } else if (mentorMenteeIds) {
+      // No studentIds provided AND caller is a MENTOR: scope to their mentees.
+      enrollmentFilter.studentId = { in: Array.from(mentorMenteeIds) }
     }
 
     // Get enrollments with student IDs (minimal data)

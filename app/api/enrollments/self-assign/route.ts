@@ -58,6 +58,16 @@ export async function POST(request: Request) {
     })
 
     if (existingEnrollment) {
+      // Refuse to silently steal a student who already has a different mentor.
+      // Re-assignments must go through an admin so the prior mentor doesn't
+      // lose their mentee without anyone noticing.
+      if (existingEnrollment.mentorId && existingEnrollment.mentorId !== user.id) {
+        return NextResponse.json(
+          { error: "This student already has a mentor. Ask an administrator to reassign them." },
+          { status: 409 }
+        )
+      }
+
       // Update existing enrollment to assign this servant as mentor
       const enrollment = await prisma.studentEnrollment.update({
         where: { studentId },

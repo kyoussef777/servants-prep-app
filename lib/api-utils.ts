@@ -14,6 +14,12 @@ export function handleApiError(error: unknown): NextResponse {
     if (error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+    if (error.message === "PasswordChangeRequired") {
+      return NextResponse.json(
+        { error: "PasswordChangeRequired", message: "You must change your password before continuing." },
+        { status: 403 }
+      )
+    }
     if (error.message === "Forbidden") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
