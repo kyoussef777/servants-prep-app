@@ -59,9 +59,19 @@ export async function POST(request: Request) {
       }
     })
 
-    // Check for SUPER_ADMINs in the list - only the current super admin can reset other super admins' passwords
-    // For safety, we'll still allow it but log a warning
+    // Refuse to reset other SUPER_ADMINs' passwords. Without this guard, one
+    // compromised super admin could lock every other super admin out of the
+    // system (and force them through a known temp password).
     const superAdminsInList = targetUsers.filter(u => u.role === UserRole.SUPER_ADMIN)
+    if (superAdminsInList.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Cannot bulk-reset another super admin's password. Ask that admin to use the change-password page.",
+          superAdmins: superAdminsInList.map(u => ({ id: u.id, name: u.name, email: u.email }))
+        },
+        { status: 403 }
+      )
+    }
 
     // Update all users' passwords and set mustChangePassword to true
     const result = await prisma.user.updateMany({
@@ -78,8 +88,7 @@ export async function POST(request: Request) {
       success: true,
       updatedCount: result.count,
       users: targetUsers.map(u => ({ id: u.id, name: u.name, email: u.email })),
-      message: `Password reset for ${result.count} user(s). They will be prompted to change password on next login.`,
-      superAdminsIncluded: superAdminsInList.length
+      message: `Password reset for ${result.count} user(s). They will be prompted to change password on next login.`
     })
   } catch (error: unknown) {
     return handleApiError(error)

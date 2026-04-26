@@ -34,6 +34,28 @@ export function handleApiError(error: unknown): NextResponse {
 }
 
 /**
+ * Reject URLs whose scheme could lead to script execution when rendered as
+ * an href, since admin-supplied URLs are surfaced to every user. Only
+ * http(s) are allowed; javascript:, data:, vbscript:, file:, etc. are not.
+ */
+export function assertSafeHttpUrl(input: string, fieldLabel = "URL"): string {
+  const trimmed = (input ?? "").trim()
+  if (!trimmed) {
+    throw new Error(`${fieldLabel} cannot be empty`)
+  }
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    throw new Error(`${fieldLabel} must be a valid http(s) URL`)
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`${fieldLabel} must use http or https`)
+  }
+  return trimmed
+}
+
+/**
  * Parse time string (HH:MM or HH:MM:SS) into a Date object
  * Returns null if invalid or empty
  */

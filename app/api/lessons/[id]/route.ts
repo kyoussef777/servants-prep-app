@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canManageCurriculum } from "@/lib/roles"
-import { handleApiError } from "@/lib/api-utils"
+import { handleApiError, assertSafeHttpUrl } from "@/lib/api-utils"
 import { notifyLessonCancelled } from "@/lib/notifications"
 
 
@@ -38,6 +38,10 @@ export async function PATCH(
 
     // Handle resources update: delete all existing and recreate
     if (resources !== undefined) {
+      for (const r of resources as Array<{ url?: string; title?: string }>) {
+        assertSafeHttpUrl(r?.url ?? "", `Resource "${r?.title ?? ""}" URL`)
+      }
+
       await prisma.lessonResource.deleteMany({
         where: { lessonId: id }
       })
