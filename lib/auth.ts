@@ -19,13 +19,21 @@ async function getUserSessionData(user: { id: string; role: UserRole }) {
   return { isAsyncStudent }
 }
 
+// Re-validate token against the current DB state at most once per this window.
+// Keeps the blast radius for disabled accounts / role demotions to ~1 minute
+// without paying a DB lookup on every authenticated request.
+const TOKEN_REVALIDATE_INTERVAL_MS = 60 * 1000
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as unknown as NextAuthOptions['adapter'],
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
+      // Do NOT auto-link Google accounts to existing credentials accounts by
+      // matching email - that would let anyone who can change a victim's
+      // email address take the account over via "Sign in with Google".
+      allowDangerousEmailAccountLinking: false,
     }),
     CredentialsProvider({
       name: "credentials",
@@ -112,6 +120,7 @@ export const authOptions: NextAuthOptions = {
         token.mustChangePassword = user.mustChangePassword
         token.isAsyncStudent = user.isAsyncStudent ?? false
         token.profileImageUrl = user.profileImageUrl ?? null
+        token.validatedAt = Date.now()
       }
 
       // Google sign-in: look up user from database
@@ -127,6 +136,7 @@ export const authOptions: NextAuthOptions = {
           token.mustChangePassword = dbUser.mustChangePassword
           token.isAsyncStudent = isAsyncStudent
           token.profileImageUrl = dbUser.profileImageUrl ?? null
+          token.validatedAt = Date.now()
         }
       }
 
@@ -143,9 +153,34 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
+      // Periodically re-check the user against the DB so that disabling an
+      // account or changing its role takes effect without waiting for the
+      // 30-day JWT to expire.
+      const validatedAt = (token.validatedAt as number | undefined) ?? 0
+      if (token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { id: true, role: true, isDisabled: true, mustChangePassword: true }
+        })
+
+        if (!dbUser || dbUser.isDisabled) {
+          token.invalidated = true
+        } else {
+          token.role = dbUser.role
+          token.mustChangePassword = dbUser.mustChangePassword
+          token.validatedAt = Date.now()
+        }
+      }
+
       return token
     },
     async session({ session, token }) {
+      // Token was invalidated by the jwt callback (account disabled or deleted).
+      // Strip the user so requireAuth() / getCurrentUser() treat it as anonymous.
+      if (token.invalidated) {
+        return { ...session, user: undefined } as unknown as typeof session
+      }
+
       if (session.user) {
         session.user.role = token.role as UserRole
         session.user.id = token.id as string
@@ -158,6 +193,9 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+    // Cap JWT lifetime so credential / role / disable changes propagate within a day
+    // even if the periodic in-callback re-check is somehow bypassed.
+    maxAge: 24 * 60 * 60,
   },
   pages: {
     signIn: "/login",

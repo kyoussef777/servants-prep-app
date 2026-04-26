@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canManageCurriculum } from "@/lib/roles"
-import { handleApiError } from "@/lib/api-utils"
+import { handleApiError, assertSafeHttpUrl } from "@/lib/api-utils"
 import { LessonStatus } from "@prisma/client"
 
 interface LessonUpdate {
@@ -95,9 +95,7 @@ export async function PATCH(request: Request) {
           if (!r.title || !r.title.trim()) {
             throw new Error(`Lesson at index ${i}: resource ${j} title cannot be empty`)
           }
-          if (!r.url || !r.url.trim()) {
-            throw new Error(`Lesson at index ${i}: resource ${j} URL cannot be empty`)
-          }
+          assertSafeHttpUrl(r.url ?? "", `Lesson at index ${i}: resource ${j} URL`)
         }
       }
     }

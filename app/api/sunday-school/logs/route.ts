@@ -198,6 +198,18 @@ export async function POST(request: Request) {
       )
     }
 
+    // Verify the code's week matches the week the student claims to be logging.
+    // Without this, a code valid for the current Sunday could be used to
+    // backfill any earlier missed week within the assignment range.
+    const codeWeekOf = new Date(sundaySchoolCode.weekOf)
+    codeWeekOf.setHours(0, 0, 0, 0)
+    if (codeWeekOf.getTime() !== weekOfDate.getTime()) {
+      return NextResponse.json(
+        { error: "This code is for a different week than the one you submitted" },
+        { status: 422 }
+      )
+    }
+
     // Calculate week number
     const weekNumber = getWeekNumber(assignment.startDate, weekOfDate)
     if (!weekNumber || weekNumber < 1 || weekNumber > assignment.totalWeeks) {

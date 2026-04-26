@@ -14,6 +14,12 @@ export function handleApiError(error: unknown): NextResponse {
     if (error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+    if (error.message === "PasswordChangeRequired") {
+      return NextResponse.json(
+        { error: "PasswordChangeRequired", message: "You must change your password before continuing." },
+        { status: 403 }
+      )
+    }
     if (error.message === "Forbidden") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
@@ -25,6 +31,28 @@ export function handleApiError(error: unknown): NextResponse {
   }
 
   return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+}
+
+/**
+ * Reject URLs whose scheme could lead to script execution when rendered as
+ * an href, since admin-supplied URLs are surfaced to every user. Only
+ * http(s) are allowed; javascript:, data:, vbscript:, file:, etc. are not.
+ */
+export function assertSafeHttpUrl(input: string, fieldLabel = "URL"): string {
+  const trimmed = (input ?? "").trim()
+  if (!trimmed) {
+    throw new Error(`${fieldLabel} cannot be empty`)
+  }
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    throw new Error(`${fieldLabel} must be a valid http(s) URL`)
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`${fieldLabel} must use http or https`)
+  }
+  return trimmed
 }
 
 /**

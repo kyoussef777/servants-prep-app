@@ -27,5 +27,7 @@ declare module "next-auth/jwt" {
     mustChangePassword: boolean
     isAsyncStudent: boolean
     profileImageUrl?: string | null
+    validatedAt?: number
+    invalidated?: boolean
   }
 }

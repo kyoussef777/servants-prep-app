@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs"
 // POST /api/auth/change-password - Change user's own password
 export async function POST(request: Request) {
   try {
-    const user = await requireAuth()
+    const user = await requireAuth({ allowMustChangePassword: true })
 
     const body = await request.json()
     const { currentPassword, newPassword } = body

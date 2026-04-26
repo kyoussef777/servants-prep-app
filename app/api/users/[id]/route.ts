@@ -94,7 +94,37 @@ export async function PATCH(
 
     const updateData: { email?: string; name?: string; phone?: string | null; profileImageUrl?: string | null; role?: UserRole; password?: string; mustChangePassword?: boolean } = {}
 
-    if (email) updateData.email = email
+    if (email) {
+      const trimmedEmail = String(email).trim().toLowerCase()
+      const isEmailChange = trimmedEmail !== (targetUser.email ?? "").toLowerCase()
+      // Self-service email changes require re-confirming the current password.
+      // This prevents a hijacked session from rotating the victim's email to
+      // an attacker-controlled address (which would otherwise survive password
+      // resets and enable Google-account linking).
+      if (isEmailChange && isSelf) {
+        const { currentPassword } = body as { currentPassword?: string }
+        if (!currentPassword || typeof currentPassword !== "string") {
+          return NextResponse.json(
+            { error: "Current password is required to change email" },
+            { status: 400 }
+          )
+        }
+        if (!targetUser.password) {
+          return NextResponse.json(
+            { error: "This account has no password set; cannot change email here" },
+            { status: 400 }
+          )
+        }
+        const passwordOk = await bcrypt.compare(currentPassword, targetUser.password)
+        if (!passwordOk) {
+          return NextResponse.json(
+            { error: "Current password is incorrect" },
+            { status: 401 }
+          )
+        }
+      }
+      updateData.email = trimmedEmail
+    }
     if (name) updateData.name = name
     if (phone !== undefined) updateData.phone = phone || null
     if (profileImageUrl !== undefined) updateData.profileImageUrl = profileImageUrl || null

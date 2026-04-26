@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canManageCurriculum } from "@/lib/roles"
-import { handleApiError } from "@/lib/api-utils"
+import { handleApiError, assertSafeHttpUrl } from "@/lib/api-utils"
 import { LessonStatus } from "@prisma/client"
 import { notifyLessonScheduled } from "@/lib/notifications"
 
@@ -139,6 +139,12 @@ export async function POST(request: Request) {
         { error: "Missing required fields" },
         { status: 400 }
       )
+    }
+
+    if (Array.isArray(resources)) {
+      for (const r of resources as Array<{ url?: string; title?: string }>) {
+        assertSafeHttpUrl(r?.url ?? "", `Resource "${r?.title ?? ""}" URL`)
+      }
     }
 
     // Compute lessonNumber server-side to avoid race conditions and cross-year bugs
