@@ -52,7 +52,10 @@ export function AttendanceTrendChart({ data, required = 75 }: AttendanceTrendCha
                 <XAxis dataKey="label" stroke="#6b7280" fontSize={11} tickMargin={6} />
                 <YAxis domain={[0, 100]} stroke="#6b7280" fontSize={11} tickFormatter={v => `${v}%`} />
                 <Tooltip
-                  formatter={(value: number | null) => (value === null ? '—' : `${value.toFixed(1)}%`)}
+                  formatter={(value) => {
+                    const v = typeof value === 'number' ? value : null
+                    return v === null ? '—' : `${v.toFixed(1)}%`
+                  }}
                   labelClassName="font-medium"
                   contentStyle={{ borderRadius: 6, border: '1px solid #e5e7eb' }}
                 />
@@ -103,7 +106,10 @@ export function ExamTrendChart({ data, required = 75 }: ExamTrendChartProps) {
                 <XAxis dataKey="label" stroke="#6b7280" fontSize={11} tickMargin={6} />
                 <YAxis domain={[0, 100]} stroke="#6b7280" fontSize={11} tickFormatter={v => `${v}%`} />
                 <Tooltip
-                  formatter={(value: number | null) => (value === null ? '—' : `${value.toFixed(1)}%`)}
+                  formatter={(value) => {
+                    const v = typeof value === 'number' ? value : null
+                    return v === null ? '—' : `${v.toFixed(1)}%`
+                  }}
                   contentStyle={{ borderRadius: 6, border: '1px solid #e5e7eb' }}
                 />
                 <ReferenceLine y={required} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `${required}% target`, position: 'right', fill: '#ef4444', fontSize: 11 }} />

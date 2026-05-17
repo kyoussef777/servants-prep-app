@@ -24,7 +24,7 @@ export async function GET() {
         title: true,
         scheduledDate: true,
         lessonNumber: true,
-        attendance: { select: { status: true } },
+        attendanceRecords: { select: { status: true } },
       },
       take: 60,
     })
@@ -34,7 +34,7 @@ export async function GET() {
       let late = 0
       let excused = 0
       let absent = 0
-      for (const a of lesson.attendance) {
+      for (const a of lesson.attendanceRecords) {
         if (a.status === AttendanceStatus.PRESENT) present++
         else if (a.status === AttendanceStatus.LATE) late++
         else if (a.status === AttendanceStatus.EXCUSED) excused++
