@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole, YearLevel } from "@prisma/client"
-import { isAdmin, canViewStudents } from "@/lib/roles"
+import { isAdmin } from "@/lib/roles"
 import { getMentorStudentIds } from "@/lib/api-utils"
 import { calculateSSAttendance, getAssignmentWeeks, GRADE_DISPLAY_NAMES } from "@/lib/sunday-school-utils"
 

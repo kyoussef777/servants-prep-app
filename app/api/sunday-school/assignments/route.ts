@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole, SundaySchoolGrade, YearLevel } from "@prisma/client"
-import { canManageSundaySchool, canViewStudents, isAdmin } from "@/lib/roles"
+import { canManageSundaySchool, isAdmin } from "@/lib/roles"
 import { getMentorStudentIds } from "@/lib/api-utils"
 
 // GET /api/sunday-school/assignments - List assignments with filters

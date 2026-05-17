@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -117,9 +118,11 @@ export function Navbar() {
           {/* Left side - Logo/Title */}
           <div className="flex items-center gap-8">
             <Link href="/dashboard" className="flex items-center gap-3">
-              <img
+              <Image
                 src="/sp-logo.png"
                 alt="Servants Prep Logo"
+                width={40}
+                height={40}
                 className="w-10 h-10 rounded-md bg-black p-1"
               />
               <span className="text-xl font-bold text-gray-900 dark:text-white">

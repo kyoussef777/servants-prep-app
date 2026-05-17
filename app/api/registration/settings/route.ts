@@ -9,7 +9,7 @@ import { canManageInviteCodes } from '@/lib/roles'
  * Get registration system settings
  * Auth: SUPER_ADMIN, SERVANT_PREP
  */
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {

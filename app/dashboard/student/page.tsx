@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isStudent } from '@/lib/roles'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PageLoading } from '@/components/ui/page-loading'
+import { Button } from '@/components/ui/button'
+import { DashboardSkeleton } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/admin/page-header'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
 import type { AttendanceAnalytics, ExamAnalytics, GraduationStatus } from '@/lib/types'
-import { Phone, Mail, Church } from 'lucide-react'
+import { getAttendanceGuidance, getExamGuidance } from '@/lib/graduation-guidance'
+import { Phone, Mail, Church, Lightbulb, BookOpen, FileText, GraduationCap as GradCap } from 'lucide-react'
 
 interface Analytics {
   enrollment: {
@@ -116,7 +118,7 @@ export default function StudentDashboard() {
   }, [session])
 
   if (loading || status === 'loading') {
-    return <PageLoading />
+    return <DashboardSkeleton />
   }
 
   if (!analytics) {
@@ -142,26 +144,30 @@ export default function StudentDashboard() {
           ].filter(Boolean).join(' · ')}
           actions={
             <>
-              <button
-                onClick={() => router.push('/dashboard/student/lessons')}
-                className="px-4 py-2 bg-maroon-600 text-white rounded-md hover:bg-maroon-700 transition-colors text-sm font-medium"
-              >
-                View My Lessons
-              </button>
+              <Button onClick={() => router.push('/dashboard/student/lessons')} size="sm" className="gap-2">
+                <BookOpen className="h-4 w-4" />
+                My Lessons
+              </Button>
               {analytics.enrollment.isAsyncStudent && (
                 <>
-                  <button
+                  <Button
                     onClick={() => router.push('/dashboard/student/async-notes')}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
                   >
+                    <FileText className="h-4 w-4" />
                     My Notes
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => router.push('/dashboard/student/sunday-school')}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-medium"
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
                   >
+                    <GradCap className="h-4 w-4" />
                     Sunday School
-                  </button>
+                  </Button>
                 </>
               )}
             </>
@@ -211,6 +217,42 @@ export default function StudentDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Actionable Guidance */}
+        {(() => {
+          const att = getAttendanceGuidance(analytics.attendance)
+          const ex = getExamGuidance(analytics.exams)
+          const items: Array<{ label: string; status: string; message: string; detail?: string }> = [
+            { label: 'Attendance', status: att.status, message: att.message, detail: att.detail },
+            { label: 'Exam Average', status: ex.status, message: ex.message, detail: ex.detail },
+          ]
+          const tone = (s: string) =>
+            s === 'failing' ? 'bg-red-50 border-red-200 text-red-900'
+            : s === 'at-risk' ? 'bg-yellow-50 border-yellow-200 text-yellow-900'
+            : s === 'on-track' ? 'bg-green-50 border-green-200 text-green-900'
+            : 'bg-gray-50 border-gray-200 text-gray-700'
+
+          return (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                  What to do next
+                </CardTitle>
+                <CardDescription>Personalized guidance based on your current progress</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2">
+                {items.map(item => (
+                  <div key={item.label} className={`p-3 rounded-md border text-sm ${tone(item.status)}`}>
+                    <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{item.label}</div>
+                    <div className="font-medium mt-1">{item.message}</div>
+                    {item.detail && <div className="text-xs mt-1 opacity-80">{item.detail}</div>}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )
+        })()}
 
         {/* Contacts */}
         {(analytics.enrollment.mentor || analytics.enrollment.fatherOfConfession) && (
@@ -287,12 +329,14 @@ export default function StudentDashboard() {
                       <div className="text-xs text-red-600">Rejected</div>
                     </div>
                   </div>
-                  <button
+                  <Button
                     onClick={() => router.push('/dashboard/student/async-notes')}
-                    className="mt-3 w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3 w-full"
                   >
                     View All Notes →
-                  </button>
+                  </Button>
                 </CardContent>
               </Card>
             )}
@@ -324,12 +368,14 @@ export default function StudentDashboard() {
                       </div>
                     </div>
                   ))}
-                  <button
+                  <Button
                     onClick={() => router.push('/dashboard/student/sunday-school')}
-                    className="mt-3 w-full text-center text-sm text-purple-600 hover:text-purple-800 font-medium"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3 w-full"
                   >
                     View Details →
-                  </button>
+                  </Button>
                 </CardContent>
               </Card>
             )}

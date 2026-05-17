@@ -87,7 +87,7 @@ export default function RegistrationPage() {
       } else {
         toast.error(data.message || 'Invalid invite code')
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to validate invite code')
     } finally {
       setIsValidating(false)
@@ -406,6 +406,7 @@ export default function RegistrationPage() {
                   <div className="border-2 border-dashed rounded-lg p-4 text-center">
                     {formData.profileImageUrl ? (
                       <div className="flex flex-col items-center gap-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- preview of just-uploaded Vercel Blob */}
                         <img
                           src={formData.profileImageUrl}
                           alt="Profile preview"

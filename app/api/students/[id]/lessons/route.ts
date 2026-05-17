@@ -37,7 +37,7 @@ export async function GET(
     // Build lesson filter based on year level
     // Year 1 students: Only see active academic year lessons
     // Year 2 students: See lessons from all years (both Year 1 and Year 2)
-    let lessonWhereClause: Record<string, unknown> = {
+    const lessonWhereClause: Record<string, unknown> = {
       status: { notIn: ['CANCELLED', 'NO_CLASS'] },
       isExamDay: false
     }

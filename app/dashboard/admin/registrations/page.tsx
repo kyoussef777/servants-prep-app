@@ -15,8 +15,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner'
 import { canViewRegistrations, canManageInviteCodes, canReviewRegistrations } from '@/lib/roles'
 import { useInviteCodes, useRegistrationSubmissions, useRegistrationSettings } from '@/lib/swr'
-import { Copy, Plus, Eye, CheckCircle, XCircle, Clock, AlertCircle, Loader2, Power, PowerOff, Trash2, Ban, RefreshCw, Link2 } from 'lucide-react'
-import { RegistrationStatus, StudentGrade, YearLevel } from '@prisma/client'
+import { Copy, Plus, Eye, CheckCircle, XCircle, Clock, Loader2, Power, PowerOff, Trash2, Ban, RefreshCw, Link2 } from 'lucide-react'
+import { RegistrationStatus, YearLevel, Prisma } from '@prisma/client'
+
+type RegistrationSubmission = Prisma.RegistrationSubmissionGetPayload<{
+  include: {
+    inviteCode: { select: { code: true; label: true } }
+    reviewer: { select: { id: true; name: true; email: true } }
+    createdUser: { select: { id: true; name: true; email: true } }
+  }
+}> & { reviewNote?: string | null }
+
+type InviteCode = Prisma.InviteCodeGetPayload<{
+  include: {
+    creator: { select: { id: true; name: true; email: true } }
+    _count: { select: { registrations: true } }
+  }
+}>
 import { getGradeDisplayName } from '@/lib/registration-utils'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Textarea } from '@/components/ui/textarea'
@@ -79,7 +94,7 @@ export default function RegistrationsPage() {
 function SubmissionsTab() {
   const { data: session } = useSession()
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null)
+  const [selectedSubmission, setSelectedSubmission] = useState<RegistrationSubmission | null>(null)
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false)
 
   const { data: submissionsData, mutate } = useRegistrationSubmissions(
@@ -118,7 +133,7 @@ function SubmissionsTab() {
     }
   }
 
-  const pendingCount = submissions.filter((s: any) => s.status === RegistrationStatus.PENDING).length
+  const pendingCount = submissions.filter((s: RegistrationSubmission) => s.status === RegistrationStatus.PENDING).length
 
   return (
     <div className="space-y-4">
@@ -171,7 +186,7 @@ function SubmissionsTab() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  submissions.map((submission: any) => (
+                  submissions.map((submission: RegistrationSubmission) => (
                     <TableRow key={submission.id}>
                       <TableCell className="font-medium">{submission.fullName}</TableCell>
                       <TableCell>{submission.email}</TableCell>
@@ -228,7 +243,7 @@ function SubmissionsTab() {
             {submissions.length === 0 ? (
               <div className="text-center text-gray-500 py-8">No submissions found</div>
             ) : (
-              submissions.map((submission: any) => (
+              submissions.map((submission: RegistrationSubmission) => (
                 <Card key={submission.id} className="border">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between">
@@ -315,7 +330,7 @@ function SubmissionDetailDialog({
   onOpenChange,
   onUpdate,
 }: {
-  submission: any
+  submission: RegistrationSubmission
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate: () => void
@@ -408,6 +423,7 @@ function SubmissionDetailDialog({
             <h4 className="font-semibold mb-2">Personal Information</h4>
             {submission.profileImageUrl && (
               <div className="mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Vercel Blob URL */}
                 <img
                   src={submission.profileImageUrl}
                   alt={`${submission.fullName}'s profile`}
@@ -500,7 +516,7 @@ function SubmissionDetailDialog({
               <div className="text-sm space-y-1">
                 <div><span className="text-gray-600">Status:</span> {submission.status}</div>
                 <div><span className="text-gray-600">Reviewed By:</span> {submission.reviewer?.name}</div>
-                <div><span className="text-gray-600">Reviewed At:</span> {new Date(submission.reviewedAt).toLocaleString()}</div>
+                <div><span className="text-gray-600">Reviewed At:</span> {submission.reviewedAt && new Date(submission.reviewedAt).toLocaleString()}</div>
                 {submission.reviewNote && (
                   <div><span className="text-gray-600">Note:</span> {submission.reviewNote}</div>
                 )}
@@ -560,7 +576,7 @@ function InviteCodesTab() {
 
       toast.success(`Registration ${!registrationEnabled ? 'enabled' : 'disabled'}`)
       mutateSettings()
-    } catch (error) {
+    } catch {
       toast.error('Failed to update registration settings')
     } finally {
       setIsTogglingRegistration(false)
@@ -581,7 +597,7 @@ function InviteCodesTab() {
 
       toast.success(`Code ${!currentActive ? 'activated' : 'deactivated'}`)
       mutate()
-    } catch (error) {
+    } catch {
       toast.error('Failed to update code')
     }
   }
@@ -604,7 +620,7 @@ function InviteCodesTab() {
     }
   }
 
-  const getCodeStatusBadge = (code: any) => {
+  const getCodeStatusBadge = (code: InviteCode) => {
     const now = new Date()
     if (!code.isActive) {
       return <Badge variant="outline" className="border-gray-500 text-gray-700">Revoked</Badge>
@@ -681,7 +697,7 @@ function InviteCodesTab() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  inviteCodes.map((code: any) => (
+                  inviteCodes.map((code: InviteCode) => (
                     <TableRow key={code.id}>
                       <TableCell className="font-mono font-semibold">{code.code}</TableCell>
                       <TableCell>{code.label || '-'}</TableCell>
@@ -747,7 +763,7 @@ function InviteCodesTab() {
             {!inviteCodes || inviteCodes.length === 0 ? (
               <div className="text-center text-gray-500 py-8">No invite codes yet</div>
             ) : (
-              inviteCodes.map((code: any) => (
+              inviteCodes.map((code: InviteCode) => (
                 <Card key={code.id} className="border">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between">

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { PageLoading } from '@/components/ui/page-loading'
+import { DashboardSkeleton } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/admin/page-header'
 import { isAdmin, canAssignMentors, canManageUsers } from '@/lib/roles'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
@@ -124,7 +124,7 @@ export default function AdminDashboard() {
   }, [status])
 
   if (status === 'loading' || isLoading) {
-    return <PageLoading />
+    return <DashboardSkeleton />
   }
 
   const userRole = session?.user?.role
@@ -216,6 +216,57 @@ export default function AdminDashboard() {
               </p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Quick Actions - promoted above analytics */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <Link
+            href="/dashboard/admin/attendance"
+            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-maroon-300 active:translate-y-0 transition-all"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-maroon-100 text-maroon-700 group-hover:bg-maroon-600 group-hover:text-white transition-colors">
+              <ClipboardCheck className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Take Attendance</span>
+          </Link>
+          <Link
+            href="/dashboard/admin/exams"
+            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300 active:translate-y-0 transition-all"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-purple-100 text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              <GraduationCap className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Enter Scores</span>
+          </Link>
+          <Link
+            href="/dashboard/admin/curriculum"
+            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-green-300 active:translate-y-0 transition-all"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-green-100 text-green-700 group-hover:bg-green-600 group-hover:text-white transition-colors">
+              <BookOpen className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Curriculum</span>
+          </Link>
+          <Link
+            href="/dashboard/admin/mentees"
+            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-orange-300 active:translate-y-0 transition-all"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange-100 text-orange-700 group-hover:bg-orange-600 group-hover:text-white transition-colors">
+              <Users className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">My Mentees</span>
+          </Link>
+          {canManage && (
+            <Link
+              href="/dashboard/admin/users"
+              className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300 active:translate-y-0 transition-all"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-100 text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                <Users className="h-5 w-5" />
+              </span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Users</span>
+            </Link>
+          )}
         </div>
 
         {/* Program Health Overview */}
@@ -597,10 +648,10 @@ export default function AdminDashboard() {
           </Card>
         )}
 
-        {/* Alerts and Quick Actions */}
+        {/* Alerts */}
         <div className="grid md:grid-cols-3 gap-6">
           {/* At-Risk Students */}
-          <div className="md:col-span-2 space-y-4">
+          <div className="md:col-span-3 space-y-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-orange-500" />
               Students Needing Support
@@ -700,82 +751,6 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          {/* Quick Actions */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Quick Actions</h2>
-
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <ClipboardCheck className="h-5 w-5 text-maroon-600" />
-                  <CardTitle className="text-base">Take Attendance</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Link href="/dashboard/admin/attendance">
-                  <Button className="w-full" size="sm">Mark Attendance</Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5 text-purple-600" />
-                  <CardTitle className="text-base">Enter Exam Scores</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Link href="/dashboard/admin/exams">
-                  <Button className="w-full" size="sm">Manage Exams</Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-green-600" />
-                  <CardTitle className="text-base">Add Lesson</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Link href="/dashboard/admin/curriculum">
-                  <Button className="w-full" size="sm" variant="outline">Manage Curriculum</Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-orange-600" />
-                  <CardTitle className="text-base">View My Mentees</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Link href="/dashboard/admin/mentees">
-                  <Button className="w-full" size="sm" variant="outline">View Mentees</Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {canManage && (
-              <Card className="hover:shadow-md transition-shadow border-purple-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-purple-600" />
-                    <CardTitle className="text-base">Manage Users</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Link href="/dashboard/admin/users">
-                    <Button className="w-full" size="sm" variant="outline">User Management</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            )}
-          </div>
         </div>
       </div>
     </div>

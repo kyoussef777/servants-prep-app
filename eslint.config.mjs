@@ -1,51 +1,54 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import tseslint from "typescript-eslint";
+import nextPlugin from "@next/eslint-plugin-next";
+import reactHooks from "eslint-plugin-react-hooks";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+export default tseslint.config(
   {
     ignores: [
       "node_modules/**",
       ".next/**",
       "out/**",
       "build/**",
+      "coverage/**",
       "next-env.d.ts",
     ],
   },
+  ...tseslint.configs.recommended,
   {
+    plugins: {
+      "@next/next": nextPlugin,
+      "react-hooks": reactHooks,
+    },
     rules: {
-      // TypeScript strict rules
-      "@typescript-eslint/no-unused-vars": "error",
-      "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/no-non-null-assertion": "warn",
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs["core-web-vitals"].rules,
 
-      // React rules
+      // Core React hooks rules (stable, valuable).
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
 
-      // General rules
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/no-explicit-any": "error",
+
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "prefer-const": "error",
       "no-var": "error",
       "eqeqeq": ["error", "always"],
     },
   },
-  // Allow console.log in scripts and seed files (CLI tools)
   {
     files: ["scripts/**/*.ts", "prisma/seed.ts"],
     rules: {
       "no-console": "off",
     },
   },
-];
-
-export default eslintConfig;
+  {
+    files: ["public/sw.js"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+);

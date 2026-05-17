@@ -18,18 +18,15 @@ const SundaySchoolLogStatus = {
   REJECTED: 'REJECTED',
 } as const
 
-const SundaySchoolGrade = {
-  PRE_K: 'PRE_K',
-  KINDERGARTEN: 'KINDERGARTEN',
-  GRADE_1: 'GRADE_1',
-  GRADE_2: 'GRADE_2',
-  GRADE_3: 'GRADE_3',
-  GRADE_4: 'GRADE_4',
-  GRADE_5: 'GRADE_5',
-  GRADE_6_PLUS: 'GRADE_6_PLUS',
-} as const
-
-type SSGrade = (typeof SundaySchoolGrade)[keyof typeof SundaySchoolGrade]
+type SSGrade =
+  | 'PRE_K'
+  | 'KINDERGARTEN'
+  | 'GRADE_1'
+  | 'GRADE_2'
+  | 'GRADE_3'
+  | 'GRADE_4'
+  | 'GRADE_5'
+  | 'GRADE_6_PLUS'
 type SSLogStatus = (typeof SundaySchoolLogStatus)[keyof typeof SundaySchoolLogStatus]
 
 describe('generateCode', () => {

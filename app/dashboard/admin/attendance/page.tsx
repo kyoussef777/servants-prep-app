@@ -829,6 +829,7 @@ export default function AttendancePage() {
           onClick={() => setViewingPhoto(null)}
         >
           <div className="relative max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Vercel Blob URL, sized to viewport */}
             <img
               src={viewingPhoto.url}
               alt={viewingPhoto.name}

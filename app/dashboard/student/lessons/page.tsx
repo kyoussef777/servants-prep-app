@@ -15,7 +15,6 @@ import {
   getGoogleDriveFileIcon,
   isGoogleDriveLink,
   extractDomain,
-  getTitleFromUrl
 } from '@/lib/link-metadata'
 import { Check, Clock, X, Shield, Calendar, BookOpen, ExternalLink, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 
@@ -347,14 +346,20 @@ export default function StudentLessonsPage() {
                                     {/* Thumbnail or Icon */}
                                     {isDrive && fileId ? (
                                       <div className="shrink-0 w-12 h-12 rounded overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element -- Google Drive thumbnail URL with onError fallback */}
                                         <img
                                           src={getGoogleDriveThumbnail(fileId)}
                                           alt=""
                                           className="w-full h-full object-cover"
                                           onError={(e) => {
-                                            // Fallback to icon if thumbnail fails
                                             e.currentTarget.style.display = 'none'
-                                            e.currentTarget.parentElement!.innerHTML = `<span class="text-2xl">${icon}</span>`
+                                            const parent = e.currentTarget.parentElement
+                                            if (parent) {
+                                              const span = document.createElement('span')
+                                              span.className = 'text-2xl'
+                                              span.textContent = icon
+                                              parent.replaceChildren(span)
+                                            }
                                           }}
                                         />
                                       </div>

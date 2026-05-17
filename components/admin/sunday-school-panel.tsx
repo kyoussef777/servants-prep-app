@@ -164,7 +164,7 @@ function getSundayOfCurrentWeek(): string {
 // Main panel component
 // ---------------------------------------------------------------------------
 
-export function SundaySchoolPanel({ canManage, canManageAttendance, readOnly }: { canManage: boolean; canManageAttendance: boolean; readOnly: boolean }) {
+export function SundaySchoolPanel({ canManage, canManageAttendance, readOnly: _readOnly }: { canManage: boolean; canManageAttendance: boolean; readOnly: boolean }) {
   return (
     <Tabs defaultValue="assignments">
       <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:flex">

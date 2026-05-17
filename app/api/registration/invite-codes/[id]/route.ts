@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canManageInviteCodes } from '@/lib/roles'
+import { Prisma } from '@prisma/client'
 
 /**
  * PATCH /api/registration/invite-codes/[id]
@@ -54,7 +55,7 @@ export async function PATCH(
     }
 
     // Build update data
-    const updateData: any = {}
+    const updateData: Prisma.InviteCodeUpdateInput = {}
     if (label !== undefined) updateData.label = label
     if (maxUses !== undefined) updateData.maxUses = maxUses
     if (expiresAt !== undefined) {

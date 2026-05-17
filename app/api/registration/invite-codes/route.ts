@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canManageInviteCodes } from '@/lib/roles'
 import { generateInviteCode } from '@/lib/registration-utils'
+import { Prisma } from '@prisma/client'
 
 /**
  * GET /api/registration/invite-codes
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     const statusFilter = searchParams.get('status')
 
     // Build where clause based on filter
-    const where: any = {}
+    const where: Prisma.InviteCodeWhereInput = {}
     const now = new Date()
 
     if (statusFilter === 'active') {

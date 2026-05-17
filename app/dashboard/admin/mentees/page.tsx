@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { PageLoading } from '@/components/ui/page-loading'
 import { isAdmin } from "@/lib/roles"
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
-import type { SectionAverage, MissingExam, MenteeAnalytics } from '@/lib/types'
+import type { MenteeAnalytics } from '@/lib/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

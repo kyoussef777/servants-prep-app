@@ -204,7 +204,7 @@ export default function DriveFileBrowser() {
     load(current.id, current.resourceKey)
     setSearch('')
     setSelected(null)
-  }, [current.id, load])
+  }, [current.id, current.resourceKey, load])
 
   // Prevent body scroll while preview is open (critical on mobile)
   useEffect(() => {

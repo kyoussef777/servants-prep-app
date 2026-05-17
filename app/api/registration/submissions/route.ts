@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canViewRegistrations } from '@/lib/roles'
-import { RegistrationStatus } from '@prisma/client'
+import { Prisma, RegistrationStatus } from '@prisma/client'
 
 /**
  * GET /api/registration/submissions
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build where clause
-    const where: any = {}
+    const where: Prisma.RegistrationSubmissionWhereInput = {}
     if (statusFilter && Object.values(RegistrationStatus).includes(statusFilter)) {
       where.status = statusFilter
     }

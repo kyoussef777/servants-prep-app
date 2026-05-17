@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole, NoteSubmissionStatus } from "@prisma/client"
-import { isAdmin, canViewStudents } from "@/lib/roles"
+import { isAdmin } from "@/lib/roles"
 import { getMentorStudentIds, handleApiError } from "@/lib/api-utils"
 
 // GET /api/async-notes - List async note submissions with filters

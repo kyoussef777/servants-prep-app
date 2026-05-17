@@ -56,13 +56,6 @@ async function sendPushToUser(userId: string, payload: NotificationPayload) {
 }
 
 /**
- * Send push notifications to multiple users
- */
-async function sendPushToUsers(userIds: string[], payload: NotificationPayload) {
-  await Promise.allSettled(userIds.map((id) => sendPushToUser(id, payload)))
-}
-
-/**
  * Create an in-app notification and optionally send push
  */
 async function createNotification({

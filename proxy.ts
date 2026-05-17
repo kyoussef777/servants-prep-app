@@ -17,7 +17,7 @@ function isAllowedDuringPasswordChange(pathname: string) {
   )
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (isAllowedDuringPasswordChange(pathname)) {
@@ -53,6 +53,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Skip Next internals and common static assets; everything else passes
-  // through the middleware so the password-change gate is enforced uniformly.
+  // through the proxy so the password-change gate is enforced uniformly.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js|map|woff|woff2)).*)"],
 }

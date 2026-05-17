@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
