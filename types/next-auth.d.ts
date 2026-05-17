@@ -10,6 +10,12 @@ declare module "next-auth" {
       isAsyncStudent: boolean
       profileImageUrl?: string | null
     } & DefaultSession["user"]
+    // Dev-only: when SUPER_ADMIN is impersonating another user
+    impersonating?: {
+      originalId: string
+      originalName: string | null
+      originalEmail: string | null
+    } | null
   }
 
   interface User {
@@ -29,5 +35,9 @@ declare module "next-auth/jwt" {
     profileImageUrl?: string | null
     validatedAt?: number
     invalidated?: boolean
+    // Dev-only impersonation
+    originalId?: string
+    originalName?: string | null
+    originalEmail?: string | null
   }
 }

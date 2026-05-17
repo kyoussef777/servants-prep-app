@@ -151,13 +151,68 @@ export const authOptions: NextAuthOptions = {
         if (session.name !== undefined) {
           token.name = session.name
         }
+
+        // Dev-only: SUPER_ADMIN impersonation via session.update()
+        if (process.env.NODE_ENV !== 'production' && 'impersonate' in (session as Record<string, unknown>)) {
+          const impersonateId = (session as { impersonate?: string | null }).impersonate
+
+          if (impersonateId) {
+            // Starting impersonation. The acting user must be a SUPER_ADMIN
+            // (either currently, or already impersonating from a SUPER_ADMIN base).
+            const isAdminBase = token.role === UserRole.SUPER_ADMIN || !!token.originalId
+            if (isAdminBase) {
+              const target = await prisma.user.findUnique({
+                where: { id: impersonateId as string }
+              })
+              if (target && !target.isDisabled) {
+                // Capture original identity on first hop
+                if (!token.originalId) {
+                  token.originalId = token.id
+                  token.originalName = token.name ?? null
+                  token.originalEmail = token.email ?? null
+                }
+                const { isAsyncStudent } = await getUserSessionData(target)
+                token.id = target.id
+                token.role = target.role
+                token.name = target.name
+                token.email = target.email
+                token.mustChangePassword = false
+                token.isAsyncStudent = isAsyncStudent
+                token.profileImageUrl = target.profileImageUrl ?? null
+                token.validatedAt = Date.now()
+              }
+            }
+          } else {
+            // Stop impersonating - restore original identity
+            if (token.originalId) {
+              const original = await prisma.user.findUnique({
+                where: { id: token.originalId }
+              })
+              if (original) {
+                const { isAsyncStudent } = await getUserSessionData(original)
+                token.id = original.id
+                token.role = original.role
+                token.name = original.name
+                token.email = original.email
+                token.mustChangePassword = original.mustChangePassword
+                token.isAsyncStudent = isAsyncStudent
+                token.profileImageUrl = original.profileImageUrl ?? null
+              }
+              token.originalId = undefined
+              token.originalName = undefined
+              token.originalEmail = undefined
+              token.validatedAt = Date.now()
+            }
+          }
+        }
       }
 
       // Periodically re-check the user against the DB so that disabling an
       // account or changing its role takes effect without waiting for the
-      // 30-day JWT to expire.
+      // 30-day JWT to expire. Skip while impersonating - the impersonated
+      // identity is intentionally divergent from a "real" login.
       const validatedAt = (token.validatedAt as number | undefined) ?? 0
-      if (token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
+      if (!token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
           select: { id: true, role: true, isDisabled: true, mustChangePassword: true }
@@ -187,6 +242,16 @@ export const authOptions: NextAuthOptions = {
         session.user.mustChangePassword = token.mustChangePassword as boolean
         session.user.isAsyncStudent = (token.isAsyncStudent as boolean) ?? false
         session.user.profileImageUrl = (token.profileImageUrl as string | null) ?? null
+      }
+      // Surface impersonation state to the client (dev only)
+      if (process.env.NODE_ENV !== 'production' && token.originalId) {
+        session.impersonating = {
+          originalId: token.originalId as string,
+          originalName: (token.originalName as string | null) ?? null,
+          originalEmail: (token.originalEmail as string | null) ?? null,
+        }
+      } else {
+        session.impersonating = null
       }
       return session
     }
