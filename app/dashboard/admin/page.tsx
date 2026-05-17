@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DashboardSkeleton } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/admin/page-header'
+import { AttendanceTrendChart, ExamTrendChart, type AttendancePoint, type ExamPoint } from '@/components/admin/trend-charts'
 import { isAdmin, canAssignMentors, canManageUsers } from '@/lib/roles'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useDashboardStats } from '@/lib/swr'
@@ -99,6 +101,7 @@ export default function AdminDashboard() {
   const { session, status } = useAdminGuard(isAdmin)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [, setAnalyticsLoading] = useState(true)
+  const [trends, setTrends] = useState<{ attendance: AttendancePoint[]; exams: ExamPoint[] } | null>(null)
 
   // Use SWR for caching - automatically revalidates and caches
   const { data: stats, isLoading } = useDashboardStats()
@@ -118,8 +121,21 @@ export default function AdminDashboard() {
       }
     }
 
+    const fetchTrends = async () => {
+      try {
+        const res = await fetch('/api/dashboard/trends')
+        if (res.ok) {
+          const data = await res.json()
+          setTrends(data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch trends:', error)
+      }
+    }
+
     if (status === 'authenticated') {
       fetchAnalytics()
+      fetchTrends()
     }
   }, [status])
 
@@ -154,14 +170,120 @@ export default function AdminDashboard() {
           title="Dashboard"
           description={`Welcome back, ${session?.user?.name}`}
           actions={
-            <Link href="/dashboard/admin/settings">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Button>
-            </Link>
+            <>
+              {/* Desktop: inline compact quick-action chips on the header row */}
+              <div className="hidden lg:flex items-center gap-1.5">
+                <Link
+                  href="/dashboard/admin/attendance"
+                  className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-maroon-50 hover:border-maroon-300 hover:text-maroon-700 dark:hover:bg-maroon-900/30 transition-colors"
+                  title="Take Attendance"
+                >
+                  <ClipboardCheck className="h-3.5 w-3.5 text-maroon-600" />
+                  Attendance
+                </Link>
+                <Link
+                  href="/dashboard/admin/exams"
+                  className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 dark:hover:bg-purple-900/30 transition-colors"
+                  title="Enter Exam Scores"
+                >
+                  <GraduationCap className="h-3.5 w-3.5 text-purple-600" />
+                  Scores
+                </Link>
+                <Link
+                  href="/dashboard/admin/curriculum"
+                  className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-green-50 hover:border-green-300 hover:text-green-700 dark:hover:bg-green-900/30 transition-colors"
+                  title="Manage Curriculum"
+                >
+                  <BookOpen className="h-3.5 w-3.5 text-green-600" />
+                  Curriculum
+                </Link>
+                <Link
+                  href="/dashboard/admin/mentees"
+                  className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700 dark:hover:bg-orange-900/30 transition-colors"
+                  title="View My Mentees"
+                >
+                  <Users className="h-3.5 w-3.5 text-orange-600" />
+                  Mentees
+                </Link>
+                {canManage && (
+                  <Link
+                    href="/dashboard/admin/users"
+                    className="group inline-flex items-center gap-1.5 rounded-md border bg-white dark:bg-gray-900 dark:border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 dark:hover:bg-blue-900/30 transition-colors"
+                    title="Manage Users"
+                  >
+                    <Users className="h-3.5 w-3.5 text-blue-600" />
+                    Users
+                  </Link>
+                )}
+                <span className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-700" aria-hidden />
+                <Link href="/dashboard/admin/settings">
+                  <Button variant="ghost" size="icon-sm" aria-label="Settings">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Mobile/tablet: just Settings on header */}
+              <Link href="/dashboard/admin/settings" className="lg:hidden">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
+              </Link>
+            </>
           }
         />
+
+        {/* Quick Actions - mobile/tablet tile strip (desktop uses inline chips in header) */}
+        <div className="lg:hidden grid grid-cols-2 md:grid-cols-3 gap-3">
+          <Link
+            href="/dashboard/admin/attendance"
+            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-maroon-300 active:translate-y-0 transition-all"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-maroon-100 text-maroon-700 group-hover:bg-maroon-600 group-hover:text-white transition-colors">
+              <ClipboardCheck className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Take Attendance</span>
+          </Link>
+          <Link
+            href="/dashboard/admin/exams"
+            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300 active:translate-y-0 transition-all"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-purple-100 text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              <GraduationCap className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Enter Scores</span>
+          </Link>
+          <Link
+            href="/dashboard/admin/curriculum"
+            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-green-300 active:translate-y-0 transition-all"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-green-100 text-green-700 group-hover:bg-green-600 group-hover:text-white transition-colors">
+              <BookOpen className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Curriculum</span>
+          </Link>
+          <Link
+            href="/dashboard/admin/mentees"
+            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-orange-300 active:translate-y-0 transition-all"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange-100 text-orange-700 group-hover:bg-orange-600 group-hover:text-white transition-colors">
+              <Users className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">My Mentees</span>
+          </Link>
+          {canManage && (
+            <Link
+              href="/dashboard/admin/users"
+              className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300 active:translate-y-0 transition-all"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-100 text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                <Users className="h-5 w-5" />
+              </span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Users</span>
+            </Link>
+          )}
+        </div>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -218,57 +340,14 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Quick Actions - promoted above analytics */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          <Link
-            href="/dashboard/admin/attendance"
-            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-maroon-300 active:translate-y-0 transition-all"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-maroon-100 text-maroon-700 group-hover:bg-maroon-600 group-hover:text-white transition-colors">
-              <ClipboardCheck className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Take Attendance</span>
-          </Link>
-          <Link
-            href="/dashboard/admin/exams"
-            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300 active:translate-y-0 transition-all"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-purple-100 text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-              <GraduationCap className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Enter Scores</span>
-          </Link>
-          <Link
-            href="/dashboard/admin/curriculum"
-            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-green-300 active:translate-y-0 transition-all"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-green-100 text-green-700 group-hover:bg-green-600 group-hover:text-white transition-colors">
-              <BookOpen className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Curriculum</span>
-          </Link>
-          <Link
-            href="/dashboard/admin/mentees"
-            className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-orange-300 active:translate-y-0 transition-all"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange-100 text-orange-700 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-              <Users className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">My Mentees</span>
-          </Link>
-          {canManage && (
-            <Link
-              href="/dashboard/admin/users"
-              className="group flex items-center gap-3 rounded-lg border bg-white dark:bg-gray-900 px-4 py-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300 active:translate-y-0 transition-all"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-100 text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <Users className="h-5 w-5" />
-              </span>
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Users</span>
-            </Link>
-          )}
-        </div>
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid grid-cols-3 w-full sm:max-w-md">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="sections">Sections</TabsTrigger>
+            <TabsTrigger value="trends">Trends</TabsTrigger>
+          </TabsList>
 
+          <TabsContent value="overview" className="space-y-6 mt-6">
         {/* Program Health Overview */}
         <div className="grid md:grid-cols-3 gap-6">
           {/* Program Overview */}
@@ -480,6 +559,9 @@ export default function AdminDashboard() {
 
         </div>
 
+          </TabsContent>
+
+          <TabsContent value="sections" className="space-y-6 mt-6">
         {/* Exam Scores by Section - Combined View */}
         {analytics?.examScoresByYear && analytics.examScoresByYear.length > 0 && (
           <Card>
@@ -593,6 +675,16 @@ export default function AdminDashboard() {
           </Card>
         )}
 
+          </TabsContent>
+
+          <TabsContent value="trends" className="space-y-6 mt-6">
+            {trends && (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <AttendanceTrendChart data={trends.attendance} />
+                <ExamTrendChart data={trends.exams} />
+              </div>
+            )}
+
         {/* Year-over-Year Comparison */}
         {analytics?.attendanceByYear && analytics.attendanceByYear.length > 1 && (
           <Card>
@@ -647,6 +739,9 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         )}
+
+          </TabsContent>
+        </Tabs>
 
         {/* Alerts */}
         <div className="grid md:grid-cols-3 gap-6">

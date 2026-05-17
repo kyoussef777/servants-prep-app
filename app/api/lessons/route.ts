@@ -28,10 +28,18 @@ export async function GET(request: Request) {
     const excludeExamDays = searchParams.get('excludeExamDays') === 'true' || searchParams.get('forAttendance') === 'true'
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : null
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
+    const search = searchParams.get('search')
 
     const where: Record<string, unknown> = {}
     if (academicYearId) where.academicYearId = academicYearId
     if (examSectionId) where.examSectionId = examSectionId
+    if (search && search.trim()) {
+      const term = search.trim()
+      where.OR = [
+        { title: { contains: term, mode: 'insensitive' } },
+        { subtitle: { contains: term, mode: 'insensitive' } },
+      ]
+    }
 
     // Handle status filtering - excludeCancelled takes precedence
     if (excludeCancelled) {

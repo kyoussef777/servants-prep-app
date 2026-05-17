@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
-import { Menu, X, Moon, Sun, ChevronDown } from 'lucide-react'
+import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
 interface NavLink {
@@ -194,7 +194,29 @@ export function Navbar() {
           </div>
 
           {/* Right side - User menu */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Search / command palette trigger - desktop (search-bar style) */}
+            <button
+              type="button"
+              aria-label="Open command palette"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+              className="hidden md:inline-flex items-center gap-2 w-56 lg:w-64 rounded-lg border bg-gray-50 dark:bg-gray-800/60 dark:border-gray-700 px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 transition-all"
+            >
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="flex-1 text-left truncate">Search students, lessons…</span>
+              <kbd className="hidden lg:inline-flex h-5 items-center rounded border bg-white dark:bg-gray-900 dark:border-gray-700 px-1.5 font-mono text-[10px] text-gray-500">⌘K</kbd>
+            </button>
+
+            {/* Search trigger - mobile icon only */}
+            <button
+              type="button"
+              aria-label="Open command palette"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+              className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+
             {/* Notification bell */}
             <NotificationBell />
 
