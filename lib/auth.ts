@@ -258,9 +258,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    // Cap JWT lifetime so credential / role / disable changes propagate within a day
-    // even if the periodic in-callback re-check is somehow bypassed.
-    maxAge: 24 * 60 * 60,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: "/login",
