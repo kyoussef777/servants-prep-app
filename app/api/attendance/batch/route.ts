@@ -8,7 +8,7 @@ import { notifyAttendanceRecorded, notifyConductRemoval } from "@/lib/notificati
 
 interface AttendanceRecord {
   studentId: string
-  status: 'PRESENT' | 'LATE' | 'ABSENT'
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
   arrivedAt?: string | null
   notes?: string | null
   conductRemoval?: boolean
@@ -77,6 +77,30 @@ export async function POST(request: Request) {
       existingRecords.map(r => [r.studentId, r.id])
     )
 
+    const studentIdSet = records.map(r => r.studentId)
+
+    // Late-start: students whose attendance start date is after this lesson's
+    // date should have this lesson auto-excused as "joined later".
+    const lessonDateValue = new Date(lesson.scheduledDate)
+    const enrollmentsForStudents = await prisma.studentEnrollment.findMany({
+      where: { studentId: { in: studentIdSet } },
+      select: { studentId: true, attendanceStartDate: true },
+    })
+    const attendanceStartByStudent = new Map<string, Date | null>(
+      enrollmentsForStudents.map(e => [e.studentId, e.attendanceStartDate])
+    )
+
+    // Expected absences covering this lesson's date, per student
+    const coveringAbsences = await prisma.expectedAbsence.findMany({
+      where: {
+        studentId: { in: studentIdSet },
+        startDate: { lte: lesson.scheduledDate },
+        endDate: { gte: lesson.scheduledDate },
+      },
+      select: { id: true, studentId: true, reason: true },
+    })
+    const absenceByStudent = new Map(coveringAbsences.map(a => [a.studentId, a]))
+
     // Validate conduct removals: must have a non-empty note
     for (const record of records) {
       if (record.conductRemoval === true && (!record.conductNote || !record.conductNote.trim())) {
@@ -91,21 +115,25 @@ export async function POST(request: Request) {
     const toCreate: Array<{
       lessonId: string
       studentId: string
-      status: 'PRESENT' | 'LATE' | 'ABSENT'
+      status: AttendanceStatus
       arrivedAt: Date | null
       notes: string | null
       recordedBy: string
       conductRemoval: boolean
       conductNote: string | null
+      notEnrolledYet: boolean
+      expectedAbsenceId: string | null
     }> = []
 
     const toUpdate: Array<{
       id: string
-      status: 'PRESENT' | 'LATE' | 'ABSENT'
+      status: AttendanceStatus
       arrivedAt: Date | null
       notes: string | null
       conductRemoval: boolean
       conductNote: string | null
+      notEnrolledYet: boolean
+      expectedAbsenceId: string | null
     }> = []
 
     for (const record of records) {
@@ -115,25 +143,54 @@ export async function POST(request: Request) {
       const conductRemoval = record.conductRemoval === true
       const conductNote = conductRemoval ? (record.conductNote || null) : null
 
+      let status: AttendanceStatus = record.status as AttendanceStatus
+      let notes = record.notes || null
+      let notEnrolledYet = false
+      let expectedAbsenceId: string | null = null
+
+      if (!conductRemoval) {
+        const startDate = attendanceStartByStudent.get(record.studentId)
+        const absence = absenceByStudent.get(record.studentId)
+        if (
+          startDate &&
+          lessonDateValue < startDate &&
+          (status === AttendanceStatus.ABSENT || status === AttendanceStatus.EXCUSED)
+        ) {
+          // Lesson predates the student's start date — auto-excuse (N/A), not counted.
+          // Present/Late are left untouched so an explicit attendance is respected;
+          // re-saving an already-N/A (EXCUSED) record keeps the flag.
+          status = AttendanceStatus.EXCUSED
+          notEnrolledYet = true
+        } else if (absence && status === AttendanceStatus.EXCUSED) {
+          // Excused under a planned/expected absence — link it and carry the reason
+          expectedAbsenceId = absence.id
+          if (!notes) notes = absence.reason
+        }
+      }
+
       if (existingId) {
         toUpdate.push({
           id: existingId,
-          status: record.status,
+          status,
           arrivedAt,
-          notes: record.notes || null,
+          notes,
           conductRemoval,
           conductNote,
+          notEnrolledYet,
+          expectedAbsenceId,
         })
       } else {
         toCreate.push({
           lessonId,
           studentId: record.studentId,
-          status: record.status,
+          status,
           arrivedAt,
-          notes: record.notes || null,
+          notes,
           recordedBy: user.id,
           conductRemoval,
           conductNote,
+          notEnrolledYet,
+          expectedAbsenceId,
         })
       }
     }
@@ -154,7 +211,13 @@ export async function POST(request: Request) {
         const complexUpdates: typeof toUpdate = []
 
         for (const update of toUpdate) {
-          if (update.arrivedAt === null && update.notes === null && !update.conductRemoval) {
+          if (
+            update.arrivedAt === null &&
+            update.notes === null &&
+            !update.conductRemoval &&
+            !update.notEnrolledYet &&
+            !update.expectedAbsenceId
+          ) {
             // Simple status-only updates can be grouped
             if (!updateGroups.has(update.status)) {
               updateGroups.set(update.status, [])
@@ -166,12 +229,12 @@ export async function POST(request: Request) {
           }
         }
 
-        // Execute grouped updates (clears conduct removal when not flagged)
+        // Execute grouped updates (clears conduct removal / absence flags when not flagged)
         for (const [status, groupedRecords] of updateGroups) {
           if (groupedRecords.length > 0) {
             await tx.attendanceRecord.updateMany({
               where: { id: { in: groupedRecords.map(r => r.id) } },
-              data: { status: status as AttendanceStatus, conductRemoval: false, conductNote: null }
+              data: { status: status as AttendanceStatus, conductRemoval: false, conductNote: null, notEnrolledYet: false, expectedAbsenceId: null }
             })
           }
         }
@@ -186,6 +249,8 @@ export async function POST(request: Request) {
               notes: update.notes,
               conductRemoval: update.conductRemoval,
               conductNote: update.conductNote,
+              notEnrolledYet: update.notEnrolledYet,
+              expectedAbsenceId: update.expectedAbsenceId,
             }
           })
         }

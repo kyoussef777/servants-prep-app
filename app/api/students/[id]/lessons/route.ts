@@ -90,6 +90,7 @@ export async function GET(
             arrivedAt: true,
             notes: true,
             conductRemoval: true,
+            notEnrolledYet: true,
           }
         }
       },

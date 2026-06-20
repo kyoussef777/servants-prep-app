@@ -212,3 +212,95 @@ export async function backfillAttendanceForStudent(
     await db.attendanceRecord.createMany({ data: toCreate })
   }
 }
+
+type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
+/**
+ * Reconcile a student's attendance records against their attendance start date
+ * (late-start curve). Lessons scheduled before the start date are marked
+ * EXCUSED with notEnrolledYet=true (shown as "N/A — joined later" and excluded
+ * from the attendance percentage). When the start date is cleared or moved
+ * earlier, previously auto-excused records are reverted to ABSENT.
+ *
+ * Records that were excused for another reason (an expected absence, or a
+ * manual conduct removal) are left untouched.
+ */
+export async function reconcileLateStartAttendance(
+  studentId: string,
+  attendanceStartDate: Date | null,
+  tx?: PrismaTx
+) {
+  const db = tx || prisma
+
+  // Revert records that were previously auto-excused but should no longer be
+  // (start date cleared, or moved to on/before the lesson date).
+  const previouslyExcused = await db.attendanceRecord.findMany({
+    where: { studentId, notEnrolledYet: true },
+    select: { id: true, lesson: { select: { scheduledDate: true } } },
+  })
+
+  const toRevert = previouslyExcused
+    .filter(r => !attendanceStartDate || r.lesson.scheduledDate >= attendanceStartDate)
+    .map(r => r.id)
+
+  if (toRevert.length > 0) {
+    await db.attendanceRecord.updateMany({
+      where: { id: { in: toRevert } },
+      data: { status: 'ABSENT', notEnrolledYet: false },
+    })
+  }
+
+  if (!attendanceStartDate) return
+
+  // Mark ABSENT records for lessons before the start date as EXCUSED /
+  // not-enrolled-yet. Only ABSENT records are converted so we never overwrite a
+  // Present/Late/Excused record (and reverting back to ABSENT stays lossless).
+  const beforeStart = await db.attendanceRecord.findMany({
+    where: {
+      studentId,
+      status: 'ABSENT',
+      notEnrolledYet: false,
+      expectedAbsenceId: null,
+      conductRemoval: false,
+      lesson: { scheduledDate: { lt: attendanceStartDate } },
+    },
+    select: { id: true },
+  })
+
+  if (beforeStart.length > 0) {
+    await db.attendanceRecord.updateMany({
+      where: { id: { in: beforeStart.map(r => r.id) } },
+      data: { status: 'EXCUSED', notEnrolledYet: true },
+    })
+  }
+}
+
+/**
+ * Apply a newly created expected absence to a student's existing attendance
+ * records. Any record whose lesson falls within the absence window is
+ * auto-marked EXCUSED, linked to the expected absence, and has the reason
+ * written into its notes. Conduct removals are left untouched.
+ */
+export async function applyExpectedAbsenceToRecords(
+  expectedAbsence: { id: string; studentId: string; startDate: Date; endDate: Date; reason: string },
+  tx?: PrismaTx
+) {
+  const db = tx || prisma
+  const { id, studentId, startDate, endDate, reason } = expectedAbsence
+
+  const records = await db.attendanceRecord.findMany({
+    where: {
+      studentId,
+      conductRemoval: false,
+      lesson: { scheduledDate: { gte: startDate, lte: endDate } },
+    },
+    select: { id: true },
+  })
+
+  if (records.length > 0) {
+    await db.attendanceRecord.updateMany({
+      where: { id: { in: records.map(r => r.id) } },
+      data: { status: 'EXCUSED', notEnrolledYet: false, expectedAbsenceId: id, notes: reason },
+    })
+  }
+}

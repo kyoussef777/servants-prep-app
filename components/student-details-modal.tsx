@@ -11,9 +11,9 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
-import { Edit, Check, X, Trash2, Send, Camera } from 'lucide-react'
+import { Edit, Check, X, Trash2, Send, Camera, Plane, Plus, CalendarClock } from 'lucide-react'
 import { UserRole } from '@prisma/client'
-import { getRoleDisplayName, isAdmin, canManageUsers } from '@/lib/roles'
+import { getRoleDisplayName, isAdmin, canManageUsers, canManageData } from '@/lib/roles'
 import { formatDateUTC } from '@/lib/utils'
 
 interface StudentNote {
@@ -55,6 +55,10 @@ interface AttendanceRecord {
   status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED'
   arrivedAt?: string | Date
   notes?: string
+  conductRemoval?: boolean
+  conductNote?: string
+  notEnrolledYet?: boolean
+  expectedAbsenceId?: string | null
   lesson: {
     id: string
     title: string
@@ -128,6 +132,14 @@ interface AsyncNoteSubmission {
   reviewer: { name: string } | null
 }
 
+interface ExpectedAbsence {
+  id: string
+  startDate: string
+  endDate: string
+  reason: string
+  creator?: { id: string; name: string } | null
+}
+
 interface StudentDetailsModalProps {
   studentId: string | null
   studentName: string
@@ -138,6 +150,7 @@ interface StudentDetailsModalProps {
   mentor?: Mentor | null
   fatherOfConfession?: FatherOfConfession | null
   enrollmentId?: string
+  attendanceStartDate?: string | null
   isAsyncStudent?: boolean
   examScores: ExamScore[]
   attendanceRecords: AttendanceRecord[]
@@ -158,6 +171,7 @@ export function StudentDetailsModal({
   mentor,
   fatherOfConfession,
   enrollmentId,
+  attendanceStartDate,
   isAsyncStudent = false,
   examScores,
   attendanceRecords,
@@ -167,6 +181,7 @@ export function StudentDetailsModal({
   onRefresh
 }: StudentDetailsModalProps) {
   const { data: session } = useSession()
+  const canEditData = session?.user?.role ? canManageData(session.user.role as UserRole) : false
   const [editingScoreId, setEditingScoreId] = useState<string | null>(null)
   const [editingScore, setEditingScore] = useState<number>(0)
   const [editingScoreNotes, setEditingScoreNotes] = useState<string>('')
@@ -197,18 +212,36 @@ export function StudentDetailsModal({
   const [asyncNotes, setAsyncNotes] = useState<AsyncNoteSubmission[]>([])
   const [asyncNotesLoading, setAsyncNotesLoading] = useState(false)
 
+  // Expected absences state
+  const [expectedAbsences, setExpectedAbsences] = useState<ExpectedAbsence[]>([])
+  const [eaStart, setEaStart] = useState('')
+  const [eaEnd, setEaEnd] = useState('')
+  const [eaReason, setEaReason] = useState('')
+  const [savingAbsence, setSavingAbsence] = useState(false)
+
+  // Late-start attendance date state
+  const [startDateInput, setStartDateInput] = useState('')
+  const [savingStartDate, setSavingStartDate] = useState(false)
+
   // Fetch notes when student changes
   useEffect(() => {
     if (studentId) {
       fetchNotes()
       fetchFathersList()
+      fetchExpectedAbsences()
       if (isAsyncStudent) fetchAsyncNotes()
     } else {
       setNotes([])
       setAsyncNotes([])
+      setExpectedAbsences([])
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, isAsyncStudent])
+
+  // Sync the late-start date input with the current enrollment value
+  useEffect(() => {
+    setStartDateInput(attendanceStartDate ? new Date(attendanceStartDate).toISOString().slice(0, 10) : '')
+  }, [attendanceStartDate, studentId])
 
   // Update selectedFatherId when fatherOfConfession prop changes
   useEffect(() => {
@@ -256,6 +289,94 @@ export function StudentDetailsModal({
       }
     } catch (error) {
       console.error('Failed to fetch fathers of confession:', error)
+    }
+  }
+
+  const fetchExpectedAbsences = async () => {
+    if (!studentId) return
+    try {
+      const res = await fetch(`/api/students/${studentId}/expected-absences`)
+      if (res.ok) {
+        const data = await res.json()
+        setExpectedAbsences(Array.isArray(data) ? data : [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch expected absences:', error)
+    }
+  }
+
+  const addExpectedAbsence = async () => {
+    if (!studentId || !eaStart || !eaEnd || !eaReason.trim()) return
+    setSavingAbsence(true)
+    try {
+      const res = await fetch(`/api/students/${studentId}/expected-absences`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate: eaStart, endDate: eaEnd, reason: eaReason.trim() })
+      })
+      if (res.ok) {
+        toast.success('Expected absence added — overlapping lessons were excused')
+        setEaStart('')
+        setEaEnd('')
+        setEaReason('')
+        await fetchExpectedAbsences()
+        onRefresh()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to add expected absence')
+      }
+    } catch (error) {
+      console.error('Failed to add expected absence:', error)
+      toast.error('Failed to add expected absence')
+    } finally {
+      setSavingAbsence(false)
+    }
+  }
+
+  const deleteExpectedAbsence = async (id: string) => {
+    if (!confirm('Remove this expected absence? Excused lessons in its range will revert to Absent.')) return
+    try {
+      const res = await fetch(`/api/expected-absences/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast.success('Expected absence removed')
+        await fetchExpectedAbsences()
+        onRefresh()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to remove expected absence')
+      }
+    } catch (error) {
+      console.error('Failed to remove expected absence:', error)
+      toast.error('Failed to remove expected absence')
+    }
+  }
+
+  const saveAttendanceStartDate = async () => {
+    if (!enrollmentId) {
+      toast.error('No enrollment found for this student')
+      return
+    }
+    setSavingStartDate(true)
+    try {
+      const res = await fetch(`/api/enrollments/${enrollmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attendanceStartDate: startDateInput || null })
+      })
+      if (res.ok) {
+        toast.success(startDateInput
+          ? 'Attendance start date saved — earlier lessons marked N/A'
+          : 'Attendance start date cleared')
+        onRefresh()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to save attendance start date')
+      }
+    } catch (error) {
+      console.error('Failed to save attendance start date:', error)
+      toast.error('Failed to save attendance start date')
+    } finally {
+      setSavingStartDate(false)
     }
   }
 
@@ -518,6 +639,10 @@ export function StudentDetailsModal({
   const lateCount = countableAttendance.filter(r => r.status === 'LATE').length
   const absentCount = countableAttendance.filter(r => r.status === 'ABSENT').length
   const excusedCount = countableAttendance.filter(r => r.status === 'EXCUSED').length
+  // "Not enrolled yet" records are EXCUSED but represent lessons before the
+  // student joined — show them as N/A rather than a regular excuse.
+  const naCount = countableAttendance.filter(r => r.notEnrolledYet).length
+  const regularExcusedCount = excusedCount - naCount
   const effectiveTotal = countableAttendance.length - excusedCount
   const attendanceRate = effectiveTotal > 0
     ? ((presentCount + (lateCount / 2)) / effectiveTotal) * 100
@@ -528,6 +653,8 @@ export function StudentDetailsModal({
   const year1Late = year1Attendance.filter(r => r.status === 'LATE').length
   const year1Absent = year1Attendance.filter(r => r.status === 'ABSENT').length
   const year1Excused = year1Attendance.filter(r => r.status === 'EXCUSED').length
+  const year1Na = year1Attendance.filter(r => r.notEnrolledYet).length
+  const year1RegularExcused = year1Excused - year1Na
   const year1EffectiveTotal = year1Attendance.length - year1Excused
   const year1Rate = year1EffectiveTotal > 0
     ? ((year1Present + (year1Late / 2)) / year1EffectiveTotal) * 100
@@ -538,6 +665,8 @@ export function StudentDetailsModal({
   const year2Late = year2Attendance.filter(r => r.status === 'LATE').length
   const year2Absent = year2Attendance.filter(r => r.status === 'ABSENT').length
   const year2Excused = year2Attendance.filter(r => r.status === 'EXCUSED').length
+  const year2Na = year2Attendance.filter(r => r.notEnrolledYet).length
+  const year2RegularExcused = year2Excused - year2Na
   const year2EffectiveTotal = year2Attendance.length - year2Excused
   const year2Rate = year2EffectiveTotal > 0
     ? ((year2Present + (year2Late / 2)) / year2EffectiveTotal) * 100
@@ -1022,15 +1151,130 @@ export function StudentDetailsModal({
             </TabsContent>
 
             <TabsContent value="attendance" className="space-y-4">
+              {/* Late-start attendance date (admins only) */}
+              {canEditData && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CalendarClock className="h-4 w-4 text-maroon-600" />
+                      <h3 className="font-semibold">Attendance Start Date</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3">
+                      For students who joined late. Lessons before this date are marked
+                      <span className="font-medium"> N/A (Late start)</span> and excluded from the attendance rate.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Input
+                        type="date"
+                        value={startDateInput}
+                        onChange={(e) => setStartDateInput(e.target.value)}
+                        className="w-auto"
+                        disabled={!enrollmentId}
+                      />
+                      <Button size="sm" onClick={saveAttendanceStartDate} disabled={savingStartDate || !enrollmentId}>
+                        {savingStartDate ? 'Saving...' : 'Save'}
+                      </Button>
+                      {startDateInput && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { setStartDateInput(''); }}
+                          disabled={savingStartDate}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    {!enrollmentId && (
+                      <p className="text-xs text-amber-600 mt-2">This student has no enrollment yet.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Expected absences (admins only) */}
+              {canEditData && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Plane className="h-4 w-4 text-maroon-600" />
+                      <h3 className="font-semibold">Expected Absences</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Block out a date range (e.g. travel). Lessons in the range are automatically
+                      excused with this reason, and the reason shows in the attendance notes. You can
+                      still reject an individual lesson when taking attendance.
+                    </p>
+
+                    {/* Add form */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                      <div>
+                        <label className="text-xs text-gray-500">From</label>
+                        <Input type="date" value={eaStart} onChange={(e) => setEaStart(e.target.value)} className="mt-1" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">To</label>
+                        <Input type="date" value={eaEnd} onChange={(e) => setEaEnd(e.target.value)} className="mt-1" />
+                      </div>
+                    </div>
+                    <Textarea
+                      placeholder="Reason (e.g. Travelling abroad)"
+                      value={eaReason}
+                      onChange={(e) => setEaReason(e.target.value)}
+                      rows={2}
+                      className="mb-2"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={addExpectedAbsence}
+                      disabled={savingAbsence || !eaStart || !eaEnd || !eaReason.trim()}
+                      className="gap-1"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {savingAbsence ? 'Adding...' : 'Add Expected Absence'}
+                    </Button>
+
+                    {/* List */}
+                    {expectedAbsences.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        {expectedAbsences.map((ea) => (
+                          <div key={ea.id} className="flex items-start justify-between gap-2 p-2 bg-blue-50 rounded border border-blue-100">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium">
+                                {formatDateUTC(ea.startDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                {' – '}
+                                {formatDateUTC(ea.endDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </div>
+                              <div className="text-xs text-gray-600 break-words">{ea.reason}</div>
+                              {ea.creator && (
+                                <div className="text-[11px] text-gray-400">Added by {ea.creator.name}</div>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => deleteExpectedAbsence(ea.id)}
+                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 shrink-0"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Attendance Summary - Overall */}
               <Card>
                 <CardContent className="pt-6">
                   <h3 className="font-semibold mb-3">Overall Attendance</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className={`grid grid-cols-2 gap-4 ${naCount > 0 ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
                     <div>
                       <div className="text-sm text-gray-500">Rate</div>
-                      <div className={`text-2xl font-bold ${attendanceRate >= 75 ? 'text-green-700' : attendanceRate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                        {attendanceRate.toFixed(2)}%
+                      <div className={`text-xl md:text-2xl font-bold whitespace-nowrap tabular-nums ${attendanceRate >= 75 ? 'text-green-700' : attendanceRate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
+                        {attendanceRate.toFixed(1)}%
                       </div>
                     </div>
                     <div>
@@ -1047,8 +1291,14 @@ export function StudentDetailsModal({
                     </div>
                     <div>
                       <div className="text-sm text-gray-500">Excused</div>
-                      <div className="text-2xl font-bold text-blue-700">{excusedCount}</div>
+                      <div className="text-2xl font-bold text-blue-700">{regularExcusedCount}</div>
                     </div>
+                    {naCount > 0 && (
+                      <div>
+                        <div className="text-sm text-gray-500">N/A (Late start)</div>
+                        <div className="text-2xl font-bold text-gray-500">{naCount}</div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1058,11 +1308,11 @@ export function StudentDetailsModal({
                 <Card>
                   <CardContent className="pt-6">
                     <h3 className="font-semibold mb-3">Year 1 Attendance</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className={`grid grid-cols-2 gap-4 ${year1Na > 0 ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
                       <div>
                         <div className="text-sm text-gray-500">Rate</div>
-                        <div className={`text-2xl font-bold ${year1Rate >= 75 ? 'text-green-700' : year1Rate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                          {year1Rate.toFixed(2)}%
+                        <div className={`text-xl md:text-2xl font-bold whitespace-nowrap tabular-nums ${year1Rate >= 75 ? 'text-green-700' : year1Rate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
+                          {year1Rate.toFixed(1)}%
                         </div>
                       </div>
                       <div>
@@ -1079,8 +1329,14 @@ export function StudentDetailsModal({
                       </div>
                       <div>
                         <div className="text-sm text-gray-500">Excused</div>
-                        <div className="text-2xl font-bold text-blue-700">{year1Excused}</div>
+                        <div className="text-2xl font-bold text-blue-700">{year1RegularExcused}</div>
                       </div>
+                      {year1Na > 0 && (
+                        <div>
+                          <div className="text-sm text-gray-500">N/A (Late start)</div>
+                          <div className="text-2xl font-bold text-gray-500">{year1Na}</div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1091,11 +1347,11 @@ export function StudentDetailsModal({
                 <Card>
                   <CardContent className="pt-6">
                     <h3 className="font-semibold mb-3">Year 2 Attendance</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className={`grid grid-cols-2 gap-4 ${year2Na > 0 ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
                       <div>
                         <div className="text-sm text-gray-500">Rate</div>
-                        <div className={`text-2xl font-bold ${year2Rate >= 75 ? 'text-green-700' : year2Rate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
-                          {year2Rate.toFixed(2)}%
+                        <div className={`text-xl md:text-2xl font-bold whitespace-nowrap tabular-nums ${year2Rate >= 75 ? 'text-green-700' : year2Rate >= 60 ? 'text-yellow-700' : 'text-red-700'}`}>
+                          {year2Rate.toFixed(1)}%
                         </div>
                       </div>
                       <div>
@@ -1112,8 +1368,14 @@ export function StudentDetailsModal({
                       </div>
                       <div>
                         <div className="text-sm text-gray-500">Excused</div>
-                        <div className="text-2xl font-bold text-blue-700">{year2Excused}</div>
+                        <div className="text-2xl font-bold text-blue-700">{year2RegularExcused}</div>
                       </div>
+                      {year2Na > 0 && (
+                        <div>
+                          <div className="text-sm text-gray-500">N/A (Late start)</div>
+                          <div className="text-2xl font-bold text-gray-500">{year2Na}</div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1141,6 +1403,16 @@ export function StudentDetailsModal({
                         <div className="text-xs text-gray-500">
                           {record.lesson.title}
                         </div>
+                        {/* Attendance note (expected-absence reason, conduct note, or free note) */}
+                        {record.conductRemoval && record.conductNote ? (
+                          <div className="text-xs text-orange-600 mt-1 break-words">
+                            Removed from lesson: {record.conductNote}
+                          </div>
+                        ) : record.notes ? (
+                          <div className="text-xs text-gray-600 mt-1 italic break-words">
+                            {record.notEnrolledYet ? '' : record.expectedAbsenceId ? 'Expected absence: ' : ''}{record.notes}
+                          </div>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2">
                         {editingAttendanceId === record.id ? (
@@ -1166,17 +1438,23 @@ export function StudentDetailsModal({
                           </>
                         ) : (
                           <>
-                            {record.status === 'PRESENT' && (
-                              <Badge className="bg-green-100 text-green-800">Present</Badge>
-                            )}
-                            {record.status === 'LATE' && (
-                              <Badge className="bg-yellow-100 text-yellow-800">Late</Badge>
-                            )}
-                            {record.status === 'ABSENT' && (
-                              <Badge className="bg-red-100 text-red-800">Absent</Badge>
-                            )}
-                            {record.status === 'EXCUSED' && (
-                              <Badge className="bg-blue-100 text-blue-800">Excused</Badge>
+                            {record.notEnrolledYet ? (
+                              <Badge className="bg-gray-100 text-gray-600" title="Lesson before this student joined — not counted">N/A</Badge>
+                            ) : (
+                              <>
+                                {record.status === 'PRESENT' && (
+                                  <Badge className="bg-green-100 text-green-800">Present</Badge>
+                                )}
+                                {record.status === 'LATE' && (
+                                  <Badge className="bg-yellow-100 text-yellow-800">Late</Badge>
+                                )}
+                                {record.status === 'ABSENT' && (
+                                  <Badge className="bg-red-100 text-red-800">Absent</Badge>
+                                )}
+                                {record.status === 'EXCUSED' && (
+                                  <Badge className="bg-blue-100 text-blue-800">Excused</Badge>
+                                )}
+                              </>
                             )}
                             <Button
                               size="sm"

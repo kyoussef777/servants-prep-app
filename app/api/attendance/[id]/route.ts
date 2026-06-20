@@ -54,8 +54,16 @@ export async function PATCH(
       notes?: string
       conductRemoval?: boolean
       conductNote?: string | null
+      notEnrolledYet?: boolean
+      expectedAbsenceId?: string | null
     } = {}
-    if (status) updateData.status = status
+    if (status) {
+      updateData.status = status
+      // A manual status change overrides any auto-applied late-start / expected
+      // absence flags so the record reflects the explicit choice.
+      updateData.notEnrolledYet = false
+      updateData.expectedAbsenceId = null
+    }
     if (arrivedAt !== undefined) {
       // Validate arrivedAt - only set if it's a valid date
       if (arrivedAt && typeof arrivedAt === 'string' && arrivedAt.trim()) {

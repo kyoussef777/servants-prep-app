@@ -31,6 +31,7 @@ interface Student {
     isActive: boolean
     status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
     notes?: string
+    attendanceStartDate?: string | null
     mentor?: {
       id: string
       name: string
@@ -1052,6 +1053,7 @@ function StudentsManagementContent() {
         mentor={studentDetails?.student?.enrollments?.[0]?.mentor}
         fatherOfConfession={studentDetails?.student?.enrollments?.[0]?.fatherOfConfession}
         enrollmentId={studentDetails?.student?.enrollments?.[0]?.id}
+        attendanceStartDate={studentDetails?.student?.enrollments?.[0]?.attendanceStartDate}
         examScores={studentDetails?.examScores || []}
         attendanceRecords={studentDetails?.attendanceRecords || []}
         allExams={studentDetails?.allExams || []}

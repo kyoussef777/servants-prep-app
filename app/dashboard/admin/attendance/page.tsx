@@ -11,7 +11,7 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { AttendanceStatusButtons } from '@/components/attendance-status-buttons'
 import { PageHeader } from '@/components/admin/page-header'
 import { isAdmin, canManageData } from '@/lib/roles'
-import { ChevronDown, ChevronRight, Calendar, Settings2, Check, X, UserX } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Settings2, Check, X, UserX, Plane } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDateUTC, formatToastTimestamp, buildStudentMapFromEnrollments } from '@/lib/utils'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -78,6 +78,8 @@ export default function AttendancePage() {
   const [viewingPhoto, setViewingPhoto] = useState<{ name: string; url: string } | null>(null)
   const [conductRemovalDialog, setConductRemovalDialog] = useState<{ studentId: string; studentName: string } | null>(null)
   const [conductNoteInput, setConductNoteInput] = useState('')
+  // Expected absences covering the selected lesson, keyed by studentId
+  const [expectedAbsences, setExpectedAbsences] = useState<Map<string, { id: string; reason: string }>>(new Map())
 
   // Fetch academic years and students on mount
   useEffect(() => {
@@ -154,8 +156,19 @@ export default function AttendancePage() {
       if (!selectedLesson) return
 
       try {
-        const res = await fetch(`/api/attendance?lessonId=${selectedLesson.id}`)
-        const records = await res.json()
+        const [attRes, eaRes] = await Promise.all([
+          fetch(`/api/attendance?lessonId=${selectedLesson.id}`),
+          fetch(`/api/expected-absences?lessonId=${selectedLesson.id}`),
+        ])
+        const records = await attRes.json()
+
+        // Build a map of expected absences covering this lesson, keyed by student
+        const eaMap = new Map<string, { id: string; reason: string }>()
+        if (eaRes.ok) {
+          const eaData: Array<{ id: string; studentId: string; reason: string }> = await eaRes.json()
+          eaData.forEach((ea) => eaMap.set(ea.studentId, { id: ea.id, reason: ea.reason }))
+        }
+        setExpectedAbsences(eaMap)
 
         const recordsMap = new Map<string, AttendanceRecord>()
         records.forEach((record: AttendanceRecord & { studentId: string; conductRemoval?: boolean; conductNote?: string }) => {
@@ -174,6 +187,19 @@ export default function AttendancePage() {
             conductNote: record.conductNote,
           })
         })
+
+        // Auto-excuse students with an expected absence that have no record yet,
+        // pre-filling the reason into notes (admins can still reject before saving).
+        eaMap.forEach((ea, studentId) => {
+          if (!attendanceMap.has(studentId)) {
+            attendanceMap.set(studentId, {
+              studentId,
+              status: 'EXCUSED',
+              notes: ea.reason,
+            })
+          }
+        })
+
         setAttendance(attendanceMap)
       } catch (error) {
         console.error('Failed to fetch attendance:', error)
@@ -579,6 +605,7 @@ export default function AttendancePage() {
                   <tbody>
                     {filteredStudents.map((student, index) => {
                       const record = attendance.get(student.id)
+                      const ea = expectedAbsences.get(student.id)
                       const yearBadge = student.enrollments[0]?.yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'
                       const currentStatus = record?.status || 'ABSENT'
 
@@ -633,6 +660,12 @@ export default function AttendancePage() {
                                 {record.conductNote}
                               </p>
                             )}
+                            {!record?.conductRemoval && ea && (
+                              <p className="text-[10px] text-blue-600 mt-1 flex items-center justify-center gap-1 max-w-[200px] mx-auto truncate" title={ea.reason}>
+                                <Plane className="h-2.5 w-2.5 shrink-0" />
+                                Expected: {ea.reason}
+                              </p>
+                            )}
                           </td>
                           {!compactMode && (
                             <>
@@ -667,6 +700,7 @@ export default function AttendancePage() {
             <div className="md:hidden space-y-2 pb-20 overflow-x-hidden">
               {filteredStudents.map((student, index) => {
                 const record = attendance.get(student.id)
+                const ea = expectedAbsences.get(student.id)
                 const yearLevel = student.enrollments[0]?.yearLevel
                 const currentStatus = record?.status || 'ABSENT'
                 const isExpanded = expandedStudentId === student.id
@@ -723,6 +757,14 @@ export default function AttendancePage() {
                           </button>
                         )}
                       </div>
+
+                      {/* Expected absence indicator (mobile) */}
+                      {!record?.conductRemoval && ea && (
+                        <p className="text-[10px] text-blue-600 mt-1 flex items-center gap-1 truncate" title={ea.reason}>
+                          <Plane className="h-2.5 w-2.5 shrink-0" />
+                          Expected: {ea.reason}
+                        </p>
+                      )}
 
                       {/* Expanded Details */}
                       {!compactMode && isExpanded && (
