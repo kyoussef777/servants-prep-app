@@ -392,7 +392,7 @@ export default function StudentDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Progress value={analytics.attendance.percentage || 0} className="h-4" />
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+            <div className={`grid grid-cols-2 gap-4 text-sm ${(analytics.attendance.notEnrolledYetCount ?? 0) > 0 ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
               <div>
                 <div className="font-semibold text-green-700">Present</div>
                 <div className="text-2xl text-green-700">{analytics.attendance.presentCount}</div>
@@ -407,8 +407,14 @@ export default function StudentDashboard() {
               </div>
               <div>
                 <div className="font-semibold text-blue-700">Excused</div>
-                <div className="text-2xl text-blue-700">{analytics.attendance.excusedCount}</div>
+                <div className="text-2xl text-blue-700">{analytics.attendance.excusedCount - (analytics.attendance.notEnrolledYetCount ?? 0)}</div>
               </div>
+              {(analytics.attendance.notEnrolledYetCount ?? 0) > 0 && (
+                <div>
+                  <div className="font-semibold text-gray-500">N/A (Late start)</div>
+                  <div className="text-2xl text-gray-500">{analytics.attendance.notEnrolledYetCount}</div>
+                </div>
+              )}
               <div>
                 <div className="font-semibold text-gray-700">Total</div>
                 <div className="text-2xl text-gray-700">{analytics.attendance.allLessons}</div>

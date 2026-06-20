@@ -128,6 +128,10 @@ model User {
   studentNotes          StudentNote[]       @relation("StudentNotes")
   authoredNotes         StudentNote[]       @relation("AuthoredNotes")
 
+  // Expected absence relations
+  expectedAbsences         ExpectedAbsence[] @relation("StudentExpectedAbsences")
+  createdExpectedAbsences  ExpectedAbsence[] @relation("CreatedExpectedAbsences")
+
   // Async notes relations
   noteSubmissions           AsyncNoteSubmission[] @relation("StudentNoteSubmissions")
   reviewedNoteSubmissions   AsyncNoteSubmission[] @relation("ReviewedNoteSubmissions")
@@ -216,6 +220,10 @@ model StudentEnrollment {
   asyncApprovedAt         DateTime?
   asyncApprovedBy         String?
   asyncReason             String?            @db.Text
+
+  // Late-start attendance: lessons scheduled before this date are not counted
+  // toward this student's attendance (auto-marked as EXCUSED / "joined later").
+  attendanceStartDate     DateTime?
 
   // Relations
   student               User                 @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
@@ -307,19 +315,48 @@ model AttendanceRecord {
   updatedAt       DateTime         @updatedAt
   conductRemoval  Boolean          @default(false)  // True if student was removed from lesson for conduct
   conductNote     String?          @db.Text          // Required reason when conductRemoval is true
+  notEnrolledYet  Boolean          @default(false)  // True if EXCUSED because the lesson predates the student's attendance start date (late start)
+  expectedAbsenceId String?                          // Set when this record was EXCUSED via a planned/expected absence
 
   // Relations
   lesson               Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   student              User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
   recorder             User?                @relation("RecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
   asyncNoteSubmission  AsyncNoteSubmission?
+  expectedAbsence      ExpectedAbsence?     @relation("ExpectedAbsenceRecords", fields: [expectedAbsenceId], references: [id], onDelete: SetNull)
 
   @@unique([lessonId, studentId])
   @@index([lessonId])
   @@index([studentId])
   @@index([status])
   @@index([conductRemoval])
+  @@index([notEnrolledYet])
+  @@index([expectedAbsenceId])
   @@index([studentId, lessonId]) // Compound index for student+lesson queries
+}
+
+// A planned/expected absence for a student over a date range (e.g. travel).
+// Lessons that fall within the range are auto-marked EXCUSED for the student,
+// with the reason carried into the attendance record's notes. Admins can still
+// override individual lessons (e.g. reject back to ABSENT) when taking attendance.
+model ExpectedAbsence {
+  id        String   @id @default(cuid())
+  studentId String
+  startDate DateTime
+  endDate   DateTime
+  reason    String   @db.Text
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  student           User               @relation("StudentExpectedAbsences", fields: [studentId], references: [id], onDelete: Cascade)
+  creator           User?              @relation("CreatedExpectedAbsences", fields: [createdBy], references: [id], onDelete: SetNull)
+  attendanceRecords AttendanceRecord[] @relation("ExpectedAbsenceRecords")
+
+  @@index([studentId])
+  @@index([startDate])
+  @@index([endDate])
 }
 
 model Exam {

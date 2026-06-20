@@ -137,6 +137,7 @@ export async function GET(
         status: true,
         arrivedAt: true,
         conductRemoval: true,
+        notEnrolledYet: true,
         lesson: {
           select: {
             status: true
@@ -144,6 +145,10 @@ export async function GET(
         }
       }
     })
+
+    // Records excused because the lesson predates the student's start date
+    // (late start). These are shown as N/A rather than a regular excuse.
+    const notEnrolledYetCount = attendanceRecords.filter(r => r.notEnrolledYet).length
 
     // Count conduct removals across all lessons (not filtered by academicYearId)
     const conductDismissalCount = await prisma.attendanceRecord.count({
@@ -352,6 +357,7 @@ export async function GET(
         lateCount,
         absentCount,
         excusedCount,
+        notEnrolledYetCount,
         effectivePresent,
         percentage: attendancePercentage,
         met: attendanceMet,

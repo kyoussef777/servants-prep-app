@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 
 import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from "@/lib/roles"
 import { notifyMentorAssigned } from "@/lib/notifications"
+import { reconcileLateStartAttendance } from "@/lib/api-utils"
 
 // PATCH /api/enrollments/[id] - Update an enrollment
 // - SUPER_ADMIN: Can update all fields including mentor assignment
@@ -26,7 +27,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { yearLevel, mentorId, isActive, status, notes, academicYearId, fatherOfConfessionId, isAsyncStudent, asyncReason } = body
+    const { yearLevel, mentorId, isActive, status, notes, academicYearId, fatherOfConfessionId, isAsyncStudent, asyncReason, attendanceStartDate } = body
 
     const updateData: Record<string, unknown> = {}
     if (yearLevel) updateData.yearLevel = yearLevel
@@ -38,6 +39,22 @@ export async function PATCH(
     if (notes !== undefined) updateData.notes = notes
     if (academicYearId !== undefined) updateData.academicYearId = academicYearId || null
     if (fatherOfConfessionId !== undefined) updateData.fatherOfConfessionId = fatherOfConfessionId || null
+
+    // Late-start attendance date. Tracks whether it changed so we can reconcile
+    // the student's attendance records after the update.
+    let attendanceStartChanged = false
+    let newAttendanceStart: Date | null = null
+    if (attendanceStartDate !== undefined) {
+      if (attendanceStartDate) {
+        const parsed = new Date(attendanceStartDate)
+        if (isNaN(parsed.getTime())) {
+          return NextResponse.json({ error: "Invalid attendance start date" }, { status: 400 })
+        }
+        newAttendanceStart = parsed
+      }
+      updateData.attendanceStartDate = newAttendanceStart
+      attendanceStartChanged = true
+    }
 
     // Handle async student status change
     if (isAsyncStudent !== undefined) {
@@ -85,44 +102,53 @@ export async function PATCH(
       }
     }
 
-    const enrollment = await prisma.studentEnrollment.update({
-      where: { id },
-      data: updateData,
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          }
-        },
-        mentor: {
-          select: {
-            id: true,
-            name: true,
-          }
-        },
-        academicYear: {
-          select: {
-            id: true,
-            name: true,
-          }
-        },
-        graduatedAcademicYear: {
-          select: {
-            id: true,
-            name: true,
-          }
-        },
-        fatherOfConfession: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            church: true,
+    const enrollment = await prisma.$transaction(async (tx) => {
+      const updated = await tx.studentEnrollment.update({
+        where: { id },
+        data: updateData,
+        include: {
+          student: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          mentor: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          academicYear: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          graduatedAcademicYear: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          fatherOfConfession: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              church: true,
+            }
           }
         }
+      })
+
+      // Reconcile late-start attendance atomically when the start date changed
+      if (attendanceStartChanged) {
+        await reconcileLateStartAttendance(updated.studentId, newAttendanceStart, tx)
       }
+
+      return updated
     })
 
     // Notify student when a mentor is assigned (non-blocking)

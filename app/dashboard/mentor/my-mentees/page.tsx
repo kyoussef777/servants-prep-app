@@ -415,8 +415,11 @@ export default function MyMenteesPage() {
                             <div className="text-[9px] md:text-xs text-gray-600 dark:text-gray-400">Absent</div>
                           </div>
                           <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded p-1.5 md:p-3 text-center">
-                            <div className="text-base md:text-2xl font-bold text-gray-700 dark:text-gray-300">{analytics.attendance.excusedCount}</div>
+                            <div className="text-base md:text-2xl font-bold text-gray-700 dark:text-gray-300">{analytics.attendance.excusedCount - (analytics.attendance.notEnrolledYetCount ?? 0)}</div>
                             <div className="text-[9px] md:text-xs text-gray-600 dark:text-gray-400">Excused</div>
+                            {(analytics.attendance.notEnrolledYetCount ?? 0) > 0 && (
+                              <div className="text-[8px] md:text-[10px] text-gray-400">+{analytics.attendance.notEnrolledYetCount} N/A</div>
+                            )}
                           </div>
                           <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded p-1.5 md:p-3 text-center">
                             <div className="text-base md:text-2xl font-bold text-blue-700 dark:text-blue-400">{analytics.attendance.totalLessons}</div>
