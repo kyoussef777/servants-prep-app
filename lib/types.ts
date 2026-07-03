@@ -68,6 +68,7 @@ export interface AttendanceAnalytics {
   absentCount: number
   excusedCount: number
   notEnrolledYetCount?: number
+  expectedAbsenceNACount?: number
   effectivePresent: number
   percentage: number | null
   met: boolean

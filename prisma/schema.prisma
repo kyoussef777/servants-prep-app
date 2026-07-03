@@ -316,7 +316,8 @@ model AttendanceRecord {
   conductRemoval  Boolean          @default(false)  // True if student was removed from lesson for conduct
   conductNote     String?          @db.Text          // Required reason when conductRemoval is true
   notEnrolledYet  Boolean          @default(false)  // True if EXCUSED because the lesson predates the student's attendance start date (late start)
-  expectedAbsenceId String?                          // Set when this record was EXCUSED via a planned/expected absence
+  expectedAbsenceId String?                          // Set when this record is covered by a planned/expected absence
+  expectedAbsenceNA Boolean        @default(false)  // True if marked N/A via an expected absence (excluded from the attendance rate)
 
   // Relations
   lesson               Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
@@ -336,15 +337,17 @@ model AttendanceRecord {
 }
 
 // A planned/expected absence for a student over a date range (e.g. travel).
-// Lessons that fall within the range are auto-marked EXCUSED for the student,
-// with the reason carried into the attendance record's notes. Admins can still
-// override individual lessons (e.g. reject back to ABSENT) when taking attendance.
+// Lessons that fall within the range are marked ABSENT for the student with the
+// reason carried into the attendance record's notes, and stay Absent until an
+// admin manually excuses them. When markAsNA is true, covered lessons are
+// instead marked N/A and excluded from the attendance rate entirely.
 model ExpectedAbsence {
   id        String   @id @default(cuid())
   studentId String
   startDate DateTime
   endDate   DateTime
   reason    String   @db.Text
+  markAsNA  Boolean  @default(false) // Covered lessons are N/A (excluded from the rate) instead of Absent
   createdBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

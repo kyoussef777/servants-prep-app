@@ -6,8 +6,8 @@ import { handleApiError } from "@/lib/api-utils"
 
 // DELETE /api/expected-absences/[id] - Remove an expected absence.
 // Linked attendance records are reverted: lessons that predate the student's
-// attendance start date stay EXCUSED (late start), everything else goes back
-// to ABSENT with the reason note cleared.
+// attendance start date become EXCUSED (late start), everything else goes back
+// to ABSENT with the reason note and any N/A flag cleared.
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -35,7 +35,7 @@ export async function DELETE(
     const startDate = enrollment?.attendanceStartDate ?? null
 
     await prisma.$transaction(async (tx) => {
-      // Find records auto-excused by this expected absence
+      // Find records linked to this expected absence
       const linked = await tx.attendanceRecord.findMany({
         where: { expectedAbsenceId: id },
         select: { id: true, lesson: { select: { scheduledDate: true } } },
@@ -46,8 +46,8 @@ export async function DELETE(
         await tx.attendanceRecord.update({
           where: { id: record.id },
           data: beforeStart
-            ? { expectedAbsenceId: null, notes: null, status: "EXCUSED", notEnrolledYet: true }
-            : { expectedAbsenceId: null, notes: null, status: "ABSENT", notEnrolledYet: false },
+            ? { expectedAbsenceId: null, expectedAbsenceNA: false, notes: null, status: "EXCUSED", notEnrolledYet: true }
+            : { expectedAbsenceId: null, expectedAbsenceNA: false, notes: null, status: "ABSENT", notEnrolledYet: false },
         })
       }
 

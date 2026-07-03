@@ -79,7 +79,7 @@ export default function AttendancePage() {
   const [conductRemovalDialog, setConductRemovalDialog] = useState<{ studentId: string; studentName: string } | null>(null)
   const [conductNoteInput, setConductNoteInput] = useState('')
   // Expected absences covering the selected lesson, keyed by studentId
-  const [expectedAbsences, setExpectedAbsences] = useState<Map<string, { id: string; reason: string }>>(new Map())
+  const [expectedAbsences, setExpectedAbsences] = useState<Map<string, { id: string; reason: string; markAsNA: boolean }>>(new Map())
 
   // Fetch academic years and students on mount
   useEffect(() => {
@@ -163,10 +163,10 @@ export default function AttendancePage() {
         const records = await attRes.json()
 
         // Build a map of expected absences covering this lesson, keyed by student
-        const eaMap = new Map<string, { id: string; reason: string }>()
+        const eaMap = new Map<string, { id: string; reason: string; markAsNA: boolean }>()
         if (eaRes.ok) {
-          const eaData: Array<{ id: string; studentId: string; reason: string }> = await eaRes.json()
-          eaData.forEach((ea) => eaMap.set(ea.studentId, { id: ea.id, reason: ea.reason }))
+          const eaData: Array<{ id: string; studentId: string; reason: string; markAsNA?: boolean }> = await eaRes.json()
+          eaData.forEach((ea) => eaMap.set(ea.studentId, { id: ea.id, reason: ea.reason, markAsNA: ea.markAsNA === true }))
         }
         setExpectedAbsences(eaMap)
 
@@ -188,13 +188,15 @@ export default function AttendancePage() {
           })
         })
 
-        // Auto-excuse students with an expected absence that have no record yet,
-        // pre-filling the reason into notes (admins can still reject before saving).
+        // Pre-fill students with an expected absence that have no record yet:
+        // Absent by default (counts until manually excused), or Excused (shown
+        // as N/A, not counted) when the absence is marked N/A. The reason is
+        // pre-filled into notes and admins can still override before saving.
         eaMap.forEach((ea, studentId) => {
           if (!attendanceMap.has(studentId)) {
             attendanceMap.set(studentId, {
               studentId,
-              status: 'EXCUSED',
+              status: ea.markAsNA ? 'EXCUSED' : 'ABSENT',
               notes: ea.reason,
             })
           }
@@ -663,7 +665,7 @@ export default function AttendancePage() {
                             {!record?.conductRemoval && ea && (
                               <p className="text-[10px] text-blue-600 mt-1 flex items-center justify-center gap-1 max-w-[200px] mx-auto truncate" title={ea.reason}>
                                 <Plane className="h-2.5 w-2.5 shrink-0" />
-                                Expected: {ea.reason}
+                                Expected{ea.markAsNA ? ' (N/A)' : ''}: {ea.reason}
                               </p>
                             )}
                           </td>
@@ -762,7 +764,7 @@ export default function AttendancePage() {
                       {!record?.conductRemoval && ea && (
                         <p className="text-[10px] text-blue-600 mt-1 flex items-center gap-1 truncate" title={ea.reason}>
                           <Plane className="h-2.5 w-2.5 shrink-0" />
-                          Expected: {ea.reason}
+                          Expected{ea.markAsNA ? ' (N/A)' : ''}: {ea.reason}
                         </p>
                       )}
 

@@ -97,7 +97,7 @@ export async function POST(request: Request) {
         startDate: { lte: lesson.scheduledDate },
         endDate: { gte: lesson.scheduledDate },
       },
-      select: { id: true, studentId: true, reason: true },
+      select: { id: true, studentId: true, reason: true, markAsNA: true },
     })
     const absenceByStudent = new Map(coveringAbsences.map(a => [a.studentId, a]))
 
@@ -123,6 +123,7 @@ export async function POST(request: Request) {
       conductNote: string | null
       notEnrolledYet: boolean
       expectedAbsenceId: string | null
+      expectedAbsenceNA: boolean
     }> = []
 
     const toUpdate: Array<{
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
       conductNote: string | null
       notEnrolledYet: boolean
       expectedAbsenceId: string | null
+      expectedAbsenceNA: boolean
     }> = []
 
     for (const record of records) {
@@ -147,6 +149,7 @@ export async function POST(request: Request) {
       let notes = record.notes || null
       let notEnrolledYet = false
       let expectedAbsenceId: string | null = null
+      let expectedAbsenceNA = false
 
       if (!conductRemoval) {
         const startDate = attendanceStartByStudent.get(record.studentId)
@@ -161,9 +164,15 @@ export async function POST(request: Request) {
           // re-saving an already-N/A (EXCUSED) record keeps the flag.
           status = AttendanceStatus.EXCUSED
           notEnrolledYet = true
-        } else if (absence && status === AttendanceStatus.EXCUSED) {
-          // Excused under a planned/expected absence — link it and carry the reason
+        } else if (
+          absence &&
+          (status === AttendanceStatus.ABSENT || status === AttendanceStatus.EXCUSED)
+        ) {
+          // Covered by a planned/expected absence — link it and carry the reason.
+          // Absent stays Absent (counts against the rate) until manually excused.
+          // Excused under an N/A absence is shown as N/A and excluded from the rate.
           expectedAbsenceId = absence.id
+          expectedAbsenceNA = absence.markAsNA && status === AttendanceStatus.EXCUSED
           if (!notes) notes = absence.reason
         }
       }
@@ -178,6 +187,7 @@ export async function POST(request: Request) {
           conductNote,
           notEnrolledYet,
           expectedAbsenceId,
+          expectedAbsenceNA,
         })
       } else {
         toCreate.push({
@@ -191,6 +201,7 @@ export async function POST(request: Request) {
           conductNote,
           notEnrolledYet,
           expectedAbsenceId,
+          expectedAbsenceNA,
         })
       }
     }
@@ -234,7 +245,7 @@ export async function POST(request: Request) {
           if (groupedRecords.length > 0) {
             await tx.attendanceRecord.updateMany({
               where: { id: { in: groupedRecords.map(r => r.id) } },
-              data: { status: status as AttendanceStatus, conductRemoval: false, conductNote: null, notEnrolledYet: false, expectedAbsenceId: null }
+              data: { status: status as AttendanceStatus, conductRemoval: false, conductNote: null, notEnrolledYet: false, expectedAbsenceId: null, expectedAbsenceNA: false }
             })
           }
         }
@@ -251,6 +262,7 @@ export async function POST(request: Request) {
               conductNote: update.conductNote,
               notEnrolledYet: update.notEnrolledYet,
               expectedAbsenceId: update.expectedAbsenceId,
+              expectedAbsenceNA: update.expectedAbsenceNA,
             }
           })
         }

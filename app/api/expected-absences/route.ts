@@ -33,7 +33,7 @@ export async function GET(request: Request) {
         startDate: { lte: lesson.scheduledDate },
         endDate: { gte: lesson.scheduledDate },
       },
-      select: { id: true, studentId: true, reason: true, startDate: true, endDate: true },
+      select: { id: true, studentId: true, reason: true, markAsNA: true, startDate: true, endDate: true },
     })
 
     return NextResponse.json(absences)

@@ -277,21 +277,30 @@ export async function reconcileLateStartAttendance(
 
 /**
  * Apply a newly created expected absence to a student's existing attendance
- * records. Any record whose lesson falls within the absence window is
- * auto-marked EXCUSED, linked to the expected absence, and has the reason
- * written into its notes. Conduct removals are left untouched.
+ * records. Records whose lesson falls within the absence window are linked to
+ * the expected absence with the reason written into their notes:
+ *
+ * - Default: ABSENT records stay ABSENT (they count against the attendance
+ *   rate) until an admin manually excuses them. Present/Late/Excused records
+ *   are left untouched.
+ * - markAsNA: ABSENT and EXCUSED records are marked N/A (EXCUSED +
+ *   expectedAbsenceNA), which excludes those lessons from the attendance rate.
+ *
+ * Conduct removals and late-start (notEnrolledYet) records are left untouched.
  */
 export async function applyExpectedAbsenceToRecords(
-  expectedAbsence: { id: string; studentId: string; startDate: Date; endDate: Date; reason: string },
+  expectedAbsence: { id: string; studentId: string; startDate: Date; endDate: Date; reason: string; markAsNA: boolean },
   tx?: PrismaTx
 ) {
   const db = tx || prisma
-  const { id, studentId, startDate, endDate, reason } = expectedAbsence
+  const { id, studentId, startDate, endDate, reason, markAsNA } = expectedAbsence
 
   const records = await db.attendanceRecord.findMany({
     where: {
       studentId,
       conductRemoval: false,
+      notEnrolledYet: false,
+      status: markAsNA ? { in: ['ABSENT', 'EXCUSED'] } : 'ABSENT',
       lesson: { scheduledDate: { gte: startDate, lte: endDate } },
     },
     select: { id: true },
@@ -300,7 +309,9 @@ export async function applyExpectedAbsenceToRecords(
   if (records.length > 0) {
     await db.attendanceRecord.updateMany({
       where: { id: { in: records.map(r => r.id) } },
-      data: { status: 'EXCUSED', notEnrolledYet: false, expectedAbsenceId: id, notes: reason },
+      data: markAsNA
+        ? { status: 'EXCUSED', expectedAbsenceNA: true, expectedAbsenceId: id, notes: reason }
+        : { expectedAbsenceNA: false, expectedAbsenceId: id, notes: reason },
     })
   }
 }

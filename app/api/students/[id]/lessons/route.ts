@@ -91,6 +91,7 @@ export async function GET(
             notes: true,
             conductRemoval: true,
             notEnrolledYet: true,
+            expectedAbsenceNA: true,
           }
         }
       },
