@@ -36,7 +36,9 @@ export async function GET(
 }
 
 // POST /api/students/[id]/expected-absences - Create an expected absence
-// Auto-excuses any existing attendance records that fall within the window.
+// Existing ABSENT records in the window are linked with the reason and stay
+// Absent until manually excused; with markAsNA they are marked N/A instead
+// (excluded from the attendance rate).
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -51,6 +53,7 @@ export async function POST(
 
     const body = await request.json()
     const { startDate, endDate, reason } = body
+    const markAsNA = body.markAsNA === true
 
     if (!startDate || !endDate || !reason || !reason.trim()) {
       return NextResponse.json(
@@ -90,11 +93,13 @@ export async function POST(
           startDate: start,
           endDate: end,
           reason: reason.trim(),
+          markAsNA,
           createdBy: user.id,
         },
       })
 
-      // Auto-excuse existing attendance records within the window
+      // Link existing attendance records within the window (Absent stays
+      // Absent until manually excused; N/A mode excludes them from the rate)
       await applyExpectedAbsenceToRecords(
         {
           id: created.id,
@@ -102,6 +107,7 @@ export async function POST(
           startDate: start,
           endDate: end,
           reason: reason.trim(),
+          markAsNA,
         },
         tx
       )

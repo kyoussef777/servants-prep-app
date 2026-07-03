@@ -52,6 +52,7 @@ interface Lesson {
     notes: string | null
     conductRemoval: boolean
     notEnrolledYet?: boolean
+    expectedAbsenceNA?: boolean
   } | null
 }
 
@@ -111,8 +112,9 @@ export default function StudentLessonsPage() {
 
   const getAttendanceIcon = (attendance: Lesson['attendance']) => {
     if (!attendance) return <X className="h-4 w-4 text-gray-400" />
-    // Lessons before the student joined are not counted (shown as N/A)
-    if (attendance.notEnrolledYet) return <Minus className="h-4 w-4 text-gray-400" />
+    // Lessons before the student joined, or covered by an N/A expected
+    // absence, are not counted (shown as N/A)
+    if (attendance.notEnrolledYet || attendance.expectedAbsenceNA) return <Minus className="h-4 w-4 text-gray-400" />
 
     switch (attendance.status) {
       case 'PRESENT':
@@ -130,6 +132,9 @@ export default function StudentLessonsPage() {
     if (!attendance) return <Badge variant="outline" className="text-xs">No Record</Badge>
     if (attendance.notEnrolledYet) {
       return <Badge className="bg-gray-100 text-gray-600 text-xs" title="Before you joined — not counted">N/A</Badge>
+    }
+    if (attendance.expectedAbsenceNA) {
+      return <Badge className="bg-gray-100 text-gray-600 text-xs" title="Expected absence — not counted">N/A</Badge>
     }
 
     switch (attendance.status) {

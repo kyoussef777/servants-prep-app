@@ -59,6 +59,7 @@ interface AttendanceRecord {
   conductNote?: string
   notEnrolledYet?: boolean
   expectedAbsenceId?: string | null
+  expectedAbsenceNA?: boolean
   lesson: {
     id: string
     title: string
@@ -137,6 +138,7 @@ interface ExpectedAbsence {
   startDate: string
   endDate: string
   reason: string
+  markAsNA?: boolean
   creator?: { id: string; name: string } | null
 }
 
@@ -217,6 +219,7 @@ export function StudentDetailsModal({
   const [eaStart, setEaStart] = useState('')
   const [eaEnd, setEaEnd] = useState('')
   const [eaReason, setEaReason] = useState('')
+  const [eaMarkAsNA, setEaMarkAsNA] = useState(false)
   const [savingAbsence, setSavingAbsence] = useState(false)
 
   // Late-start attendance date state
@@ -312,13 +315,16 @@ export function StudentDetailsModal({
       const res = await fetch(`/api/students/${studentId}/expected-absences`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate: eaStart, endDate: eaEnd, reason: eaReason.trim() })
+        body: JSON.stringify({ startDate: eaStart, endDate: eaEnd, reason: eaReason.trim(), markAsNA: eaMarkAsNA })
       })
       if (res.ok) {
-        toast.success('Expected absence added — overlapping lessons were excused')
+        toast.success(eaMarkAsNA
+          ? 'Expected absence added — overlapping lessons marked N/A (not counted)'
+          : 'Expected absence added — overlapping lessons stay Absent until excused')
         setEaStart('')
         setEaEnd('')
         setEaReason('')
+        setEaMarkAsNA(false)
         await fetchExpectedAbsences()
         onRefresh()
       } else {
@@ -334,7 +340,7 @@ export function StudentDetailsModal({
   }
 
   const deleteExpectedAbsence = async (id: string) => {
-    if (!confirm('Remove this expected absence? Excused lessons in its range will revert to Absent.')) return
+    if (!confirm('Remove this expected absence? Lessons in its range will revert to Absent.')) return
     try {
       const res = await fetch(`/api/expected-absences/${id}`, { method: 'DELETE' })
       if (res.ok) {
@@ -639,9 +645,10 @@ export function StudentDetailsModal({
   const lateCount = countableAttendance.filter(r => r.status === 'LATE').length
   const absentCount = countableAttendance.filter(r => r.status === 'ABSENT').length
   const excusedCount = countableAttendance.filter(r => r.status === 'EXCUSED').length
-  // "Not enrolled yet" records are EXCUSED but represent lessons before the
-  // student joined — show them as N/A rather than a regular excuse.
-  const naCount = countableAttendance.filter(r => r.notEnrolledYet).length
+  // "Not enrolled yet" (late start) and expected-absence N/A records are
+  // EXCUSED but excluded from the rate — show them as N/A rather than a
+  // regular excuse.
+  const naCount = countableAttendance.filter(r => r.notEnrolledYet || r.expectedAbsenceNA).length
   const regularExcusedCount = excusedCount - naCount
   const effectiveTotal = countableAttendance.length - excusedCount
   const attendanceRate = effectiveTotal > 0
@@ -653,7 +660,7 @@ export function StudentDetailsModal({
   const year1Late = year1Attendance.filter(r => r.status === 'LATE').length
   const year1Absent = year1Attendance.filter(r => r.status === 'ABSENT').length
   const year1Excused = year1Attendance.filter(r => r.status === 'EXCUSED').length
-  const year1Na = year1Attendance.filter(r => r.notEnrolledYet).length
+  const year1Na = year1Attendance.filter(r => r.notEnrolledYet || r.expectedAbsenceNA).length
   const year1RegularExcused = year1Excused - year1Na
   const year1EffectiveTotal = year1Attendance.length - year1Excused
   const year1Rate = year1EffectiveTotal > 0
@@ -665,7 +672,7 @@ export function StudentDetailsModal({
   const year2Late = year2Attendance.filter(r => r.status === 'LATE').length
   const year2Absent = year2Attendance.filter(r => r.status === 'ABSENT').length
   const year2Excused = year2Attendance.filter(r => r.status === 'EXCUSED').length
-  const year2Na = year2Attendance.filter(r => r.notEnrolledYet).length
+  const year2Na = year2Attendance.filter(r => r.notEnrolledYet || r.expectedAbsenceNA).length
   const year2RegularExcused = year2Excused - year2Na
   const year2EffectiveTotal = year2Attendance.length - year2Excused
   const year2Rate = year2EffectiveTotal > 0
@@ -1201,9 +1208,11 @@ export function StudentDetailsModal({
                       <h3 className="font-semibold">Expected Absences</h3>
                     </div>
                     <p className="text-xs text-gray-500 mb-3">
-                      Block out a date range (e.g. travel). Lessons in the range are automatically
-                      excused with this reason, and the reason shows in the attendance notes. You can
-                      still reject an individual lesson when taking attendance.
+                      Block out a date range (e.g. travel). Lessons in the range are marked
+                      <span className="font-medium"> Absent</span> with this reason and count against
+                      the attendance rate until you manually excuse them. Check
+                      <span className="font-medium"> Mark as N/A</span> to instead exclude these
+                      dates from the attendance rate entirely.
                     </p>
 
                     {/* Add form */}
@@ -1224,6 +1233,18 @@ export function StudentDetailsModal({
                       rows={2}
                       className="mb-2"
                     />
+                    <label className="flex items-center gap-2 mb-3 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={eaMarkAsNA}
+                        onChange={(e) => setEaMarkAsNA(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span>
+                        Mark as N/A
+                        <span className="text-xs text-gray-500"> — exclude these dates from the attendance rate</span>
+                      </span>
+                    </label>
                     <Button
                       size="sm"
                       onClick={addExpectedAbsence}
@@ -1240,10 +1261,17 @@ export function StudentDetailsModal({
                         {expectedAbsences.map((ea) => (
                           <div key={ea.id} className="flex items-start justify-between gap-2 p-2 bg-blue-50 rounded border border-blue-100">
                             <div className="min-w-0">
-                              <div className="text-sm font-medium">
-                                {formatDateUTC(ea.startDate, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                {' – '}
-                                {formatDateUTC(ea.endDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              <div className="text-sm font-medium flex items-center gap-2">
+                                <span>
+                                  {formatDateUTC(ea.startDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  {' – '}
+                                  {formatDateUTC(ea.endDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                                {ea.markAsNA ? (
+                                  <Badge className="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0" title="Lessons in this range are excluded from the attendance rate">N/A</Badge>
+                                ) : (
+                                  <Badge className="bg-red-50 text-red-700 border border-red-200 text-[10px] px-1.5 py-0" title="Lessons in this range count as Absent until manually excused">Absent until excused</Badge>
+                                )}
                               </div>
                               <div className="text-xs text-gray-600 break-words">{ea.reason}</div>
                               {ea.creator && (
@@ -1295,7 +1323,7 @@ export function StudentDetailsModal({
                     </div>
                     {naCount > 0 && (
                       <div>
-                        <div className="text-sm text-gray-500">N/A (Late start)</div>
+                        <div className="text-sm text-gray-500">N/A</div>
                         <div className="text-2xl font-bold text-gray-500">{naCount}</div>
                       </div>
                     )}
@@ -1333,7 +1361,7 @@ export function StudentDetailsModal({
                       </div>
                       {year1Na > 0 && (
                         <div>
-                          <div className="text-sm text-gray-500">N/A (Late start)</div>
+                          <div className="text-sm text-gray-500">N/A</div>
                           <div className="text-2xl font-bold text-gray-500">{year1Na}</div>
                         </div>
                       )}
@@ -1372,7 +1400,7 @@ export function StudentDetailsModal({
                       </div>
                       {year2Na > 0 && (
                         <div>
-                          <div className="text-sm text-gray-500">N/A (Late start)</div>
+                          <div className="text-sm text-gray-500">N/A</div>
                           <div className="text-2xl font-bold text-gray-500">{year2Na}</div>
                         </div>
                       )}
@@ -1440,6 +1468,8 @@ export function StudentDetailsModal({
                           <>
                             {record.notEnrolledYet ? (
                               <Badge className="bg-gray-100 text-gray-600" title="Lesson before this student joined — not counted">N/A</Badge>
+                            ) : record.expectedAbsenceNA ? (
+                              <Badge className="bg-gray-100 text-gray-600" title="Expected absence — not counted">N/A</Badge>
                             ) : (
                               <>
                                 {record.status === 'PRESENT' && (

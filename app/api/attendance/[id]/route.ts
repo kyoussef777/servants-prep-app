@@ -56,6 +56,7 @@ export async function PATCH(
       conductNote?: string | null
       notEnrolledYet?: boolean
       expectedAbsenceId?: string | null
+      expectedAbsenceNA?: boolean
     } = {}
     if (status) {
       updateData.status = status
@@ -63,6 +64,7 @@ export async function PATCH(
       // absence flags so the record reflects the explicit choice.
       updateData.notEnrolledYet = false
       updateData.expectedAbsenceId = null
+      updateData.expectedAbsenceNA = false
     }
     if (arrivedAt !== undefined) {
       // Validate arrivedAt - only set if it's a valid date
