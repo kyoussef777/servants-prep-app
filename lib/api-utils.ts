@@ -89,6 +89,24 @@ export async function getMentorStudentIds(userId: string, userRole: UserRole): P
 }
 
 /**
+ * Get the list of Sunday School class IDs a servant is assigned to.
+ * Returns undefined for every other role (meaning no filter needed — admins
+ * see all classes). Mirrors getMentorStudentIds above.
+ */
+export async function getServantClassIds(userId: string, userRole: UserRole): Promise<string[] | undefined> {
+  if (userRole !== UserRole.SERVANT) {
+    return undefined
+  }
+
+  const assignments = await prisma.sundaySchoolClassServant.findMany({
+    where: { servantId: userId },
+    select: { classId: true }
+  })
+
+  return assignments.map(a => a.classId)
+}
+
+/**
  * Wrapper for API route handlers with automatic error handling
  * Usage:
  * export const GET = withErrorHandler(async (request) => { ... })

@@ -80,6 +80,38 @@ export function useClassAverages(options?: SWRConfiguration) {
   return useSWR('/api/dashboard/class-averages', fetcher, { ...defaultSWRConfig, ...options })
 }
 
+// Sunday School mode hooks (the Sunday School class itself)
+export function useSundaySchoolDashboard(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/dashboard', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolClasses(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/classes', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolClass(classId?: string, options?: SWRConfiguration) {
+  return useSWR(
+    classId ? `/api/sunday-school/classes/${classId}` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
+}
+
+export function useSundaySchoolChildren(classId?: string, options?: SWRConfiguration) {
+  const url = classId
+    ? `/api/sunday-school/children?classId=${classId}`
+    : '/api/sunday-school/children'
+  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolSessionAttendance(sessionId?: string, options?: SWRConfiguration) {
+  return useSWR(
+    sessionId ? `/api/sunday-school/sessions/${sessionId}/attendance` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
+}
+
 export function useMenteeAnalytics(studentIds?: string[], options?: SWRConfiguration) {
   const url = studentIds && studentIds.length > 0
     ? `/api/students/analytics/batch?studentIds=${studentIds.join(',')}`

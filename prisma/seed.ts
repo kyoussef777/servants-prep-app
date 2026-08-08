@@ -267,7 +267,71 @@ async function main() {
     })
   }
 
+  // Sunday School mode: a class, its servant, and a few children
+  console.log('Creating Sunday School sample data...')
+  const servant = await prisma.user.upsert({
+    where: { email: 'servant@church.com' },
+    update: {},
+    create: {
+      email: 'servant@church.com',
+      name: 'Marina Fahmy',
+      password: hashedPassword,
+      role: 'SERVANT',
+    },
+  })
 
+  const sundaySchoolClass = await prisma.sundaySchoolClass.upsert({
+    where: {
+      name_academicYearId: {
+        name: 'Grade 3 Boys',
+        academicYearId: academicYear.id,
+      },
+    },
+    update: {},
+    create: {
+      name: 'Grade 3 Boys',
+      level: 'GRADE_3',
+      academicYearId: academicYear.id,
+    },
+  })
+
+  await prisma.sundaySchoolClassServant.upsert({
+    where: {
+      classId_servantId: {
+        classId: sundaySchoolClass.id,
+        servantId: servant.id,
+      },
+    },
+    update: {},
+    create: {
+      classId: sundaySchoolClass.id,
+      servantId: servant.id,
+      isLead: true,
+    },
+  })
+
+  const sampleChildren = [
+    { firstName: 'Mina', lastName: 'Girgis', guardianName: 'Nader Girgis', guardianPhone: '555-0101' },
+    { firstName: 'Kirollos', lastName: 'Samir', guardianName: 'Hoda Samir', guardianPhone: '555-0102' },
+    { firstName: 'Youssef', lastName: 'Adel', guardianName: 'Adel Fawzy', guardianPhone: '555-0103' },
+  ]
+
+  for (const child of sampleChildren) {
+    const existing = await prisma.sundaySchoolChild.findFirst({
+      where: {
+        firstName: child.firstName,
+        lastName: child.lastName,
+        classId: sundaySchoolClass.id,
+      },
+    })
+    if (!existing) {
+      await prisma.sundaySchoolChild.create({
+        data: { ...child, level: 'GRADE_3', classId: sundaySchoolClass.id },
+      })
+    }
+  }
+
+  console.log('Sunday School sample data created')
 }
 
 main()

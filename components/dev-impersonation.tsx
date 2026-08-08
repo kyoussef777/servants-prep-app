@@ -32,6 +32,7 @@ const ROLE_LABEL: Record<string, string> = {
   SERVANT_PREP: 'Servant Prep',
   MENTOR: 'Mentor',
   STUDENT: 'Student',
+  SERVANT: 'Sunday School Servant',
 }
 
 export function DevImpersonation() {
@@ -240,7 +241,7 @@ function PickerDialog({
     acc[key].push(u)
     return acc
   }, {})
-  const groupOrder: UserRole[] = ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT']
+  const groupOrder: UserRole[] = ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'SERVANT', 'STUDENT']
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>

@@ -9,7 +9,7 @@ import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
+import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations, canAccessSundaySchool, isAdmin } from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
@@ -40,12 +40,22 @@ export function Navbar() {
 
     // For sub-routes, check if pathname starts with path + '/'
     // but exclude the base dashboard path to prevent it from always being active
-    if (path === '/dashboard/admin' || path === '/dashboard/mentor' || path === '/dashboard/student') {
+    if (
+      path === '/dashboard/admin' ||
+      path === '/dashboard/mentor' ||
+      path === '/dashboard/student' ||
+      path === '/dashboard/servants'
+    ) {
       return pathname === path
     }
 
     return pathname.startsWith(path + '/')
   }
+
+  // The app has two modes: the Servants Prep program and Sunday School.
+  // Which one is showing is derived from the path — no extra state.
+  const inSundaySchoolMode = pathname.startsWith('/dashboard/servants')
+  const canSwitchModes = canAccessSundaySchool(session.user.role) && isAdmin(session.user.role)
 
   // Navigation links based on role
   // Returns { primary, more } for admin roles, or just { primary } for others
@@ -71,6 +81,32 @@ export function Navbar() {
           { href: '/dashboard/mentor', label: 'Dashboard' },
           { href: '/dashboard/mentor/my-mentees', label: 'My Mentees' },
           { href: '/dashboard/files', label: 'Files' },
+        ],
+        more: []
+      }
+    }
+
+    if (role === 'SERVANT') {
+      return {
+        primary: [
+          { href: '/dashboard/servants', label: 'Dashboard' },
+          { href: '/dashboard/servants/attendance', label: 'Attendance' },
+          { href: '/dashboard/servants/children', label: 'Children' },
+          { href: '/dashboard/servants/classes', label: 'Classes' },
+        ],
+        more: []
+      }
+    }
+
+    // Admin roles browsing Sunday School mode get that mode's links; the
+    // switcher next to the logo takes them back to the prep program.
+    if (inSundaySchoolMode) {
+      return {
+        primary: [
+          { href: '/dashboard/servants', label: 'Dashboard' },
+          { href: '/dashboard/servants/attendance', label: 'Attendance' },
+          { href: '/dashboard/servants/children', label: 'Children' },
+          { href: '/dashboard/servants/classes', label: 'Classes' },
         ],
         more: []
       }
@@ -117,7 +153,10 @@ export function Navbar() {
         <div className="flex justify-between h-16">
           {/* Left side - Logo/Title */}
           <div className="flex items-center gap-8">
-            <Link href="/dashboard" className="flex items-center gap-3">
+            <Link
+              href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
+              className="flex items-center gap-3"
+            >
               <Image
                 src="/sp-logo.png"
                 alt="Servants Prep Logo"
@@ -126,9 +165,34 @@ export function Navbar() {
                 className="w-10 h-10 rounded-md bg-black p-1"
               />
               <span className="text-xl font-bold text-gray-900 dark:text-white">
-                Servants Prep
+                {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
               </span>
             </Link>
+
+            {/* Mode switcher — admins can move between the prep program and
+                Sunday School; everyone else stays in their own mode */}
+            {canSwitchModes && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border text-gray-600 dark:text-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/admin" className="cursor-pointer w-full">
+                      Servants Prep
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/servants" className="cursor-pointer w-full">
+                      Sunday School
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             {/* Navigation Links */}
             <div className="hidden lg:flex items-center gap-1">
@@ -319,6 +383,15 @@ export function Navbar() {
         {mobileMenuOpen && (
           <div className="lg:hidden border-t dark:border-gray-800">
             <div className="px-2 pt-2 pb-3 space-y-1">
+              {canSwitchModes && (
+                <Link
+                  href={inSundaySchoolMode ? '/dashboard/admin' : '/dashboard/servants'}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2 mb-1 rounded-md text-base font-medium border text-gray-700 dark:text-gray-300 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Switch to {inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}
+                </Link>
+              )}
               {allLinks.map(link => (
                 <Link
                   key={link.href}

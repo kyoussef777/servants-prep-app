@@ -17,9 +17,10 @@ import {
   FileText,
   Settings,
   FolderOpen,
+  School,
   X,
 } from 'lucide-react'
-import { isAdmin, canManageUsers, canManageEnrollments } from '@/lib/roles'
+import { isAdmin, canManageUsers, canManageEnrollments, canAccessSundaySchool } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
 
 interface SearchUser {
@@ -61,6 +62,16 @@ function getNavItemsForRole(role: UserRole): NavItem[] {
     ]
   }
 
+  if (role === 'SERVANT') {
+    return [
+      { label: 'Sunday School Dashboard', href: '/dashboard/servants', icon: LayoutDashboard },
+      { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
+      { label: 'Children', href: '/dashboard/servants/children', icon: Users },
+      { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
+      { label: 'Settings', href: '/settings', icon: Settings },
+    ]
+  }
+
   const items: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
     { label: 'Attendance', href: '/dashboard/admin/attendance', icon: ClipboardCheck },
@@ -77,6 +88,10 @@ function getNavItemsForRole(role: UserRole): NavItem[] {
   if (canManageUsers(role)) {
     items.push({ label: 'Users', href: '/dashboard/admin/users', icon: Users })
     items.push({ label: 'Registrations', href: '/dashboard/admin/registrations', icon: FileText })
+  }
+  if (canAccessSundaySchool(role)) {
+    items.push({ label: 'Sunday School', href: '/dashboard/servants', icon: School })
+    items.push({ label: 'Sunday School Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck })
   }
   items.push({ label: 'Settings', href: '/dashboard/admin/settings', icon: Settings })
   return items

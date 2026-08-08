@@ -17,6 +17,7 @@ enum UserRole {
   SERVANT_PREP
   MENTOR
   STUDENT
+  SERVANT
 }
 
 enum YearLevel {
@@ -76,6 +77,26 @@ enum SundaySchoolGrade {
   GRADE_4
   GRADE_5
   GRADE_6_PLUS
+}
+
+// Grade levels for the Sunday School class itself (Sunday School mode).
+// Separate from SundaySchoolGrade, which is the Servants Prep serving-verification
+// bucket list and ends at GRADE_6_PLUS.
+enum SundaySchoolLevel {
+  PRE_K
+  KINDERGARTEN
+  GRADE_1
+  GRADE_2
+  GRADE_3
+  GRADE_4
+  GRADE_5
+  GRADE_6
+  GRADE_7
+  GRADE_8
+  GRADE_9
+  GRADE_10
+  GRADE_11
+  GRADE_12
 }
 
 enum SundaySchoolLogStatus {
@@ -143,6 +164,12 @@ model User {
   generatedCodes           SundaySchoolCode[]       @relation("GeneratedCodes")
   markedSundaySchoolLogs   SundaySchoolLog[]        @relation("MarkedSundaySchoolLogs")
 
+  // Sunday School mode relations (the Sunday School class itself)
+  sundaySchoolClasses          SundaySchoolClassServant[]    @relation("SundaySchoolClassServants")
+  assignedSundaySchoolServants SundaySchoolClassServant[]    @relation("AssignedSundaySchoolClassServants")
+  takenSundaySchoolSessions    SundaySchoolSession[]         @relation("TakenSundaySchoolSessions")
+  recordedSundaySchoolChildAttendance SundaySchoolChildAttendance[] @relation("RecordedSundaySchoolAttendance")
+
   // Registration relations
   createdInviteCodes        InviteCode[]             @relation("InviteCodeCreator")
   reviewedRegistrations     RegistrationSubmission[] @relation("RegistrationReviewer")
@@ -193,6 +220,7 @@ model AcademicYear {
   enrollments              StudentEnrollment[]      @relation("EnrollmentYear")
   graduatedEnrollments     StudentEnrollment[]      @relation("GraduationYear")
   sundaySchoolAssignments  SundaySchoolAssignment[]
+  sundaySchoolClasses      SundaySchoolClass[]
 
   @@index([isActive])
 }
@@ -538,6 +566,120 @@ model SundaySchoolLog {
   @@index([assignmentId])
   @@index([status])
   @@index([weekOf])
+}
+
+// ============================================
+// SUNDAY SCHOOL MODE MODELS
+//
+// These cover the Sunday School class itself: the classes, the children in
+// them, and weekly attendance of those children. Separate from the models
+// above (SundaySchoolAssignment / Code / Log), which exist only to verify
+// that async Servants Prep students served their required weeks.
+// ============================================
+
+model SundaySchoolClass {
+  id             String            @id @default(cuid())
+  name           String                              // e.g. "Grade 3 Boys"
+  level          SundaySchoolLevel
+  academicYearId String?
+  isActive       Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  // Relations
+  academicYear AcademicYear?              @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  servants     SundaySchoolClassServant[]
+  children     SundaySchoolChild[]
+  sessions     SundaySchoolSession[]
+
+  @@unique([name, academicYearId])
+  @@index([level])
+  @@index([isActive])
+  @@index([academicYearId])
+}
+
+model SundaySchoolClassServant {
+  id         String   @id @default(cuid())
+  classId    String
+  servantId  String
+  isLead     Boolean  @default(false)
+  assignedBy String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  class    SundaySchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  servant  User              @relation("SundaySchoolClassServants", fields: [servantId], references: [id], onDelete: Cascade)
+  assigner User?             @relation("AssignedSundaySchoolClassServants", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@unique([classId, servantId])
+  @@index([classId])
+  @@index([servantId])
+}
+
+model SundaySchoolChild {
+  id            String            @id @default(cuid())
+  firstName     String
+  lastName      String
+  level         SundaySchoolLevel
+  classId       String?
+  birthDate     DateTime?
+  guardianName  String?
+  guardianPhone String?
+  guardianEmail String?
+  notes         String?           @db.Text
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  // Relations
+  class      SundaySchoolClass?            @relation(fields: [classId], references: [id], onDelete: SetNull)
+  attendance SundaySchoolChildAttendance[]
+
+  @@index([classId])
+  @@index([level])
+  @@index([isActive])
+  @@index([lastName, firstName])
+}
+
+model SundaySchoolSession {
+  id        String   @id @default(cuid())
+  classId   String
+  date      DateTime
+  topic     String?
+  notes     String?  @db.Text
+  takenBy   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  class      SundaySchoolClass             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  taker      User?                         @relation("TakenSundaySchoolSessions", fields: [takenBy], references: [id], onDelete: SetNull)
+  attendance SundaySchoolChildAttendance[]
+
+  @@unique([classId, date])
+  @@index([classId, date])
+  @@index([date])
+}
+
+model SundaySchoolChildAttendance {
+  id         String           @id @default(cuid())
+  sessionId  String
+  childId    String
+  status     AttendanceStatus
+  notes      String?          @db.Text
+  recordedBy String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  // Relations
+  session  SundaySchoolSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  child    SundaySchoolChild   @relation(fields: [childId], references: [id], onDelete: Cascade)
+  recorder User?               @relation("RecordedSundaySchoolAttendance", fields: [recordedBy], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, childId])
+  @@index([sessionId])
+  @@index([childId])
+  @@index([status])
 }
 
 // ============================================

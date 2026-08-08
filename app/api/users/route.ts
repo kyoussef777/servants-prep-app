@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
-import { isAdmin, canManageUsers } from "@/lib/roles"
+import { isAdmin, canManageUsers, canServantPrepManageRole, SERVANT_PREP_MANAGEABLE_ROLES } from "@/lib/roles"
 
 // GET /api/users - List all users (Admin only, or MENTOR role can view students)
 // Query params:
@@ -50,10 +50,16 @@ export async function GET(request: Request) {
     }
 
     if (user.role === UserRole.SERVANT_PREP) {
-      // SERVANT_PREP can see STUDENT, MENTOR, and other SERVANT_PREP users (for mentor assignment)
+      // SERVANT_PREP can see the roles it manages, plus other SERVANT_PREP
+      // users (for mentor assignment). A role filter can only narrow that
+      // set — it can never be used to look at admins or priests.
+      const visibleRoles = [...SERVANT_PREP_MANAGEABLE_ROLES, UserRole.SERVANT_PREP]
+      if (roleFilter && !visibleRoles.includes(roleFilter as UserRole)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
       whereClause = {
         ...whereClause,
-        role: roleFilter ? (roleFilter as UserRole) : { in: [UserRole.STUDENT, UserRole.MENTOR, UserRole.SERVANT_PREP] }
+        role: roleFilter ? (roleFilter as UserRole) : { in: visibleRoles }
       }
     } else if (user.role === UserRole.MENTOR) {
       // Filter to only students where this mentor is assigned
@@ -172,10 +178,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // SERVANT_PREP can only create STUDENT and MENTOR users
-    if (currentUser.role === UserRole.SERVANT_PREP && role !== UserRole.STUDENT && role !== UserRole.MENTOR) {
+    // SERVANT_PREP can only create Student, Mentor, and Sunday School Servant users
+    if (currentUser.role === UserRole.SERVANT_PREP && !canServantPrepManageRole(role)) {
       return NextResponse.json(
-        { error: "Servants Prep can only create Student and Mentor users" },
+        { error: "Servants Prep can only create Student, Mentor, and Sunday School Servant users" },
         { status: 403 }
       )
     }

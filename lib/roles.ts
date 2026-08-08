@@ -26,9 +26,26 @@ export const isStudent = (role: UserRole) => {
   return role === UserRole.STUDENT
 }
 
+// Sunday School servant (serves in the Sunday School class, not a prep student)
+export const isServant = (role: UserRole) => {
+  return role === UserRole.SERVANT
+}
+
 // Can manage users (create, edit, delete)
 export const canManageUsers = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// The roles a SERVANT_PREP leader may create, edit, or delete.
+// SUPER_ADMIN is unrestricted; everyone else manages nobody.
+export const SERVANT_PREP_MANAGEABLE_ROLES: UserRole[] = [
+  UserRole.STUDENT,
+  UserRole.MENTOR,
+  UserRole.SERVANT,
+]
+
+export const canServantPrepManageRole = (targetRole: UserRole) => {
+  return SERVANT_PREP_MANAGEABLE_ROLES.includes(targetRole)
 }
 
 // Can manage only students (SERVANT_PREP limitation)
@@ -131,6 +148,41 @@ export const canViewRegistrations = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP || role === UserRole.PRIEST
 }
 
+// ============================================
+// SUNDAY SCHOOL MODE PERMISSIONS
+//
+// The Sunday School class (classes, children, weekly child attendance) is a
+// separate mode from the Servants Prep program. SERVANT users live only in
+// that mode — every prep-side helper above is an explicit allowlist, so
+// SERVANT is denied prep access by construction.
+// ============================================
+
+// Can open Sunday School mode at all (PRIEST is read-only, as elsewhere)
+export const canAccessSundaySchool = (role: UserRole) => {
+  return role === UserRole.SERVANT || role === UserRole.SUPER_ADMIN ||
+    role === UserRole.SERVANT_PREP || role === UserRole.PRIEST
+}
+
+// Can create/edit Sunday School classes and assign servants to them
+export const canManageSundaySchoolClasses = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// Can take/edit weekly attendance for the children in a Sunday School class
+export const canTakeSundaySchoolAttendance = (role: UserRole) => {
+  return role === UserRole.SERVANT || role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// Can add/edit children on a Sunday School roster
+export const canManageSundaySchoolChildren = (role: UserRole) => {
+  return role === UserRole.SERVANT || role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// Sees only the classes they are assigned to (vs. all classes)
+export const isSundaySchoolScopedToOwnClasses = (role: UserRole) => {
+  return role === UserRole.SERVANT
+}
+
 // Display names for roles
 export const getRoleDisplayName = (role: UserRole): string => {
   const displayNames: Record<UserRole, string> = {
@@ -138,7 +190,8 @@ export const getRoleDisplayName = (role: UserRole): string => {
     PRIEST: 'Priest',
     SERVANT_PREP: 'Servants Prep Leader',
     MENTOR: 'Mentor',
-    STUDENT: 'Student'
+    STUDENT: 'Student',
+    SERVANT: 'Sunday School Servant'
   }
   return displayNames[role]
 }

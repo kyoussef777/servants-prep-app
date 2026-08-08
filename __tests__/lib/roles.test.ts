@@ -23,6 +23,12 @@ import {
   canReviewRegistrations,
   canViewRegistrations,
   getRoleDisplayName,
+  isServant,
+  canAccessSundaySchool,
+  canManageSundaySchoolClasses,
+  canTakeSundaySchoolAttendance,
+  canManageSundaySchoolChildren,
+  isSundaySchoolScopedToOwnClasses,
 } from '@/lib/roles'
 
 // Mock UserRole enum since it comes from Prisma
@@ -32,6 +38,7 @@ const UserRole = {
   SERVANT_PREP: 'SERVANT_PREP',
   MENTOR: 'MENTOR',
   STUDENT: 'STUDENT',
+  SERVANT: 'SERVANT',
 } as const
 
 type UserRoleType = (typeof UserRole)[keyof typeof UserRole]
@@ -370,5 +377,104 @@ describe('Role Permission Matrix', () => {
     expect(canViewStudents(role)).toBe(false)
     expect(canAssignMentors(role)).toBe(false)
     expect(canBeMentor(role)).toBe(false)
+  })
+})
+
+describe('Sunday School mode permissions', () => {
+  describe('isServant', () => {
+    it('should return true only for SERVANT', () => {
+      expect(isServant(UserRole.SERVANT as UserRoleType)).toBe(true)
+      expect(isServant(UserRole.STUDENT as UserRoleType)).toBe(false)
+      expect(isServant(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(isServant(UserRole.SERVANT_PREP as UserRoleType)).toBe(false)
+      expect(isServant(UserRole.SUPER_ADMIN as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canAccessSundaySchool', () => {
+    it('should allow SERVANT and the admin roles', () => {
+      expect(canAccessSundaySchool(UserRole.SERVANT as UserRoleType)).toBe(true)
+      expect(canAccessSundaySchool(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canAccessSundaySchool(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+      expect(canAccessSundaySchool(UserRole.PRIEST as UserRoleType)).toBe(true)
+    })
+
+    it('should deny MENTOR and STUDENT', () => {
+      expect(canAccessSundaySchool(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(canAccessSundaySchool(UserRole.STUDENT as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canManageSundaySchoolClasses', () => {
+    it('should be limited to SUPER_ADMIN and SERVANT_PREP', () => {
+      expect(canManageSundaySchoolClasses(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canManageSundaySchoolClasses(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+      expect(canManageSundaySchoolClasses(UserRole.SERVANT as UserRoleType)).toBe(false)
+      expect(canManageSundaySchoolClasses(UserRole.PRIEST as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canTakeSundaySchoolAttendance', () => {
+    it('should allow SERVANT and editing admins, but not PRIEST', () => {
+      expect(canTakeSundaySchoolAttendance(UserRole.SERVANT as UserRoleType)).toBe(true)
+      expect(canTakeSundaySchoolAttendance(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canTakeSundaySchoolAttendance(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+      expect(canTakeSundaySchoolAttendance(UserRole.PRIEST as UserRoleType)).toBe(false)
+      expect(canTakeSundaySchoolAttendance(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(canTakeSundaySchoolAttendance(UserRole.STUDENT as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canManageSundaySchoolChildren', () => {
+    it('should allow SERVANT and editing admins, but not PRIEST', () => {
+      expect(canManageSundaySchoolChildren(UserRole.SERVANT as UserRoleType)).toBe(true)
+      expect(canManageSundaySchoolChildren(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canManageSundaySchoolChildren(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
+      expect(canManageSundaySchoolChildren(UserRole.PRIEST as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('isSundaySchoolScopedToOwnClasses', () => {
+    it('should scope SERVANT only', () => {
+      expect(isSundaySchoolScopedToOwnClasses(UserRole.SERVANT as UserRoleType)).toBe(true)
+      expect(isSundaySchoolScopedToOwnClasses(UserRole.SUPER_ADMIN as UserRoleType)).toBe(false)
+      expect(isSundaySchoolScopedToOwnClasses(UserRole.SERVANT_PREP as UserRoleType)).toBe(false)
+      expect(isSundaySchoolScopedToOwnClasses(UserRole.PRIEST as UserRoleType)).toBe(false)
+    })
+  })
+
+  // The important isolation guarantee: the Sunday School role must not leak
+  // into any Servants Prep permission.
+  describe('SERVANT isolation from the prep program', () => {
+    const role = UserRole.SERVANT as UserRoleType
+
+    it('should have no prep-side permissions at all', () => {
+      expect(isAdmin(role)).toBe(false)
+      expect(isSuperAdmin(role)).toBe(false)
+      expect(isPriest(role)).toBe(false)
+      expect(isServantPrep(role)).toBe(false)
+      expect(isMentor(role)).toBe(false)
+      expect(isStudent(role)).toBe(false)
+      expect(canAccessAdmin(role)).toBe(false)
+      expect(canManageUsers(role)).toBe(false)
+      expect(canManageStudents(role)).toBe(false)
+      expect(canManageAllUsers(role)).toBe(false)
+      expect(canManageData(role)).toBe(false)
+      expect(canManageCurriculum(role)).toBe(false)
+      expect(canManageExams(role)).toBe(false)
+      expect(canManageEnrollments(role)).toBe(false)
+      expect(isReadOnlyAdmin(role)).toBe(false)
+      expect(canAssignMentors(role)).toBe(false)
+      expect(canSelfAssignMentees(role)).toBe(false)
+      expect(canBeMentor(role)).toBe(false)
+      expect(canViewStudents(role)).toBe(false)
+      expect(canManageInviteCodes(role)).toBe(false)
+      expect(canReviewRegistrations(role)).toBe(false)
+      expect(canViewRegistrations(role)).toBe(false)
+    })
+
+    it('should have a display name', () => {
+      expect(getRoleDisplayName(role)).toBe('Sunday School Servant')
+    })
   })
 })

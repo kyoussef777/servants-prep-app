@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
-import { canManageUsers, canManageAllUsers } from "@/lib/roles"
+import { canManageUsers, canManageAllUsers, canServantPrepManageRole } from "@/lib/roles"
 
 // GET /api/users/[id] - Get a specific user
 export async function GET(
@@ -84,10 +84,10 @@ export async function PATCH(
       )
     }
 
-    // SERVANT_PREP can only update STUDENT and MENTOR users
-    if (currentUser.role === UserRole.SERVANT_PREP && targetUser.role !== UserRole.STUDENT && targetUser.role !== UserRole.MENTOR) {
+    // SERVANT_PREP can only update Student, Mentor, and Sunday School Servant users
+    if (currentUser.role === UserRole.SERVANT_PREP && !canServantPrepManageRole(targetUser.role)) {
       return NextResponse.json(
-        { error: "Servants Prep can only update Student and Mentor users" },
+        { error: "Servants Prep can only update Student, Mentor, and Sunday School Servant users" },
         { status: 403 }
       )
     }
@@ -137,8 +137,8 @@ export async function PATCH(
         // SUPER_ADMIN can change any role
         updateData.role = role
       } else if (currentUser.role === UserRole.SERVANT_PREP) {
-        // SERVANT_PREP can only set STUDENT or MENTOR roles
-        if (role === UserRole.STUDENT || role === UserRole.MENTOR) {
+        // SERVANT_PREP can only set the roles it manages
+        if (canServantPrepManageRole(role)) {
           updateData.role = role
         }
       }
@@ -215,10 +215,10 @@ export async function DELETE(
       )
     }
 
-    // SERVANT_PREP can only delete STUDENT and MENTOR users
-    if (currentUser.role === UserRole.SERVANT_PREP && targetUser.role !== UserRole.STUDENT && targetUser.role !== UserRole.MENTOR) {
+    // SERVANT_PREP can only delete Student, Mentor, and Sunday School Servant users
+    if (currentUser.role === UserRole.SERVANT_PREP && !canServantPrepManageRole(targetUser.role)) {
       return NextResponse.json(
-        { error: "Servants Prep can only delete Student and Mentor users" },
+        { error: "Servants Prep can only delete Student, Mentor, and Sunday School Servant users" },
         { status: 403 }
       )
     }

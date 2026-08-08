@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { canManageUsers, getRoleDisplayName } from '@/lib/roles'
+import { canManageUsers, getRoleDisplayName, SERVANT_PREP_MANAGEABLE_ROLES } from '@/lib/roles'
 import { UserRole } from '@prisma/client'
 import { toast } from 'sonner'
 import { Camera, Trash2, Pencil, X } from 'lucide-react'
@@ -444,17 +444,17 @@ export default function UsersPage() {
     return <PageLoading />
   }
 
-  // SERVANT_PREP can only create STUDENT and MENTOR users, SUPER_ADMIN can create all
+  // SERVANT_PREP can only create the roles it manages, SUPER_ADMIN can create all
   const roleOptions: UserRole[] = session?.user?.role === 'SERVANT_PREP'
-    ? ['STUDENT', 'MENTOR']
-    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT']
+    ? SERVANT_PREP_MANAGEABLE_ROLES
+    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'SERVANT', 'STUDENT']
 
   // Filter options based on role permissions
-  // SERVANT_PREP can only filter by STUDENT, MENTOR, or SERVANT_PREP
+  // SERVANT_PREP can only filter by the roles it manages, plus SERVANT_PREP
   // SUPER_ADMIN/PRIEST can filter by all roles
   const filterRoleOptions: UserRole[] = session?.user?.role === 'SERVANT_PREP'
-    ? ['STUDENT', 'MENTOR', 'SERVANT_PREP']
-    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT']
+    ? [...SERVANT_PREP_MANAGEABLE_ROLES, 'SERVANT_PREP']
+    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'SERVANT', 'STUDENT']
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -720,6 +720,7 @@ export default function UsersPage() {
                                 user.role === 'PRIEST' ? 'bg-maroon-600' :
                                 user.role === 'SERVANT_PREP' ? 'bg-green-600' :
                                 user.role === 'MENTOR' ? 'bg-yellow-600' :
+                                user.role === 'SERVANT' ? 'bg-blue-600' :
                                 'bg-gray-600'
                               }
                             >
@@ -878,8 +879,8 @@ export default function UsersPage() {
                           )}
                           {isCurrentUser && <Badge variant="outline" className="text-[10px] px-1 py-0">You</Badge>}
                           {user.isDisabled && <Badge className="bg-red-500 text-[10px] px-1 py-0">Disabled</Badge>}
-                          <Badge className={`text-[10px] px-1.5 py-0 ${user.role === 'SUPER_ADMIN' ? 'bg-purple-600' : user.role === 'PRIEST' ? 'bg-maroon-600' : user.role === 'SERVANT_PREP' ? 'bg-green-600' : user.role === 'MENTOR' ? 'bg-yellow-600' : 'bg-gray-600'}`}>
-                            {user.role === 'SUPER_ADMIN' ? 'Admin' : user.role === 'PRIEST' ? 'Priest' : user.role === 'SERVANT_PREP' ? 'Prep' : user.role === 'MENTOR' ? 'Mentor' : 'Student'}
+                          <Badge className={`text-[10px] px-1.5 py-0 ${user.role === 'SUPER_ADMIN' ? 'bg-purple-600' : user.role === 'PRIEST' ? 'bg-maroon-600' : user.role === 'SERVANT_PREP' ? 'bg-green-600' : user.role === 'MENTOR' ? 'bg-yellow-600' : user.role === 'SERVANT' ? 'bg-blue-600' : 'bg-gray-600'}`}>
+                            {user.role === 'SUPER_ADMIN' ? 'Admin' : user.role === 'PRIEST' ? 'Priest' : user.role === 'SERVANT_PREP' ? 'Prep' : user.role === 'MENTOR' ? 'Mentor' : user.role === 'SERVANT' ? 'Servant' : 'Student'}
                           </Badge>
                           {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && user._count?.mentoredStudents ? (
                             <span className="text-[10px] text-gray-500">({user._count.mentoredStudents})</span>

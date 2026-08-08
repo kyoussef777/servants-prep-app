@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Next.js 15 web application for managing a 2-year Coptic Church Servants Preparation Program. The system tracks student attendance, exams, curriculum, and graduation requirements with role-based access control.
+A Next.js 15 web application with two modes sharing one deployment, database, and login:
+
+1. **Servants Prep** (`/dashboard/admin`, `/dashboard/mentor`, `/dashboard/student`) — the 2-year Coptic Church Servants Preparation Program: student attendance, exams, curriculum, and graduation requirements.
+2. **Sunday School** (`/dashboard/servants`) — the Sunday School class itself: classes by grade (Pre-K–12), the children in them, and weekly child attendance.
+
+The two are deliberately independent: no Sunday School model references a prep model, and the `SERVANT` role has no prep-side permission.
 
 **Tech Stack:** Next.js 15.5 (App Router + Turbopack), TypeScript, PostgreSQL, Prisma ORM, NextAuth.js, Tailwind CSS v4, shadcn/ui, Sonner (toasts), SWR (data fetching), Vitest (testing)
 
@@ -43,15 +48,16 @@ bun scripts/admin.ts db-stats                     # Show database statistics
 
 ### Role-Based Access Control (RBAC)
 
-Five user roles with hierarchical permissions defined in `lib/roles.ts`:
+Six user roles with hierarchical permissions defined in `lib/roles.ts`:
 
 | Role | Dashboard Access | Can Edit Data | User Management |
 |------|-----------------|---------------|-----------------|
-| SUPER_ADMIN | Full | Yes | All users |
-| PRIEST | Full (read-only) | No | None |
-| SERVANT_PREP | Full | Yes | STUDENT & MENTOR only |
+| SUPER_ADMIN | Full (both modes) | Yes | All users |
+| PRIEST | Full (read-only, both modes) | No | None |
+| SERVANT_PREP | Full (both modes) | Yes | STUDENT, MENTOR & SERVANT only |
 | MENTOR | Own mentees only | No | None |
 | STUDENT | Own data only | No | None |
+| SERVANT | Sunday School mode only | Sunday School only | None |
 
 **Key permission helpers:**
 - `isAdmin(role)` - SUPER_ADMIN, PRIEST, SERVANT_PREP (can view admin dashboard)
@@ -59,8 +65,14 @@ Five user roles with hierarchical permissions defined in `lib/roles.ts`:
 - `canManageData(role)` - SUPER_ADMIN and SERVANT_PREP (attendance, exams, curriculum)
 - `isReadOnlyAdmin(role)` - PRIEST only (has view access but cannot edit)
 - `canViewStudents(role)` - All admin roles + MENTOR (filtered by assignment)
+- `canAccessSundaySchool(role)` - SERVANT + all admin roles
+- `canManageSundaySchoolClasses(role)` - SUPER_ADMIN and SERVANT_PREP (create classes, assign servants)
+- `canTakeSundaySchoolAttendance(role)` / `canManageSundaySchoolChildren(role)` - SERVANT + SUPER_ADMIN + SERVANT_PREP (PRIEST read-only)
+- `canServantPrepManageRole(targetRole)` - the roles a SERVANT_PREP may create/edit/delete (`SERVANT_PREP_MANAGEABLE_ROLES`)
 
-**Important:** SERVANT_PREP can only create/edit/delete STUDENT and MENTOR users. API routes enforce this at both query and mutation levels.
+**Important:** SERVANT_PREP can only create/edit/delete STUDENT, MENTOR, and SERVANT users. API routes enforce this at both query and mutation levels.
+
+**SERVANT isolation:** every prep-side helper is an explicit allowlist, so SERVANT is denied prep access by construction. `__tests__/lib/roles.test.ts` pins this — keep that test passing when adding a helper.
 
 ### Authentication (NextAuth.js)
 
@@ -95,7 +107,21 @@ Lesson ←──→ AttendanceRecord ←──→ User (student)
 Exam ←──→ ExamScore ←──→ User (student)
 
 StudentNote ←──→ User (student, author)
+
+# Sunday School mode (independent of everything above)
+SundaySchoolClass ←──→ SundaySchoolClassServant ←──→ User (SERVANT)
+   ↓                ↓
+   → SundaySchoolChild[]      → SundaySchoolSession[] (one per week)
+                                    ↓
+                                    → SundaySchoolChildAttendance ←──→ SundaySchoolChild
 ```
+
+**Sunday School mode notes:**
+- Children are data rows (`SundaySchoolChild`), not `User`s — they never log in. Guardian contact is returned only by `/api/sunday-school/children*`, to servants of that child's class and to admins.
+- `SundaySchoolSession.date` is normalized to **midnight UTC** (`normalizeSessionDate` in `lib/sunday-school-class.ts`) so `@@unique([classId, date])` gives one session per class per day. Render with `formatDateUTC`.
+- Sessions are created on first save, not on page load, so browsing dates leaves no empty rows.
+- `SundaySchoolLevel` (Pre-K–12) is a separate enum from the prep-side `SundaySchoolGrade` (Pre-K–`GRADE_6_PLUS`), which belongs to the async-student serving-verification flow and is untouched by this mode.
+- A `SERVANT` is scoped to their assigned classes via `getServantClassIds` in `lib/api-utils.ts` (same contract as `getMentorStudentIds`: returns `undefined` when no filter is needed).
 
 **Key Fields:**
 - `StudentEnrollment.studentId` is UNIQUE (one enrollment per student)
@@ -104,11 +130,12 @@ StudentNote ←──→ User (student, author)
 - `AttendanceRecord.status` - PRESENT, LATE, ABSENT, EXCUSED
 
 **Enums (import from `@prisma/client`):**
-- `UserRole`: SUPER_ADMIN, PRIEST, SERVANT_PREP, MENTOR, STUDENT
+- `UserRole`: SUPER_ADMIN, PRIEST, SERVANT_PREP, MENTOR, STUDENT, SERVANT
 - `YearLevel`: YEAR_1, YEAR_2
 - `AttendanceStatus`: PRESENT, LATE, ABSENT, EXCUSED
 - `LessonStatus`: SCHEDULED, CANCELLED, COMPLETED
 - `ExamSectionType`: 8 sections (BIBLE_STUDIES, DOGMA, etc.)
+- `SundaySchoolLevel`: PRE_K, KINDERGARTEN, GRADE_1 … GRADE_12 (Sunday School mode)
 
 ### Graduation Requirements
 
@@ -153,6 +180,13 @@ export async function POST(req: NextRequest) {
 - `/api/fathers-of-confession` - Father of confession management
 - `/api/students/[id]/notes` - Student notes
 - `/api/health` - Database connectivity check
+
+**Sunday School mode endpoints** (`app/api/sunday-school/`) — note the older `assignments`, `codes`, `logs`, and `progress` routes in the same folder belong to the *prep* serving-verification flow, not this mode:
+- `/api/sunday-school/classes` (+ `/[id]`, `/[id]/servants`) - class CRUD and servant assignment
+- `/api/sunday-school/children` (+ `/[id]`) - child roster CRUD (the only place guardian contact is returned)
+- `/api/sunday-school/sessions` (+ `/[id]`, `/[id]/attendance`) - weekly sessions and their roster
+- `/api/sunday-school/attendance/batch` - bulk child attendance save
+- `/api/sunday-school/dashboard` - per-class summary for the mode's landing page
 
 ### UI Patterns
 
