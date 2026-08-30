@@ -1,0 +1,293 @@
+# AGENTS.md
+
+Working guide for AI coding agents (Codex, Claude Code, Cursor, and others) and
+for humans new to this repository. This is the canonical file — `CLAUDE.md`
+points here rather than repeating it, so there is one source of truth.
+
+Deep references live in `docs/`:
+
+| Document | What it covers |
+|---|---|
+| [`docs/permissions.md`](docs/permissions.md) | Every role, every permission helper, and the Sunday School authority model. **Read before touching any authorization code.** |
+| [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end: schema, routes, invariants, how to extend it |
+| [`docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md`](docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md) | Design notes for the async-student note submission flow |
+
+## What this application is
+
+A Next.js web app for a Coptic Orthodox church, running **two modes** that share
+one deployment, one database, and one login:
+
+1. **Servants Prep** (`/dashboard/admin`, `/dashboard/mentor`, `/dashboard/student`)
+   — the 2-year Servants Preparation Program: student attendance, exams,
+   curriculum, mentors, and graduation requirements.
+2. **Sunday School** (`/dashboard/servants`) — the Sunday School ministry
+   itself: classes by grade (Pre-K–12) grouped into age-group bands, the
+   children in them, and weekly child attendance.
+
+**The two modes are deliberately independent.** No Sunday School model
+references a prep model. The `SERVANT` role has no prep-side permission, and
+running the prep program confers no Sunday School authority. If you find
+yourself wiring them together, stop and re-read `docs/permissions.md` — that
+separation is a design decision, not an oversight.
+
+**Tech stack:** Next.js 16 (App Router + Turbopack), TypeScript, PostgreSQL,
+Prisma ORM, NextAuth.js (JWT sessions), Tailwind CSS v4, shadcn/ui, Sonner
+(toasts), SWR (data fetching), Vitest (testing).
+
+**Package manager: Bun.** Do not use `npm` or `yarn` — the lockfile is
+`bun.lock`.
+
+## Commands
+
+```bash
+# Development
+bun dev                  # Dev server with Turbopack (http://localhost:3000)
+bun run build            # Production build (runs prisma generate + db push first)
+bun lint                 # ESLint
+bunx tsc --noEmit        # Typecheck without emitting
+
+# Testing (Vitest)
+bun test                 # Watch mode
+bun test:run             # Run once — use this in CI and before committing
+bun test:coverage        # With coverage
+
+# Database (Prisma)
+bun db:generate          # Regenerate Prisma Client — REQUIRED after schema changes
+bun db:push              # Push schema without migrations
+bun db:migrate           # Create and run a migration
+bun db:seed              # Seed test data
+bun db:studio            # Prisma Studio GUI
+
+# Admin CLI
+bun scripts/admin.ts reset-password <email>
+bun scripts/admin.ts create-admin <email> [name]
+bun scripts/admin.ts list-admins
+bun scripts/admin.ts db-stats
+```
+
+`bun run build` runs `prisma db push`, so it needs a reachable database. To
+verify a build **without** one, run `bunx next build` directly with placeholder
+env vars — that still typechecks and compiles every route.
+
+## Before you commit
+
+```bash
+bun db:generate    # only if you touched prisma/schema.prisma
+bunx tsc --noEmit
+bun lint
+bun test:run
+```
+
+## Environment variables
+
+```env
+SP_DATABASE_URL="postgresql://..."          # Pooled connection (Neon)
+SP_DATABASE_URL_UNPOOLED="postgresql://..." # Direct connection, for migrations
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="<openssl rand -base64 32>"
+```
+
+Never commit a `.env`. Never log or echo these values.
+
+## Repository layout
+
+```
+app/
+  api/                  API route handlers (App Router)
+    sunday-school/      BOTH Sunday School mode AND the older prep-side
+                        serving-verification routes — see the warning below
+  dashboard/
+    admin/              Servants Prep — admin roles
+    mentor/             Servants Prep — mentors
+    student/            Servants Prep — students
+    servants/           Sunday School mode
+components/
+  ui/                   shadcn/ui primitives
+  admin/                Prep-side composites
+hooks/                  useAdminGuard, useSundaySchoolGuard
+lib/                    Business logic, permissions, Prisma client, utilities
+prisma/                 schema.prisma and seed.ts
+types/                  Shared TypeScript types, NextAuth module augmentation
+__tests__/              Vitest suites, mirroring lib/ and api/
+docs/                   Deep architecture references
+```
+
+### ⚠️ The `sunday-school` naming collision
+
+`app/api/sunday-school/` holds **two unrelated features**. Read the header
+comment at the top of a route before editing it.
+
+| Routes | Belongs to |
+|---|---|
+| `assignments/`, `codes/`, `logs/`, `progress/` | **Servants Prep** — verifying that *async prep students* served their required weeks |
+| `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` | **Sunday School mode** — the actual ministry |
+
+The same trap exists in the schema and the enums:
+
+| Prep-side | Sunday School mode |
+|---|---|
+| `SundaySchoolAssignment` (a student's 6-week serving stint) | `SundaySchoolServantAssignment` (who serves/coordinates what) |
+| `/api/sunday-school/assignments` | `/api/sunday-school/servant-assignments` |
+| `SundaySchoolGrade` (Pre-K … `GRADE_6_PLUS`) | `SundaySchoolLevel` (Pre-K … `GRADE_12`) |
+| `canManageSundaySchool()` in `lib/roles.ts` | `getSundaySchoolAccess()` in `lib/sunday-school-access.ts` |
+
+## Authorization — read this before writing any route
+
+Two different models coexist. Using the wrong one is the most likely way to
+introduce a security bug here.
+
+**Servants Prep is role-based.** Helpers in `lib/roles.ts` are pure
+`role → boolean` allowlists:
+
+```typescript
+import { canManageData } from "@/lib/roles"
+if (!canManageData(user.role)) {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+}
+```
+
+**Sunday School is assignment-based, not role-based.** Authority comes from a
+`SundaySchoolServantAssignment` naming a scope (one class, or one age-group
+band) for one academic year. Resolve it, then use a per-class predicate:
+
+```typescript
+import { getSundaySchoolAccess, canServeClass } from "@/lib/sunday-school-access"
+
+const access = await getSundaySchoolAccess(user)
+if (!canServeClass(access, classId)) {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+}
+```
+
+Rules that are not negotiable:
+
+- **Always re-derive authority from the database inside the route.** The
+  `session.user.sundaySchool` standing exists only to render a nav entry; it is
+  coarse and can be up to a minute stale. Never authorize from it.
+- **Never grant Sunday School power to a prep role.** A `SERVANT_PREP` who also
+  serves Sunday School gets in by being *assigned*, as an individual. This is
+  what lets one person wear both hats, given `User.role` holds a single value.
+- **`PRIEST` is read-only everywhere**, in both modes.
+- **Guardian contact for children is sensitive.** It is returned only by
+  `/api/sunday-school/children*`, only to people who serve that child's class
+  and to admins. Keep it out of summary endpoints and the command palette.
+
+`__tests__/lib/roles.test.ts` pins that `SERVANT` gets `false` from every
+prep-side helper. Keep that passing when you add a helper.
+
+Full detail: [`docs/permissions.md`](docs/permissions.md).
+
+## Conventions
+
+### API routes
+
+```typescript
+export async function POST(req: NextRequest) {
+  try {
+    const user = await requireAuth()          // lib/auth-helpers.ts
+    // authorization check — see above
+    // business logic
+  } catch (error: unknown) {
+    return handleApiError(error)              // lib/api-utils.ts
+  }
+}
+```
+
+Prefer the existing wrappers in `lib/api-utils.ts` (`withAuth`, `withRole`,
+`handleApiError`) over hand-rolled try/catch. `handleApiError` already maps
+thrown `"Unauthorized"` / `"Forbidden"` / `"Not found"` to the right status.
+
+### Types
+
+- `catch (error: unknown)`, then narrow with `error instanceof Error`. Never
+  `any`.
+- Import enums from `@prisma/client`; do not redeclare them.
+- Run `bun db:generate` after schema changes or types will be stale.
+
+### Dates
+
+Calendar days (lesson dates, Sunday School session dates) are stored at
+**midnight UTC** and rendered with `formatDateUTC` from `lib/utils.ts`. Using a
+local-midnight `Date` shifts the day for viewers west of UTC. For Sunday School
+sessions, normalize with `normalizeSessionDate` from `lib/sunday-school-class.ts`.
+
+### UI
+
+- Toasts: `import { toast } from 'sonner'`.
+- Components live in `components/ui/` (shadcn/ui). Add new ones with
+  `npx shadcn@latest add <name>`.
+- Data fetching: the SWR hooks in `lib/swr.ts`. Add a hook there rather than
+  calling `useSWR` ad hoc in a page.
+- Page guards: `useAdminGuard(roleCheck)` for prep pages,
+  `useSundaySchoolGuard()` for Sunday School pages.
+
+### Tests
+
+Vitest, in `__tests__/`, mirroring the source layout. Pure logic — permission
+predicates, attendance math, date normalization — is unit-tested without a
+database; keep new logic in that shape where you can.
+
+## Domain rules worth knowing
+
+**Graduation** requires all four:
+
+1. Attendance ≥ 75%, computed as `(present + lates/2) / (total_lessons - excused)`.
+   Two lates equal one absence; `EXCUSED` is excluded from both sides; lessons
+   flagged `isExamDay` are excluded entirely.
+2. Overall exam average ≥ 75% across all sections.
+3. At least 60% in every individual exam section.
+4. Both `YEAR_1` and `YEAR_2` completed.
+
+**Key fields**
+
+- `StudentEnrollment.studentId` is unique — one enrollment per student.
+- `Lesson.isExamDay` — attendance that day does not count toward graduation.
+- `SundaySchoolClass.academicYearId` is required; Sunday School authority is
+  scoped per academic year.
+
+**Enums** (all from `@prisma/client`)
+
+- `UserRole`: SUPER_ADMIN, PRIEST, SERVANT_PREP, MENTOR, STUDENT, SERVANT
+- `YearLevel`: YEAR_1, YEAR_2
+- `AttendanceStatus`: PRESENT, LATE, ABSENT, EXCUSED
+- `LessonStatus`: SCHEDULED, CANCELLED, NO_CLASS, COMPLETED
+- `ExamSectionType`: 8 sections (BIBLE_STUDIES, DOGMA, …)
+- `SundaySchoolLevel`: PRE_K, KINDERGARTEN, GRADE_1 … GRADE_12
+- `SundaySchoolAuthority`: SERVANT, COORDINATOR
+- `SundaySchoolGrade`: prep-side only, Pre-K … GRADE_6_PLUS
+
+## Common workflows
+
+**Changing the schema**
+
+1. Edit `prisma/schema.prisma`
+2. `bun db:generate`
+3. `bun db:push` (or `bun db:migrate`)
+4. Update affected routes, components, and `types/`
+
+**Adding a prep-side permission**
+
+1. Add the helper to `lib/roles.ts` as an explicit allowlist
+2. Add its assertions to `__tests__/lib/roles.test.ts`, including that
+   `SERVANT` is denied
+3. Enforce it in the API route, then reflect it in the UI
+
+**Adding Sunday School authority**
+
+Do not add a role. Extend the assignment model — see
+[`docs/sunday-school-mode.md`](docs/sunday-school-mode.md).
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Type errors after a schema change | `bun db:generate` |
+| Stale build artifacts | `rm -rf .next && bun dev` |
+| `bun run build` fails on `prisma db push` | No database reachable; use `bunx next build` to verify compilation |
+| A route 403s unexpectedly in Sunday School | The user probably has no assignment for the **active academic year** |
+
+## Production
+
+Deployed on Vercel at `https://servants-prep-app.vercel.app`. Required env vars
+are the four listed above. `/api/health` checks database connectivity after a
+deploy.

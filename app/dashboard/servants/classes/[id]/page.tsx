@@ -69,7 +69,7 @@ export default function SundaySchoolClassDetailPage() {
 
     setAssigning(true)
     try {
-      const res = await fetch('/api/sunday-school/assignments', {
+      const res = await fetch('/api/sunday-school/servant-assignments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -98,7 +98,7 @@ export default function SundaySchoolClassDetailPage() {
 
   const handleUnassign = async (assignmentId: string) => {
     try {
-      const res = await fetch(`/api/sunday-school/assignments?id=${assignmentId}`, {
+      const res = await fetch(`/api/sunday-school/servant-assignments?id=${assignmentId}`, {
         method: 'DELETE',
       })
       if (!res.ok) {

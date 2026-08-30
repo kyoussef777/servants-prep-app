@@ -214,7 +214,7 @@ describe('API Authorization Patterns', () => {
       })
     })
 
-    describe('/api/sunday-school/assignments target validation', () => {
+    describe('/api/sunday-school/servant-assignments target validation', () => {
       it('accepts only servant-side accounts', () => {
         expect(canBeAssignedToSundaySchool(UserRole.SERVANT)).toBe(true)
         expect(canBeAssignedToSundaySchool(UserRole.SERVANT_PREP)).toBe(true)

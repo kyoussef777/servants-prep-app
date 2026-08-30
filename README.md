@@ -1,190 +1,170 @@
-# Mentors Preparation Program
+# Servants Prep
 
-A web-based application for managing a 2-year Coptic church mentors preparation program, tracking attendance, exams, and student progress with role-based access control.
+A web application for a Coptic Orthodox church, running two modes that share one
+deployment, one database, and one login:
+
+1. **Servants Prep** — the 2-year Servants Preparation Program: student
+   attendance, exams, curriculum, mentors, and graduation requirements.
+2. **Sunday School** — the Sunday School ministry: classes by grade (Pre-K–12)
+   grouped into age-group bands, the children in them, and weekly child
+   attendance.
+
+The two are deliberately independent — no Sunday School data references the prep
+program, and vice versa.
+
+## Documentation
+
+| Document | For |
+|---|---|
+| [`AGENTS.md`](AGENTS.md) | The working guide — commands, layout, conventions, gotchas. Start here, whether you are a person or an AI coding agent. |
+| [`docs/permissions.md`](docs/permissions.md) | Every role and permission, and the Sunday School authority model |
+| [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end |
 
 ## Features
 
-- **Role-Based Access Control**: Priest, Mentor, and Student roles with specific permissions
-- **Academic Year Management**: Track multiple academic years with enrollment management
-- **Lesson Scheduling**: Weekly Friday lessons (7:00 PM EST) with curriculum planning
-- **Attendance Tracking**: Mark students as Present, Late, or Absent with automatic calculations
-- **Exam Management**: Five exam sections (Bible, Dogma, Church History, Comparative Theology, Sacraments)
-- **Graduation Requirements**: Real-time validation of 75% attendance and exam requirements
-- **Mentor-Student System**: Each student assigned to a mentor mentor for guidance
-- **Analytics Dashboard**: Track student progress, at-risk students, and graduation eligibility
+### Servants Prep
+- **Six roles** with distinct permissions: Super Admin, Priest, Servants Prep
+  Leader, Mentor, Student, Sunday School Servant
+- **Academic years** with enrollment management, including late-start students
+- **Curriculum** — weekly lessons with resources, ordering, and exam days
+- **Attendance** — Present / Late / Absent / Excused, with expected absences and
+  a late-start curve
+- **Exams** — eight sections, per-section and overall requirements
+- **Graduation tracking** — live validation of every requirement
+- **Mentors** — each student assigned a mentor, with mentee dashboards
+- **Async students** — note submissions and serving verification for students
+  who cannot attend in person
+- **Registration** — invite codes and a review queue for new applicants
+- **Analytics** — progress, at-risk students, trends, class averages
 
-## Tech Stack
+### Sunday School
+- **Age groups** (Elementary / Middle / High) as editable data, each owning a
+  set of grades
+- **Classes** per academic year, each with assigned servants
+- **Coordinators** at class or age-group level, with authority scoped accordingly
+- **Children** rosters with guardian contact, visible only to that class's
+  servants and to admins
+- **Weekly attendance** per child, with per-class rates
 
-- **Frontend**: Next.js 14+, React, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Next.js API Routes (serverless)
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: NextAuth.js with JWT sessions
+## Tech stack
 
-## Prerequisites
+- **Framework:** Next.js 16 (App Router, Turbopack), React 19, TypeScript
+- **Styling:** Tailwind CSS v4, shadcn/ui
+- **Database:** PostgreSQL (Neon) with Prisma ORM
+- **Auth:** NextAuth.js, JWT sessions
+- **Data fetching:** SWR
+- **Testing:** Vitest
+- **Package manager:** Bun
 
-- Node.js 18+ and npm
-- PostgreSQL database
+## Getting started
 
-## Getting Started
-
-### 1. Install dependencies
+**Prerequisites:** Bun 1.3+ and a PostgreSQL database.
 
 ```bash
-npm install
+# 1. Install dependencies
+bun install
+
+# 2. Create .env (see below)
+
+# 3. Set up the database
+bun db:generate      # generate Prisma Client
+bun db:push          # push the schema
+bun db:seed          # seed sample data
+
+# 4. Run
+bun dev              # http://localhost:3000
 ```
 
-### 2. Set up environment variables
+### Environment variables
 
-Create a `.env` file in the root directory:
+Create a `.env` in the project root:
 
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/mentors_prep?schema=public"
+SP_DATABASE_URL="postgresql://user:password@host/db"          # pooled
+SP_DATABASE_URL_UNPOOLED="postgresql://user:password@host/db" # direct, for migrations
 NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-key-change-this-in-production"
+NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
 ```
 
-Generate a secure secret for `NEXTAUTH_SECRET`:
-```bash
-openssl rand -base64 32
-```
+Generate a secret with `openssl rand -base64 32`. Never commit `.env`.
 
-### 3. Set up the database
+## Commands
 
 ```bash
-# Generate Prisma Client
-npm run db:generate
+bun dev                  # dev server
+bun run build            # production build
+bun lint                 # ESLint
+bunx tsc --noEmit        # typecheck
 
-# Push schema to database
-npm run db:push
+bun test                 # tests, watch mode
+bun test:run             # tests, once
+bun test:coverage        # with coverage
 
-# Seed the database with sample data
-npm run db:seed
+bun db:generate          # regenerate Prisma Client (required after schema changes)
+bun db:push              # push schema without migrations
+bun db:migrate           # create and run a migration
+bun db:seed              # seed sample data
+bun db:studio            # Prisma Studio
+
+bun scripts/admin.ts create-admin <email> [name]   # create a Super Admin
+bun scripts/admin.ts reset-password <email>
+bun scripts/admin.ts list-admins
+bun scripts/admin.ts db-stats
 ```
 
-### 4. Run the development server
+`bun run build` runs `prisma db push` first, so it needs a reachable database.
+To verify compilation without one, run `bunx next build`.
 
-```bash
-npm run dev
-```
+## Roles
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+| Role | Prep program | Sunday School | Manages users |
+|---|---|---|---|
+| Super Admin | Full | Full, every class | All users |
+| Priest | Full, read-only | Reads every class | None |
+| Servants Prep Leader | Full | Only if personally assigned | Students, Mentors |
+| Mentor | Own mentees, read-only | None | None |
+| Student | Own data, read-only | None | None |
+| Sunday School Servant | None | Only their assignments | None |
 
+Sunday School authority comes from an **assignment**, not a role — which is how
+one person can serve both sides. See [`docs/permissions.md`](docs/permissions.md).
 
-## User Roles & Permissions
+## Graduation requirements
 
-### Priest
-- Full access to all features
-- Manage users, academic years, and enrollments
-- Assign mentors to students
-- View all analytics and reports
-- Manage curriculum and lessons
+A student must meet all four:
 
-### Mentor/Teacher
-- Take attendance for lessons
-- Enter and edit exam scores
-- View assigned mentees and their progress
-- Create and manage lessons
-- Access class-wide analytics
+1. **Attendance ≥ 75%** — `(present + lates/2) / (total_lessons - excused)`.
+   Two lates equal one absence; excused lessons are excluded; exam days do not
+   count.
+2. **Overall exam average ≥ 75%** across all sections.
+3. **At least 60%** in every individual section.
+4. **Both Year 1 and Year 2** completed.
 
-### Student
-- Read-only access to own data
-- View attendance and exam scores
-- Track graduation progress
-- See assigned mentor information
-- View upcoming lessons
+## Security notes
 
-## Graduation Requirements
-
-Students must meet the following requirements to graduate:
-
-1. **Attendance**: ≥75% attendance rate
-   - Formula: (Present + (Lates / 2)) / Total Lessons
-   - 2 lates automatically count as 1 absence
-
-2. **Exam Performance**:
-   - Overall average across all 5 sections: ≥75%
-   - Minimum score in each section: ≥60%
-
-3. **Completion**: Complete both Year 1 AND Year 2
-
-## Development Commands
-
-```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-
-# Database commands
-npm run db:generate    # Generate Prisma Client
-npm run db:push        # Push schema changes to database
-npm run db:migrate     # Create and run migrations
-npm run db:seed        # Seed database with sample data
-npm run db:studio      # Open Prisma Studio (database GUI)
-
-# Linting
-npm run lint
-```
-
-## Security Best Practices
-
-### Environment Variables
-- **Never commit `.env` files** to version control
-- Always use `.env.example` as a template with placeholder values
-- Generate strong secrets: `openssl rand -base64 32`
-- Use different secrets for development and production
-
-### Database
-- Use connection pooling in production (e.g., Supabase pgBouncer)
-- Set up database backups
-- Use read replicas for analytics if needed
-- Never expose database credentials in client-side code
-
-### Authentication
-- All API routes are protected with `requireAuth()` helper
-- Role-based access control enforced at API level
-- Passwords are hashed with bcrypt (10 rounds)
-- Session-based authentication with NextAuth.js
-
-### Data Privacy
-- Test/seed data uses generic emails (e.g., priest@church.com)
-- Excel/CSV files are excluded from git (may contain real data)
-- No personally identifiable information (PII) in codebase
+- All API routes are authenticated; authorization is enforced server-side on
+  every request, never from client state
+- Passwords hashed with bcrypt; sessions are JWT-based
+- Guardian contact for children is restricted to that class's servants and to
+  admins
+- `.env` files and spreadsheet exports are gitignored — they may contain real
+  personal data
+- No personal data belongs in the repository, including in seed data
 
 ## Deployment
 
-### Vercel (Recommended)
+Deployed on Vercel. Set `SP_DATABASE_URL`, `SP_DATABASE_URL_UNPOOLED`,
+`NEXTAUTH_URL`, and `NEXTAUTH_SECRET` in the project settings, then deploy.
 
-1. Push your code to GitHub
-2. Import project to Vercel
-3. Set environment variables in Vercel dashboard:
-   - `DATABASE_URL` - Your production database connection string
-   - `DIRECT_URL` - Direct database connection (for migrations)
-   - `NEXTAUTH_URL` - Your production URL (e.g., https://yourapp.vercel.app)
-   - `NEXTAUTH_SECRET` - Generate a new secret for production
-4. Deploy
+`/api/health` verifies database connectivity after a deploy.
 
-### Database Hosting
+## Contributing
 
-- **Supabase** (Recommended): Free tier available with PostgreSQL + connection pooling
-- **Vercel Postgres**: Built-in PostgreSQL for Vercel projects
-- **Railway**: Easy PostgreSQL hosting
+Read [`AGENTS.md`](AGENTS.md) first. Before committing:
 
-## Project Structure
-
-```
-mentors-prep-app/
-├── app/
-│   ├── api/              # API routes
-│   ├── dashboard/        # Dashboard pages
-│   ├── login/            # Login page
-│   └── layout.tsx        # Root layout
-├── components/ui/        # shadcn/ui components
-├── lib/                  # Utilities and configurations
-├── prisma/               # Database schema and seeds
-└── types/                # TypeScript type definitions
+```bash
+bun db:generate    # only if prisma/schema.prisma changed
+bunx tsc --noEmit
+bun lint
+bun test:run
 ```
