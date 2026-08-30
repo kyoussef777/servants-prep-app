@@ -85,6 +85,10 @@ export function useSundaySchoolDashboard(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/dashboard', fetcher, { ...defaultSWRConfig, ...options })
 }
 
+export function useSundaySchoolAgeGroups(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/age-groups', fetcher, { ...defaultSWRConfig, ...options })
+}
+
 export function useSundaySchoolClasses(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/classes', fetcher, { ...defaultSWRConfig, ...options })
 }

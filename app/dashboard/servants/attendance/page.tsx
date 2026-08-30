@@ -12,8 +12,7 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/admin/page-header'
 import { AttendanceStatusButtons } from '@/components/attendance-status-buttons'
-import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { canAccessSundaySchool, canTakeSundaySchoolAttendance } from '@/lib/roles'
+import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClasses } from '@/lib/swr'
 import {
   getChildFullName,
@@ -29,11 +28,11 @@ import type {
   SundaySchoolSession,
   SundaySchoolSessionAttendance,
 } from '@/types/sunday-school'
-import { AttendanceStatus, UserRole } from '@prisma/client'
+import { AttendanceStatus } from '@prisma/client'
 import { Save } from 'lucide-react'
 
 function SundaySchoolAttendanceContent() {
-  const { session, status } = useAdminGuard(canAccessSundaySchool)
+  const { status } = useSundaySchoolGuard()
   const searchParams = useSearchParams()
 
   const { data: classesData, isLoading: classesLoading } = useSundaySchoolClasses()
@@ -47,8 +46,9 @@ function SundaySchoolAttendanceContent() {
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
-  const role = session?.user?.role as UserRole | undefined
-  const canEdit = role ? canTakeSundaySchoolAttendance(role) : false
+  // The server decides per class whether this person may record attendance
+  const selectedClass = classes.find(c => c.id === selectedClassId)
+  const canEdit = selectedClass?.canServe ?? false
 
   // Preselect the class from the dashboard link, else the first one available
   useEffect(() => {
@@ -182,8 +182,6 @@ function SundaySchoolAttendanceContent() {
   if (status === 'loading' || classesLoading) {
     return <PageLoading />
   }
-
-  const selectedClass = classes.find(c => c.id === selectedClassId)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">

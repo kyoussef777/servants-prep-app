@@ -267,14 +267,56 @@ async function main() {
     })
   }
 
-  // Sunday School mode: a class, its servant, and a few children
+  // Sunday School mode: the age-group bands, a class, its servants, children
   console.log('Creating Sunday School sample data...')
+
+  // Bands are data, not an enum, so this is a starting point the church can
+  // redraw. A grade belongs to exactly one band.
+  const ageGroupSeeds = [
+    {
+      name: 'Elementary',
+      sortOrder: 0,
+      levels: ['PRE_K', 'KINDERGARTEN', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5'] as const,
+    },
+    { name: 'Middle School', sortOrder: 1, levels: ['GRADE_6', 'GRADE_7', 'GRADE_8'] as const },
+    {
+      name: 'High School',
+      sortOrder: 2,
+      levels: ['GRADE_9', 'GRADE_10', 'GRADE_11', 'GRADE_12'] as const,
+    },
+  ]
+
+  for (const group of ageGroupSeeds) {
+    await prisma.sundaySchoolAgeGroup.upsert({
+      where: { name: group.name },
+      update: {},
+      create: { name: group.name, sortOrder: group.sortOrder, levels: [...group.levels] },
+    })
+  }
+
+  const elementary = await prisma.sundaySchoolAgeGroup.findUniqueOrThrow({
+    where: { name: 'Elementary' },
+  })
+
   const servant = await prisma.user.upsert({
     where: { email: 'servant@church.com' },
     update: {},
     create: {
       email: 'servant@church.com',
       name: 'Marina Fahmy',
+      password: hashedPassword,
+      role: 'SERVANT',
+    },
+  })
+
+  // Coordinates the whole Elementary band: every elementary class, plus the
+  // power to open and close classes within it.
+  const elementaryCoordinator = await prisma.user.upsert({
+    where: { email: 'elementary.coordinator@church.com' },
+    update: {},
+    create: {
+      email: 'elementary.coordinator@church.com',
+      name: 'Sandra Wahba',
       password: hashedPassword,
       role: 'SERVANT',
     },
@@ -295,20 +337,26 @@ async function main() {
     },
   })
 
-  await prisma.sundaySchoolClassServant.upsert({
-    where: {
-      classId_servantId: {
-        classId: sundaySchoolClass.id,
-        servantId: servant.id,
+  const assignmentSeeds = [
+    { userId: servant.id, classId: sundaySchoolClass.id, ageGroupId: null, authority: 'SERVANT' as const },
+    { userId: elementaryCoordinator.id, classId: null, ageGroupId: elementary.id, authority: 'COORDINATOR' as const },
+  ]
+
+  for (const assignment of assignmentSeeds) {
+    const existing = await prisma.sundaySchoolServantAssignment.findFirst({
+      where: {
+        userId: assignment.userId,
+        academicYearId: academicYear.id,
+        classId: assignment.classId,
+        ageGroupId: assignment.ageGroupId,
       },
-    },
-    update: {},
-    create: {
-      classId: sundaySchoolClass.id,
-      servantId: servant.id,
-      isLead: true,
-    },
-  })
+    })
+    if (!existing) {
+      await prisma.sundaySchoolServantAssignment.create({
+        data: { ...assignment, academicYearId: academicYear.id },
+      })
+    }
+  }
 
   const sampleChildren = [
     { firstName: 'Mina', lastName: 'Girgis', guardianName: 'Nader Girgis', guardianPhone: '555-0101' },

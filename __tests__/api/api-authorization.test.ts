@@ -6,9 +6,10 @@ import {
   canManageAllUsers,
   canViewStudents,
   canAssignMentors,
-  canAccessSundaySchool,
-  canTakeSundaySchoolAttendance,
-  canManageSundaySchoolClasses,
+  canAdministerSundaySchool,
+  seesAllSundaySchoolClasses,
+  isSundaySchoolReadOnly,
+  canBeAssignedToSundaySchool,
   canServantPrepManageRole,
 } from '@/lib/roles'
 
@@ -180,40 +181,50 @@ describe('API Authorization Patterns', () => {
   })
 
   describe('Sunday School mode authorization', () => {
-    describe('/api/sunday-school/{classes,children,sessions} read access', () => {
-      it('SERVANT and the admin roles can read Sunday School data', () => {
-        expect(canAccessSundaySchool(UserRole.SERVANT)).toBe(true)
-        expect(canAccessSundaySchool(UserRole.SUPER_ADMIN)).toBe(true)
-        expect(canAccessSundaySchool(UserRole.SERVANT_PREP)).toBe(true)
-        expect(canAccessSundaySchool(UserRole.PRIEST)).toBe(true)
-      })
+    // The per-class checks live in __tests__/lib/sunday-school-access.test.ts.
+    // What matters here is that no prep-side role is a way in.
 
-      it('prep-only roles are rejected', () => {
-        expect(canAccessSundaySchool(UserRole.MENTOR)).toBe(false)
-        expect(canAccessSundaySchool(UserRole.STUDENT)).toBe(false)
-      })
-    })
-
-    describe('/api/sunday-school/attendance/batch write access', () => {
-      it('PRIEST is read-only here, as everywhere else', () => {
-        expect(canAccessSundaySchool(UserRole.PRIEST)).toBe(true)
-        expect(canTakeSundaySchoolAttendance(UserRole.PRIEST)).toBe(false)
-      })
-
-      it('SERVANT and editing admins can record attendance', () => {
-        expect(canTakeSundaySchoolAttendance(UserRole.SERVANT)).toBe(true)
-        expect(canTakeSundaySchoolAttendance(UserRole.SUPER_ADMIN)).toBe(true)
-        expect(canTakeSundaySchoolAttendance(UserRole.SERVANT_PREP)).toBe(true)
+    describe('route entry is not granted by a role', () => {
+      it('only SUPER_ADMIN and PRIEST see Sunday School without an assignment', () => {
+        expect(seesAllSundaySchoolClasses(UserRole.SUPER_ADMIN)).toBe(true)
+        expect(seesAllSundaySchoolClasses(UserRole.PRIEST)).toBe(true)
+        // A prep leader reaches Sunday School only through their own
+        // assignments — running the prep program grants nothing here
+        expect(seesAllSundaySchoolClasses(UserRole.SERVANT_PREP)).toBe(false)
+        expect(seesAllSundaySchoolClasses(UserRole.SERVANT)).toBe(false)
+        expect(seesAllSundaySchoolClasses(UserRole.MENTOR)).toBe(false)
+        expect(seesAllSundaySchoolClasses(UserRole.STUDENT)).toBe(false)
       })
     })
 
-    describe('/api/sunday-school/classes write access', () => {
-      it('only leaders create classes and assign servants', () => {
-        expect(canManageSundaySchoolClasses(UserRole.SUPER_ADMIN)).toBe(true)
-        expect(canManageSundaySchoolClasses(UserRole.SERVANT_PREP)).toBe(true)
-        // A servant serves a class, but does not create one or staff it
-        expect(canManageSundaySchoolClasses(UserRole.SERVANT)).toBe(false)
-        expect(canManageSundaySchoolClasses(UserRole.PRIEST)).toBe(false)
+    describe('/api/sunday-school/age-groups write access', () => {
+      it('is SUPER_ADMIN only — redrawing bands changes who coordinates what', () => {
+        expect(canAdministerSundaySchool(UserRole.SUPER_ADMIN)).toBe(true)
+        expect(canAdministerSundaySchool(UserRole.SERVANT_PREP)).toBe(false)
+        expect(canAdministerSundaySchool(UserRole.PRIEST)).toBe(false)
+        expect(canAdministerSundaySchool(UserRole.SERVANT)).toBe(false)
+      })
+    })
+
+    describe('PRIEST stays read-only here as everywhere', () => {
+      it('sees Sunday School but is refused every write', () => {
+        expect(seesAllSundaySchoolClasses(UserRole.PRIEST)).toBe(true)
+        expect(isSundaySchoolReadOnly(UserRole.PRIEST)).toBe(true)
+        expect(canAdministerSundaySchool(UserRole.PRIEST)).toBe(false)
+      })
+    })
+
+    describe('/api/sunday-school/assignments target validation', () => {
+      it('accepts only servant-side accounts', () => {
+        expect(canBeAssignedToSundaySchool(UserRole.SERVANT)).toBe(true)
+        expect(canBeAssignedToSundaySchool(UserRole.SERVANT_PREP)).toBe(true)
+      })
+
+      it('rejects students, mentors, priests and admins', () => {
+        expect(canBeAssignedToSundaySchool(UserRole.STUDENT)).toBe(false)
+        expect(canBeAssignedToSundaySchool(UserRole.MENTOR)).toBe(false)
+        expect(canBeAssignedToSundaySchool(UserRole.PRIEST)).toBe(false)
+        expect(canBeAssignedToSundaySchool(UserRole.SUPER_ADMIN)).toBe(false)
       })
     })
 
@@ -228,10 +239,13 @@ describe('API Authorization Patterns', () => {
     })
 
     describe('SERVANT_PREP user management scope', () => {
-      it('covers Student, Mentor, and Sunday School Servant', () => {
+      it('covers Student and Mentor only', () => {
         expect(canServantPrepManageRole(UserRole.STUDENT)).toBe(true)
         expect(canServantPrepManageRole(UserRole.MENTOR)).toBe(true)
-        expect(canServantPrepManageRole(UserRole.SERVANT)).toBe(true)
+      })
+
+      it('does not cover Sunday School servants', () => {
+        expect(canServantPrepManageRole(UserRole.SERVANT)).toBe(false)
       })
 
       it('never covers priests or admins', () => {

@@ -1,206 +1,252 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { UserRole, SundaySchoolGrade, YearLevel } from "@prisma/client"
-import { canManageSundaySchool, isAdmin } from "@/lib/roles"
-import { getMentorStudentIds } from "@/lib/api-utils"
+import { handleApiError } from "@/lib/api-utils"
+import { canBeAssignedToSundaySchool } from "@/lib/roles"
+import {
+  canCoordinateAgeGroup,
+  canCoordinateClass,
+  getSundaySchoolAccess,
+  visibleClassFilter,
+} from "@/lib/sunday-school-access"
+import { SundaySchoolAuthority } from "@prisma/client"
 
-// GET /api/sunday-school/assignments - List assignments with filters
-// Query params:
-//   ?studentId=xxx - filter by student
-//   ?academicYearId=xxx - filter by academic year
-//   ?grade=GRADE_1 - filter by Sunday School grade
-//   ?isActive=true - filter by active status
+// Sunday School mode: who serves or coordinates what.
+//
+// An assignment names exactly one scope — a class or an age group — for one
+// academic year. This is the only thing that grants Sunday School authority;
+// no role does. Assigning into a scope requires coordinating that scope.
+
+async function resolveAcademicYearId(requested?: string | null): Promise<string | null> {
+  if (requested) return requested
+  const active = await prisma.academicYear.findFirst({
+    where: { isActive: true },
+    select: { id: true },
+  })
+  return active?.id ?? null
+}
+
+// GET /api/sunday-school/assignments
+// Query params: ?classId=xxx  ?ageGroupId=xxx  ?userId=xxx  ?academicYearId=xxx
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
 
     const { searchParams } = new URL(request.url)
-    const studentId = searchParams.get("studentId")
-    const academicYearId = searchParams.get("academicYearId")
-    const grade = searchParams.get("grade")
-    const isActive = searchParams.get("isActive")
+    const classId = searchParams.get("classId")
+    const ageGroupId = searchParams.get("ageGroupId")
+    const userId = searchParams.get("userId")
+    const academicYearId = await resolveAcademicYearId(searchParams.get("academicYearId"))
 
-    const where: Record<string, unknown> = {}
-    if (studentId) where.studentId = studentId
-    if (academicYearId) where.academicYearId = academicYearId
-    if (grade) where.grade = grade as SundaySchoolGrade
-    if (isActive !== null && isActive !== undefined) where.isActive = isActive === "true"
-
-    // Role-based filtering
-    if (user.role === UserRole.STUDENT) {
-      where.studentId = user.id
-    } else if (user.role === UserRole.MENTOR) {
-      const menteeIds = await getMentorStudentIds(user.id, user.role)
-      if (menteeIds) {
-        where.studentId = { in: menteeIds }
-      }
-    } else if (!isAdmin(user.role)) {
+    const access = await getSundaySchoolAccess(user, academicYearId ?? undefined)
+    if (!access.canRead) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const assignments = await prisma.sundaySchoolAssignment.findMany({
+    const where: Record<string, unknown> = {}
+    if (academicYearId) where.academicYearId = academicYearId
+    if (classId) where.classId = classId
+    if (ageGroupId) where.ageGroupId = ageGroupId
+    if (userId) where.userId = userId
+
+    // Limit class-scoped rows to classes this user can see. Band-scoped rows
+    // are visible to anyone with access — knowing who runs High School is not
+    // sensitive, and coordinators need it to know whom to ask.
+    const allowedClassIds = visibleClassFilter(access)
+    if (allowedClassIds) {
+      where.OR = [{ classId: { in: allowedClassIds } }, { classId: null }]
+    }
+
+    const assignments = await prisma.sundaySchoolServantAssignment.findMany({
       where,
       include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        academicYear: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        assigner: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        logs: {
-          orderBy: { weekNumber: "asc" },
-        },
+        user: { select: { id: true, name: true, email: true, role: true, profileImageUrl: true } },
+        class: { select: { id: true, name: true, level: true } },
+        ageGroup: { select: { id: true, name: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
     })
 
     return NextResponse.json(assignments)
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch assignments" },
-      { status: error instanceof Error && error.message === "Unauthorized" ? 401 : 500 }
-    )
+    return handleApiError(error)
   }
 }
 
-// POST /api/sunday-school/assignments - Create a new assignment
-// Body: { studentId, grade, academicYearId, totalWeeks?, startDate }
+// POST /api/sunday-school/assignments - Assign someone to a class or a band
+// Body: { userId, authority, classId? | ageGroupId?, academicYearId? }
 export async function POST(request: Request) {
   try {
-    const user = await requireAuth()
+    const actor = await requireAuth()
 
-    if (!canManageSundaySchool(user.role)) {
+    const body = await request.json()
+    const { userId, authority, classId, ageGroupId } = body
+
+    if (!userId) {
+      return NextResponse.json({ error: "userId is required" }, { status: 400 })
+    }
+    if (!Object.values(SundaySchoolAuthority).includes(authority)) {
+      return NextResponse.json(
+        { error: `authority must be one of: ${Object.values(SundaySchoolAuthority).join(", ")}` },
+        { status: 400 }
+      )
+    }
+    if (Boolean(classId) === Boolean(ageGroupId)) {
+      return NextResponse.json(
+        { error: "An assignment names exactly one scope: either a class or an age group" },
+        { status: 400 }
+      )
+    }
+    if (ageGroupId && authority !== SundaySchoolAuthority.COORDINATOR) {
+      return NextResponse.json(
+        { error: "An age-group assignment is always a coordinator" },
+        { status: 400 }
+      )
+    }
+
+    const academicYearId = await resolveAcademicYearId(body.academicYearId)
+    if (!academicYearId) {
+      return NextResponse.json(
+        { error: "No active academic year. Create one before assigning servants." },
+        { status: 400 }
+      )
+    }
+
+    const access = await getSundaySchoolAccess(actor, academicYearId)
+
+    if (classId) {
+      const target = await prisma.sundaySchoolClass.findUnique({
+        where: { id: classId },
+        select: { id: true, academicYearId: true },
+      })
+      if (!target) {
+        return NextResponse.json({ error: "Class not found" }, { status: 404 })
+      }
+      if (target.academicYearId !== academicYearId) {
+        return NextResponse.json(
+          { error: "That class belongs to a different academic year" },
+          { status: 400 }
+        )
+      }
+      if (!canCoordinateClass(access, classId)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+    } else {
+      const target = await prisma.sundaySchoolAgeGroup.findUnique({
+        where: { id: ageGroupId },
+        select: { id: true },
+      })
+      if (!target) {
+        return NextResponse.json({ error: "Age group not found" }, { status: 404 })
+      }
+      // Only a super admin appoints an age-group coordinator; a band
+      // coordinator cannot appoint their own peers.
+      if (!access.isAdmin) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+    }
+
+    const assignee = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, isDisabled: true },
+    })
+    if (!assignee) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+    if (!canBeAssignedToSundaySchool(assignee.role)) {
+      return NextResponse.json(
+        { error: "Only Sunday School Servant and Servants Prep Leader accounts can be assigned" },
+        { status: 400 }
+      )
+    }
+
+    // Postgres unique indexes treat NULLs as distinct, so the duplicate check
+    // has to be explicit rather than a constraint.
+    const existing = await prisma.sundaySchoolServantAssignment.findFirst({
+      where: {
+        userId,
+        academicYearId,
+        classId: classId ?? null,
+        ageGroupId: ageGroupId ?? null,
+      },
+    })
+    if (existing) {
+      if (existing.authority === authority) {
+        return NextResponse.json(
+          { error: "That person already has this assignment" },
+          { status: 409 }
+        )
+      }
+      // Promoting a servant to coordinator (or back) edits the row in place
+      const promoted = await prisma.sundaySchoolServantAssignment.update({
+        where: { id: existing.id },
+        data: { authority, assignedBy: actor.id },
+        include: {
+          user: { select: { id: true, name: true, email: true, role: true, profileImageUrl: true } },
+          class: { select: { id: true, name: true, level: true } },
+          ageGroup: { select: { id: true, name: true } },
+        },
+      })
+      return NextResponse.json(promoted)
+    }
+
+    const created = await prisma.sundaySchoolServantAssignment.create({
+      data: {
+        userId,
+        academicYearId,
+        authority,
+        classId: classId ?? null,
+        ageGroupId: ageGroupId ?? null,
+        assignedBy: actor.id,
+      },
+      include: {
+        user: { select: { id: true, name: true, email: true, role: true, profileImageUrl: true } },
+        class: { select: { id: true, name: true, level: true } },
+        ageGroup: { select: { id: true, name: true } },
+      },
+    })
+
+    return NextResponse.json(created, { status: 201 })
+  } catch (error: unknown) {
+    return handleApiError(error)
+  }
+}
+
+// DELETE /api/sunday-school/assignments?id=xxx - Remove an assignment
+export async function DELETE(request: Request) {
+  try {
+    const actor = await requireAuth()
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 })
+    }
+
+    const assignment = await prisma.sundaySchoolServantAssignment.findUnique({
+      where: { id },
+      select: { id: true, classId: true, ageGroupId: true, academicYearId: true },
+    })
+    if (!assignment) {
+      return NextResponse.json({ error: "Assignment not found" }, { status: 404 })
+    }
+
+    const access = await getSundaySchoolAccess(actor, assignment.academicYearId)
+
+    const allowed = assignment.classId
+      ? canCoordinateClass(access, assignment.classId)
+      : assignment.ageGroupId
+        ? access.isAdmin && canCoordinateAgeGroup(access, assignment.ageGroupId)
+        : false
+
+    if (!allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const body = await request.json()
-    const { studentId, grade, academicYearId, totalWeeks, startDate } = body
+    await prisma.sundaySchoolServantAssignment.delete({ where: { id } })
 
-    if (!studentId || !grade || !academicYearId || !startDate) {
-      return NextResponse.json(
-        { error: "Missing required fields: studentId, grade, academicYearId, startDate" },
-        { status: 400 }
-      )
-    }
-
-    // Validate grade enum
-    const validGrades = Object.values(SundaySchoolGrade)
-    if (!validGrades.includes(grade as SundaySchoolGrade)) {
-      return NextResponse.json(
-        { error: `Invalid grade. Must be one of: ${validGrades.join(", ")}` },
-        { status: 400 }
-      )
-    }
-
-    // Validate totalWeeks range
-    const weeks = totalWeeks || 6
-    if (weeks < 1 || weeks > 52) {
-      return NextResponse.json(
-        { error: "totalWeeks must be between 1 and 52" },
-        { status: 400 }
-      )
-    }
-
-    // Validate startDate
-    const parsedStartDate = new Date(startDate)
-    if (isNaN(parsedStartDate.getTime())) {
-      return NextResponse.json(
-        { error: "Invalid startDate format" },
-        { status: 400 }
-      )
-    }
-
-    // Validate student is async
-    const enrollment = await prisma.studentEnrollment.findUnique({
-      where: { studentId },
-    })
-
-    if (!enrollment) {
-      return NextResponse.json(
-        { error: "Student enrollment not found" },
-        { status: 404 }
-      )
-    }
-
-    if (!enrollment.isAsyncStudent) {
-      return NextResponse.json(
-        { error: "Student is not marked as async. Only async students can have Sunday School assignments." },
-        { status: 400 }
-      )
-    }
-
-    // Check for existing assignment for this student + academic year
-    const existing = await prisma.sundaySchoolAssignment.findUnique({
-      where: {
-        studentId_academicYearId: {
-          studentId,
-          academicYearId,
-        },
-      },
-    })
-
-    if (existing) {
-      return NextResponse.json(
-        { error: "Student already has an assignment for this academic year" },
-        { status: 409 }
-      )
-    }
-
-    // Normalize startDate to midnight
-    parsedStartDate.setHours(0, 0, 0, 0)
-
-    const assignment = await prisma.sundaySchoolAssignment.create({
-      data: {
-        studentId,
-        grade: grade as SundaySchoolGrade,
-        academicYearId,
-        yearLevel: enrollment.yearLevel as YearLevel,
-        totalWeeks: weeks,
-        startDate: parsedStartDate,
-        assignedBy: user.id,
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        academicYear: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        assigner: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json(assignment, { status: 201 })
+    return NextResponse.json({ success: true })
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create assignment" },
-      { status: error instanceof Error && error.message === "Unauthorized" ? 401 : 500 }
-    )
+    return handleApiError(error)
   }
 }

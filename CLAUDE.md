@@ -54,10 +54,10 @@ Six user roles with hierarchical permissions defined in `lib/roles.ts`:
 |------|-----------------|---------------|-----------------|
 | SUPER_ADMIN | Full (both modes) | Yes | All users |
 | PRIEST | Full (read-only, both modes) | No | None |
-| SERVANT_PREP | Full (both modes) | Yes | STUDENT, MENTOR & SERVANT only |
+| SERVANT_PREP | Prep program; Sunday School only if personally assigned | Prep yes | STUDENT & MENTOR only |
 | MENTOR | Own mentees only | No | None |
 | STUDENT | Own data only | No | None |
-| SERVANT | Sunday School mode only | Sunday School only | None |
+| SERVANT | Sunday School only, scoped to their assignments | Sunday School only | None |
 
 **Key permission helpers:**
 - `isAdmin(role)` - SUPER_ADMIN, PRIEST, SERVANT_PREP (can view admin dashboard)
@@ -65,14 +65,16 @@ Six user roles with hierarchical permissions defined in `lib/roles.ts`:
 - `canManageData(role)` - SUPER_ADMIN and SERVANT_PREP (attendance, exams, curriculum)
 - `isReadOnlyAdmin(role)` - PRIEST only (has view access but cannot edit)
 - `canViewStudents(role)` - All admin roles + MENTOR (filtered by assignment)
-- `canAccessSundaySchool(role)` - SERVANT + all admin roles
-- `canManageSundaySchoolClasses(role)` - SUPER_ADMIN and SERVANT_PREP (create classes, assign servants)
-- `canTakeSundaySchoolAttendance(role)` / `canManageSundaySchoolChildren(role)` - SERVANT + SUPER_ADMIN + SERVANT_PREP (PRIEST read-only)
 - `canServantPrepManageRole(targetRole)` - the roles a SERVANT_PREP may create/edit/delete (`SERVANT_PREP_MANAGEABLE_ROLES`)
+- `canAdministerSundaySchool(role)` - SUPER_ADMIN only (age groups, servant accounts, any class)
+- `seesAllSundaySchoolClasses(role)` - SUPER_ADMIN and PRIEST (everyone else needs an assignment)
+- `canBeAssignedToSundaySchool(role)` - SERVANT and SERVANT_PREP
 
-**Important:** SERVANT_PREP can only create/edit/delete STUDENT, MENTOR, and SERVANT users. API routes enforce this at both query and mutation levels.
+**Important:** SERVANT_PREP can only create/edit/delete STUDENT and MENTOR users. Servant accounts are SUPER_ADMIN-only. API routes enforce this at both query and mutation levels.
 
 **SERVANT isolation:** every prep-side helper is an explicit allowlist, so SERVANT is denied prep access by construction. `__tests__/lib/roles.test.ts` pins this — keep that test passing when adding a helper.
+
+**Sunday School authority is not a role.** See the section below.
 
 ### Authentication (NextAuth.js)
 
@@ -109,19 +111,38 @@ Exam ←──→ ExamScore ←──→ User (student)
 StudentNote ←──→ User (student, author)
 
 # Sunday School mode (independent of everything above)
-SundaySchoolClass ←──→ SundaySchoolClassServant ←──→ User (SERVANT)
-   ↓                ↓
-   → SundaySchoolChild[]      → SundaySchoolSession[] (one per week)
-                                    ↓
-                                    → SundaySchoolChildAttendance ←──→ SundaySchoolChild
+SundaySchoolAgeGroup (Elementary / Middle / High, owns a set of levels)
+   ↑ band derived from class.level — no FK
+SundaySchoolClass ←──→ SundaySchoolServantAssignment ──→ User
+   ↓                   (scope: one class OR one age group; per academic year)
+   → SundaySchoolChild[]
+   → SundaySchoolSession[] (one per week)
+        ↓
+        → SundaySchoolChildAttendance ←──→ SundaySchoolChild
 ```
 
+### Sunday School authority (`lib/sunday-school-access.ts`)
+
+**Authority is not a role — it comes from an assignment.** A `SundaySchoolServantAssignment` names one person, one academic year, an authority (`SERVANT` or `COORDINATOR`), and exactly one scope: a class or an age group. This is what lets one person wear two hats — a `SERVANT_PREP` who also serves gets in because they are assigned, not because of their prep title. An unassigned `SERVANT_PREP` has no Sunday School access at all.
+
+| Who | Can do |
+|---|---|
+| SUPER_ADMIN | Everything, all classes. Manages age groups and servant accounts. |
+| PRIEST | Reads all classes; every write refused. |
+| Age-group coordinator | Everything a class coordinator can, across every class in their band, **plus create and delete classes in it**. Sees only their own band. |
+| Class coordinator | Edits their class, staffs it, manages its children and attendance. No create/delete. |
+| Servant of a class | That class's children and attendance. |
+
+Routes call `getSundaySchoolAccess(user, academicYearId?)` and then a pure predicate — `canServeClass`, `canCoordinateClass`, `canCreateClassAtLevel`, `canDeleteClass`, `canCoordinateAgeGroup`. **Always re-derive authority from the database in the route**; the coarse `session.user.sundaySchool` standing (set in `lib/auth.ts`) is for rendering only.
+
 **Sunday School mode notes:**
-- Children are data rows (`SundaySchoolChild`), not `User`s — they never log in. Guardian contact is returned only by `/api/sunday-school/children*`, to servants of that child's class and to admins.
-- `SundaySchoolSession.date` is normalized to **midnight UTC** (`normalizeSessionDate` in `lib/sunday-school-class.ts`) so `@@unique([classId, date])` gives one session per class per day. Render with `formatDateUTC`.
+- **A class's band is derived from its `level`** — whichever age group lists it. There is no `ageGroupId` on the class, so moving a grade between bands re-parents its classes with no migration. The API enforces that a level belongs to at most one band (`assertLevelsUnclaimed`).
+- Age groups are a table, not an enum, seeded with Elementary / Middle / High so the church can redraw them.
+- Children are data rows (`SundaySchoolChild`), not `User`s — they never log in. Guardian contact is returned only by `/api/sunday-school/children*`, to people who serve that child's class and to admins.
+- `SundaySchoolSession.date` is normalized to **midnight UTC** (`normalizeSessionDate`) so `@@unique([classId, date])` gives one session per class per day. Render with `formatDateUTC`.
 - Sessions are created on first save, not on page load, so browsing dates leaves no empty rows.
 - `SundaySchoolLevel` (Pre-K–12) is a separate enum from the prep-side `SundaySchoolGrade` (Pre-K–`GRADE_6_PLUS`), which belongs to the async-student serving-verification flow and is untouched by this mode.
-- A `SERVANT` is scoped to their assigned classes via `getServantClassIds` in `lib/api-utils.ts` (same contract as `getMentorStudentIds`: returns `undefined` when no filter is needed).
+- `SundaySchoolServantAssignment` is distinct from the prep-side `SundaySchoolAssignment`, which tracks async students serving their required weeks.
 
 **Key Fields:**
 - `StudentEnrollment.studentId` is UNIQUE (one enrollment per student)
@@ -136,6 +157,7 @@ SundaySchoolClass ←──→ SundaySchoolClassServant ←──→ User (SERVA
 - `LessonStatus`: SCHEDULED, CANCELLED, COMPLETED
 - `ExamSectionType`: 8 sections (BIBLE_STUDIES, DOGMA, etc.)
 - `SundaySchoolLevel`: PRE_K, KINDERGARTEN, GRADE_1 … GRADE_12 (Sunday School mode)
+- `SundaySchoolAuthority`: SERVANT, COORDINATOR
 
 ### Graduation Requirements
 
@@ -182,11 +204,14 @@ export async function POST(req: NextRequest) {
 - `/api/health` - Database connectivity check
 
 **Sunday School mode endpoints** (`app/api/sunday-school/`) — note the older `assignments`, `codes`, `logs`, and `progress` routes in the same folder belong to the *prep* serving-verification flow, not this mode:
-- `/api/sunday-school/classes` (+ `/[id]`, `/[id]/servants`) - class CRUD and servant assignment
+- `/api/sunday-school/age-groups` (+ `/[id]`) - the bands and their grade levels (SUPER_ADMIN writes)
+- `/api/sunday-school/assignments` - who serves or coordinates what; the only thing granting authority
+- `/api/sunday-school/assignable-servants` - picker source for coordinators (so they never need admin-only `/api/users`)
+- `/api/sunday-school/classes` (+ `/[id]`) - class CRUD
 - `/api/sunday-school/children` (+ `/[id]`) - child roster CRUD (the only place guardian contact is returned)
 - `/api/sunday-school/sessions` (+ `/[id]`, `/[id]/attendance`) - weekly sessions and their roster
 - `/api/sunday-school/attendance/batch` - bulk child attendance save
-- `/api/sunday-school/dashboard` - per-class summary for the mode's landing page
+- `/api/sunday-school/dashboard` - per-class summary, grouped by age group
 
 ### UI Patterns
 

@@ -20,7 +20,7 @@ import {
   School,
   X,
 } from 'lucide-react'
-import { isAdmin, canManageUsers, canManageEnrollments, canAccessSundaySchool } from '@/lib/roles'
+import { isAdmin, canManageUsers, canManageEnrollments } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
 
 interface SearchUser {
@@ -43,7 +43,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
 }
 
-function getNavItemsForRole(role: UserRole): NavItem[] {
+function getNavItemsForRole(role: UserRole, hasSundaySchool: boolean): NavItem[] {
   if (role === 'STUDENT') {
     return [
       { label: 'My Progress', href: '/dashboard/student', icon: LayoutDashboard },
@@ -89,7 +89,7 @@ function getNavItemsForRole(role: UserRole): NavItem[] {
     items.push({ label: 'Users', href: '/dashboard/admin/users', icon: Users })
     items.push({ label: 'Registrations', href: '/dashboard/admin/registrations', icon: FileText })
   }
-  if (canAccessSundaySchool(role)) {
+  if (hasSundaySchool) {
     items.push({ label: 'Sunday School', href: '/dashboard/servants', icon: School })
     items.push({ label: 'Sunday School Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck })
   }
@@ -204,7 +204,10 @@ export function CommandPalette() {
 
   if (!session?.user) return null
 
-  const navItems = getNavItemsForRole(session.user.role)
+  const navItems = getNavItemsForRole(
+    session.user.role,
+    session.user.sundaySchool?.hasAccess ?? false
+  )
   const role = session.user.role
   const canSearchStudents = isAdmin(role) || role === 'MENTOR'
   const studentHref = (id: string) =>

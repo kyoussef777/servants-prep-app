@@ -20,12 +20,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { canAccessSundaySchool, canManageSundaySchoolChildren } from '@/lib/roles'
+import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolChildren, useSundaySchoolClasses } from '@/lib/swr'
 import { getChildFullName, getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
 import type { SundaySchoolChild, SundaySchoolClass } from '@/types/sunday-school'
-import { SundaySchoolLevel, UserRole } from '@prisma/client'
+import { SundaySchoolLevel } from '@prisma/client'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 
 interface ChildForm {
@@ -51,7 +50,7 @@ const EMPTY_FORM: ChildForm = {
 }
 
 function SundaySchoolChildrenContent() {
-  const { session, status } = useAdminGuard(canAccessSundaySchool)
+  const { status } = useSundaySchoolGuard()
   const searchParams = useSearchParams()
 
   const { data: classesData } = useSundaySchoolClasses()
@@ -65,8 +64,9 @@ function SundaySchoolChildrenContent() {
   const [form, setForm] = useState<ChildForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
 
-  const role = session?.user?.role as UserRole | undefined
-  const canManage = role ? canManageSundaySchoolChildren(role) : false
+  // Editing a roster follows from serving that class, which the server decides
+  const selectedClass = classes.find(c => c.id === selectedClassId)
+  const canManage = selectedClass?.canServe ?? false
 
   useEffect(() => {
     if (selectedClassId || classes.length === 0) return

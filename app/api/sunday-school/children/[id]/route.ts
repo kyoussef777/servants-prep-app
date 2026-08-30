@@ -1,20 +1,28 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { canAccessSundaySchool, canManageSundaySchoolChildren } from "@/lib/roles"
-import { getServantClassIds, handleApiError } from "@/lib/api-utils"
+import { handleApiError } from "@/lib/api-utils"
+import {
+  canServeClass,
+  canViewClass,
+  getSundaySchoolAccess,
+  type SundaySchoolAccess,
+} from "@/lib/sunday-school-access"
 import { isValidLevel } from "@/lib/sunday-school-class"
 
 // Sunday School mode: a single child on a Sunday School roster.
 
 /**
- * A servant may only touch children in the classes they serve. Returns the
+ * You may only touch children in classes your assignments cover. Returns the
  * child's current classId, or throws Forbidden / Not found.
+ *
+ * `write` distinguishes reading a child's record from changing it, so PRIEST
+ * can look without being able to edit.
  */
 async function loadChildForUser(
   childId: string,
-  userId: string,
-  role: Parameters<typeof getServantClassIds>[1]
+  access: SundaySchoolAccess,
+  write: boolean
 ) {
   const child = await prisma.sundaySchoolChild.findUnique({
     where: { id: childId },
@@ -24,8 +32,18 @@ async function loadChildForUser(
     throw new Error("Not found")
   }
 
-  const servantClassIds = await getServantClassIds(userId, role)
-  if (servantClassIds && (!child.classId || !servantClassIds.includes(child.classId))) {
+  if (!child.classId) {
+    // A child with no class is admin-only
+    if (!access.isAdmin && !(access.canRead && !write && access.visibleClassIds === "all")) {
+      throw new Error("Forbidden")
+    }
+    return child
+  }
+
+  const allowed = write
+    ? canServeClass(access, child.classId)
+    : canViewClass(access, child.classId)
+  if (!allowed) {
     throw new Error("Forbidden")
   }
 
@@ -41,11 +59,12 @@ export async function GET(
     const user = await requireAuth()
     const { id } = await params
 
-    if (!canAccessSundaySchool(user.role)) {
+    const access = await getSundaySchoolAccess(user)
+    if (!access.canRead) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    await loadChildForUser(id, user.id, user.role)
+    await loadChildForUser(id, access, false)
 
     const child = await prisma.sundaySchoolChild.findUnique({
       where: { id },
@@ -75,11 +94,8 @@ export async function PATCH(
     const user = await requireAuth()
     const { id } = await params
 
-    if (!canManageSundaySchoolChildren(user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    await loadChildForUser(id, user.id, user.role)
+    const access = await getSundaySchoolAccess(user)
+    await loadChildForUser(id, access, true)
 
     const body = await request.json()
     const {
@@ -116,9 +132,9 @@ export async function PATCH(
       updateData.level = level
     }
     if (classId !== undefined) {
-      // A servant cannot move a child out of (or into) a class they don't serve
-      const servantClassIds = await getServantClassIds(user.id, user.role)
-      if (servantClassIds && (!classId || !servantClassIds.includes(classId))) {
+      // Moving a child needs authority over the destination too, or a servant
+      // could push a child into a class they have nothing to do with.
+      if (classId ? !canServeClass(access, classId) : !access.isAdmin) {
         return NextResponse.json(
           { error: "You can only move a child between classes you serve" },
           { status: 403 }
@@ -166,11 +182,8 @@ export async function DELETE(
     const user = await requireAuth()
     const { id } = await params
 
-    if (!canManageSundaySchoolChildren(user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    await loadChildForUser(id, user.id, user.role)
+    const access = await getSundaySchoolAccess(user)
+    await loadChildForUser(id, access, true)
 
     await prisma.sundaySchoolChild.delete({ where: { id } })
 

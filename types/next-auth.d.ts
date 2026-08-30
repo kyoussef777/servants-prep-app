@@ -1,6 +1,15 @@
 import { UserRole } from "@prisma/client"
 import { DefaultSession } from "next-auth"
 
+/**
+ * Coarse Sunday School standing, for rendering only. Which classes and what
+ * authority is always re-derived server-side (lib/sunday-school-access.ts).
+ */
+export interface SundaySchoolStanding {
+  hasAccess: boolean
+  isCoordinator: boolean
+}
+
 declare module "next-auth" {
   interface Session {
     user: {
@@ -8,6 +17,7 @@ declare module "next-auth" {
       role: UserRole
       mustChangePassword: boolean
       isAsyncStudent: boolean
+      sundaySchool: SundaySchoolStanding
       profileImageUrl?: string | null
     } & DefaultSession["user"]
     // Dev-only: when SUPER_ADMIN is impersonating another user
@@ -22,6 +32,7 @@ declare module "next-auth" {
     role: UserRole
     mustChangePassword: boolean
     isAsyncStudent: boolean
+    sundaySchool?: SundaySchoolStanding
     profileImageUrl?: string | null
   }
 }
@@ -32,6 +43,7 @@ declare module "next-auth/jwt" {
     id: string
     mustChangePassword: boolean
     isAsyncStudent: boolean
+    sundaySchool?: SundaySchoolStanding
     profileImageUrl?: string | null
     validatedAt?: number
     invalidated?: boolean

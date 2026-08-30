@@ -97,3 +97,32 @@ export function getTodayDateInputValue(date: Date = new Date()): string {
 export function getChildFullName(child: { firstName: string; lastName: string }): string {
   return `${child.firstName} ${child.lastName}`.trim()
 }
+
+/**
+ * A grade level belongs to at most one age group, or a class would sit in two
+ * bands at once and answer to two coordinators. Prisma cannot express this, so
+ * it is checked whenever a band's levels are set.
+ *
+ * Returns an error message naming the clash, or null when the levels are free.
+ */
+export function assertLevelsUnclaimed(
+  levels: SundaySchoolLevel[],
+  otherGroups: { name: string; levels: SundaySchoolLevel[] }[]
+): string | null {
+  for (const group of otherGroups) {
+    const claimed = levels.filter(level => group.levels.includes(level))
+    if (claimed.length > 0) {
+      const names = claimed.map(getLevelDisplayName).join(', ')
+      return `${names} already belong${claimed.length === 1 ? 's' : ''} to ${group.name}`
+    }
+  }
+  return null
+}
+
+/** The age group that owns a level, if any. */
+export function findAgeGroupForLevel<T extends { levels: SundaySchoolLevel[] }>(
+  level: SundaySchoolLevel,
+  ageGroups: T[]
+): T | undefined {
+  return ageGroups.find(group => group.levels.includes(level))
+}

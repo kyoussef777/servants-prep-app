@@ -11,57 +11,74 @@ import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/admin/page-header'
-import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { canAccessSundaySchool, canManageSundaySchoolClasses } from '@/lib/roles'
+import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClass } from '@/lib/swr'
 import { getChildFullName, getLevelDisplayName } from '@/lib/sunday-school-class'
 import { formatDateUTC } from '@/lib/utils'
-import type { SundaySchoolChild, SundaySchoolClass, SundaySchoolSession } from '@/types/sunday-school'
-import { UserRole } from '@prisma/client'
+import type {
+  SundaySchoolAssignmentRow,
+  SundaySchoolChild,
+  SundaySchoolClass,
+  SundaySchoolSession,
+} from '@/types/sunday-school'
+import { SundaySchoolAuthority } from '@prisma/client'
 import { ArrowLeft, ClipboardList, Trash2, UserPlus } from 'lucide-react'
 
 interface ServantOption {
   id: string
   name: string
   email: string
+  role: string
 }
 
 interface ClassDetail extends SundaySchoolClass {
   children: SundaySchoolChild[]
   sessions: SundaySchoolSession[]
+  canServe: boolean
+  canCoordinate: boolean
+  canDelete: boolean
 }
 
 export default function SundaySchoolClassDetailPage() {
   const params = useParams<{ id: string }>()
   const classId = params?.id
-  const { session, status } = useAdminGuard(canAccessSundaySchool)
+  const { status } = useSundaySchoolGuard()
   const { data, isLoading, mutate } = useSundaySchoolClass(classId)
 
   const [servantOptions, setServantOptions] = useState<ServantOption[]>([])
   const [selectedServantId, setSelectedServantId] = useState('')
+  const [asCoordinator, setAsCoordinator] = useState(false)
   const [assigning, setAssigning] = useState(false)
 
-  const role = session?.user?.role as UserRole | undefined
-  const canManage = role ? canManageSundaySchoolClasses(role) : false
+  const detail = data as ClassDetail | undefined
+  const canCoordinate = detail?.canCoordinate ?? false
 
-  // Only leaders can assign servants, so only they need the picker's options
+  // Only someone who can staff this class needs the picker's options. This
+  // endpoint exists precisely so a coordinator who is a plain servant does not
+  // need /api/users, which is admin-only.
   useEffect(() => {
-    if (!canManage) return
-    fetch('/api/users?role=SERVANT')
+    if (!canCoordinate) return
+    fetch('/api/sunday-school/assignable-servants')
       .then(res => (res.ok ? res.json() : []))
       .then(users => setServantOptions(Array.isArray(users) ? users : []))
       .catch(() => setServantOptions([]))
-  }, [canManage])
+  }, [canCoordinate])
 
   const handleAssign = async () => {
     if (!selectedServantId || !classId) return
 
     setAssigning(true)
     try {
-      const res = await fetch(`/api/sunday-school/classes/${classId}/servants`, {
+      const res = await fetch('/api/sunday-school/assignments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ servantId: selectedServantId }),
+        body: JSON.stringify({
+          userId: selectedServantId,
+          classId,
+          authority: asCoordinator
+            ? SundaySchoolAuthority.COORDINATOR
+            : SundaySchoolAuthority.SERVANT,
+        }),
       })
       const body = await res.json()
       if (!res.ok) {
@@ -70,6 +87,7 @@ export default function SundaySchoolClassDetailPage() {
 
       toast.success('Servant assigned', { description: new Date().toLocaleString() })
       setSelectedServantId('')
+      setAsCoordinator(false)
       mutate()
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to assign the servant')
@@ -78,13 +96,11 @@ export default function SundaySchoolClassDetailPage() {
     }
   }
 
-  const handleUnassign = async (servantId: string) => {
-    if (!classId) return
+  const handleUnassign = async (assignmentId: string) => {
     try {
-      const res = await fetch(
-        `/api/sunday-school/classes/${classId}/servants?servantId=${servantId}`,
-        { method: 'DELETE' }
-      )
+      const res = await fetch(`/api/sunday-school/assignments?id=${assignmentId}`, {
+        method: 'DELETE',
+      })
       if (!res.ok) {
         const body = await res.json()
         throw new Error(body.error || 'Failed to remove the servant')
@@ -100,8 +116,6 @@ export default function SundaySchoolClassDetailPage() {
     return <PageLoading />
   }
 
-  const detail = data as ClassDetail | undefined
-
   if (!detail) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
@@ -112,7 +126,10 @@ export default function SundaySchoolClassDetailPage() {
     )
   }
 
-  const assignedIds = new Set(detail.servants.map(s => s.servantId))
+  const classAssignments = (detail.assignments ?? []).filter(
+    (a: SundaySchoolAssignmentRow) => a.classId === detail.id
+  )
+  const assignedIds = new Set(classAssignments.map(a => a.userId))
   const availableServants = servantOptions.filter(s => !assignedIds.has(s.id))
 
   return (
@@ -136,11 +153,13 @@ export default function SundaySchoolClassDetailPage() {
                   Roster
                 </Link>
               </Button>
-              <Button asChild>
-                <Link href={`/dashboard/servants/attendance?classId=${detail.id}`}>
-                  Take attendance
-                </Link>
-              </Button>
+              {detail.canServe && (
+                <Button asChild>
+                  <Link href={`/dashboard/servants/attendance?classId=${detail.id}`}>
+                    Take attendance
+                  </Link>
+                </Button>
+              )}
             </div>
           }
         />
@@ -150,25 +169,27 @@ export default function SundaySchoolClassDetailPage() {
             <CardTitle>Servants</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {detail.servants.length === 0 ? (
+            {classAssignments.length === 0 ? (
               <EmptyState message="No servants assigned to this class yet." />
             ) : (
               <div className="divide-y dark:divide-gray-800">
-                {detail.servants.map(assignment => (
+                {classAssignments.map(assignment => (
                   <div key={assignment.id} className="flex items-center justify-between gap-3 py-3">
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{assignment.servant.name}</p>
+                      <p className="font-medium truncate">{assignment.user.name}</p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {assignment.servant.email}
+                        {assignment.user.email}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {assignment.isLead && <Badge className="bg-maroon-600">Lead</Badge>}
-                      {canManage && (
+                      {assignment.authority === SundaySchoolAuthority.COORDINATOR && (
+                        <Badge className="bg-maroon-600">Coordinator</Badge>
+                      )}
+                      {canCoordinate && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleUnassign(assignment.servantId)}
+                          onClick={() => handleUnassign(assignment.id)}
                         >
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
@@ -179,7 +200,7 @@ export default function SundaySchoolClassDetailPage() {
               </div>
             )}
 
-            {canManage && (
+            {canCoordinate && (
               <div className="flex flex-col sm:flex-row sm:items-end gap-2 pt-2 border-t dark:border-gray-800">
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="servant">Assign a servant</Label>
@@ -197,6 +218,14 @@ export default function SundaySchoolClassDetailPage() {
                     ))}
                   </select>
                 </div>
+                <label className="flex items-center gap-2 text-sm h-9">
+                  <input
+                    type="checkbox"
+                    checked={asCoordinator}
+                    onChange={e => setAsCoordinator(e.target.checked)}
+                  />
+                  Coordinator
+                </label>
                 <Button onClick={handleAssign} disabled={!selectedServantId || assigning}>
                   <UserPlus className="h-4 w-4 mr-1" />
                   {assigning ? 'Assigning…' : 'Assign'}

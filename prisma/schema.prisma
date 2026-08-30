@@ -99,6 +99,12 @@ enum SundaySchoolLevel {
   GRADE_12
 }
 
+// Servant vs. coordinator, at whatever scope the assignment names
+enum SundaySchoolAuthority {
+  SERVANT
+  COORDINATOR
+}
+
 enum SundaySchoolLogStatus {
   VERIFIED
   MANUAL
@@ -165,8 +171,8 @@ model User {
   markedSundaySchoolLogs   SundaySchoolLog[]        @relation("MarkedSundaySchoolLogs")
 
   // Sunday School mode relations (the Sunday School class itself)
-  sundaySchoolClasses          SundaySchoolClassServant[]    @relation("SundaySchoolClassServants")
-  assignedSundaySchoolServants SundaySchoolClassServant[]    @relation("AssignedSundaySchoolClassServants")
+  sundaySchoolServing          SundaySchoolServantAssignment[] @relation("SundaySchoolServantAssignments")
+  assignedSundaySchoolServants SundaySchoolServantAssignment[] @relation("AssignedSundaySchoolServantAssignments")
   takenSundaySchoolSessions    SundaySchoolSession[]         @relation("TakenSundaySchoolSessions")
   recordedSundaySchoolChildAttendance SundaySchoolChildAttendance[] @relation("RecordedSundaySchoolAttendance")
 
@@ -219,8 +225,9 @@ model AcademicYear {
   exams                    Exam[]
   enrollments              StudentEnrollment[]      @relation("EnrollmentYear")
   graduatedEnrollments     StudentEnrollment[]      @relation("GraduationYear")
-  sundaySchoolAssignments  SundaySchoolAssignment[]
-  sundaySchoolClasses      SundaySchoolClass[]
+  sundaySchoolAssignments        SundaySchoolAssignment[]
+  sundaySchoolClasses            SundaySchoolClass[]
+  sundaySchoolServantAssignments SundaySchoolServantAssignment[]
 
   @@index([isActive])
 }
@@ -581,14 +588,20 @@ model SundaySchoolClass {
   id             String            @id @default(cuid())
   name           String                              // e.g. "Grade 3 Boys"
   level          SundaySchoolLevel
-  academicYearId String?
+  // Required: authority over a class is scoped to its academic year, so a
+  // class with no year would be a class nobody can be assigned to.
+  academicYearId String
   isActive       Boolean           @default(true)
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
+  // A class has no ageGroupId: its band is whichever SundaySchoolAgeGroup
+  // lists its `level`. One source of truth, so moving a grade between bands
+  // re-parents its classes with no data migration.
+
   // Relations
-  academicYear AcademicYear?              @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
-  servants     SundaySchoolClassServant[]
+  academicYear AcademicYear             @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  assignments  SundaySchoolServantAssignment[]
   children     SundaySchoolChild[]
   sessions     SundaySchoolSession[]
 
@@ -598,22 +611,50 @@ model SundaySchoolClass {
   @@index([academicYearId])
 }
 
-model SundaySchoolClassServant {
-  id         String   @id @default(cuid())
-  classId    String
-  servantId  String
-  isLead     Boolean  @default(false)
+model SundaySchoolAgeGroup {
+  id        String              @id @default(cuid())
+  name      String              @unique          // "Elementary", "Middle School", "High School"
+  levels    SundaySchoolLevel[]                  // the grades this band owns
+  sortOrder Int                 @default(0)
+  isActive  Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  // Invariant enforced in the API (Prisma cannot express it): a level belongs
+  // to at most one age group, or a class would sit in two bands at once.
+
+  assignments SundaySchoolServantAssignment[]
+
+  @@index([isActive])
+}
+
+model SundaySchoolServantAssignment {
+  id             String                @id @default(cuid())
+  userId         String
+  academicYearId String
+  authority      SundaySchoolAuthority
+
+  // Exactly one of classId / ageGroupId is set. Validated in the API: Prisma
+  // cannot express the constraint, and Postgres unique indexes treat NULLs as
+  // distinct, so duplicates are caught by an explicit pre-check too.
+  classId    String?
+  ageGroupId String?
+
   assignedBy String?
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relations
-  class    SundaySchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
-  servant  User              @relation("SundaySchoolClassServants", fields: [servantId], references: [id], onDelete: Cascade)
-  assigner User?             @relation("AssignedSundaySchoolClassServants", fields: [assignedBy], references: [id], onDelete: SetNull)
+  user         User                  @relation("SundaySchoolServantAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear          @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  class        SundaySchoolClass?    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  ageGroup     SundaySchoolAgeGroup? @relation(fields: [ageGroupId], references: [id], onDelete: Cascade)
+  assigner     User?                 @relation("AssignedSundaySchoolServantAssignments", fields: [assignedBy], references: [id], onDelete: SetNull)
 
-  @@unique([classId, servantId])
+  @@index([userId, academicYearId])
   @@index([classId])
-  @@index([servantId])
+  @@index([ageGroupId])
+  @@index([academicYearId])
 }
 
 model SundaySchoolChild {

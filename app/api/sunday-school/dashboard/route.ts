@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { canAccessSundaySchool } from "@/lib/roles"
-import { getServantClassIds, handleApiError } from "@/lib/api-utils"
+import { handleApiError } from "@/lib/api-utils"
+import {
+  canCoordinateClass,
+  canServeClass,
+  getSundaySchoolAccess,
+  visibleClassFilter,
+} from "@/lib/sunday-school-access"
 import { calculateAttendanceStats } from "@/lib/attendance"
-import { getMostRecentSunday } from "@/lib/sunday-school-class"
+import { findAgeGroupForLevel, getMostRecentSunday } from "@/lib/sunday-school-class"
 
 // Sunday School mode: summary for the mode's landing page.
 // Deliberately returns no guardian contact — that stays on the child routes.
@@ -14,34 +19,41 @@ export async function GET() {
   try {
     const user = await requireAuth()
 
-    if (!canAccessSundaySchool(user.role)) {
+    const access = await getSundaySchoolAccess(user)
+    if (!access.canRead) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const servantClassIds = await getServantClassIds(user.id, user.role)
+    const allowedClassIds = visibleClassFilter(access)
 
-    const classes = await prisma.sundaySchoolClass.findMany({
-      where: {
-        isActive: true,
-        ...(servantClassIds ? { id: { in: servantClassIds } } : {}),
-      },
-      include: {
-        servants: {
-          include: { servant: { select: { id: true, name: true, profileImageUrl: true } } },
+    const [classes, ageGroups] = await Promise.all([
+      prisma.sundaySchoolClass.findMany({
+        where: {
+          isActive: true,
+          ...(allowedClassIds ? { id: { in: allowedClassIds } } : {}),
         },
-        _count: { select: { children: true } },
-        sessions: {
-          orderBy: { date: "desc" },
-          take: 1,
-          select: { id: true, date: true, topic: true },
+        include: {
+          assignments: {
+            include: { user: { select: { id: true, name: true, profileImageUrl: true } } },
+          },
+          _count: { select: { children: true } },
+          sessions: {
+            orderBy: { date: "desc" },
+            take: 1,
+            select: { id: true, date: true, topic: true },
+          },
         },
-      },
-      orderBy: { name: "asc" },
-    })
+        orderBy: { name: "asc" },
+      }),
+      prisma.sundaySchoolAgeGroup.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, levels: true, sortOrder: true },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      }),
+    ])
 
     const classIds = classes.map(c => c.id)
 
-    // All attendance for these classes, used for a simple per-class rate
     const attendance = classIds.length
       ? await prisma.sundaySchoolChildAttendance.findMany({
           where: { session: { classId: { in: classIds } } },
@@ -62,8 +74,6 @@ export async function GET() {
 
     const summaries = classes.map(cls => {
       const classAttendance = attendance.filter(a => a.session.classId === cls.id)
-      const sessionCount = sessionCountByClass.get(cls.id) ?? 0
-      const childCount = cls._count.children
 
       // Attendance rate across the marks actually recorded. Basing the
       // denominator on recorded marks rather than sessions × children keeps a
@@ -76,34 +86,50 @@ export async function GET() {
       )
 
       const latestSession = cls.sessions[0] ?? null
-      const attendanceTakenThisWeek = latestSession
-        ? new Date(latestSession.date).getTime() >= thisSunday.getTime()
-        : false
+      const band = findAgeGroupForLevel(cls.level, ageGroups)
 
       return {
         id: cls.id,
         name: cls.name,
         level: cls.level,
-        childCount,
-        sessionCount,
+        ageGroup: band ? { id: band.id, name: band.name } : null,
+        childCount: cls._count.children,
+        sessionCount: sessionCountByClass.get(cls.id) ?? 0,
         attendancePercentage: stats.percentage,
         latestSession,
-        attendanceTakenThisWeek,
-        servants: cls.servants.map(s => ({
-          id: s.servant.id,
-          name: s.servant.name,
-          profileImageUrl: s.servant.profileImageUrl,
-          isLead: s.isLead,
-        })),
+        attendanceTakenThisWeek: latestSession
+          ? new Date(latestSession.date).getTime() >= thisSunday.getTime()
+          : false,
+        canServe: canServeClass(access, cls.id),
+        canCoordinate: canCoordinateClass(access, cls.id),
+        servants: cls.assignments
+          .filter(a => a.classId === cls.id)
+          .map(a => ({
+            id: a.user.id,
+            name: a.user.name,
+            profileImageUrl: a.user.profileImageUrl,
+            isCoordinator: a.authority === "COORDINATOR",
+          })),
       }
     })
 
     return NextResponse.json({
       classes: summaries,
+      ageGroups: ageGroups.map(group => ({
+        id: group.id,
+        name: group.name,
+        levels: group.levels,
+        canCoordinate: access.isAdmin || access.coordinatorAgeGroupIds.has(group.id),
+      })),
       totals: {
         classes: summaries.length,
         children: summaries.reduce((sum, c) => sum + c.childCount, 0),
         classesNeedingAttendance: summaries.filter(c => !c.attendanceTakenThisWeek).length,
+      },
+      standing: {
+        isAdmin: access.isAdmin,
+        readOnly: access.readOnly,
+        coordinatesAnyAgeGroup: access.coordinatorAgeGroupIds.size > 0,
       },
       weekOf: thisSunday,
     })

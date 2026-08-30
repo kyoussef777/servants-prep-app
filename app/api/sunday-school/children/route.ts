@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { canAccessSundaySchool, canManageSundaySchoolChildren } from "@/lib/roles"
-import { getServantClassIds, handleApiError } from "@/lib/api-utils"
+import { handleApiError } from "@/lib/api-utils"
+import { canServeClass, getSundaySchoolAccess, visibleClassFilter } from "@/lib/sunday-school-access"
 import { isValidLevel } from "@/lib/sunday-school-class"
 import { SundaySchoolLevel } from "@prisma/client"
 
@@ -18,7 +18,8 @@ export async function GET(request: Request) {
   try {
     const user = await requireAuth()
 
-    if (!canAccessSundaySchool(user.role)) {
+    const access = await getSundaySchoolAccess(user)
+    if (!access.canRead) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -39,14 +40,14 @@ export async function GET(request: Request) {
       ]
     }
 
-    // A servant only sees children in the classes they serve. Unassigned
-    // children (no class) are admin-only.
-    const servantClassIds = await getServantClassIds(user.id, user.role)
-    if (servantClassIds) {
-      if (classId && !servantClassIds.includes(classId)) {
+    // You only see children in classes your assignments cover. Unassigned
+    // children (no class) are visible to admins and priests only.
+    const allowedClassIds = visibleClassFilter(access)
+    if (allowedClassIds) {
+      if (classId && !allowedClassIds.includes(classId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
-      where.classId = classId ? classId : { in: servantClassIds }
+      where.classId = classId ? classId : { in: allowedClassIds }
     }
 
     const children = await prisma.sundaySchoolChild.findMany({
@@ -69,10 +70,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
-
-    if (!canManageSundaySchoolChildren(user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
 
     const body = await request.json()
     const {
@@ -97,15 +94,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A valid grade level is required" }, { status: 400 })
     }
 
-    // Servants can only add children to a class they serve
-    const servantClassIds = await getServantClassIds(user.id, user.role)
-    if (servantClassIds) {
-      if (!classId || !servantClassIds.includes(classId)) {
+    // A child is added to a class you serve. An admin may also park a child
+    // with no class yet; nobody else can.
+    const access = await getSundaySchoolAccess(user)
+    if (classId) {
+      if (!canServeClass(access, classId)) {
         return NextResponse.json(
           { error: "You can only add children to a class you serve" },
           { status: 403 }
         )
       }
+    } else if (!access.isAdmin) {
+      return NextResponse.json(
+        { error: "Choose a class for this child" },
+        { status: 403 }
+      )
     }
 
     let parsedBirthDate: Date | null = null

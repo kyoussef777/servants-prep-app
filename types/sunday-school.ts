@@ -1,4 +1,4 @@
-import { AttendanceStatus, SundaySchoolLevel } from '@prisma/client'
+import { AttendanceStatus, SundaySchoolAuthority, SundaySchoolLevel } from '@prisma/client'
 
 // Shapes returned by the /api/sunday-school/* routes (Sunday School mode).
 
@@ -10,12 +10,26 @@ export interface SundaySchoolServantRef {
   profileImageUrl?: string | null
 }
 
-export interface SundaySchoolClassServant {
+export interface SundaySchoolAssignmentRow {
   id: string
-  classId: string
-  servantId: string
-  isLead: boolean
-  servant: SundaySchoolServantRef
+  userId: string
+  academicYearId: string
+  authority: SundaySchoolAuthority
+  classId: string | null
+  ageGroupId: string | null
+  user: SundaySchoolServantRef
+  class?: SundaySchoolClassRef | null
+  ageGroup?: { id: string; name: string } | null
+}
+
+export interface SundaySchoolAgeGroup {
+  id: string
+  name: string
+  levels: SundaySchoolLevel[]
+  sortOrder: number
+  isActive: boolean
+  canCoordinate?: boolean
+  assignments?: SundaySchoolAssignmentRow[]
 }
 
 export interface SundaySchoolClassRef {
@@ -25,11 +39,15 @@ export interface SundaySchoolClassRef {
 }
 
 export interface SundaySchoolClass extends SundaySchoolClassRef {
-  academicYearId: string | null
+  academicYearId: string
   academicYear?: { id: string; name: string } | null
   isActive: boolean
-  servants: SundaySchoolClassServant[]
+  assignments: SundaySchoolAssignmentRow[]
   _count?: { children: number; sessions: number }
+  // What this viewer may do with this class, decided by the server
+  canServe?: boolean
+  canCoordinate?: boolean
+  canDelete?: boolean
 }
 
 export interface SundaySchoolChild {
@@ -83,25 +101,39 @@ export interface SundaySchoolClassSummary {
   id: string
   name: string
   level: SundaySchoolLevel
+  ageGroup: { id: string; name: string } | null
   childCount: number
   sessionCount: number
   attendancePercentage: number
   latestSession: { id: string; date: string; topic: string | null } | null
   attendanceTakenThisWeek: boolean
+  canServe: boolean
+  canCoordinate: boolean
   servants: Array<{
     id: string
     name: string
     profileImageUrl: string | null
-    isLead: boolean
+    isCoordinator: boolean
   }>
 }
 
 export interface SundaySchoolDashboard {
   classes: SundaySchoolClassSummary[]
+  ageGroups: Array<{
+    id: string
+    name: string
+    levels: SundaySchoolLevel[]
+    canCoordinate: boolean
+  }>
   totals: {
     classes: number
     children: number
     classesNeedingAttendance: number
+  }
+  standing: {
+    isAdmin: boolean
+    readOnly: boolean
+    coordinatesAnyAgeGroup: boolean
   }
   weekOf: string
 }

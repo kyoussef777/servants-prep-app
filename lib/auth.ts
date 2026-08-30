@@ -4,8 +4,9 @@ import GoogleProvider from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
-import { UserRole } from "@prisma/client"
+import { SundaySchoolAuthority, UserRole } from "@prisma/client"
 import { checkLoginRateLimit, resetLoginRateLimit } from "./rate-limit"
+import { seesAllSundaySchoolClasses } from "./roles"
 
 async function getUserSessionData(user: { id: string; role: UserRole }) {
   let isAsyncStudent = false
@@ -16,7 +17,30 @@ async function getUserSessionData(user: { id: string; role: UserRole }) {
     })
     isAsyncStudent = enrollment?.isAsyncStudent ?? false
   }
-  return { isAsyncStudent }
+  return { isAsyncStudent, sundaySchool: await getSundaySchoolStanding(user) }
+}
+
+/**
+ * Whether this person has any Sunday School standing, for rendering only —
+ * the navbar mode switcher and the page guard are synchronous and cannot wait
+ * on a fetch. Deliberately coarse: which classes and what authority is
+ * re-derived from the database on every request (lib/sunday-school-access.ts),
+ * so a stale token can at worst show or hide a nav entry for up to a minute.
+ */
+async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
+  if (seesAllSundaySchoolClasses(user.role)) {
+    return { hasAccess: true, isCoordinator: user.role === UserRole.SUPER_ADMIN }
+  }
+
+  const assignments = await prisma.sundaySchoolServantAssignment.findMany({
+    where: { userId: user.id, academicYear: { isActive: true } },
+    select: { authority: true }
+  })
+
+  return {
+    hasAccess: assignments.length > 0,
+    isCoordinator: assignments.some(a => a.authority === SundaySchoolAuthority.COORDINATOR)
+  }
 }
 
 // Re-validate token against the current DB state at most once per this window.
@@ -79,7 +103,7 @@ export const authOptions: NextAuthOptions = {
         // Successful login - reset rate limit
         resetLoginRateLimit(credentials.email)
 
-        const { isAsyncStudent } = await getUserSessionData(user)
+        const { isAsyncStudent, sundaySchool } = await getUserSessionData(user)
 
         return {
           id: user.id,
@@ -88,6 +112,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           mustChangePassword: user.mustChangePassword,
           isAsyncStudent,
+          sundaySchool,
           profileImageUrl: user.profileImageUrl,
         }
       }
@@ -119,6 +144,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
         token.mustChangePassword = user.mustChangePassword
         token.isAsyncStudent = user.isAsyncStudent ?? false
+        token.sundaySchool = user.sundaySchool ?? { hasAccess: false, isCoordinator: false }
         token.profileImageUrl = user.profileImageUrl ?? null
         token.validatedAt = Date.now()
       }
@@ -130,11 +156,12 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (dbUser) {
-          const { isAsyncStudent } = await getUserSessionData(dbUser)
+          const { isAsyncStudent, sundaySchool } = await getUserSessionData(dbUser)
           token.id = dbUser.id
           token.role = dbUser.role
           token.mustChangePassword = dbUser.mustChangePassword
           token.isAsyncStudent = isAsyncStudent
+          token.sundaySchool = sundaySchool
           token.profileImageUrl = dbUser.profileImageUrl ?? null
           token.validatedAt = Date.now()
         }
@@ -171,13 +198,14 @@ export const authOptions: NextAuthOptions = {
                   token.originalName = token.name ?? null
                   token.originalEmail = token.email ?? null
                 }
-                const { isAsyncStudent } = await getUserSessionData(target)
+                const { isAsyncStudent, sundaySchool } = await getUserSessionData(target)
                 token.id = target.id
                 token.role = target.role
                 token.name = target.name
                 token.email = target.email
                 token.mustChangePassword = false
                 token.isAsyncStudent = isAsyncStudent
+                token.sundaySchool = sundaySchool
                 token.profileImageUrl = target.profileImageUrl ?? null
                 token.validatedAt = Date.now()
               }
@@ -189,13 +217,14 @@ export const authOptions: NextAuthOptions = {
                 where: { id: token.originalId }
               })
               if (original) {
-                const { isAsyncStudent } = await getUserSessionData(original)
+                const { isAsyncStudent, sundaySchool } = await getUserSessionData(original)
                 token.id = original.id
                 token.role = original.role
                 token.name = original.name
                 token.email = original.email
                 token.mustChangePassword = original.mustChangePassword
                 token.isAsyncStudent = isAsyncStudent
+                token.sundaySchool = sundaySchool
                 token.profileImageUrl = original.profileImageUrl ?? null
               }
               token.originalId = undefined
@@ -223,6 +252,7 @@ export const authOptions: NextAuthOptions = {
         } else {
           token.role = dbUser.role
           token.mustChangePassword = dbUser.mustChangePassword
+          token.sundaySchool = await getSundaySchoolStanding(dbUser)
           token.validatedAt = Date.now()
         }
       }
@@ -242,6 +272,8 @@ export const authOptions: NextAuthOptions = {
         session.user.mustChangePassword = token.mustChangePassword as boolean
         session.user.isAsyncStudent = (token.isAsyncStudent as boolean) ?? false
         session.user.profileImageUrl = (token.profileImageUrl as string | null) ?? null
+        session.user.sundaySchool = (token.sundaySchool as { hasAccess: boolean; isCoordinator: boolean } | undefined)
+          ?? { hasAccess: false, isCoordinator: false }
       }
       // Surface impersonation state to the client (dev only)
       if (process.env.NODE_ENV !== 'production' && token.originalId) {

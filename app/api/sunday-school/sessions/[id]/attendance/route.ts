@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { canAccessSundaySchool } from "@/lib/roles"
-import { getServantClassIds, handleApiError } from "@/lib/api-utils"
+import { handleApiError } from "@/lib/api-utils"
+import { canViewClass, getSundaySchoolAccess } from "@/lib/sunday-school-access"
 
 // Sunday School mode: the roster + current marks for one session.
 // This is what the attendance screen loads — every active child in the class,
@@ -17,14 +17,10 @@ export async function GET(
     const user = await requireAuth()
     const { id } = await params
 
-    if (!canAccessSundaySchool(user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
     const session = await prisma.sundaySchoolSession.findUnique({
       where: { id },
       include: {
-        class: { select: { id: true, name: true, level: true } },
+        class: { select: { id: true, name: true, level: true, academicYearId: true } },
         taker: { select: { id: true, name: true } },
       },
     })
@@ -33,8 +29,8 @@ export async function GET(
       return NextResponse.json({ error: "Session not found" }, { status: 404 })
     }
 
-    const servantClassIds = await getServantClassIds(user.id, user.role)
-    if (servantClassIds && !servantClassIds.includes(session.classId)) {
+    const access = await getSundaySchoolAccess(user, session.class.academicYearId)
+    if (!canViewClass(access, session.classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

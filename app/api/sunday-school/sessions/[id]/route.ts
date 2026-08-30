@@ -1,26 +1,24 @@
 import { NextResponse } from "next/server"
+import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { canTakeSundaySchoolAttendance } from "@/lib/roles"
-import { getServantClassIds, handleApiError } from "@/lib/api-utils"
+import { handleApiError } from "@/lib/api-utils"
+import { canServeClass, getSundaySchoolAccess } from "@/lib/sunday-school-access"
 
 // Sunday School mode: edit or remove one weekly session.
 
-async function assertSessionAccess(
-  sessionId: string,
-  userId: string,
-  role: Parameters<typeof getServantClassIds>[1]
-) {
+/** Serving the session's class is what allows editing or deleting it. */
+async function assertSessionAccess(sessionId: string, user: { id: string; role: UserRole }) {
   const session = await prisma.sundaySchoolSession.findUnique({
     where: { id: sessionId },
-    select: { id: true, classId: true },
+    select: { id: true, classId: true, class: { select: { academicYearId: true } } },
   })
   if (!session) {
     throw new Error("Not found")
   }
 
-  const servantClassIds = await getServantClassIds(userId, role)
-  if (servantClassIds && !servantClassIds.includes(session.classId)) {
+  const access = await getSundaySchoolAccess(user, session.class.academicYearId)
+  if (!canServeClass(access, session.classId)) {
     throw new Error("Forbidden")
   }
 
@@ -36,11 +34,7 @@ export async function PATCH(
     const user = await requireAuth()
     const { id } = await params
 
-    if (!canTakeSundaySchoolAttendance(user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    await assertSessionAccess(id, user.id, user.role)
+    await assertSessionAccess(id, user)
 
     const body = await request.json()
     const { topic, notes } = body
@@ -73,11 +67,7 @@ export async function DELETE(
     const user = await requireAuth()
     const { id } = await params
 
-    if (!canTakeSundaySchoolAttendance(user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    await assertSessionAccess(id, user.id, user.role)
+    await assertSessionAccess(id, user)
 
     await prisma.sundaySchoolSession.delete({ where: { id } })
 

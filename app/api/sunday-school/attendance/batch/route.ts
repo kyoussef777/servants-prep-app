@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { canTakeSundaySchoolAttendance } from "@/lib/roles"
-import { getServantClassIds, handleApiError } from "@/lib/api-utils"
+import { handleApiError } from "@/lib/api-utils"
+import { canServeClass, getSundaySchoolAccess } from "@/lib/sunday-school-access"
 import { AttendanceStatus } from "@prisma/client"
 
 // Sunday School mode: save a whole class's child attendance for one session.
@@ -25,11 +25,6 @@ export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    // PRIEST has read access to Sunday School but cannot record attendance
-    if (!canTakeSundaySchoolAttendance(user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
     const body: BatchRequest = await request.json()
     const { sessionId, records } = body
 
@@ -42,14 +37,15 @@ export async function POST(request: Request) {
 
     const session = await prisma.sundaySchoolSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, classId: true },
+      select: { id: true, classId: true, class: { select: { academicYearId: true } } },
     })
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 })
     }
 
-    const servantClassIds = await getServantClassIds(user.id, user.role)
-    if (servantClassIds && !servantClassIds.includes(session.classId)) {
+    // Serving this class is what grants this — PRIEST reads but never writes
+    const access = await getSundaySchoolAccess(user, session.class.academicYearId)
+    if (!canServeClass(access, session.classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

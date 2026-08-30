@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { canAccessSundaySchool, canManageSundaySchoolClasses } from "@/lib/roles"
-import { getServantClassIds, handleApiError } from "@/lib/api-utils"
+import { handleApiError } from "@/lib/api-utils"
+import {
+  canCoordinateClass,
+  canDeleteClass,
+  canServeClass,
+  canViewClass,
+  getSundaySchoolAccess,
+} from "@/lib/sunday-school-access"
 import { isValidLevel } from "@/lib/sunday-school-class"
 
 // Sunday School mode: a single Sunday School class.
@@ -16,22 +22,15 @@ export async function GET(
     const user = await requireAuth()
     const { id } = await params
 
-    if (!canAccessSundaySchool(user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    const servantClassIds = await getServantClassIds(user.id, user.role)
-    if (servantClassIds && !servantClassIds.includes(id)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
     const sundaySchoolClass = await prisma.sundaySchoolClass.findUnique({
       where: { id },
       include: {
         academicYear: { select: { id: true, name: true } },
-        servants: {
+        assignments: {
           include: {
-            servant: { select: { id: true, name: true, email: true, phone: true, profileImageUrl: true } },
+            user: {
+              select: { id: true, name: true, email: true, phone: true, profileImageUrl: true },
+            },
           },
           orderBy: { createdAt: "asc" },
         },
@@ -52,14 +51,25 @@ export async function GET(
       return NextResponse.json({ error: "Class not found" }, { status: 404 })
     }
 
-    return NextResponse.json(sundaySchoolClass)
+    const access = await getSundaySchoolAccess(user, sundaySchoolClass.academicYearId)
+    if (!canViewClass(access, id)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    return NextResponse.json({
+      ...sundaySchoolClass,
+      canCoordinate: canCoordinateClass(access, id),
+      canServe: canServeClass(access, id),
+      canDelete: canDeleteClass(access, sundaySchoolClass.level),
+    })
   } catch (error: unknown) {
     return handleApiError(error)
   }
 }
 
 // PATCH /api/sunday-school/classes/[id] - Update a class
-// Body: { name?, level?, academicYearId?, isActive? }
+// The class's coordinator, its band coordinator, or SUPER_ADMIN.
+// Body: { name?, level?, isActive? }
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -68,12 +78,21 @@ export async function PATCH(
     const user = await requireAuth()
     const { id } = await params
 
-    if (!canManageSundaySchoolClasses(user.role)) {
+    const existing = await prisma.sundaySchoolClass.findUnique({
+      where: { id },
+      select: { id: true, academicYearId: true },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: "Class not found" }, { status: 404 })
+    }
+
+    const access = await getSundaySchoolAccess(user, existing.academicYearId)
+    if (!canCoordinateClass(access, id)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const body = await request.json()
-    const { name, level, academicYearId, isActive } = body
+    const { name, level, isActive } = body
 
     const updateData: Record<string, unknown> = {}
 
@@ -87,9 +106,17 @@ export async function PATCH(
       if (!isValidLevel(level)) {
         return NextResponse.json({ error: "Invalid grade level" }, { status: 400 })
       }
+      // Moving a class to another level can move it to another band, which
+      // would hand it to a different coordinator — so that needs band
+      // authority over the destination, not just over the class.
+      if (!access.isAdmin && !access.coordinatorLevels.has(level)) {
+        return NextResponse.json(
+          { error: "You cannot move a class into a grade level outside your age group" },
+          { status: 403 }
+        )
+      }
       updateData.level = level
     }
-    if (academicYearId !== undefined) updateData.academicYearId = academicYearId || null
     if (isActive !== undefined) updateData.isActive = Boolean(isActive)
 
     const updated = await prisma.sundaySchoolClass.update({
@@ -97,8 +124,8 @@ export async function PATCH(
       data: updateData,
       include: {
         academicYear: { select: { id: true, name: true } },
-        servants: {
-          include: { servant: { select: { id: true, name: true, email: true, profileImageUrl: true } } },
+        assignments: {
+          include: { user: { select: { id: true, name: true, email: true, profileImageUrl: true } } },
         },
         _count: { select: { children: true, sessions: true } },
       },
@@ -111,8 +138,9 @@ export async function PATCH(
 }
 
 // DELETE /api/sunday-school/classes/[id] - Delete a class
-// Sessions and servant assignments cascade; children are unassigned (SetNull)
-// rather than deleted so a roster is never lost by removing a class.
+// SUPER_ADMIN or the coordinator of the class's age group. Coordinating the
+// class itself is not enough. Sessions and assignments cascade; children are
+// unassigned (SetNull) rather than deleted so a roster is never lost.
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -121,7 +149,16 @@ export async function DELETE(
     const user = await requireAuth()
     const { id } = await params
 
-    if (!canManageSundaySchoolClasses(user.role)) {
+    const existing = await prisma.sundaySchoolClass.findUnique({
+      where: { id },
+      select: { id: true, level: true, academicYearId: true },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: "Class not found" }, { status: 404 })
+    }
+
+    const access = await getSundaySchoolAccess(user, existing.academicYearId)
+    if (!canDeleteClass(access, existing.level)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

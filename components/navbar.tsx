@@ -9,7 +9,7 @@ import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations, canAccessSundaySchool, isAdmin } from '@/lib/roles'
+import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations, isAdmin } from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
@@ -55,7 +55,11 @@ export function Navbar() {
   // The app has two modes: the Servants Prep program and Sunday School.
   // Which one is showing is derived from the path — no extra state.
   const inSundaySchoolMode = pathname.startsWith('/dashboard/servants')
-  const canSwitchModes = canAccessSundaySchool(session.user.role) && isAdmin(session.user.role)
+  // Sunday School access comes from assignments, not a role, so this reads the
+  // standing the session carries. Someone with a foot in both modes — a prep
+  // leader who also serves — gets the switcher; a SERVANT has only one mode.
+  const hasSundaySchool = session.user.sundaySchool?.hasAccess ?? false
+  const canSwitchModes = hasSundaySchool && isAdmin(session.user.role)
 
   // Navigation links based on role
   // Returns { primary, more } for admin roles, or just { primary } for others
@@ -98,9 +102,9 @@ export function Navbar() {
       }
     }
 
-    // Admin roles browsing Sunday School mode get that mode's links; the
-    // switcher next to the logo takes them back to the prep program.
-    if (inSundaySchoolMode) {
+    // Anyone browsing Sunday School mode gets that mode's links; the switcher
+    // next to the logo takes those with both back to the prep program.
+    if (inSundaySchoolMode && hasSundaySchool) {
       return {
         primary: [
           { href: '/dashboard/servants', label: 'Dashboard' },

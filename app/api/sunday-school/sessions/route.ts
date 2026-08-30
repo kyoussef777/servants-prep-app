@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { canAccessSundaySchool, canTakeSundaySchoolAttendance } from "@/lib/roles"
-import { getServantClassIds, handleApiError } from "@/lib/api-utils"
+import { handleApiError } from "@/lib/api-utils"
+import { canServeClass, getSundaySchoolAccess, visibleClassFilter } from "@/lib/sunday-school-access"
 import { normalizeSessionDate } from "@/lib/sunday-school-class"
 
 // Sunday School mode: a session is one weekly meeting of one class.
@@ -13,7 +13,8 @@ export async function GET(request: Request) {
   try {
     const user = await requireAuth()
 
-    if (!canAccessSundaySchool(user.role)) {
+    const access = await getSundaySchoolAccess(user)
+    if (!access.canRead) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -44,12 +45,12 @@ export async function GET(request: Request) {
       where.date = dateFilter
     }
 
-    const servantClassIds = await getServantClassIds(user.id, user.role)
-    if (servantClassIds) {
-      if (classId && !servantClassIds.includes(classId)) {
+    const allowedClassIds = visibleClassFilter(access)
+    if (allowedClassIds) {
+      if (classId && !allowedClassIds.includes(classId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
-      where.classId = classId ? classId : { in: servantClassIds }
+      where.classId = classId ? classId : { in: allowedClassIds }
     }
 
     const sessions = await prisma.sundaySchoolSession.findMany({
@@ -74,10 +75,6 @@ export async function POST(request: Request) {
   try {
     const user = await requireAuth()
 
-    if (!canTakeSundaySchoolAttendance(user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
     const body = await request.json()
     const { classId, date, topic, notes } = body
 
@@ -100,17 +97,17 @@ export async function POST(request: Request) {
       )
     }
 
-    const servantClassIds = await getServantClassIds(user.id, user.role)
-    if (servantClassIds && !servantClassIds.includes(classId)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
     const sundaySchoolClass = await prisma.sundaySchoolClass.findUnique({
       where: { id: classId },
-      select: { id: true },
+      select: { id: true, academicYearId: true },
     })
     if (!sundaySchoolClass) {
       return NextResponse.json({ error: "Class not found" }, { status: 404 })
+    }
+
+    const access = await getSundaySchoolAccess(user, sundaySchoolClass.academicYearId)
+    if (!canServeClass(access, classId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     // Idempotent: opening the attendance page for a date that already has a
