@@ -128,6 +128,13 @@ export function useSundaySchoolChildren(classId?: string, options?: SWRConfigura
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
 }
 
+export function useSundaySchoolVisitations(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/visitations', fetcher, {
+    ...defaultSWRConfig,
+    ...options,
+  })
+}
+
 export function useSundaySchoolSessionAttendance(sessionId?: string, options?: SWRConfiguration) {
   return useSWR(
     sessionId ? `/api/sunday-school/sessions/${sessionId}/attendance` : null,

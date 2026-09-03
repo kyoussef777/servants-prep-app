@@ -1,8 +1,8 @@
 # Sunday School mode
 
 Reference for the Sunday School side of the application: the classes, the
-children in them, and weekly child attendance. For the authorization rules that
-govern all of it, see [`permissions.md`](permissions.md).
+children in them, weekly child attendance, and pastoral visitations. For the
+authorization rules that govern all of it, see [`permissions.md`](permissions.md).
 
 ## What it is, and what it is not
 
@@ -46,6 +46,8 @@ SundaySchoolClass ──────────→ SundaySchoolServantAssignmen
    │  name, level, academicYearId    authority + exactly one scope,
    │                                 scoped to an academic year
    ├──→ SundaySchoolChild[]          name, level, guardian contact
+   │          │
+   │          └──→ SundaySchoolVisitation[]   done / not done, date, notes, recorder
    │
    └──→ SundaySchoolSession[]        one weekly meeting, unique per (class, date)
               │
@@ -63,6 +65,7 @@ SundaySchoolClass ──────────→ SundaySchoolServantAssignmen
 | `SundaySchoolChild` | Names, `level`, optional `classId`, `birthDate`, guardian contact, `notes`, `isActive`. |
 | `SundaySchoolSession` | `classId`, `date`, optional `topic` / `notes`, `takenBy`. Unique on `(classId, date)`. |
 | `SundaySchoolChildAttendance` | `sessionId`, `childId`, `status`, `notes`, `recordedBy`. Unique on `(sessionId, childId)`. |
+| `SundaySchoolVisitation` | A `DONE` or `NOT_DONE` entry for one child, with an optional date, notes, and the servant who recorded it. The class is stored with the entry so history remains class-scoped. |
 
 Reuses the app-wide `AttendanceStatus` (`PRESENT` / `LATE` / `ABSENT` /
 `EXCUSED`), so `components/attendance-status-buttons.tsx` works unchanged.
@@ -123,6 +126,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `sessions/[id]/attendance` | GET | Anyone who can view the class |
 | `attendance/batch` | POST | People who serve the class |
 | `dashboard` | GET | Anyone with access |
+| `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; `PRIEST` remains read-only |
 
 Two that exist for specific reasons:
 
@@ -148,6 +152,7 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
 | `children/page.tsx` | Child roster CRUD including guardian fields |
+| `visitations/page.tsx` | Per-child visitation status, dated history, and notes across the viewer's assigned class scope |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 
 `components/navbar.tsx` shows a **mode switcher** between Servants Prep and

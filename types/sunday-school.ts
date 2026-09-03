@@ -1,4 +1,9 @@
-import { AttendanceStatus, SundaySchoolAuthority, SundaySchoolLevel } from '@prisma/client'
+import {
+  AttendanceStatus,
+  SundaySchoolAuthority,
+  SundaySchoolLevel,
+  SundaySchoolVisitationStatus,
+} from '@prisma/client'
 
 // Shapes returned by the /api/sunday-school/* routes (Sunday School mode).
 
@@ -63,6 +68,36 @@ export interface SundaySchoolChild {
   notes: string | null
   isActive: boolean
   class?: SundaySchoolClassRef | null
+}
+
+export interface SundaySchoolVisitationRecord {
+  id: string
+  status: SundaySchoolVisitationStatus
+  visitedAt: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+  recorder: { id: string; name: string } | null
+}
+
+export interface SundaySchoolVisitationChild {
+  id: string
+  firstName: string
+  lastName: string
+  visitations: SundaySchoolVisitationRecord[]
+}
+
+export interface SundaySchoolVisitationClass extends SundaySchoolClassRef {
+  canEdit: boolean
+  children: SundaySchoolVisitationChild[]
+}
+
+export interface SundaySchoolVisitationsResponse {
+  classes: SundaySchoolVisitationClass[]
+  standing: {
+    readOnly: boolean
+    isAdmin: boolean
+  }
 }
 
 export interface SundaySchoolSession {

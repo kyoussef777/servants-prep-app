@@ -159,9 +159,11 @@ export function Navbar() {
           { href: '/dashboard/servants', label: 'Dashboard' },
           { href: '/dashboard/servants/attendance', label: 'Attendance' },
           { href: '/dashboard/servants/children', label: 'Children' },
+        ],
+        more: [
+          { href: '/dashboard/servants/visitations', label: 'Visitations' },
           { href: '/dashboard/servants/classes', label: 'Classes' },
         ],
-        more: []
       }
     }
 
@@ -172,16 +174,19 @@ export function Navbar() {
         { href: '/dashboard/servants', label: 'Dashboard' },
         { href: '/dashboard/servants/attendance', label: 'Attendance' },
         { href: '/dashboard/servants/children', label: 'Children' },
+      ]
+      const more: NavLink[] = [
+        { href: '/dashboard/servants/visitations', label: 'Visitations' },
         { href: '/dashboard/servants/classes', label: 'Classes' },
       ]
 
       if (canAdministerSundaySchool(role)) {
-        links.push({ href: '/dashboard/servants/users', label: 'Users' })
+        more.push({ href: '/dashboard/servants/users', label: 'Users' })
       }
 
       return {
         primary: links,
-        more: []
+        more,
       }
     }
 
