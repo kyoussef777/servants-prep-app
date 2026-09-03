@@ -119,7 +119,7 @@ export default function SundaySchoolClassDetailPage() {
   if (!detail) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <EmptyState message="This class could not be found, or you do not have access to it." />
         </div>
       </div>
@@ -134,7 +134,7 @@ export default function SundaySchoolClassDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link href="/dashboard/servants/classes">
             <ArrowLeft className="h-4 w-4 mr-1" />

@@ -4,6 +4,7 @@ import {
   canCoordinateClass,
   canCreateClassAtLevel,
   canDeleteClass,
+  canReviewChildRegistrationAtLevel,
   canServeClass,
   canViewClass,
   visibleClassFilter,
@@ -177,6 +178,31 @@ describe('Sunday School access predicates', () => {
 
     it('is empty for someone with no assignments', () => {
       expect(visibleClassFilter(unassignedPrepLeader)).toEqual([])
+    })
+  })
+
+  describe('canReviewChildRegistrationAtLevel', () => {
+    // A thin alias over canCreateClassAtLevel — placing a child implies the
+    // same authority as opening a class at that level.
+    it('allows SUPER_ADMIN at any level', () => {
+      expect(canReviewChildRegistrationAtLevel(superAdmin, 'PRE_K')).toBe(true)
+      expect(canReviewChildRegistrationAtLevel(superAdmin, 'GRADE_12')).toBe(true)
+    })
+
+    it('allows the coordinator of the matching band', () => {
+      expect(canReviewChildRegistrationAtLevel(highSchoolCoordinator, 'GRADE_11')).toBe(true)
+    })
+
+    it('refuses the coordinator for a level outside their band', () => {
+      expect(canReviewChildRegistrationAtLevel(highSchoolCoordinator, 'GRADE_2')).toBe(false)
+    })
+
+    it('refuses a plain class servant with no coordination authority', () => {
+      expect(canReviewChildRegistrationAtLevel(servantOfA, 'GRADE_2')).toBe(false)
+    })
+
+    it('refuses PRIEST — read-only', () => {
+      expect(canReviewChildRegistrationAtLevel(priest, 'GRADE_3')).toBe(false)
     })
   })
 })

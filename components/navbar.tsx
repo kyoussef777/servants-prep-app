@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
@@ -21,10 +21,16 @@ interface NavLink {
 export function Navbar() {
   const { data: session } = useSession()
   const pathname = usePathname()
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [switchingModes, setSwitchingModes] = useState(false)
 
-  if (!session?.user || pathname === '/login' || pathname === '/change-password') {
+  if (
+    !session?.user ||
+    pathname === '/login' ||
+    pathname === '/change-password'
+  ) {
     return null
   }
 
@@ -60,6 +66,61 @@ export function Navbar() {
   // leader who also serves — gets the switcher; a SERVANT has only one mode.
   const hasSundaySchool = session.user.sundaySchool?.hasAccess ?? false
   const canSwitchModes = hasSundaySchool && isAdmin(session.user.role)
+  const modeDestination = inSundaySchoolMode ? '/dashboard/admin' : '/dashboard/servants'
+
+  const handleModeSwitch = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    if (switchingModes) return
+
+    setMobileMenuOpen(false)
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (prefersReducedMotion) {
+      router.push(modeDestination)
+      return
+    }
+
+    setSwitchingModes(true)
+    document.documentElement.dataset.modeTransition = inSundaySchoolMode
+      ? 'to-servants-prep'
+      : 'to-sunday-school'
+
+    const waitForModeRoute = () =>
+      new Promise<void>((resolve) => {
+        const startedAt = performance.now()
+
+        const waitForRoute = () => {
+          if (window.location.pathname === modeDestination || performance.now() - startedAt > 2000) {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+            return
+          }
+
+          requestAnimationFrame(waitForRoute)
+        }
+
+        waitForRoute()
+      })
+
+    const cleanUpTransition = () => {
+      delete document.documentElement.dataset.modeTransition
+      document.documentElement.classList.remove('mode-transition-fallback-out')
+      document.documentElement.classList.remove('mode-transition-fallback-in')
+      setSwitchingModes(false)
+    }
+
+    document.documentElement.classList.add('mode-transition-fallback-out')
+
+    window.setTimeout(() => {
+      router.push(modeDestination)
+
+      void waitForModeRoute().then(() => {
+        document.documentElement.classList.remove('mode-transition-fallback-out')
+        document.documentElement.classList.add('mode-transition-fallback-in')
+        window.setTimeout(cleanUpTransition, 220)
+      })
+    }, 160)
+  }
 
   // Navigation links based on role
   // Returns { primary, more } for admin roles, or just { primary } for others
@@ -157,46 +218,51 @@ export function Navbar() {
         <div className="flex justify-between h-16">
           {/* Left side - Logo/Title */}
           <div className="flex items-center gap-8">
-            <Link
-              href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
-              className="flex items-center gap-3"
+            <div
+              className={`flex items-center gap-3 ${canSwitchModes ? 'sm:w-[268px] sm:justify-between' : ''}`}
             >
-              <Image
-                src="/sp-logo.png"
-                alt="Servants Prep Logo"
-                width={40}
-                height={40}
-                className="w-10 h-10 rounded-md bg-black p-1"
-              />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
-              </span>
-            </Link>
+              <Link
+                href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
+                className="flex shrink-0 items-center gap-3"
+              >
+                <Image
+                  src={inSundaySchoolMode ? '/st-mark-logo.png' : '/sp-logo.png'}
+                  alt={inSundaySchoolMode ? 'St. Mark Coptic Orthodox Church Logo' : 'Servants Prep Logo'}
+                  width={inSundaySchoolMode ? 47 : 40}
+                  height={40}
+                  className={inSundaySchoolMode
+                    ? 'h-10 w-auto object-contain'
+                    : 'h-10 w-10 rounded-md bg-black p-1'}
+                />
+                <span className="whitespace-nowrap text-xl font-bold text-gray-900 dark:text-white">
+                  {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
+                </span>
+              </Link>
 
-            {/* Mode switcher — admins can move between the prep program and
-                Sunday School; everyone else stays in their own mode */}
-            {canSwitchModes && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border text-gray-600 dark:text-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                    {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/admin" className="cursor-pointer w-full">
-                      Servants Prep
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/servants" className="cursor-pointer w-full">
-                      Sunday School
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+              {/* One-click mode toggle. Its fixed-width brand group keeps the
+                  navigation from shifting when the mode name and logo change. */}
+              {canSwitchModes && (
+                <Link
+                  href={modeDestination}
+                  onClick={handleModeSwitch}
+                  aria-label={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
+                  aria-disabled={switchingModes}
+                  title={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
+                  className={`relative hidden h-7 w-[58px] shrink-0 grid-cols-2 items-center rounded-full border border-gray-300 bg-gray-100 p-0.5 text-[9px] font-bold text-gray-500 transition-colors hover:border-maroon-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2 sm:grid dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 ${switchingModes ? 'pointer-events-none' : ''}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-y-0.5 left-0.5 w-[26px] rounded-full bg-maroon-700 shadow-sm transition-transform duration-200 ease-out ${inSundaySchoolMode ? 'translate-x-[26px]' : 'translate-x-0'}`}
+                  />
+                  <span className={`relative z-10 text-center ${inSundaySchoolMode ? '' : 'text-white'}`}>
+                    SP
+                  </span>
+                  <span className={`relative z-10 text-center ${inSundaySchoolMode ? 'text-white' : ''}`}>
+                    SS
+                  </span>
+                </Link>
+              )}
+            </div>
 
             {/* Navigation Links */}
             <div className="hidden lg:flex items-center gap-1">
@@ -268,7 +334,7 @@ export function Navbar() {
               type="button"
               aria-label="Open command palette"
               onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-              className="hidden md:inline-flex items-center gap-2 w-56 lg:w-64 rounded-lg border bg-gray-50 dark:bg-gray-800/60 dark:border-gray-700 px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 transition-all"
+              className="hidden w-56 items-center gap-2 rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500 transition-all hover:border-gray-300 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 md:inline-flex lg:w-48 xl:w-56 2xl:w-64 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800"
             >
               <Search className="h-4 w-4 shrink-0" />
               <span className="flex-1 text-left truncate">Search students, lessons…</span>
@@ -302,7 +368,7 @@ export function Navbar() {
               )}
             </Button>
 
-            <div className="hidden md:flex flex-col items-end">
+            <div className="hidden min-w-max shrink-0 flex-col items-end whitespace-nowrap md:flex">
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {session.user.name}
               </span>
@@ -355,6 +421,22 @@ export function Navbar() {
                     Change Password
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={inSundaySchoolMode ? '/dashboard/servants/privacy' : '/privacy'}
+                    className="cursor-pointer"
+                  >
+                    Privacy Policy
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={inSundaySchoolMode ? '/dashboard/servants/terms' : '/terms'}
+                    className="cursor-pointer"
+                  >
+                    Terms of Service
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   className="cursor-pointer flex items-center gap-2"
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -389,8 +471,9 @@ export function Navbar() {
             <div className="px-2 pt-2 pb-3 space-y-1">
               {canSwitchModes && (
                 <Link
-                  href={inSundaySchoolMode ? '/dashboard/admin' : '/dashboard/servants'}
-                  onClick={() => setMobileMenuOpen(false)}
+                  href={modeDestination}
+                  onClick={handleModeSwitch}
+                  aria-disabled={switchingModes}
                   className="block px-3 py-2 mb-1 rounded-md text-base font-medium border text-gray-700 dark:text-gray-300 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 >
                   Switch to {inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}

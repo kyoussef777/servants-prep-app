@@ -24,11 +24,13 @@ import {
   canViewRegistrations,
   getRoleDisplayName,
   isServant,
+  isParent,
   canAdministerSundaySchool,
   seesAllSundaySchoolClasses,
   isSundaySchoolReadOnly,
   canBeAssignedToSundaySchool,
   canServantPrepManageRole,
+  canReviewServantApplications,
 } from '@/lib/roles'
 
 // Mock UserRole enum since it comes from Prisma
@@ -39,6 +41,7 @@ const UserRole = {
   MENTOR: 'MENTOR',
   STUDENT: 'STUDENT',
   SERVANT: 'SERVANT',
+  PARENT: 'PARENT',
 } as const
 
 type UserRoleType = (typeof UserRole)[keyof typeof UserRole]
@@ -487,6 +490,79 @@ describe('Sunday School mode permissions', () => {
 
     it('should have a display name', () => {
       expect(getRoleDisplayName(role)).toBe('Sunday School Servant')
+    })
+  })
+
+  describe('isParent', () => {
+    it('should return true only for PARENT', () => {
+      expect(isParent(UserRole.PARENT as UserRoleType)).toBe(true)
+      expect(isParent(UserRole.STUDENT as UserRoleType)).toBe(false)
+      expect(isParent(UserRole.SERVANT as UserRoleType)).toBe(false)
+      expect(isParent(UserRole.SERVANT_PREP as UserRoleType)).toBe(false)
+      expect(isParent(UserRole.SUPER_ADMIN as UserRoleType)).toBe(false)
+    })
+  })
+
+  describe('canReviewServantApplications', () => {
+    it('should be SUPER_ADMIN alone', () => {
+      expect(canReviewServantApplications(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+    })
+
+    it('should exclude SERVANT_PREP — servant accounts are never SERVANT_PREP-created', () => {
+      expect(canReviewServantApplications(UserRole.SERVANT_PREP as UserRoleType)).toBe(false)
+    })
+
+    it('should exclude every other role', () => {
+      expect(canReviewServantApplications(UserRole.PRIEST as UserRoleType)).toBe(false)
+      expect(canReviewServantApplications(UserRole.MENTOR as UserRoleType)).toBe(false)
+      expect(canReviewServantApplications(UserRole.STUDENT as UserRoleType)).toBe(false)
+      expect(canReviewServantApplications(UserRole.SERVANT as UserRoleType)).toBe(false)
+      expect(canReviewServantApplications(UserRole.PARENT as UserRoleType)).toBe(false)
+    })
+  })
+
+  // A parent has no authority over anyone else's data — only their own linked
+  // children. Must not leak into any prep-side or Sunday-School-authority
+  // permission.
+  describe('PARENT isolation from every other permission', () => {
+    const role = UserRole.PARENT as UserRoleType
+
+    it('should have no prep-side permissions at all', () => {
+      expect(isAdmin(role)).toBe(false)
+      expect(isSuperAdmin(role)).toBe(false)
+      expect(isPriest(role)).toBe(false)
+      expect(isServantPrep(role)).toBe(false)
+      expect(isMentor(role)).toBe(false)
+      expect(isStudent(role)).toBe(false)
+      expect(isServant(role)).toBe(false)
+      expect(canAccessAdmin(role)).toBe(false)
+      expect(canManageUsers(role)).toBe(false)
+      expect(canManageStudents(role)).toBe(false)
+      expect(canManageAllUsers(role)).toBe(false)
+      expect(canManageData(role)).toBe(false)
+      expect(canManageCurriculum(role)).toBe(false)
+      expect(canManageExams(role)).toBe(false)
+      expect(canManageEnrollments(role)).toBe(false)
+      expect(isReadOnlyAdmin(role)).toBe(false)
+      expect(canAssignMentors(role)).toBe(false)
+      expect(canSelfAssignMentees(role)).toBe(false)
+      expect(canBeMentor(role)).toBe(false)
+      expect(canViewStudents(role)).toBe(false)
+      expect(canManageInviteCodes(role)).toBe(false)
+      expect(canReviewRegistrations(role)).toBe(false)
+      expect(canViewRegistrations(role)).toBe(false)
+      expect(canReviewServantApplications(role)).toBe(false)
+    })
+
+    it('should have no Sunday School authority at all', () => {
+      expect(canAdministerSundaySchool(role)).toBe(false)
+      expect(seesAllSundaySchoolClasses(role)).toBe(false)
+      expect(isSundaySchoolReadOnly(role)).toBe(false)
+      expect(canBeAssignedToSundaySchool(role)).toBe(false)
+    })
+
+    it('should have a display name', () => {
+      expect(getRoleDisplayName(role)).toBe('Parent')
     })
   })
 })

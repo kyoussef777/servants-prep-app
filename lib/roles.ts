@@ -31,6 +31,12 @@ export const isServant = (role: UserRole) => {
   return role === UserRole.SERVANT
 }
 
+// A child's guardian, self-registered. No authority over anyone else's data —
+// only their own linked children (SundaySchoolChildGuardian).
+export const isParent = (role: UserRole) => {
+  return role === UserRole.PARENT
+}
+
 // Can manage users (create, edit, delete)
 export const canManageUsers = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
@@ -150,6 +156,14 @@ export const canViewRegistrations = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP || role === UserRole.PRIEST
 }
 
+// Can review servant sign-up applications (approve/reject). SUPER_ADMIN
+// only — same reasoning as SERVANT_PREP_MANAGEABLE_ROLES excluding SERVANT:
+// prep leadership confers no authority to create Sunday School servant
+// accounts.
+export const canReviewServantApplications = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN
+}
+
 // ============================================
 // SUNDAY SCHOOL MODE PERMISSIONS
 //
@@ -197,7 +211,8 @@ export const getRoleDisplayName = (role: UserRole): string => {
     SERVANT_PREP: 'Servants Prep Leader',
     MENTOR: 'Mentor',
     STUDENT: 'Student',
-    SERVANT: 'Sunday School Servant'
+    SERVANT: 'Sunday School Servant',
+    PARENT: 'Parent'
   }
   return displayNames[role]
 }

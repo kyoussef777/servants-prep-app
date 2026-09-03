@@ -76,6 +76,26 @@ export function useRegistrationSettings(options?: SWRConfiguration) {
   })
 }
 
+// Servant application hooks
+export function useServantApplications(statusFilter?: string, options?: SWRConfiguration) {
+  const url = statusFilter
+    ? `/api/servant-applications?status=${statusFilter}`
+    : '/api/servant-applications'
+  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+// Parent portal hooks
+export function useParentChildren(options?: SWRConfiguration) {
+  return useSWR('/api/parent/children', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useChildRegistrationRequests(statusFilter?: string, options?: SWRConfiguration) {
+  const url = statusFilter
+    ? `/api/sunday-school/child-registrations?status=${statusFilter}`
+    : '/api/sunday-school/child-registrations'
+  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
 export function useClassAverages(options?: SWRConfiguration) {
   return useSWR('/api/dashboard/class-averages', fetcher, { ...defaultSWRConfig, ...options })
 }

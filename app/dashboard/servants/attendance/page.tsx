@@ -185,7 +185,7 @@ function SundaySchoolAttendanceContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <PageHeader
           title="Take Attendance"
           description="Mark each child in your class for the week."

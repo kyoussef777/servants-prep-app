@@ -18,6 +18,7 @@ enum UserRole {
   MENTOR
   STUDENT
   SERVANT
+  PARENT
 }
 
 enum YearLevel {
@@ -180,6 +181,15 @@ model User {
   createdInviteCodes        InviteCode[]             @relation("InviteCodeCreator")
   reviewedRegistrations     RegistrationSubmission[] @relation("RegistrationReviewer")
   createdFromRegistration   RegistrationSubmission[] @relation("RegistrationCreatedUser")
+
+  // Servant application relations
+  reviewedServantApplications   ServantApplication[] @relation("ServantApplicationReviewer")
+  createdFromServantApplication ServantApplication[] @relation("ServantApplicationCreatedUser")
+
+  // Parent portal relations
+  guardianOfChildren           SundaySchoolChildGuardian[] @relation("GuardianOfChildren")
+  submittedChildRegistrations  ChildRegistrationRequest[]  @relation("ChildRegistrationSubmittedBy")
+  reviewedChildRegistrations   ChildRegistrationRequest[]  @relation("ChildRegistrationReviewer")
 
   // OAuth relations
   accounts Account[]
@@ -604,6 +614,7 @@ model SundaySchoolClass {
   assignments  SundaySchoolServantAssignment[]
   children     SundaySchoolChild[]
   sessions     SundaySchoolSession[]
+  childRegistrationRequests ChildRegistrationRequest[]
 
   @@unique([name, academicYearId])
   @@index([level])
@@ -673,8 +684,10 @@ model SundaySchoolChild {
   updatedAt     DateTime          @updatedAt
 
   // Relations
-  class      SundaySchoolClass?            @relation(fields: [classId], references: [id], onDelete: SetNull)
-  attendance SundaySchoolChildAttendance[]
+  class               SundaySchoolClass?            @relation(fields: [classId], references: [id], onDelete: SetNull)
+  attendance          SundaySchoolChildAttendance[]
+  guardians           SundaySchoolChildGuardian[]   @relation("ChildGuardians")
+  registrationRequest ChildRegistrationRequest?     @relation("ChildRegistrationCreatedChild")
 
   @@index([classId])
   @@index([level])
@@ -804,6 +817,100 @@ model RegistrationSubmission {
   @@index([createdAt])
 }
 
+// Sunday School servant volunteer application. Deliberately separate from
+// RegistrationSubmission: no invite code, no father-of-confession/grade/
+// mentor/upload fields, and approval must be SUPER_ADMIN-only (see
+// canReviewServantApplications in lib/roles.ts) rather than SERVANT_PREP too.
+// Approving creates a User{role: SERVANT} but never a
+// SundaySchoolServantAssignment — class/age-group assignment stays a
+// separate step through the existing servant-assignments flow.
+model ServantApplication {
+  id           String             @id @default(cuid())
+  status       RegistrationStatus @default(PENDING)
+
+  email        String
+  fullName     String
+  phone        String
+  availability String?            @db.Text
+  motivation   String?            @db.Text
+
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  reviewNote    String?           @db.Text
+  createdUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reviewer    User? @relation("ServantApplicationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  createdUser User? @relation("ServantApplicationCreatedUser", fields: [createdUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+}
+
+// A parent's request to register a child for Sunday School. Stays pending
+// until a coordinator/admin with authority over the requested level reviews
+// it and places the child into an actual class — that's when the real
+// SundaySchoolChild row and the parent<->child guardian link get created.
+model ChildRegistrationRequest {
+  id     String             @id @default(cuid())
+  status RegistrationStatus @default(PENDING)
+
+  submittedByUserId String
+
+  firstName     String
+  lastName      String
+  birthDate     DateTime
+  intendedLevel SundaySchoolLevel
+
+  // Guardian contact for this request. Pre-filled from the submitting
+  // parent's own profile client-side but stored explicitly and editable —
+  // not necessarily identical to the parent User's own info.
+  guardianName  String
+  guardianPhone String
+  guardianEmail String?
+  notes         String? @db.Text
+
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  reviewNote     String?  @db.Text
+  createdChildId String?  @unique
+  placedClassId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  submittedBy  User               @relation("ChildRegistrationSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: Cascade)
+  reviewer     User?              @relation("ChildRegistrationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  createdChild SundaySchoolChild? @relation("ChildRegistrationCreatedChild", fields: [createdChildId], references: [id], onDelete: SetNull)
+  placedClass  SundaySchoolClass? @relation(fields: [placedClassId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([submittedByUserId])
+  @@index([intendedLevel])
+  @@index([createdAt])
+}
+
+// Many-to-many link between a PARENT User and the SundaySchoolChild rows
+// they're a guardian of. Purely additive alongside SundaySchoolChild's
+// existing guardianName/Phone/Email text fields, which stay in place for
+// children added the old way by staff with no parent account.
+model SundaySchoolChildGuardian {
+  id        String   @id @default(cuid())
+  parentId  String
+  childId   String
+  createdAt DateTime @default(now())
+
+  parent User              @relation("GuardianOfChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  child  SundaySchoolChild @relation("ChildGuardians", fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, childId])
+  @@index([childId])
+  @@index([parentId])
+}
+
 // ============================================
 // PUSH NOTIFICATION MODELS
 // ============================================
@@ -820,6 +927,10 @@ enum NotificationType {
   MENTOR_ASSIGNED
   ANNOUNCEMENT
   CONDUCT_REMOVAL
+  SERVANT_APPLICATION_RECEIVED
+  SERVANT_APPLICATION_REVIEWED
+  CHILD_REGISTRATION_RECEIVED
+  CHILD_REGISTRATION_REVIEWED
 }
 
 model PushSubscription {

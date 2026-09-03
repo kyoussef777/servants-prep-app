@@ -81,7 +81,7 @@ export default function SundaySchoolClassesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <PageHeader
           title="Sunday School Classes"
           description="Classes, their servants, and their rosters."

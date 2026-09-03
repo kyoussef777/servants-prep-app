@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from 'react'
 import { signIn, useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -187,6 +188,21 @@ function LoginForm() {
             <GoogleIcon />
             <span className="ml-2">{googleLoading ? 'Redirecting...' : 'Sign in with Google'}</span>
           </Button>
+
+          <div className="text-center text-sm text-gray-300 space-y-1 pt-2">
+            <p>New here?</p>
+            <p>
+              <Link href="/signup/parent" className="text-white underline hover:text-gray-200">
+                Register your child for Sunday School
+              </Link>
+            </p>
+            <p>
+              <Link href="/signup/servant" className="text-white underline hover:text-gray-200">
+                Apply to serve in Sunday School
+              </Link>
+            </p>
+          </div>
+
         </CardContent>
       </Card>
     </div>

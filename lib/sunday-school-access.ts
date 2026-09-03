@@ -191,6 +191,18 @@ export function canDeleteClass(
   return canCreateClassAtLevel(access, level)
 }
 
+/**
+ * Can review a pending child registration request for this level — the same
+ * authority as creating a class at that level, since approving a placement
+ * means deciding (or already knowing) which class the child lands in.
+ */
+export function canReviewChildRegistrationAtLevel(
+  access: SundaySchoolAccess,
+  level: SundaySchoolLevel
+): boolean {
+  return canCreateClassAtLevel(access, level)
+}
+
 /** Can add or remove assignments on this age group */
 export function canCoordinateAgeGroup(
   access: SundaySchoolAccess,
@@ -208,4 +220,43 @@ export function canCoordinateAgeGroup(
 export function visibleClassFilter(access: SundaySchoolAccess): string[] | undefined {
   if (access.visibleClassIds === "all") return undefined
   return Array.from(access.visibleClassIds)
+}
+
+/**
+ * Who should be notified about (and can review) a child registration request
+ * at this level: every SUPER_ADMIN, plus the coordinators of whichever
+ * age-group band owns this level for the given (or active) academic year.
+ */
+export async function getChildRegistrationReviewerIds(
+  level: SundaySchoolLevel,
+  academicYearId?: string
+): Promise<string[]> {
+  const yearId =
+    academicYearId ??
+    (await prisma.academicYear.findFirst({
+      where: { isActive: true },
+      select: { id: true },
+    }))?.id
+
+  const [admins, coordinatorAssignments] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: UserRole.SUPER_ADMIN, isDisabled: false },
+      select: { id: true },
+    }),
+    yearId
+      ? prisma.sundaySchoolServantAssignment.findMany({
+          where: {
+            academicYearId: yearId,
+            authority: SundaySchoolAuthority.COORDINATOR,
+            ageGroupId: { not: null },
+            ageGroup: { levels: { has: level } },
+          },
+          select: { userId: true },
+        })
+      : Promise.resolve([]),
+  ])
+
+  return Array.from(
+    new Set([...admins.map((a) => a.id), ...coordinatorAssignments.map((a) => a.userId)])
+  )
 }

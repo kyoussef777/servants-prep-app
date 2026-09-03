@@ -1,6 +1,7 @@
 import webpush from 'web-push'
 import { prisma } from './prisma'
-import { NotificationType, Prisma, YearLevel } from '@prisma/client'
+import { NotificationType, Prisma, SundaySchoolLevel, YearLevel } from '@prisma/client'
+import { getChildRegistrationReviewerIds } from './sunday-school-access'
 
 // Configure VAPID keys for web push
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
@@ -450,6 +451,109 @@ export async function notifyConductRemoval({
       metadata: { studentId, studentName, lessonTitle, conductNote, removedByName },
     })
   }
+}
+
+/**
+ * Notify SUPER_ADMINs about a new servant application
+ */
+export async function notifyNewServantApplication({
+  applicantName,
+  applicationId,
+}: {
+  applicantName: string
+  applicationId: string
+}) {
+  const admins = await prisma.user.findMany({
+    where: { role: 'SUPER_ADMIN', isDisabled: false },
+    select: { id: true },
+  })
+
+  await createNotifications({
+    userIds: admins.map((a) => a.id),
+    type: NotificationType.SERVANT_APPLICATION_RECEIVED,
+    title: 'New Servant Application',
+    body: `${applicantName} has applied to serve in Sunday School.`,
+    url: '/dashboard/admin/servant-applications',
+    metadata: { applicationId, applicantName },
+  })
+}
+
+/**
+ * Notify an applicant when their servant application is approved/rejected
+ */
+export async function notifyServantApplicationReviewed({
+  userId,
+  status,
+  applicantName,
+}: {
+  userId: string
+  status: 'APPROVED' | 'REJECTED'
+  applicantName: string
+}) {
+  await createNotification({
+    userId,
+    type: NotificationType.SERVANT_APPLICATION_REVIEWED,
+    title: `Servant Application ${status === 'APPROVED' ? 'Approved' : 'Reviewed'}`,
+    body:
+      status === 'APPROVED'
+        ? `Welcome, ${applicantName}! Your Sunday School servant application has been approved.`
+        : `Your Sunday School servant application has been reviewed. Please contact administration for details.`,
+    url: status === 'APPROVED' ? '/dashboard/servants' : '/',
+  })
+}
+
+/**
+ * Notify SUPER_ADMINs and the relevant band coordinators about a new child
+ * registration request
+ */
+export async function notifyChildRegistrationSubmitted({
+  childName,
+  requestId,
+  level,
+  academicYearId,
+}: {
+  childName: string
+  requestId: string
+  level: SundaySchoolLevel
+  academicYearId?: string
+}) {
+  const reviewerIds = await getChildRegistrationReviewerIds(level, academicYearId)
+
+  await createNotifications({
+    userIds: reviewerIds,
+    type: NotificationType.CHILD_REGISTRATION_RECEIVED,
+    title: 'New Child Registration Request',
+    body: `A parent has requested to register ${childName} for Sunday School.`,
+    url: '/dashboard/servants/child-registrations',
+    metadata: { requestId, childName, level },
+  })
+}
+
+/**
+ * Notify a parent when their child registration request is approved/rejected
+ */
+export async function notifyChildRegistrationReviewed({
+  userId,
+  status,
+  childName,
+  className,
+}: {
+  userId: string
+  status: 'APPROVED' | 'REJECTED'
+  childName: string
+  className?: string
+}) {
+  await createNotification({
+    userId,
+    type: NotificationType.CHILD_REGISTRATION_REVIEWED,
+    title: `Child Registration ${status === 'APPROVED' ? 'Approved' : 'Reviewed'}`,
+    body:
+      status === 'APPROVED'
+        ? `${childName} has been placed in ${className ?? 'a Sunday School class'}.`
+        : `Your request to register ${childName} has been reviewed. Please contact a coordinator for details.`,
+    url: '/dashboard/parent',
+    metadata: { childName, className },
+  })
 }
 
 /**

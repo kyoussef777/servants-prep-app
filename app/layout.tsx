@@ -10,6 +10,7 @@ import { ProfilePhotoReminder } from "@/components/profile-photo-reminder";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationProvider } from "@/components/notifications/notification-provider";
 import { PushNotificationPrompt } from "@/components/notifications/push-prompt";
+import { SiteFooter } from "@/components/site-footer";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -40,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} flex min-h-screen flex-col antialiased`}
         suppressHydrationWarning
       >
         <Providers>
@@ -49,7 +50,8 @@ export default function RootLayout({
           <Navbar />
           <CommandPalette />
           <ProfilePhotoReminder />
-          {children}
+          <div id="app-content" className="flex-1">{children}</div>
+          <SiteFooter />
           <PushNotificationPrompt />
           <Toaster />
           <Analytics />
