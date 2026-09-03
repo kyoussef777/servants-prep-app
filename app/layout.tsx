@@ -13,6 +13,7 @@ import { PushNotificationPrompt } from "@/components/notifications/push-prompt";
 import { SiteFooter } from "@/components/site-footer";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { NavigationTransition } from "@/components/navigation-transition";
 
 export const metadata: Metadata = {
   title: "Servants Preparation Program",
@@ -45,6 +46,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <Providers>
+          <NavigationTransition />
           <NotificationProvider />
           <DevImpersonation />
           <Navbar />

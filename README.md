@@ -49,6 +49,8 @@ program, and vice versa.
 ### Shared experience and branding
 - **Compact SP / SS mode switcher** for eligible users, with an animated
   transition between the two ministry workspaces
+- **In-mode page transitions** with a quick exit and entrance animation when
+  navigating between pages such as Dashboard and Users
 - **Consistent page width and navigation** across Servants Prep and Sunday
   School so switching modes does not shift the surrounding interface
 - **Mode-aware branding** — Sunday School uses the St. Mark logo, browser title,

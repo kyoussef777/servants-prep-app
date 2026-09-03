@@ -55,10 +55,18 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* A short directional transition makes the two ministry modes feel like two
-   sides of the same application. Users who prefer reduced motion keep the
-   normal instant navigation. */
+/* Page changes use a short vertical transition while the two ministry modes
+   retain their directional switch. Reduced-motion users keep instant navigation. */
 @media (prefers-reduced-motion: no-preference) {
+  html.page-transition-out #app-content {
+    animation: page-content-out 120ms ease-in both;
+    pointer-events: none;
+  }
+
+  html.page-transition-in #app-content {
+    animation: page-content-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
   html.mode-transition-fallback-out[data-mode-transition="to-sunday-school"] #app-content {
     animation: mode-content-out-left 160ms ease-in both;
   }
@@ -73,6 +81,20 @@
 
   html.mode-transition-fallback-in[data-mode-transition="to-servants-prep"] #app-content {
     animation: mode-content-in-left 220ms ease-out both;
+  }
+}
+
+@keyframes page-content-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes page-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 

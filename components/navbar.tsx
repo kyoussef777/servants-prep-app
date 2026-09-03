@@ -253,6 +253,7 @@ export function Navbar() {
                 <Link
                   href={modeDestination}
                   onClick={handleModeSwitch}
+                  data-mode-switch
                   aria-label={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
                   aria-disabled={switchingModes}
                   title={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
@@ -483,6 +484,7 @@ export function Navbar() {
                 <Link
                   href={modeDestination}
                   onClick={handleModeSwitch}
+                  data-mode-switch
                   aria-disabled={switchingModes}
                   className="block px-3 py-2 mb-1 rounded-md text-base font-medium border text-gray-700 dark:text-gray-300 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 >
