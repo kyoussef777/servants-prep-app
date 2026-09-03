@@ -20,7 +20,7 @@ import {
   School,
   X,
 } from 'lucide-react'
-import { isAdmin, canManageUsers, canManageEnrollments } from '@/lib/roles'
+import { isAdmin, canManageUsers, canManageEnrollments, canAdministerSundaySchool } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
 
 interface SearchUser {
@@ -43,7 +43,27 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
 }
 
-function getNavItemsForRole(role: UserRole, hasSundaySchool: boolean): NavItem[] {
+function getNavItemsForRole(
+  role: UserRole,
+  hasSundaySchool: boolean,
+  inSundaySchoolMode: boolean
+): NavItem[] {
+  if (inSundaySchoolMode && hasSundaySchool) {
+    const items: NavItem[] = [
+      { label: 'Sunday School Dashboard', href: '/dashboard/servants', icon: LayoutDashboard },
+      { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
+      { label: 'Children', href: '/dashboard/servants/children', icon: Users },
+      { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
+    ]
+
+    if (canAdministerSundaySchool(role)) {
+      items.push({ label: 'Users', href: '/dashboard/servants/users', icon: Users })
+    }
+
+    items.push({ label: 'My Account', href: '/dashboard/servants/account', icon: Settings })
+    return items
+  }
+
   if (role === 'STUDENT') {
     return [
       { label: 'My Progress', href: '/dashboard/student', icon: LayoutDashboard },
@@ -68,7 +88,7 @@ function getNavItemsForRole(role: UserRole, hasSundaySchool: boolean): NavItem[]
       { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
       { label: 'Children', href: '/dashboard/servants/children', icon: Users },
       { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
-      { label: 'Settings', href: '/settings', icon: Settings },
+      { label: 'My Account', href: '/dashboard/servants/account', icon: Settings },
     ]
   }
 
@@ -206,7 +226,8 @@ export function CommandPalette() {
 
   const navItems = getNavItemsForRole(
     session.user.role,
-    session.user.sundaySchool?.hasAccess ?? false
+    session.user.sundaySchool?.hasAccess ?? false,
+    pathname.startsWith('/dashboard/servants')
   )
   const role = session.user.role
   const canSearchStudents = isAdmin(role) || role === 'MENTOR'

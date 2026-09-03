@@ -9,7 +9,7 @@ import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations, isAdmin } from '@/lib/roles'
+import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations, isAdmin, canAdministerSundaySchool } from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
@@ -67,6 +67,8 @@ export function Navbar() {
   const hasSundaySchool = session.user.sundaySchool?.hasAccess ?? false
   const canSwitchModes = hasSundaySchool && isAdmin(session.user.role)
   const modeDestination = inSundaySchoolMode ? '/dashboard/admin' : '/dashboard/servants'
+  const dashboardDestination = inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'
+  const accountDestination = inSundaySchoolMode ? '/dashboard/servants/account' : '/settings'
 
   const handleModeSwitch = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -166,13 +168,19 @@ export function Navbar() {
     // Anyone browsing Sunday School mode gets that mode's links; the switcher
     // next to the logo takes those with both back to the prep program.
     if (inSundaySchoolMode && hasSundaySchool) {
+      const links: NavLink[] = [
+        { href: '/dashboard/servants', label: 'Dashboard' },
+        { href: '/dashboard/servants/attendance', label: 'Attendance' },
+        { href: '/dashboard/servants/children', label: 'Children' },
+        { href: '/dashboard/servants/classes', label: 'Classes' },
+      ]
+
+      if (canAdministerSundaySchool(role)) {
+        links.push({ href: '/dashboard/servants/users', label: 'Users' })
+      }
+
       return {
-        primary: [
-          { href: '/dashboard/servants', label: 'Dashboard' },
-          { href: '/dashboard/servants/attendance', label: 'Attendance' },
-          { href: '/dashboard/servants/children', label: 'Children' },
-          { href: '/dashboard/servants/classes', label: 'Classes' },
-        ],
+        primary: links,
         more: []
       }
     }
@@ -400,27 +408,29 @@ export function Navbar() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="cursor-pointer">
+                  <Link href={dashboardDestination} className="cursor-pointer">
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings" className="cursor-pointer">
+                  <Link href={accountDestination} className="cursor-pointer">
                     My Account
                   </Link>
                 </DropdownMenuItem>
-                {(session.user.role === 'SUPER_ADMIN' || session.user.role === 'PRIEST' || session.user.role === 'SERVANT_PREP') && (
+                {!inSundaySchoolMode && (session.user.role === 'SUPER_ADMIN' || session.user.role === 'PRIEST' || session.user.role === 'SERVANT_PREP') && (
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard/admin/settings" className="cursor-pointer">
                       Settings
                     </Link>
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem asChild>
-                  <Link href="/change-password" className="cursor-pointer">
-                    Change Password
-                  </Link>
-                </DropdownMenuItem>
+                {!inSundaySchoolMode && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/change-password" className="cursor-pointer">
+                      Change Password
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link
                     href={inSundaySchoolMode ? '/dashboard/servants/privacy' : '/privacy'}

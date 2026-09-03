@@ -46,6 +46,22 @@ program, and vice versa.
   servants and to admins
 - **Weekly attendance** per child, with per-class rates
 
+### Shared experience and branding
+- **Compact SP / SS mode switcher** for eligible users, with an animated
+  transition between the two ministry workspaces
+- **Consistent page width and navigation** across Servants Prep and Sunday
+  School so switching modes does not shift the surrounding interface
+- **Mode-aware branding** — Sunday School uses the St. Mark logo, browser title,
+  and transparent favicon while Servants Prep keeps its own identity
+- **Neutral charcoal dark mode** shared across the application
+- **Mode-aware account controls** that keep the signed-in user's name and role
+  legible, preserve the active workspace for Dashboard and My Account, and hide
+  Prep-only settings from the Sunday School menu
+- **Cross-mode user administration** so Super Admins can open the complete user
+  list without leaving either ministry workspace
+- **Privacy Policy and Terms of Service** in the shared footer and account menu;
+  their routes preserve the active mode and authenticated navigation
+
 ## Tech stack
 
 - **Framework:** Next.js 16 (App Router, Turbopack), React 19, TypeScript
