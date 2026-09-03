@@ -135,6 +135,18 @@ export function useSundaySchoolVisitations(options?: SWRConfiguration) {
   })
 }
 
+export function useSundaySchoolFeedback(
+  status = 'ACTIVE',
+  sort = 'TOP',
+  options?: SWRConfiguration
+) {
+  const params = new URLSearchParams({ status, sort })
+  return useSWR(`/api/sunday-school/feedback?${params.toString()}`, fetcher, {
+    ...defaultSWRConfig,
+    ...options,
+  })
+}
+
 export function useSundaySchoolSessionAttendance(sessionId?: string, options?: SWRConfiguration) {
   return useSWR(
     sessionId ? `/api/sunday-school/sessions/${sessionId}/attendance` : null,

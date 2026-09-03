@@ -1,6 +1,8 @@
 import {
   AttendanceStatus,
   SundaySchoolAuthority,
+  SundaySchoolFeedbackStatus,
+  SundaySchoolFeedbackVoteType,
   SundaySchoolLevel,
   SundaySchoolVisitationStatus,
 } from '@prisma/client'
@@ -97,6 +99,36 @@ export interface SundaySchoolVisitationsResponse {
   standing: {
     readOnly: boolean
     isAdmin: boolean
+  }
+}
+
+export interface SundaySchoolFeedbackIdea {
+  id: string
+  title: string
+  description: string | null
+  status: SundaySchoolFeedbackStatus
+  createdAt: string
+  updatedAt: string
+  submitter: {
+    id: string
+    name: string
+    profileImageUrl: string | null
+  } | null
+  upvotes: number
+  downvotes: number
+  score: number
+  viewerVote: SundaySchoolFeedbackVoteType | null
+  canEdit: boolean
+  canDelete: boolean
+  canVote: boolean
+}
+
+export interface SundaySchoolFeedbackResponse {
+  ideas: SundaySchoolFeedbackIdea[]
+  statusCounts: Record<SundaySchoolFeedbackStatus, number>
+  viewer: {
+    canSubmit: boolean
+    canModerate: boolean
   }
 }
 

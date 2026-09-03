@@ -111,6 +111,19 @@ enum SundaySchoolVisitationStatus {
   NOT_DONE
 }
 
+enum SundaySchoolFeedbackStatus {
+  OPEN
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  DECLINED
+}
+
+enum SundaySchoolFeedbackVoteType {
+  UP
+  DOWN
+}
+
 enum SundaySchoolLogStatus {
   VERIFIED
   MANUAL
@@ -182,6 +195,8 @@ model User {
   takenSundaySchoolSessions    SundaySchoolSession[]         @relation("TakenSundaySchoolSessions")
   recordedSundaySchoolChildAttendance SundaySchoolChildAttendance[] @relation("RecordedSundaySchoolAttendance")
   recordedSundaySchoolVisitations     SundaySchoolVisitation[]        @relation("RecordedSundaySchoolVisitations")
+  submittedSundaySchoolFeedback       SundaySchoolFeedbackIdea[]      @relation("SubmittedSundaySchoolFeedback")
+  sundaySchoolFeedbackVotes           SundaySchoolFeedbackVote[]      @relation("SundaySchoolFeedbackVotes")
 
   // Registration relations
   createdInviteCodes        InviteCode[]             @relation("InviteCodeCreator")
@@ -762,6 +777,40 @@ model SundaySchoolVisitation {
   @@index([classId, createdAt])
   @@index([childId, createdAt])
   @@index([status])
+}
+
+// Product ideas for the Sunday School side of the application. These are
+// intentionally global rather than scoped to a class or academic year.
+model SundaySchoolFeedbackIdea {
+  id            String                     @id @default(cuid())
+  title         String
+  description   String?                    @db.Text
+  status        SundaySchoolFeedbackStatus @default(OPEN)
+  submittedById String?
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+
+  submitter User?                      @relation("SubmittedSundaySchoolFeedback", fields: [submittedById], references: [id], onDelete: SetNull)
+  votes     SundaySchoolFeedbackVote[]
+
+  @@index([status, createdAt])
+  @@index([submittedById])
+}
+
+model SundaySchoolFeedbackVote {
+  id        String                       @id @default(cuid())
+  ideaId    String
+  userId    String
+  vote      SundaySchoolFeedbackVoteType
+  createdAt DateTime                     @default(now())
+  updatedAt DateTime                     @updatedAt
+
+  idea SundaySchoolFeedbackIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user User                     @relation("SundaySchoolFeedbackVotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ideaId, userId])
+  @@index([ideaId, vote])
+  @@index([userId])
 }
 
 // ============================================

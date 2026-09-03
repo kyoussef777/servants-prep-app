@@ -66,6 +66,8 @@ SundaySchoolClass ──────────→ SundaySchoolServantAssignmen
 | `SundaySchoolSession` | `classId`, `date`, optional `topic` / `notes`, `takenBy`. Unique on `(classId, date)`. |
 | `SundaySchoolChildAttendance` | `sessionId`, `childId`, `status`, `notes`, `recordedBy`. Unique on `(sessionId, childId)`. |
 | `SundaySchoolVisitation` | A `DONE` or `NOT_DONE` entry for one child, with an optional date, notes, and the servant who recorded it. The class is stored with the entry so history remains class-scoped. |
+| `SundaySchoolFeedbackIdea` | A global product idea with an author, optional description, and an admin-managed status. It is not tied to a class or academic year. |
+| `SundaySchoolFeedbackVote` | One `UP` or `DOWN` vote per user and idea. Votes cascade with the idea or voter; ideas remain if their author account is removed. |
 
 Reuses the app-wide `AttendanceStatus` (`PRESENT` / `LATE` / `ABSENT` /
 `EXCUSED`), so `components/attendance-status-buttons.tsx` works unchanged.
@@ -108,7 +110,7 @@ plain rate with none of the graduation framing.
 ## API routes
 
 All under `app/api/sunday-school/`. Every one resolves authority with
-`getSundaySchoolAccess` and then a per-class predicate — see
+`getSundaySchoolAccess`; class data also uses a per-class predicate — see
 [`permissions.md`](permissions.md).
 
 | Route | Methods | Who |
@@ -127,6 +129,9 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `attendance/batch` | POST | People who serve the class |
 | `dashboard` | GET | Anyone with access |
 | `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; `PRIEST` remains read-only |
+| `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
+| `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
+| `feedback/[id]/vote` | PUT | Any Sunday School participant, including `PRIEST`; no self-votes and no voting on completed/declined ideas |
 
 Two that exist for specific reasons:
 
@@ -153,6 +158,7 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
 | `children/page.tsx` | Child roster CRUD including guardian fields |
 | `visitations/page.tsx` | Per-child visitation status, dated history, and notes across the viewer's assigned class scope |
+| `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
 
 `components/navbar.tsx` shows a **mode switcher** between Servants Prep and

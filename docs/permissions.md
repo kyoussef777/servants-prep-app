@@ -208,6 +208,16 @@ when no filter is needed, matching the contract of `getMentorStudentIds`.
    `assertLevelsUnclaimed` on every age-group write. Without it a class would
    sit in two bands and answer to two coordinators.
 
+### Feedback exception for priests
+
+The Sunday School feedback board is a product forum, not a write to ministry
+records. Anyone with `access.canRead` may submit ideas and vote, including
+`PRIEST`. This is the sole deliberate exception to the normal priest read-only
+rule. Priests may edit or delete only their own open ideas and never receive
+moderation authority; changing idea statuses or deleting another person's idea
+remains `SUPER_ADMIN`-only. All feedback routes still call
+`getSundaySchoolAccess` and refuse users who cannot enter Sunday School.
+
 ---
 
 ## Why Sunday School is not role-based

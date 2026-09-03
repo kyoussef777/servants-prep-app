@@ -163,6 +163,7 @@ export function Navbar() {
         more: [
           { href: '/dashboard/servants/visitations', label: 'Visitations' },
           { href: '/dashboard/servants/classes', label: 'Classes' },
+          { href: '/dashboard/servants/feedback', label: 'Feedback' },
         ],
       }
     }
@@ -178,6 +179,7 @@ export function Navbar() {
       const more: NavLink[] = [
         { href: '/dashboard/servants/visitations', label: 'Visitations' },
         { href: '/dashboard/servants/classes', label: 'Classes' },
+        { href: '/dashboard/servants/feedback', label: 'Feedback' },
       ]
 
       if (canAdministerSundaySchool(role)) {
