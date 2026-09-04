@@ -104,14 +104,31 @@ export function useClassAverages(options?: SWRConfiguration) {
 export function useSundaySchoolDashboard(
   academicYearId?: string,
   classId?: string,
+  audience: 'children' | 'servants' = 'children',
   options?: SWRConfiguration
 ) {
   const params = new URLSearchParams()
   if (academicYearId) params.set('academicYearId', academicYearId)
   if (classId) params.set('classId', classId)
+  if (audience !== 'children') params.set('audience', audience)
   const query = params.toString()
   const url = `/api/sunday-school/dashboard${query ? `?${query}` : ''}`
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolServantAttendance(
+  classId?: string,
+  date?: string,
+  options?: SWRConfiguration
+) {
+  const params = new URLSearchParams()
+  if (classId) params.set('classId', classId)
+  if (date) params.set('date', date)
+  return useSWR(
+    classId && date ? `/api/sunday-school/servant-attendance?${params.toString()}` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
 }
 
 export function useSundaySchoolAgeGroups(options?: SWRConfiguration) {

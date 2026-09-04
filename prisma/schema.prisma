@@ -50,6 +50,11 @@ enum AttendanceStatus {
   EXCUSED
 }
 
+enum SundaySchoolServantAttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
 enum LessonStatus {
   SCHEDULED
   CANCELLED
@@ -194,6 +199,8 @@ model User {
   assignedSundaySchoolServants SundaySchoolServantAssignment[] @relation("AssignedSundaySchoolServantAssignments")
   takenSundaySchoolSessions    SundaySchoolSession[]         @relation("TakenSundaySchoolSessions")
   recordedSundaySchoolChildAttendance SundaySchoolChildAttendance[] @relation("RecordedSundaySchoolAttendance")
+  sundaySchoolServantAttendance         SundaySchoolServantAttendance[] @relation("SundaySchoolServantAttendance")
+  recordedSundaySchoolServantAttendance SundaySchoolServantAttendance[] @relation("RecordedSundaySchoolServantAttendance")
   recordedSundaySchoolVisitations     SundaySchoolVisitation[]        @relation("RecordedSundaySchoolVisitations")
   submittedSundaySchoolFeedback       SundaySchoolFeedbackIdea[]      @relation("SubmittedSundaySchoolFeedback")
   sundaySchoolFeedbackVotes           SundaySchoolFeedbackVote[]      @relation("SundaySchoolFeedbackVotes")
@@ -732,6 +739,7 @@ model SundaySchoolSession {
   class      SundaySchoolClass             @relation(fields: [classId], references: [id], onDelete: Cascade)
   taker      User?                         @relation("TakenSundaySchoolSessions", fields: [takenBy], references: [id], onDelete: SetNull)
   attendance SundaySchoolChildAttendance[]
+  servantAttendance SundaySchoolServantAttendance[]
 
   @@unique([classId, date])
   @@index([classId, date])
@@ -756,6 +764,25 @@ model SundaySchoolChildAttendance {
   @@unique([sessionId, childId])
   @@index([sessionId])
   @@index([childId])
+  @@index([status])
+}
+
+model SundaySchoolServantAttendance {
+  id         String                              @id @default(cuid())
+  sessionId  String
+  servantId  String
+  status     SundaySchoolServantAttendanceStatus
+  recordedBy String?
+  createdAt  DateTime                            @default(now())
+  updatedAt  DateTime                            @updatedAt
+
+  session  SundaySchoolSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  servant  User                @relation("SundaySchoolServantAttendance", fields: [servantId], references: [id], onDelete: Cascade)
+  recorder User?               @relation("RecordedSundaySchoolServantAttendance", fields: [recordedBy], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, servantId])
+  @@index([sessionId])
+  @@index([servantId])
   @@index([status])
 }
 

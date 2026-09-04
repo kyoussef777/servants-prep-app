@@ -1,4 +1,8 @@
-import { AttendanceStatus, PrismaClient } from '@prisma/client'
+import {
+  AttendanceStatus,
+  PrismaClient,
+  SundaySchoolServantAttendanceStatus,
+} from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -347,6 +351,9 @@ async function main() {
   const assignmentSeeds = [
     { userId: servant.id, classId: sundaySchoolClass.id, ageGroupId: null, authority: 'SERVANT' as const },
     { userId: elementaryCoordinator.id, classId: null, ageGroupId: elementary.id, authority: 'COORDINATOR' as const },
+    // Age-group coordination grants Sandra permission to record attendance;
+    // this direct class assignment also makes her part of this class's roster.
+    { userId: elementaryCoordinator.id, classId: sundaySchoolClass.id, ageGroupId: null, authority: 'COORDINATOR' as const },
   ]
 
   for (const assignment of assignmentSeeds) {
@@ -414,6 +421,7 @@ async function main() {
   ]
   const firstSunday = getFirstSundayAfterSeptember11(academicYear.startDate.getUTCFullYear())
   const skippedWeeks = new Set([13, 27])
+  const servantAttendanceSkippedWeeks = new Set([5, 18])
 
   for (let week = 0; week < 38; week += 1) {
     if (skippedWeeks.has(week)) continue
@@ -465,9 +473,44 @@ async function main() {
         },
       })
     }
+
+    if (!servantAttendanceSkippedWeeks.has(week)) {
+      const servantMarks = [
+        {
+          servantId: servant.id,
+          status: week % 10 === 0
+            ? SundaySchoolServantAttendanceStatus.ABSENT
+            : SundaySchoolServantAttendanceStatus.PRESENT,
+        },
+        {
+          servantId: elementaryCoordinator.id,
+          status: week % 13 === 0
+            ? SundaySchoolServantAttendanceStatus.ABSENT
+            : SundaySchoolServantAttendanceStatus.PRESENT,
+        },
+      ]
+
+      for (const mark of servantMarks) {
+        await prisma.sundaySchoolServantAttendance.upsert({
+          where: {
+            sessionId_servantId: {
+              sessionId: session.id,
+              servantId: mark.servantId,
+            },
+          },
+          update: { status: mark.status, recordedBy: elementaryCoordinator.id },
+          create: {
+            sessionId: session.id,
+            servantId: mark.servantId,
+            status: mark.status,
+            recordedBy: elementaryCoordinator.id,
+          },
+        })
+      }
+    }
   }
 
-  console.log('Sunday School sample data created: 10 children and 36 weeks of attendance')
+  console.log('Sunday School sample data created: 10 children, 2 servants, and weekly attendance')
 }
 
 main()

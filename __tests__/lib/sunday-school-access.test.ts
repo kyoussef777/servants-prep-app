@@ -6,7 +6,9 @@ import {
   canDeleteClass,
   canReviewChildRegistrationAtLevel,
   canServeClass,
+  canTakeServantAttendance,
   canViewClass,
+  canViewServantAttendanceReport,
   visibleClassFilter,
   type SundaySchoolAccess,
 } from '@/lib/sunday-school-access'
@@ -84,6 +86,8 @@ describe('Sunday School access predicates', () => {
 
     it('cannot coordinate it', () => {
       expect(canCoordinateClass(servantOfA, CLASS_A)).toBe(false)
+      expect(canTakeServantAttendance(servantOfA, CLASS_A)).toBe(false)
+      expect(canViewServantAttendanceReport(servantOfA)).toBe(false)
     })
 
     it('cannot touch another class', () => {
@@ -101,6 +105,8 @@ describe('Sunday School access predicates', () => {
     it('serves and coordinates their class', () => {
       expect(canServeClass(classCoordinator, CLASS_A)).toBe(true)
       expect(canCoordinateClass(classCoordinator, CLASS_A)).toBe(true)
+      expect(canTakeServantAttendance(classCoordinator, CLASS_A)).toBe(true)
+      expect(canViewServantAttendanceReport(classCoordinator)).toBe(true)
     })
 
     it('cannot create or delete classes — that is the band coordinator', () => {
@@ -119,6 +125,7 @@ describe('Sunday School access predicates', () => {
       expect(canCoordinateClass(highSchoolCoordinator, CLASS_B)).toBe(true)
       expect(canCoordinateClass(highSchoolCoordinator, CLASS_C)).toBe(true)
       expect(canServeClass(highSchoolCoordinator, CLASS_B)).toBe(true)
+      expect(canTakeServantAttendance(highSchoolCoordinator, CLASS_B)).toBe(true)
     })
 
     it('reaches nothing outside their band', () => {
@@ -145,6 +152,8 @@ describe('Sunday School access predicates', () => {
       expect(canViewClass(superAdmin, 'any-class')).toBe(true)
       expect(canServeClass(superAdmin, 'any-class')).toBe(true)
       expect(canCoordinateClass(superAdmin, 'any-class')).toBe(true)
+      expect(canTakeServantAttendance(superAdmin, 'any-class')).toBe(true)
+      expect(canViewServantAttendanceReport(superAdmin)).toBe(true)
       expect(canCreateClassAtLevel(superAdmin, 'PRE_K')).toBe(true)
       expect(canDeleteClass(superAdmin, 'GRADE_12')).toBe(true)
       expect(canCoordinateAgeGroup(superAdmin, 'any-band')).toBe(true)
@@ -159,6 +168,8 @@ describe('Sunday School access predicates', () => {
     it('writes nothing', () => {
       expect(canServeClass(priest, 'any-class')).toBe(false)
       expect(canCoordinateClass(priest, 'any-class')).toBe(false)
+      expect(canTakeServantAttendance(priest, 'any-class')).toBe(false)
+      expect(canViewServantAttendanceReport(priest)).toBe(false)
       expect(canCreateClassAtLevel(priest, 'GRADE_3')).toBe(false)
       expect(canDeleteClass(priest, 'GRADE_3')).toBe(false)
       expect(canCoordinateAgeGroup(priest, HIGH_SCHOOL)).toBe(false)

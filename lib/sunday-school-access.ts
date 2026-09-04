@@ -167,6 +167,21 @@ export function canCoordinateClass(access: SundaySchoolAccess, classId: string):
   return access.coordinatorClassIds.has(classId)
 }
 
+/** Can record and report on servant attendance for this class. */
+export function canTakeServantAttendance(
+  access: SundaySchoolAccess,
+  classId: string
+): boolean {
+  return canCoordinateClass(access, classId)
+}
+
+/** Can request servant-attendance reporting for at least one class. */
+export function canViewServantAttendanceReport(access: SundaySchoolAccess): boolean {
+  if (access.isAdmin) return true
+  if (access.readOnly) return false
+  return access.coordinatorClassIds.size > 0
+}
+
 /**
  * Can open a new class at this grade level — SUPER_ADMIN anywhere, or the
  * coordinator of the band that owns the level. A class coordinator cannot.

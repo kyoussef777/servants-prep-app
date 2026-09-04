@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AttendanceStatus } from '@prisma/client'
+import { AttendanceStatus, SundaySchoolServantAttendanceStatus } from '@prisma/client'
 import {
   buildSundaySchoolAttendanceTrend,
   getFirstSundayAfterSeptember11,
@@ -92,5 +92,40 @@ describe('Sunday School dashboard attendance trend', () => {
     )
 
     expect(buildSundaySchoolAttendanceTrend([], range.start, range.end)).toEqual([])
+  })
+
+  it('builds binary servant totals and preserves weeks with no servant marks as gaps', () => {
+    const points = buildSundaySchoolAttendanceTrend(
+      [
+        {
+          date: new Date('2025-09-14T00:00:00.000Z'),
+          attendance: [
+            { status: SundaySchoolServantAttendanceStatus.PRESENT },
+            { status: SundaySchoolServantAttendanceStatus.ABSENT },
+          ],
+        },
+        {
+          date: new Date('2025-09-21T00:00:00.000Z'),
+          attendance: [],
+        },
+      ],
+      new Date('2025-09-14T00:00:00.000Z'),
+      new Date('2025-09-21T00:00:00.000Z')
+    )
+
+    expect(points).toEqual([
+      {
+        date: '2025-09-14',
+        attendedCount: 1,
+        rosterCount: 2,
+        attendanceRate: 50,
+      },
+      {
+        date: '2025-09-21',
+        attendedCount: null,
+        rosterCount: null,
+        attendanceRate: null,
+      },
+    ])
   })
 })

@@ -20,15 +20,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatDateUTC } from '@/lib/utils'
-import type { SundaySchoolDashboard } from '@/types/sunday-school'
+import type { SundaySchoolAttendanceAudience, SundaySchoolDashboard } from '@/types/sunday-school'
 
 interface SundaySchoolAttendanceChartProps {
   trend: SundaySchoolDashboard['attendanceTrend']
   selectedAcademicYearId?: string
   selectedClassId?: string
+  audience: SundaySchoolAttendanceAudience
   onAcademicYearChange: (academicYearId: string) => void
   onClassChange: (classId?: string) => void
+  onAudienceChange: (audience: SundaySchoolAttendanceAudience) => void
   isRefreshing?: boolean
 }
 
@@ -42,8 +45,10 @@ export function SundaySchoolAttendanceChart({
   trend,
   selectedAcademicYearId,
   selectedClassId,
+  audience,
   onAcademicYearChange,
   onClassChange,
+  onAudienceChange,
   isRefreshing = false,
 }: SundaySchoolAttendanceChartProps) {
   const recordedPoints = useMemo(
@@ -73,6 +78,7 @@ export function SundaySchoolAttendanceChart({
   const selectedClass = classOptions.find(cls => cls.id === requestedClassId)
   const effectiveClassId = selectedClass?.id ?? ALL_CLASSES
   const attendanceScope = selectedClass?.name ?? 'all visible classes'
+  const isServantAudience = audience === 'servants'
 
   return (
     <Card>
@@ -83,7 +89,7 @@ export function SundaySchoolAttendanceChart({
             <CardTitle>Weekly Attendance</CardTitle>
           </div>
           <CardDescription>
-            Children who attended compared with the roster recorded each Sunday.
+            {isServantAudience ? 'Servants' : 'Children'} who attended compared with the roster recorded each Sunday.
           </CardDescription>
         </div>
         {trend.academicYears.length > 0 && effectiveAcademicYearId && (
@@ -93,6 +99,17 @@ export function SundaySchoolAttendanceChart({
                 className="h-4 w-4 animate-spin text-gray-500"
                 aria-label="Refreshing attendance chart"
               />
+            )}
+            {trend.canViewServantAttendance && (
+              <Tabs
+                value={audience}
+                onValueChange={value => onAudienceChange(value as SundaySchoolAttendanceAudience)}
+              >
+                <TabsList aria-label="Attendance audience">
+                  <TabsTrigger value="children">Children</TabsTrigger>
+                  <TabsTrigger value="servants">Servants</TabsTrigger>
+                </TabsList>
+              </Tabs>
             )}
             <Select
               value={effectiveAcademicYearId}
@@ -153,7 +170,7 @@ export function SundaySchoolAttendanceChart({
             <div
               className="h-80 w-full"
               role="img"
-              aria-label={`Weekly attendance and roster for ${attendanceScope} in ${selectedYear?.name ?? 'the selected academic year'}`}
+              aria-label={`Weekly ${isServantAudience ? 'servant' : 'child'} attendance and roster for ${attendanceScope} in ${selectedYear?.name ?? 'the selected academic year'}`}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartPoints} margin={{ top: 8, right: 16, left: -12, bottom: 8 }}>
@@ -259,7 +276,7 @@ export function SundaySchoolAttendanceChart({
           </>
         ) : (
           <div className="flex h-72 items-center justify-center text-center text-sm text-gray-500 dark:text-gray-400">
-            No Sunday School attendance has been recorded for {attendanceScope} in{' '}
+            No {isServantAudience ? 'servant' : 'child'} attendance has been recorded for {attendanceScope} in{' '}
             {selectedYear?.name ?? 'this year'} yet.
           </div>
         )}

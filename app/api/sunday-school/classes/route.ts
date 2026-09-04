@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import {
   canCreateClassAtLevel,
+  canTakeServantAttendance,
   getSundaySchoolAccess,
   visibleClassFilter,
 } from "@/lib/sunday-school-access"
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
       classes.map(cls => ({
         ...cls,
         canCoordinate: access.isAdmin || access.coordinatorClassIds.has(cls.id),
+        canTakeServantAttendance: canTakeServantAttendance(access, cls.id),
         canServe:
           access.isAdmin ||
           (!access.readOnly &&

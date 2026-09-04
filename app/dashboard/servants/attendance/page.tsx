@@ -56,7 +56,11 @@ function SundaySchoolAttendanceContent() {
     isLoading: trendLoading,
     isValidating: trendRefreshing,
     mutate: refreshTrend,
-  } = useSundaySchoolDashboard(selectedClass?.academicYearId, selectedClassId || undefined)
+  } = useSundaySchoolDashboard(
+    selectedClass?.academicYearId,
+    selectedClassId || undefined,
+    'children'
+  )
   const trendDashboard = trendData as SundaySchoolDashboard | undefined
 
   // Preselect the class from the dashboard link, else the first one available

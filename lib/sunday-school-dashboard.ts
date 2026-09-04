@@ -1,10 +1,10 @@
-import type { AttendanceStatus } from '@prisma/client'
+import type { AttendanceStatus, SundaySchoolServantAttendanceStatus } from '@prisma/client'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface SundaySchoolAttendanceSessionInput {
   date: Date
-  attendance: Array<{ status: AttendanceStatus }>
+  attendance: Array<{ status: AttendanceStatus | SundaySchoolServantAttendanceStatus }>
 }
 
 export interface SundaySchoolAttendanceTrendPoint {

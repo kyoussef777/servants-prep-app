@@ -6,6 +6,7 @@ import {
   canCoordinateClass,
   canDeleteClass,
   canServeClass,
+  canTakeServantAttendance,
   canViewClass,
   getSundaySchoolAccess,
 } from "@/lib/sunday-school-access"
@@ -60,6 +61,7 @@ export async function GET(
       ...sundaySchoolClass,
       canCoordinate: canCoordinateClass(access, id),
       canServe: canServeClass(access, id),
+      canTakeServantAttendance: canTakeServantAttendance(access, id),
       canDelete: canDeleteClass(access, sundaySchoolClass.level),
     })
   } catch (error: unknown) {

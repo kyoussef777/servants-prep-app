@@ -7,7 +7,7 @@ authorization rules that govern all of it, see [`permissions.md`](permissions.md
 ## What it is, and what it is not
 
 Sunday School mode (`/dashboard/servants`) manages the church's actual Sunday
-School ministry. It shares a deployment, database, and login with the Servants
+School ministry, including weekly attendance for both children and servants. It shares a deployment, database, and login with the Servants
 Prep program but is otherwise independent — **no model here references a prep
 model**.
 
@@ -51,8 +51,11 @@ SundaySchoolClass ──────────→ SundaySchoolServantAssignmen
    │
    └──→ SundaySchoolSession[]        one weekly meeting, unique per (class, date)
               │
-              └──→ SundaySchoolChildAttendance ←── SundaySchoolChild
-                       AttendanceStatus per child per session
+              ├──→ SundaySchoolChildAttendance ←── SundaySchoolChild
+              │        AttendanceStatus per child per session
+              │
+              └──→ SundaySchoolServantAttendance ←── User
+                       PRESENT / ABSENT per servant per session
 ```
 
 ### Models
@@ -65,12 +68,15 @@ SundaySchoolClass ──────────→ SundaySchoolServantAssignmen
 | `SundaySchoolChild` | Names, `level`, optional `classId`, `birthDate`, guardian contact, `notes`, `isActive`. |
 | `SundaySchoolSession` | `classId`, `date`, optional `topic` / `notes`, `takenBy`. Unique on `(classId, date)`. |
 | `SundaySchoolChildAttendance` | `sessionId`, `childId`, `status`, `notes`, `recordedBy`. Unique on `(sessionId, childId)`. |
+| `SundaySchoolServantAttendance` | `sessionId`, `servantId`, binary `status`, `recordedBy`. Unique on `(sessionId, servantId)`. |
 | `SundaySchoolVisitation` | A `DONE` or `NOT_DONE` entry for one child, with an optional date, notes, and the servant who recorded it. The class is stored with the entry so history remains class-scoped. |
 | `SundaySchoolFeedbackIdea` | A global product idea with an author, optional description, and an admin-managed status. It is not tied to a class or academic year. |
 | `SundaySchoolFeedbackVote` | One `UP` or `DOWN` vote per user and idea. Votes cascade with the idea or voter; ideas remain if their author account is removed. |
 
 Reuses the app-wide `AttendanceStatus` (`PRESENT` / `LATE` / `ABSENT` /
 `EXCUSED`), so `components/attendance-status-buttons.tsx` works unchanged.
+Servant attendance uses its own binary `SundaySchoolServantAttendanceStatus`
+(`PRESENT` / `ABSENT`) so it cannot accidentally accept child-only states.
 
 ### Design decisions worth understanding
 
@@ -95,6 +101,8 @@ class with no year would be one nobody could be assigned to.
 attendance page leaves no empty rows behind, and `PRIEST` can look without
 writing. The `POST /sessions` route is idempotent: it returns the existing
 session for a `(class, date)` rather than failing on the unique constraint.
+Child and servant marks share that weekly session but remain separate records;
+a week saved for one audience still appears as unrecorded for the other.
 
 **Session dates are midnight UTC.** `normalizeSessionDate` in
 `lib/sunday-school-class.ts` enforces it, so `@@unique([classId, date])` gives
@@ -112,8 +120,9 @@ snapshot.** Every mark saved for that Sunday counts toward the roster curve;
 `PRESENT` and `LATE` count toward the attended curve. Sundays with no saved
 marks stay as gaps so missing data is never presented as zero attendance. The
 reporting year begins on the first Sunday strictly after September 11. Super
-admins and priests can filter the trend to any class; coordinators can filter
-only to classes inside their assigned scope.
+admins and priests can filter the child trend to any class. The Servants chart
+is available only to super admins and coordinators and contains only the
+classes they coordinate; priests and ordinary servants cannot request it.
 
 ## API routes
 
@@ -135,7 +144,9 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `sessions/[id]` | PATCH, DELETE | People who serve the class |
 | `sessions/[id]/attendance` | GET | Anyone who can view the class |
 | `attendance/batch` | POST | People who serve the class |
-| `dashboard` | GET | Anyone with access; accepts `academicYearId` and a scope-checked `classId` for the attendance trend |
+| `servant-attendance` | GET | `SUPER_ADMIN`, direct class coordinator, or the class's age-group coordinator |
+| `servant-attendance/batch` | POST | Same as read; validates active direct class assignments and saves binary marks idempotently |
+| `dashboard` | GET | Anyone with access for children; `audience=servants` is restricted to super admins/coordinators and their coordinated classes |
 | `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; `PRIEST` remains read-only |
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
@@ -150,7 +161,8 @@ Two that exist for specific reasons:
 - **`dashboard`** — a per-class summary grouped by age group, deliberately
   carrying **no guardian contact**.
 
-List and detail responses include `canServe` / `canCoordinate` / `canDelete`
+List and detail responses include `canServe` / `canCoordinate` /
+`canTakeServantAttendance` / `canDelete`
 per class, so the UI never re-derives authority. The server still re-checks
 every write.
 
@@ -160,8 +172,9 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 
 | Page | Purpose |
 |---|---|
-| `page.tsx` | Landing: weekly attendance-versus-roster chart, classes grouped by age group, attendance-due badges, totals |
+| `page.tsx` | Landing: Children/Servants attendance chart, classes grouped by age group, attendance-due badges, totals |
 | `attendance/page.tsx` | The core screen — pick class and week, review its eight-week trend, mark each child, batch save |
+| `servant-attendance/page.tsx` | Coordinator-only screen — pick class and week, review servant history, mark Present/Absent, batch save |
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
 | `children/page.tsx` | Child roster CRUD including guardian fields |
@@ -195,12 +208,13 @@ command palette.
 
 ```bash
 bun db:generate && bun db:push
-bun db:seed        # seeds Elementary / Middle / High, a class, servants, children
+bun db:seed        # seeds Elementary / Middle / High, a class, children, servants, and both attendance histories
 bun dev
 ```
 
 The seed creates `servant@church.com` (a servant on one class) and
-`elementary.coordinator@church.com` (coordinator of the whole Elementary band),
+`elementary.coordinator@church.com` (coordinator of the whole Elementary band
+and directly assigned to the sample class roster),
 both with the shared seed password. In development, `SUPER_ADMIN` users can use
 the impersonation panel (`components/dev-impersonation.tsx`) to view the app as
 either.

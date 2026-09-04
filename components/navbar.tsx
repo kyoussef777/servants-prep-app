@@ -154,17 +154,21 @@ export function Navbar() {
     }
 
     if (role === 'SERVANT') {
+      const servantMore: NavLink[] = [
+        { href: '/dashboard/servants/visitations', label: 'Visitations' },
+        { href: '/dashboard/servants/classes', label: 'Classes' },
+        { href: '/dashboard/servants/feedback', label: 'Feedback' },
+      ]
+      if (session.user.sundaySchool?.isCoordinator) {
+        servantMore.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
+      }
       return {
         primary: [
           { href: '/dashboard/servants', label: 'Dashboard' },
           { href: '/dashboard/servants/attendance', label: 'Attendance' },
           { href: '/dashboard/servants/children', label: 'Children' },
         ],
-        more: [
-          { href: '/dashboard/servants/visitations', label: 'Visitations' },
-          { href: '/dashboard/servants/classes', label: 'Classes' },
-          { href: '/dashboard/servants/feedback', label: 'Feedback' },
-        ],
+        more: servantMore,
       }
     }
 
@@ -181,6 +185,10 @@ export function Navbar() {
         { href: '/dashboard/servants/classes', label: 'Classes' },
         { href: '/dashboard/servants/feedback', label: 'Feedback' },
       ]
+
+      if (session.user.sundaySchool?.isCoordinator) {
+        more.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
+      }
 
       if (canAdministerSundaySchool(role)) {
         more.push({ href: '/dashboard/servants/users', label: 'Users' })

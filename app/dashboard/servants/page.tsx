@@ -12,7 +12,11 @@ import { SundaySchoolAttendanceChart } from '@/components/sunday-school-attendan
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolDashboard } from '@/lib/swr'
 import { getLevelDisplayName } from '@/lib/sunday-school-class'
-import type { SundaySchoolClassSummary, SundaySchoolDashboard } from '@/types/sunday-school'
+import type {
+  SundaySchoolAttendanceAudience,
+  SundaySchoolClassSummary,
+  SundaySchoolDashboard,
+} from '@/types/sunday-school'
 import { Users, CalendarCheck, ClipboardList, ArrowRight, School } from 'lucide-react'
 
 const UNBANDED = '__unbanded__'
@@ -21,9 +25,11 @@ export default function SundaySchoolDashboardPage() {
   const { session, status } = useSundaySchoolGuard()
   const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string>()
   const [selectedClassId, setSelectedClassId] = useState<string>()
+  const [attendanceAudience, setAttendanceAudience] = useState<SundaySchoolAttendanceAudience>('children')
   const { data, isLoading, isValidating } = useSundaySchoolDashboard(
     selectedAcademicYearId,
     selectedClassId,
+    attendanceAudience,
     { keepPreviousData: true }
   )
 
@@ -119,11 +125,17 @@ export default function SundaySchoolDashboardPage() {
             trend={dashboard.attendanceTrend}
             selectedAcademicYearId={selectedAcademicYearId}
             selectedClassId={selectedClassId}
+            audience={attendanceAudience}
             onAcademicYearChange={(academicYearId) => {
               setSelectedAcademicYearId(academicYearId)
               setSelectedClassId(undefined)
+              setAttendanceAudience('children')
             }}
             onClassChange={setSelectedClassId}
+            onAudienceChange={(audience) => {
+              setAttendanceAudience(audience)
+              setSelectedClassId(undefined)
+            }}
             isRefreshing={isValidating && !isLoading}
           />
         )}

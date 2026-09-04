@@ -5,6 +5,7 @@ import { handleApiError } from "@/lib/api-utils"
 import {
   canCoordinateClass,
   canServeClass,
+  canViewServantAttendanceReport,
   getSundaySchoolAccess,
   visibleClassFilter,
 } from "@/lib/sunday-school-access"
@@ -26,6 +27,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const requestedAcademicYearId = searchParams.get("academicYearId")
     const requestedClassId = searchParams.get("classId")
+    const requestedAudience = searchParams.get("audience") ?? "children"
+    if (requestedAudience !== "children" && requestedAudience !== "servants") {
+      return NextResponse.json({ error: "Invalid attendance audience" }, { status: 400 })
+    }
 
     const access = await getSundaySchoolAccess(user)
     if (!access.canRead) {
@@ -70,6 +75,7 @@ export async function GET(request: Request) {
           },
           _count: { select: { children: true } },
           sessions: {
+            where: { attendance: { some: {} } },
             orderBy: { date: "desc" },
             take: 1,
             select: { id: true, date: true, topic: true },
@@ -110,13 +116,23 @@ export async function GET(request: Request) {
     let attendanceTrendClasses: Array<{ id: string; name: string }> = []
     let selectedTrendClassId: string | null = null
     let canSelectTrendClass = false
+    let canViewServantAttendance = false
 
     if (selectedAcademicYear) {
       const trendAccess =
         selectedAcademicYear.id === activeYear?.id
           ? access
           : await getSundaySchoolAccess(user, selectedAcademicYear.id)
-      const allowedTrendClassIds = visibleClassFilter(trendAccess)
+      canViewServantAttendance = canViewServantAttendanceReport(trendAccess)
+
+      if (requestedAudience === "servants" && !canViewServantAttendance) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+
+      const allowedTrendClassIds =
+        requestedAudience === "servants" && !trendAccess.isAdmin
+          ? Array.from(trendAccess.coordinatorClassIds)
+          : visibleClassFilter(trendAccess)
       const trendClasses = trendAccess.canRead
         ? await prisma.sundaySchoolClass.findMany({
             where: {
@@ -128,9 +144,11 @@ export async function GET(request: Request) {
           })
         : []
       canSelectTrendClass =
-        trendAccess.isAdmin ||
-        trendAccess.readOnly ||
-        trendAccess.coordinatorClassIds.size > 0
+        requestedAudience === "servants"
+          ? canViewServantAttendance
+          : trendAccess.isAdmin ||
+            trendAccess.readOnly ||
+            trendAccess.coordinatorClassIds.size > 0
       attendanceTrendClasses = canSelectTrendClass ? trendClasses : []
       selectedTrendClassId =
         trendClasses.some(cls => cls.id === requestedClassId)
@@ -147,17 +165,32 @@ export async function GET(request: Request) {
       attendanceTrendEnd = range.end
 
       const trendSessions = trendClassIds.length
-        ? await prisma.sundaySchoolSession.findMany({
-            where: {
-              classId: { in: trendClassIds },
-              date: { gte: range.start, lte: range.end },
-            },
-            select: {
-              date: true,
-              attendance: { select: { status: true } },
-            },
-            orderBy: { date: "asc" },
-          })
+        ? requestedAudience === "servants"
+          ? (await prisma.sundaySchoolSession.findMany({
+              where: {
+                classId: { in: trendClassIds },
+                date: { gte: range.start, lte: range.end },
+              },
+              select: {
+                date: true,
+                servantAttendance: { select: { status: true } },
+              },
+              orderBy: { date: "asc" },
+            })).map(session => ({
+              date: session.date,
+              attendance: session.servantAttendance,
+            }))
+          : await prisma.sundaySchoolSession.findMany({
+              where: {
+                classId: { in: trendClassIds },
+                date: { gte: range.start, lte: range.end },
+              },
+              select: {
+                date: true,
+                attendance: { select: { status: true } },
+              },
+              orderBy: { date: "asc" },
+            })
         : []
 
       attendanceTrendPoints = buildSundaySchoolAttendanceTrend(
@@ -227,12 +260,14 @@ export async function GET(request: Request) {
         coordinatesAnyAgeGroup: access.coordinatorAgeGroupIds.size > 0,
       },
       attendanceTrend: {
+        audience: requestedAudience,
         points: attendanceTrendPoints,
         academicYears: academicYears.map(year => ({ id: year.id, name: year.name })),
         classes: attendanceTrendClasses,
         selectedAcademicYearId: selectedAcademicYear?.id ?? null,
         selectedClassId: selectedTrendClassId,
         canSelectClass: canSelectTrendClass,
+        canViewServantAttendance,
         startDate: attendanceTrendStart?.toISOString() ?? null,
         endDate: attendanceTrendEnd?.toISOString() ?? null,
       },

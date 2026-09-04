@@ -127,8 +127,8 @@ classes with no migration.
 | `SUPER_ADMIN` | Everything | All of the below, everywhere, plus age groups and servant accounts |
 | `PRIEST` | Everything | Read only |
 | Age-group coordinator | Every class in their band | Everything a class coordinator can, **plus create and delete classes** in that band. Sees only their own band. |
-| Class coordinator | One class | Edit the class, staff it, manage its children and attendance. **No** create/delete. |
-| Servant of a class | One class | That class's children and weekly attendance |
+| Class coordinator | One class | Edit the class, staff it, manage its children, and record child and servant attendance. **No** create/delete. |
+| Servant of a class | One class | That class's children and weekly child attendance; no servant-attendance entry or reporting |
 | Anyone else, including an unassigned `SERVANT_PREP` | — | Nothing |
 
 Only `SERVANT` and `SERVANT_PREP` accounts may be assigned
@@ -154,6 +154,7 @@ import {
   getSundaySchoolAccess,
   canServeClass,
   canCoordinateClass,
+  canTakeServantAttendance,
   canCreateClassAtLevel,
   canDeleteClass,
   canCoordinateAgeGroup,
@@ -266,7 +267,7 @@ Neither is a security boundary; the API is.
 
 Per-class affordances come from the **API payload**, not from the client
 re-deriving anything: list and detail responses carry `canServe`,
-`canCoordinate`, and `canDelete` for each class.
+`canCoordinate`, `canTakeServantAttendance`, and `canDelete` for each class.
 
 ---
 
@@ -277,6 +278,7 @@ re-deriving anything: list and detail responses carry `canServe`,
 | `__tests__/lib/roles.test.ts` | Every prep helper; `SERVANT` denied across all of them; `SERVANT_PREP` cannot manage a `SERVANT` |
 | `__tests__/lib/sunday-school-access.test.ts` | The predicates: band coordinator reaches their band and nothing outside it; class coordinator cannot create or delete; unassigned `SERVANT_PREP` gets nothing; `PRIEST` reads but never writes; level-ownership rules |
 | `__tests__/api/api-authorization.test.ts` | Route-level expectations across both models |
+| `__tests__/api/sunday-school-servant-attendance.test.ts` | Servant-attendance authorization, validation, roster scope, and idempotent saves |
 
 When you add a permission, add its denial cases too — a test that only proves
 the happy path does not protect anything.

@@ -4,6 +4,7 @@ import {
   SundaySchoolFeedbackStatus,
   SundaySchoolFeedbackVoteType,
   SundaySchoolLevel,
+  SundaySchoolServantAttendanceStatus,
   SundaySchoolVisitationStatus,
 } from '@prisma/client'
 
@@ -55,6 +56,7 @@ export interface SundaySchoolClass extends SundaySchoolClassRef {
   canServe?: boolean
   canCoordinate?: boolean
   canDelete?: boolean
+  canTakeServantAttendance?: boolean
 }
 
 export interface SundaySchoolChild {
@@ -164,6 +166,29 @@ export interface SundaySchoolSessionAttendance {
   roster: SundaySchoolRosterEntry[]
 }
 
+export interface SundaySchoolServantAttendanceRosterEntry {
+  id: string
+  userId: string
+  name: string
+  email: string
+  profileImageUrl: string | null
+  authority: SundaySchoolAuthority
+  attendance: {
+    id: string
+    servantId: string
+    status: SundaySchoolServantAttendanceStatus
+  } | null
+}
+
+export interface SundaySchoolServantAttendanceResponse {
+  class: SundaySchoolClassRef & { academicYearId: string }
+  session: SundaySchoolSession | null
+  roster: SundaySchoolServantAttendanceRosterEntry[]
+  canEdit: boolean
+}
+
+export type SundaySchoolAttendanceAudience = 'children' | 'servants'
+
 export interface SundaySchoolClassSummary {
   id: string
   name: string
@@ -220,12 +245,14 @@ export interface SundaySchoolDashboard {
     coordinatesAnyAgeGroup: boolean
   }
   attendanceTrend: {
+    audience: SundaySchoolAttendanceAudience
     points: SundaySchoolAttendanceTrendPoint[]
     academicYears: SundaySchoolAcademicYearOption[]
     classes: SundaySchoolClassOption[]
     selectedAcademicYearId: string | null
     selectedClassId: string | null
     canSelectClass: boolean
+    canViewServantAttendance: boolean
     startDate: string | null
     endDate: string | null
   }
