@@ -184,6 +184,18 @@ export interface SundaySchoolClassSummary {
   }>
 }
 
+export interface SundaySchoolAttendanceTrendPoint {
+  date: string
+  attendedCount: number | null
+  rosterCount: number | null
+  attendanceRate: number | null
+}
+
+export interface SundaySchoolAcademicYearOption {
+  id: string
+  name: string
+}
+
 export interface SundaySchoolDashboard {
   classes: SundaySchoolClassSummary[]
   ageGroups: Array<{
@@ -201,6 +213,13 @@ export interface SundaySchoolDashboard {
     isAdmin: boolean
     readOnly: boolean
     coordinatesAnyAgeGroup: boolean
+  }
+  attendanceTrend: {
+    points: SundaySchoolAttendanceTrendPoint[]
+    academicYears: SundaySchoolAcademicYearOption[]
+    selectedAcademicYearId: string | null
+    startDate: string | null
+    endDate: string | null
   }
   weekOf: string
 }

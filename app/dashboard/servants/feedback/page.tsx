@@ -237,7 +237,7 @@ export default function SundaySchoolFeedbackPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 dark:bg-gray-950 md:p-8">
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         <PageHeader
           title="Feedback"
           description="Share ideas for Sunday School and help prioritize what would be most useful."

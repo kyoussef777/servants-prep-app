@@ -10,14 +10,21 @@ import {
 } from "@/lib/sunday-school-access"
 import { calculateAttendanceStats } from "@/lib/attendance"
 import { findAgeGroupForLevel, getMostRecentSunday } from "@/lib/sunday-school-class"
+import {
+  buildSundaySchoolAttendanceTrend,
+  getSundaySchoolReportingRange,
+} from "@/lib/sunday-school-dashboard"
 
 // Sunday School mode: summary for the mode's landing page.
 // Deliberately returns no guardian contact — that stays on the child routes.
 
 // GET /api/sunday-school/dashboard
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await requireAuth()
+
+    const { searchParams } = new URL(request.url)
+    const requestedAcademicYearId = searchParams.get("academicYearId")
 
     const access = await getSundaySchoolAccess(user)
     if (!access.canRead) {
@@ -26,10 +33,34 @@ export async function GET() {
 
     const allowedClassIds = visibleClassFilter(access)
 
+    const [activeYear, academicYears] = await Promise.all([
+      prisma.academicYear.findFirst({
+        where: { isActive: true },
+        select: { id: true, name: true, startDate: true, endDate: true, isActive: true },
+      }),
+      prisma.academicYear.findMany({
+        where: {
+          sundaySchoolClasses: { some: {} },
+          ...(access.visibleClassIds === "all"
+            ? {}
+            : { sundaySchoolServantAssignments: { some: { userId: user.id } } }),
+        },
+        select: { id: true, name: true, startDate: true, endDate: true, isActive: true },
+        orderBy: { startDate: "desc" },
+      }),
+    ])
+
+    const selectedAcademicYear =
+      academicYears.find(year => year.id === requestedAcademicYearId) ??
+      academicYears.find(year => year.id === activeYear?.id) ??
+      academicYears[0] ??
+      null
+
     const [classes, ageGroups] = await Promise.all([
       prisma.sundaySchoolClass.findMany({
         where: {
           isActive: true,
+          ...(activeYear ? { academicYearId: activeYear.id } : {}),
           ...(allowedClassIds ? { id: { in: allowedClassIds } } : {}),
         },
         include: {
@@ -71,6 +102,54 @@ export async function GET() {
     const sessionCountByClass = new Map(sessionCounts.map(s => [s.classId, s._count._all]))
 
     const thisSunday = getMostRecentSunday()
+
+    let attendanceTrendPoints: ReturnType<typeof buildSundaySchoolAttendanceTrend> = []
+    let attendanceTrendStart: Date | null = null
+    let attendanceTrendEnd: Date | null = null
+
+    if (selectedAcademicYear) {
+      const trendAccess =
+        selectedAcademicYear.id === activeYear?.id
+          ? access
+          : await getSundaySchoolAccess(user, selectedAcademicYear.id)
+      const allowedTrendClassIds = visibleClassFilter(trendAccess)
+      const trendClasses = trendAccess.canRead
+        ? await prisma.sundaySchoolClass.findMany({
+            where: {
+              academicYearId: selectedAcademicYear.id,
+              ...(allowedTrendClassIds ? { id: { in: allowedTrendClassIds } } : {}),
+            },
+            select: { id: true },
+          })
+        : []
+      const trendClassIds = trendClasses.map(cls => cls.id)
+      const range = getSundaySchoolReportingRange(
+        selectedAcademicYear.startDate,
+        selectedAcademicYear.isActive
+      )
+      attendanceTrendStart = range.start
+      attendanceTrendEnd = range.end
+
+      const trendSessions = trendClassIds.length
+        ? await prisma.sundaySchoolSession.findMany({
+            where: {
+              classId: { in: trendClassIds },
+              date: { gte: range.start, lte: range.end },
+            },
+            select: {
+              date: true,
+              attendance: { select: { status: true } },
+            },
+            orderBy: { date: "asc" },
+          })
+        : []
+
+      attendanceTrendPoints = buildSundaySchoolAttendanceTrend(
+        trendSessions,
+        range.start,
+        range.end
+      )
+    }
 
     const summaries = classes.map(cls => {
       const classAttendance = attendance.filter(a => a.session.classId === cls.id)
@@ -130,6 +209,13 @@ export async function GET() {
         isAdmin: access.isAdmin,
         readOnly: access.readOnly,
         coordinatesAnyAgeGroup: access.coordinatorAgeGroupIds.size > 0,
+      },
+      attendanceTrend: {
+        points: attendanceTrendPoints,
+        academicYears: academicYears.map(year => ({ id: year.id, name: year.name })),
+        selectedAcademicYearId: selectedAcademicYear?.id ?? null,
+        startDate: attendanceTrendStart?.toISOString() ?? null,
+        endDate: attendanceTrendEnd?.toISOString() ?? null,
       },
       weekOf: thisSunday,
     })
