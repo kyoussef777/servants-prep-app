@@ -12,8 +12,9 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/admin/page-header'
 import { AttendanceStatusButtons } from '@/components/attendance-status-buttons'
+import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolClasses } from '@/lib/swr'
+import { useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
 import {
   getChildFullName,
   getLevelDisplayName,
@@ -25,6 +26,7 @@ import type {
   SundaySchoolChild,
   SundaySchoolClass,
   SundaySchoolRosterEntry,
+  SundaySchoolDashboard,
   SundaySchoolSession,
   SundaySchoolSessionAttendance,
 } from '@/types/sunday-school'
@@ -49,6 +51,13 @@ function SundaySchoolAttendanceContent() {
   // The server decides per class whether this person may record attendance
   const selectedClass = classes.find(c => c.id === selectedClassId)
   const canEdit = selectedClass?.canServe ?? false
+  const {
+    data: trendData,
+    isLoading: trendLoading,
+    isValidating: trendRefreshing,
+    mutate: refreshTrend,
+  } = useSundaySchoolDashboard(selectedClass?.academicYearId, selectedClassId || undefined)
+  const trendDashboard = trendData as SundaySchoolDashboard | undefined
 
   // Preselect the class from the dashboard link, else the first one available
   useEffect(() => {
@@ -161,6 +170,7 @@ function SundaySchoolAttendanceContent() {
       const saved = new Date()
       setLastSaved(saved)
       setAttendance(prev => (prev ? { ...prev, session: sessionBody } : prev))
+      void refreshTrend()
       toast.success('Attendance saved', { description: saved.toLocaleString() })
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to save attendance')
@@ -237,6 +247,15 @@ function SundaySchoolAttendanceContent() {
                 </div>
               </CardContent>
             </Card>
+
+            {selectedClass && (
+              <SundaySchoolRecentAttendanceChart
+                trend={trendDashboard?.attendanceTrend}
+                className={selectedClass.name}
+                throughDate={sessionDate}
+                isLoading={trendLoading || trendRefreshing}
+              />
+            )}
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2">

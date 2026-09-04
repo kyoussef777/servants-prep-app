@@ -196,6 +196,11 @@ export interface SundaySchoolAcademicYearOption {
   name: string
 }
 
+export interface SundaySchoolClassOption {
+  id: string
+  name: string
+}
+
 export interface SundaySchoolDashboard {
   classes: SundaySchoolClassSummary[]
   ageGroups: Array<{
@@ -217,7 +222,10 @@ export interface SundaySchoolDashboard {
   attendanceTrend: {
     points: SundaySchoolAttendanceTrendPoint[]
     academicYears: SundaySchoolAcademicYearOption[]
+    classes: SundaySchoolClassOption[]
     selectedAcademicYearId: string | null
+    selectedClassId: string | null
+    canSelectClass: boolean
     startDate: string | null
     endDate: string | null
   }

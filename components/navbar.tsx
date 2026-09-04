@@ -230,9 +230,9 @@ export function Navbar() {
   return (
     <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex h-16 justify-between">
           {/* Left side - Logo/Title */}
-          <div className="flex items-center gap-8">
+          <div className="flex min-w-0 items-center gap-8">
             <div
               className={`flex items-center gap-3 ${canSwitchModes ? 'sm:w-[268px] sm:justify-between' : ''}`}
             >
@@ -240,15 +240,17 @@ export function Navbar() {
                 href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
                 className="flex shrink-0 items-center gap-3"
               >
-                <Image
-                  src={inSundaySchoolMode ? '/st-mark-logo.png' : '/sp-logo.png'}
-                  alt={inSundaySchoolMode ? 'St. Mark Coptic Orthodox Church Logo' : 'Servants Prep Logo'}
-                  width={inSundaySchoolMode ? 47 : 40}
-                  height={40}
-                  className={inSundaySchoolMode
-                    ? 'h-10 w-auto object-contain'
-                    : 'h-10 w-10 rounded-md bg-black p-1'}
-                />
+                <span className="flex h-10 w-12 shrink-0 items-center justify-center">
+                  <Image
+                    src={inSundaySchoolMode ? '/st-mark-logo.png' : '/sp-logo.png'}
+                    alt={inSundaySchoolMode ? 'St. Mark Coptic Orthodox Church Logo' : 'Servants Prep Logo'}
+                    width={inSundaySchoolMode ? 47 : 40}
+                    height={40}
+                    className={inSundaySchoolMode
+                      ? 'h-10 w-auto object-contain'
+                      : 'h-10 w-10 rounded-md bg-black p-1'}
+                  />
+                </span>
                 <span className="whitespace-nowrap text-xl font-bold text-gray-900 dark:text-white">
                   {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
                 </span>
@@ -281,7 +283,7 @@ export function Navbar() {
             </div>
 
             {/* Navigation Links */}
-            <div className="hidden lg:flex items-center gap-1">
+            <div className="hidden w-[440px] shrink-0 items-center gap-1 xl:flex">
               {primaryLinks.map(link => (
                 <Link
                   key={link.href}
@@ -344,7 +346,7 @@ export function Navbar() {
           </div>
 
           {/* Right side - User menu */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {/* Search / command palette trigger - desktop (search-bar style) */}
             <button
               type="button"
@@ -373,7 +375,7 @@ export function Navbar() {
             {/* Mobile menu button */}
             <Button
               variant="ghost"
-              className="lg:hidden"
+              className="xl:hidden"
               size="icon"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
@@ -485,7 +487,7 @@ export function Navbar() {
 
         {/* Mobile menu - flat list of all links */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t dark:border-gray-800">
+          <div className="border-t dark:border-gray-800 xl:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1">
               {canSwitchModes && (
                 <Link

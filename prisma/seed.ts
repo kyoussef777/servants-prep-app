@@ -1,7 +1,14 @@
-import { PrismaClient } from '@prisma/client'
+import { AttendanceStatus, PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
+
+function getFirstSundayAfterSeptember11(year: number) {
+  const september11 = new Date(Date.UTC(year, 8, 11))
+  const daysUntilSunday = (7 - september11.getUTCDay()) % 7 || 7
+
+  return new Date(Date.UTC(year, 8, 11 + daysUntilSunday))
+}
 
 async function main() {
   console.log('Starting seed...')
@@ -362,24 +369,105 @@ async function main() {
     { firstName: 'Mina', lastName: 'Girgis', guardianName: 'Nader Girgis', guardianPhone: '555-0101' },
     { firstName: 'Kirollos', lastName: 'Samir', guardianName: 'Hoda Samir', guardianPhone: '555-0102' },
     { firstName: 'Youssef', lastName: 'Adel', guardianName: 'Adel Fawzy', guardianPhone: '555-0103' },
+    { firstName: 'Mark', lastName: 'Botros', guardianName: 'Mariam Botros', guardianPhone: '555-0104' },
+    { firstName: 'Andrew', lastName: 'Mikhail', guardianName: 'George Mikhail', guardianPhone: '555-0105' },
+    { firstName: 'David', lastName: 'Naguib', guardianName: 'Nancy Naguib', guardianPhone: '555-0106' },
+    { firstName: 'Matthew', lastName: 'Hanna', guardianName: 'Mona Hanna', guardianPhone: '555-0107' },
+    { firstName: 'Peter', lastName: 'Fawzy', guardianName: 'Samia Fawzy', guardianPhone: '555-0108' },
+    { firstName: 'John', lastName: 'Salib', guardianName: 'Maged Salib', guardianPhone: '555-0109' },
+    { firstName: 'Daniel', lastName: 'Yacoub', guardianName: 'Dina Yacoub', guardianPhone: '555-0110' },
   ]
 
+  const children = []
   for (const child of sampleChildren) {
-    const existing = await prisma.sundaySchoolChild.findFirst({
+    let savedChild = await prisma.sundaySchoolChild.findFirst({
       where: {
         firstName: child.firstName,
         lastName: child.lastName,
         classId: sundaySchoolClass.id,
       },
     })
-    if (!existing) {
-      await prisma.sundaySchoolChild.create({
+    if (!savedChild) {
+      savedChild = await prisma.sundaySchoolChild.create({
         data: { ...child, level: 'GRADE_3', classId: sundaySchoolClass.id },
+      })
+    }
+    children.push(savedChild)
+  }
+
+  // A deterministic attendance history gives the dashboard chart enough data
+  // to show weekly movement while keeping repeated seed runs idempotent. The
+  // saved attendance snapshots intentionally grow as children join the class.
+  const topics = [
+    'God Creates the World',
+    'Noah Trusts God',
+    'Abraham and the Promise',
+    'Joseph Forgives His Brothers',
+    'Moses and the Burning Bush',
+    'The Ten Commandments',
+    'David and Goliath',
+    'Daniel in the Lions\' Den',
+    'The Birth of Jesus',
+    'Jesus Calms the Storm',
+    'The Good Samaritan',
+    'The Prodigal Son',
+  ]
+  const firstSunday = getFirstSundayAfterSeptember11(academicYear.startDate.getUTCFullYear())
+  const skippedWeeks = new Set([13, 27])
+
+  for (let week = 0; week < 38; week += 1) {
+    if (skippedWeeks.has(week)) continue
+
+    const date = new Date(firstSunday)
+    date.setUTCDate(date.getUTCDate() + week * 7)
+
+    const session = await prisma.sundaySchoolSession.upsert({
+      where: {
+        classId_date: {
+          classId: sundaySchoolClass.id,
+          date,
+        },
+      },
+      update: {
+        topic: topics[week % topics.length],
+        takenBy: servant.id,
+      },
+      create: {
+        classId: sundaySchoolClass.id,
+        date,
+        topic: topics[week % topics.length],
+        takenBy: servant.id,
+      },
+    })
+
+    const rosterSize = week < 8 ? 7 : week < 20 ? 9 : children.length
+    for (const [childIndex, child] of children.slice(0, rosterSize).entries()) {
+      const attendanceKey = (week * 7 + childIndex * 3) % 17
+      let status: AttendanceStatus = AttendanceStatus.PRESENT
+
+      if (attendanceKey === 0) status = AttendanceStatus.EXCUSED
+      else if ((week + childIndex * 2) % 9 === 0) status = AttendanceStatus.ABSENT
+      else if ((week * 2 + childIndex) % 8 === 0) status = AttendanceStatus.LATE
+
+      await prisma.sundaySchoolChildAttendance.upsert({
+        where: {
+          sessionId_childId: {
+            sessionId: session.id,
+            childId: child.id,
+          },
+        },
+        update: { status, recordedBy: servant.id },
+        create: {
+          sessionId: session.id,
+          childId: child.id,
+          status,
+          recordedBy: servant.id,
+        },
       })
     }
   }
 
-  console.log('Sunday School sample data created')
+  console.log('Sunday School sample data created: 10 children and 36 weeks of attendance')
 }
 
 main()

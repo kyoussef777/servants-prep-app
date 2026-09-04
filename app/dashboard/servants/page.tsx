@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/admin/page-header'
+import { SundaySchoolAttendanceChart } from '@/components/sunday-school-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolDashboard } from '@/lib/swr'
 import { getLevelDisplayName } from '@/lib/sunday-school-class'
@@ -18,7 +19,13 @@ const UNBANDED = '__unbanded__'
 
 export default function SundaySchoolDashboardPage() {
   const { session, status } = useSundaySchoolGuard()
-  const { data, isLoading } = useSundaySchoolDashboard()
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string>()
+  const [selectedClassId, setSelectedClassId] = useState<string>()
+  const { data, isLoading, isValidating } = useSundaySchoolDashboard(
+    selectedAcademicYearId,
+    selectedClassId,
+    { keepPreviousData: true }
+  )
 
   const dashboard = data as SundaySchoolDashboard | undefined
 
@@ -106,6 +113,20 @@ export default function SundaySchoolDashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {dashboard?.attendanceTrend && (
+          <SundaySchoolAttendanceChart
+            trend={dashboard.attendanceTrend}
+            selectedAcademicYearId={selectedAcademicYearId}
+            selectedClassId={selectedClassId}
+            onAcademicYearChange={(academicYearId) => {
+              setSelectedAcademicYearId(academicYearId)
+              setSelectedClassId(undefined)
+            }}
+            onClassChange={setSelectedClassId}
+            isRefreshing={isValidating && !isLoading}
+          />
+        )}
 
         {classCount === 0 ? (
           <Card>

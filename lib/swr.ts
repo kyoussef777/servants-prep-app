@@ -103,11 +103,14 @@ export function useClassAverages(options?: SWRConfiguration) {
 // Sunday School mode hooks (the Sunday School class itself)
 export function useSundaySchoolDashboard(
   academicYearId?: string,
+  classId?: string,
   options?: SWRConfiguration
 ) {
-  const url = academicYearId
-    ? `/api/sunday-school/dashboard?academicYearId=${encodeURIComponent(academicYearId)}`
-    : '/api/sunday-school/dashboard'
+  const params = new URLSearchParams()
+  if (academicYearId) params.set('academicYearId', academicYearId)
+  if (classId) params.set('classId', classId)
+  const query = params.toString()
+  const url = `/api/sunday-school/dashboard${query ? `?${query}` : ''}`
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
 }
 

@@ -107,6 +107,14 @@ for the weeks before they joined. The formula itself is the app-wide
 `calculateAttendanceStats` (late counts half, excused excluded), shown as a
 plain rate with none of the graduation framing.
 
+**The dashboard trend uses each saved session as its historical roster
+snapshot.** Every mark saved for that Sunday counts toward the roster curve;
+`PRESENT` and `LATE` count toward the attended curve. Sundays with no saved
+marks stay as gaps so missing data is never presented as zero attendance. The
+reporting year begins on the first Sunday strictly after September 11. Super
+admins and priests can filter the trend to any class; coordinators can filter
+only to classes inside their assigned scope.
+
 ## API routes
 
 All under `app/api/sunday-school/`. Every one resolves authority with
@@ -127,7 +135,7 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `sessions/[id]` | PATCH, DELETE | People who serve the class |
 | `sessions/[id]/attendance` | GET | Anyone who can view the class |
 | `attendance/batch` | POST | People who serve the class |
-| `dashboard` | GET | Anyone with access |
+| `dashboard` | GET | Anyone with access; accepts `academicYearId` and a scope-checked `classId` for the attendance trend |
 | `visitations` | GET, POST | Read: scoped to visible classes. Write: people who serve the child's class; `PRIEST` remains read-only |
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
@@ -152,8 +160,8 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 
 | Page | Purpose |
 |---|---|
-| `page.tsx` | Landing: classes grouped by age group, attendance-due badges, totals |
-| `attendance/page.tsx` | The core screen — pick class and week, mark each child, batch save |
+| `page.tsx` | Landing: weekly attendance-versus-roster chart, classes grouped by age group, attendance-due badges, totals |
+| `attendance/page.tsx` | The core screen — pick class and week, review its eight-week trend, mark each child, batch save |
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
 | `children/page.tsx` | Child roster CRUD including guardian fields |

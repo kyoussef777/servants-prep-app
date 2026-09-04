@@ -240,7 +240,7 @@ export default function SundaySchoolFeedbackPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <PageHeader
           title="Feedback"
-          description="Share ideas for Sunday School and help prioritize what would be most useful."
+          description="Share ideas for the app and help prioritize what would be most useful."
           actions={
             response?.viewer.canSubmit ? (
               <Button onClick={openCreateDialog}>

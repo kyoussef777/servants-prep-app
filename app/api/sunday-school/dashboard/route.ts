@@ -25,6 +25,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const requestedAcademicYearId = searchParams.get("academicYearId")
+    const requestedClassId = searchParams.get("classId")
 
     const access = await getSundaySchoolAccess(user)
     if (!access.canRead) {
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
       prisma.sundaySchoolClass.findMany({
         where: {
           isActive: true,
-          ...(activeYear ? { academicYearId: activeYear.id } : {}),
+          academicYearId: activeYear?.id ?? "__no_active_academic_year__",
           ...(allowedClassIds ? { id: { in: allowedClassIds } } : {}),
         },
         include: {
@@ -106,6 +107,9 @@ export async function GET(request: Request) {
     let attendanceTrendPoints: ReturnType<typeof buildSundaySchoolAttendanceTrend> = []
     let attendanceTrendStart: Date | null = null
     let attendanceTrendEnd: Date | null = null
+    let attendanceTrendClasses: Array<{ id: string; name: string }> = []
+    let selectedTrendClassId: string | null = null
+    let canSelectTrendClass = false
 
     if (selectedAcademicYear) {
       const trendAccess =
@@ -119,10 +123,22 @@ export async function GET(request: Request) {
               academicYearId: selectedAcademicYear.id,
               ...(allowedTrendClassIds ? { id: { in: allowedTrendClassIds } } : {}),
             },
-            select: { id: true },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
           })
         : []
-      const trendClassIds = trendClasses.map(cls => cls.id)
+      canSelectTrendClass =
+        trendAccess.isAdmin ||
+        trendAccess.readOnly ||
+        trendAccess.coordinatorClassIds.size > 0
+      attendanceTrendClasses = canSelectTrendClass ? trendClasses : []
+      selectedTrendClassId =
+        trendClasses.some(cls => cls.id === requestedClassId)
+          ? requestedClassId
+          : null
+      const trendClassIds = selectedTrendClassId
+        ? [selectedTrendClassId]
+        : trendClasses.map(cls => cls.id)
       const range = getSundaySchoolReportingRange(
         selectedAcademicYear.startDate,
         selectedAcademicYear.isActive
@@ -213,7 +229,10 @@ export async function GET(request: Request) {
       attendanceTrend: {
         points: attendanceTrendPoints,
         academicYears: academicYears.map(year => ({ id: year.id, name: year.name })),
+        classes: attendanceTrendClasses,
         selectedAcademicYearId: selectedAcademicYear?.id ?? null,
+        selectedClassId: selectedTrendClassId,
+        canSelectClass: canSelectTrendClass,
         startDate: attendanceTrendStart?.toISOString() ?? null,
         endDate: attendanceTrendEnd?.toISOString() ?? null,
       },
