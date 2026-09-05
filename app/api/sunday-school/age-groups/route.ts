@@ -24,7 +24,8 @@ export async function GET() {
 
     const ageGroups = await prisma.sundaySchoolAgeGroup.findMany({
       include: {
-        assignments: {
+              overseer: { select: { id: true, name: true, profileImageUrl: true } },
+              assignments: {
           where: { ageGroupId: { not: null } },
           include: { user: { select: { id: true, name: true, email: true } } },
         },
@@ -54,7 +55,13 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, levels, sortOrder } = body
+    const { name, levels, sortOrder, overseerId } = body
+
+        if (overseerId !== undefined && overseerId !== null) {
+          if (typeof overseerId !== 'string' || !overseerId) return NextResponse.json({ error: 'Invalid priest overseer' }, { status: 400 })
+          const priest = await prisma.user.findFirst({ where: { id: overseerId, role: 'PRIEST', isDisabled: false }, select: { id: true } })
+          if (!priest) return NextResponse.json({ error: 'Choose an active priest as overseer' }, { status: 400 })
+        }
 
     if (!name || !String(name).trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
@@ -78,6 +85,7 @@ export async function POST(request: Request) {
     const created = await prisma.sundaySchoolAgeGroup.create({
       data: {
         name: String(name).trim(),
+                overseerId: overseerId ?? null,
         levels: levels as SundaySchoolLevel[],
         sortOrder: typeof sortOrder === "number" ? sortOrder : 0,
       },

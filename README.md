@@ -62,7 +62,8 @@ program, and vice versa.
 - **Cross-mode user administration** so Super Admins can open the complete user
   list without leaving either ministry workspace
 - **Privacy Policy and Terms of Service** in the shared footer and account menu;
-  their routes preserve the active mode and authenticated navigation
+  their routes preserve the active mode and authenticated navigation, with a
+  context-aware back link to the exact page the user came from
 
 ## Tech stack
 

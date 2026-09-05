@@ -7,9 +7,33 @@ import { XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function Dialog({
+  open,
+  defaultOpen,
+  onOpenChange,
+  children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false)
+  const isOpen = open ?? uncontrolledOpen
+  const visibleChildren = React.useRef<React.ReactNode>(children)
+
+  // Keep the last open contents mounted while Radix plays the closing animation.
+  // This prevents record-backed dialogs from becoming empty before they fade out.
+  if (isOpen) visibleChildren.current = children
+
+  return (
+    <DialogPrimitive.Root
+      data-slot="dialog"
+      open={isOpen}
+      onOpenChange={nextOpen => {
+        if (open === undefined) setUncontrolledOpen(nextOpen)
+        onOpenChange?.(nextOpen)
+      }}
+      {...props}
+    >
+      {isOpen ? children : visibleChildren.current}
+    </DialogPrimitive.Root>
+  )
 }
 
 function DialogTrigger({

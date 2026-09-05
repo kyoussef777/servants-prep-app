@@ -133,6 +133,7 @@ export function Navbar() {
       const links: NavLink[] = [
         { href: '/dashboard/student', label: 'My Progress' },
         { href: '/dashboard/student/lessons', label: 'My Lessons' },
+        { href: '/dashboard/student/class-lessons', label: 'Class Lessons' },
         { href: '/dashboard/files', label: 'Files' },
       ]
       if (session.user.isAsyncStudent) {
@@ -165,8 +166,9 @@ export function Navbar() {
       return {
         primary: [
           { href: '/dashboard/servants', label: 'Dashboard' },
+          { href: '/dashboard/servants/lessons', label: 'Lessons' },
           { href: '/dashboard/servants/attendance', label: 'Attendance' },
-          { href: '/dashboard/servants/children', label: 'Children' },
+          { href: '/dashboard/servants/roster', label: 'Roster' },
         ],
         more: servantMore,
       }
@@ -177,8 +179,9 @@ export function Navbar() {
     if (inSundaySchoolMode && hasSundaySchool) {
       const links: NavLink[] = [
         { href: '/dashboard/servants', label: 'Dashboard' },
+        { href: '/dashboard/servants/lessons', label: 'Lessons' },
         { href: '/dashboard/servants/attendance', label: 'Attendance' },
-        { href: '/dashboard/servants/children', label: 'Children' },
+        { href: '/dashboard/servants/roster', label: 'Roster' },
       ]
       const more: NavLink[] = [
         { href: '/dashboard/servants/visitations', label: 'Visitations' },

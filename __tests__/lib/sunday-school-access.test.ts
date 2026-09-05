@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   canCoordinateAgeGroup,
   canCoordinateClass,
+  canAssignWeeklyLessonOwner,
+  canEditWeeklyLesson,
   canCreateClassAtLevel,
   canDeleteClass,
   canReviewChildRegistrationAtLevel,
@@ -90,6 +92,13 @@ describe('Sunday School access predicates', () => {
       expect(canViewServantAttendanceReport(servantOfA)).toBe(false)
     })
 
+    it('may edit only lessons they own in that class', () => {
+      expect(canEditWeeklyLesson(servantOfA, CLASS_A, 'servant-1', 'servant-1')).toBe(true)
+      expect(canEditWeeklyLesson(servantOfA, CLASS_A, 'someone-else', 'servant-1')).toBe(false)
+      expect(canEditWeeklyLesson(servantOfA, CLASS_B, 'servant-1', 'servant-1')).toBe(false)
+      expect(canAssignWeeklyLessonOwner(servantOfA, CLASS_A)).toBe(false)
+    })
+
     it('cannot touch another class', () => {
       expect(canViewClass(servantOfA, CLASS_B)).toBe(false)
       expect(canServeClass(servantOfA, CLASS_B)).toBe(false)
@@ -107,6 +116,8 @@ describe('Sunday School access predicates', () => {
       expect(canCoordinateClass(classCoordinator, CLASS_A)).toBe(true)
       expect(canTakeServantAttendance(classCoordinator, CLASS_A)).toBe(true)
       expect(canViewServantAttendanceReport(classCoordinator)).toBe(true)
+      expect(canAssignWeeklyLessonOwner(classCoordinator, CLASS_A)).toBe(true)
+      expect(canEditWeeklyLesson(classCoordinator, CLASS_A, null, 'coordinator-1')).toBe(true)
     })
 
     it('cannot create or delete classes — that is the band coordinator', () => {
@@ -173,6 +184,7 @@ describe('Sunday School access predicates', () => {
       expect(canCreateClassAtLevel(priest, 'GRADE_3')).toBe(false)
       expect(canDeleteClass(priest, 'GRADE_3')).toBe(false)
       expect(canCoordinateAgeGroup(priest, HIGH_SCHOOL)).toBe(false)
+      expect(canEditWeeklyLesson(priest, 'any-class', 'priest-1', 'priest-1')).toBe(false)
     })
   })
 

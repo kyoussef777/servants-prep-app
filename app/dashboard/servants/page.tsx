@@ -195,7 +195,7 @@ export default function SundaySchoolDashboardPage() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <Button asChild variant="outline" size="sm">
-                          <Link href={`/dashboard/servants/children?classId=${cls.id}`}>
+                          <Link href={`/dashboard/servants/roster?classId=${cls.id}`}>
                             <ClipboardList className="h-4 w-4 mr-1" />
                             Roster
                           </Link>

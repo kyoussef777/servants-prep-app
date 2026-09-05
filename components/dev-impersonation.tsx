@@ -247,6 +247,7 @@ function PickerDialog({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
+          data-slot="dialog-overlay"
           className={cn(
             'fixed inset-0 z-50 bg-black/40 backdrop-blur-sm',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
@@ -254,6 +255,7 @@ function PickerDialog({
           )}
         />
         <DialogPrimitive.Content
+          data-slot="top-dialog-content"
           className={cn(
             'fixed left-1/2 z-50 w-full -translate-x-1/2 px-3 sm:px-4',
             'top-3 sm:top-[12%] max-w-[640px]',

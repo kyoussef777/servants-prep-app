@@ -1,4 +1,5 @@
 'use client'
+import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
@@ -40,6 +41,7 @@ interface User {
 }
 
 export default function UsersPage() {
+  const [organizationUser, setOrganizationUser] = useState<User | null>(null)
   const { session, status } = useAdminGuard(canManageUsers)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -698,7 +700,9 @@ export default function UsersPage() {
                                 </AvatarFallback>
                               </Avatar>
                               <span>
-                                {user.role === 'STUDENT' ? (
+                                {isSuperAdmin && user.role !== 'STUDENT' ? (
+                                                                  <button type="button" onClick={() => setOrganizationUser(user)} className="text-left hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label={`View ${user.name}'s organization`}>{user.name}<span className="ml-1 text-xs text-muted-foreground">↗</span></button>
+                                                                ) : user.role === 'STUDENT' ? (
                                   <Link href={`/dashboard/admin/students?student=${user.id}`} className="hover:text-blue-600 hover:underline">
                                     {user.name}
                                   </Link>
@@ -872,7 +876,9 @@ export default function UsersPage() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {user.role === 'STUDENT' ? (
+                          {isSuperAdmin && user.role !== 'STUDENT' ? (
+                                                      <button type="button" onClick={() => setOrganizationUser(user)} className="text-left font-medium text-sm hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label={`View ${user.name}'s organization`}>{user.name}<span className="ml-1 text-xs text-muted-foreground">↗</span></button>
+                                                    ) : user.role === 'STUDENT' ? (
                             <Link href={`/dashboard/admin/students?student=${user.id}`} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">{user.name}</Link>
                           ) : (
                             <span className="font-medium text-sm truncate">{user.name}</span>
@@ -980,7 +986,10 @@ export default function UsersPage() {
         </Card>
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {organizationUser && (
+              <UserOrganizationDialog key={organizationUser.id} user={{ ...organizationUser, profileImageUrl: organizationUser.profileImageUrl ?? null }} onClose={() => setOrganizationUser(null)} />
+            )}
+            {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

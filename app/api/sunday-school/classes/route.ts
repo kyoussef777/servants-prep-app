@@ -9,6 +9,7 @@ import {
   visibleClassFilter,
 } from "@/lib/sunday-school-access"
 import { isValidLevel } from "@/lib/sunday-school-class"
+import { ensureSundaySchoolWeeklyLessons } from "@/lib/sunday-school-lessons"
 import { SundaySchoolLevel } from "@prisma/client"
 
 // Sunday School mode: the Sunday School classes themselves.
@@ -125,9 +126,13 @@ export async function POST(request: Request) {
       )
     }
 
-    const created = await prisma.sundaySchoolClass.create({
-      data: { name: trimmedName, level, academicYearId },
-      include: classInclude,
+    const created = await prisma.$transaction(async (tx) => {
+      const newClass = await tx.sundaySchoolClass.create({
+        data: { name: trimmedName, level, academicYearId },
+        include: classInclude,
+      })
+      await ensureSundaySchoolWeeklyLessons({ classIds: [newClass.id], db: tx })
+      return newClass
     })
 
     return NextResponse.json(created, { status: 201 })

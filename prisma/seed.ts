@@ -372,8 +372,39 @@ async function main() {
     }
   }
 
+  const girgisFamily = await prisma.sundaySchoolFamily.upsert({
+    where: { id: 'seed-girgis-family' },
+    update: {
+      name: 'Girgis Family',
+      homeAddress: '125 St. Mark Way, Jersey City, NJ 07306',
+      motherName: 'Mariam Girgis',
+      motherPhone: '555-0191',
+      motherEmail: 'mariam.girgis@example.com',
+      fatherName: 'Nader Girgis',
+      fatherPhone: '555-0101',
+      fatherEmail: 'nader.girgis@example.com',
+    },
+    create: {
+      id: 'seed-girgis-family',
+      name: 'Girgis Family',
+      homeAddress: '125 St. Mark Way, Jersey City, NJ 07306',
+      motherName: 'Mariam Girgis',
+      motherPhone: '555-0191',
+      motherEmail: 'mariam.girgis@example.com',
+      fatherName: 'Nader Girgis',
+      fatherPhone: '555-0101',
+      fatherEmail: 'nader.girgis@example.com',
+    },
+  })
+
   const sampleChildren = [
-    { firstName: 'Mina', lastName: 'Girgis', guardianName: 'Nader Girgis', guardianPhone: '555-0101' },
+    {
+      firstName: 'Mina',
+      lastName: 'Girgis',
+      guardianName: 'Nader Girgis',
+      guardianPhone: '555-0101',
+    },
+    { firstName: 'Joseph', lastName: 'Girgis', guardianName: 'Nader Girgis', guardianPhone: '555-0101' },
     { firstName: 'Kirollos', lastName: 'Samir', guardianName: 'Hoda Samir', guardianPhone: '555-0102' },
     { firstName: 'Youssef', lastName: 'Adel', guardianName: 'Adel Fawzy', guardianPhone: '555-0103' },
     { firstName: 'Mark', lastName: 'Botros', guardianName: 'Mariam Botros', guardianPhone: '555-0104' },
@@ -396,7 +427,17 @@ async function main() {
     })
     if (!savedChild) {
       savedChild = await prisma.sundaySchoolChild.create({
-        data: { ...child, level: 'GRADE_3', classId: sundaySchoolClass.id },
+        data: {
+          ...child,
+          level: 'GRADE_3',
+          classId: sundaySchoolClass.id,
+          familyId: child.lastName === 'Girgis' ? girgisFamily.id : null,
+        },
+      })
+    } else if (child.lastName === 'Girgis' && savedChild.familyId !== girgisFamily.id) {
+      savedChild = await prisma.sundaySchoolChild.update({
+        where: { id: savedChild.id },
+        data: { familyId: girgisFamily.id },
       })
     }
     children.push(savedChild)
@@ -510,7 +551,7 @@ async function main() {
     }
   }
 
-  console.log('Sunday School sample data created: 10 children, 2 servants, and weekly attendance')
+  console.log(`Sunday School sample data created: ${children.length} children, 2 servants, and weekly attendance`)
 }
 
 main()

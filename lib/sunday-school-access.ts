@@ -167,6 +167,28 @@ export function canCoordinateClass(access: SundaySchoolAccess, classId: string):
   return access.coordinatorClassIds.has(classId)
 }
 
+/** Can choose or replace the designated owner of a weekly lesson. */
+export function canAssignWeeklyLessonOwner(
+  access: SundaySchoolAccess,
+  classId: string
+): boolean {
+  return canCoordinateClass(access, classId)
+}
+
+/**
+ * Weekly lesson content is editable by its designated owner while they still
+ * serve the class, and by the class's coordinators. Priests remain read-only.
+ */
+export function canEditWeeklyLesson(
+  access: SundaySchoolAccess,
+  classId: string,
+  ownerId: string | null,
+  userId: string
+): boolean {
+  if (canCoordinateClass(access, classId)) return true
+  return ownerId === userId && canServeClass(access, classId)
+}
+
 /** Can record and report on servant attendance for this class. */
 export function canTakeServantAttendance(
   access: SundaySchoolAccess,

@@ -169,55 +169,59 @@ model User {
   updatedAt          DateTime @updatedAt
 
   // Relations
-  enrollments           StudentEnrollment[] @relation("StudentEnrollments")
-  mentoredStudents      StudentEnrollment[] @relation("MentorServant")
-  attendanceRecords     AttendanceRecord[]
-  attendanceRecordedBy  AttendanceRecord[]  @relation("RecordedBy")
-  examScores            ExamScore[]
-  examScoresGradedBy    ExamScore[]         @relation("GradedBy")
-  lessonsCreated        Lesson[]            @relation("CreatedBy")
-  studentNotes          StudentNote[]       @relation("StudentNotes")
-  authoredNotes         StudentNote[]       @relation("AuthoredNotes")
+  enrollments          StudentEnrollment[] @relation("StudentEnrollments")
+  mentoredStudents     StudentEnrollment[] @relation("MentorServant")
+  attendanceRecords    AttendanceRecord[]
+  attendanceRecordedBy AttendanceRecord[]  @relation("RecordedBy")
+  examScores           ExamScore[]
+  examScoresGradedBy   ExamScore[]         @relation("GradedBy")
+  lessonsCreated       Lesson[]            @relation("CreatedBy")
+  studentNotes         StudentNote[]       @relation("StudentNotes")
+  authoredNotes        StudentNote[]       @relation("AuthoredNotes")
 
   // Expected absence relations
-  expectedAbsences         ExpectedAbsence[] @relation("StudentExpectedAbsences")
-  createdExpectedAbsences  ExpectedAbsence[] @relation("CreatedExpectedAbsences")
+  expectedAbsences        ExpectedAbsence[] @relation("StudentExpectedAbsences")
+  createdExpectedAbsences ExpectedAbsence[] @relation("CreatedExpectedAbsences")
 
   // Async notes relations
-  noteSubmissions           AsyncNoteSubmission[] @relation("StudentNoteSubmissions")
-  reviewedNoteSubmissions   AsyncNoteSubmission[] @relation("ReviewedNoteSubmissions")
-  asyncApprovedEnrollments  StudentEnrollment[]   @relation("AsyncApprovedBy")
+  noteSubmissions          AsyncNoteSubmission[] @relation("StudentNoteSubmissions")
+  reviewedNoteSubmissions  AsyncNoteSubmission[] @relation("ReviewedNoteSubmissions")
+  asyncApprovedEnrollments StudentEnrollment[]   @relation("AsyncApprovedBy")
 
   // Sunday School relations
-  sundaySchoolAssignments  SundaySchoolAssignment[] @relation("SundaySchoolAssignments")
-  assignedSundaySchool     SundaySchoolAssignment[] @relation("AssignedSundaySchool")
-  generatedCodes           SundaySchoolCode[]       @relation("GeneratedCodes")
-  markedSundaySchoolLogs   SundaySchoolLog[]        @relation("MarkedSundaySchoolLogs")
+  sundaySchoolAssignments SundaySchoolAssignment[] @relation("SundaySchoolAssignments")
+  assignedSundaySchool    SundaySchoolAssignment[] @relation("AssignedSundaySchool")
+  generatedCodes          SundaySchoolCode[]       @relation("GeneratedCodes")
+  markedSundaySchoolLogs  SundaySchoolLog[]        @relation("MarkedSundaySchoolLogs")
 
   // Sunday School mode relations (the Sunday School class itself)
-  sundaySchoolServing          SundaySchoolServantAssignment[] @relation("SundaySchoolServantAssignments")
-  assignedSundaySchoolServants SundaySchoolServantAssignment[] @relation("AssignedSundaySchoolServantAssignments")
-  takenSundaySchoolSessions    SundaySchoolSession[]         @relation("TakenSundaySchoolSessions")
-  recordedSundaySchoolChildAttendance SundaySchoolChildAttendance[] @relation("RecordedSundaySchoolAttendance")
+  overseenSundaySchoolAgeGroups SundaySchoolAgeGroup[] @relation("SundaySchoolPriestOverseer")
+  sundaySchoolServing                   SundaySchoolServantAssignment[] @relation("SundaySchoolServantAssignments")
+  assignedSundaySchoolServants          SundaySchoolServantAssignment[] @relation("AssignedSundaySchoolServantAssignments")
+  takenSundaySchoolSessions             SundaySchoolSession[]           @relation("TakenSundaySchoolSessions")
+  recordedSundaySchoolChildAttendance   SundaySchoolChildAttendance[]   @relation("RecordedSundaySchoolAttendance")
   sundaySchoolServantAttendance         SundaySchoolServantAttendance[] @relation("SundaySchoolServantAttendance")
   recordedSundaySchoolServantAttendance SundaySchoolServantAttendance[] @relation("RecordedSundaySchoolServantAttendance")
-  recordedSundaySchoolVisitations     SundaySchoolVisitation[]        @relation("RecordedSundaySchoolVisitations")
-  submittedSundaySchoolFeedback       SundaySchoolFeedbackIdea[]      @relation("SubmittedSundaySchoolFeedback")
-  sundaySchoolFeedbackVotes           SundaySchoolFeedbackVote[]      @relation("SundaySchoolFeedbackVotes")
+  recordedSundaySchoolVisitations       SundaySchoolVisitation[]        @relation("RecordedSundaySchoolVisitations")
+  submittedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]      @relation("SubmittedSundaySchoolFeedback")
+  sundaySchoolFeedbackVotes             SundaySchoolFeedbackVote[]      @relation("SundaySchoolFeedbackVotes")
+  ownedSundaySchoolWeeklyLessons        SundaySchoolWeeklyLesson[]      @relation("SundaySchoolWeeklyLessonOwner")
+  assignedSundaySchoolWeeklyLessons     SundaySchoolWeeklyLesson[]      @relation("SundaySchoolWeeklyLessonAssigner")
+  linkedSundaySchoolChild               SundaySchoolChild?              @relation("SundaySchoolChildAccount")
 
   // Registration relations
-  createdInviteCodes        InviteCode[]             @relation("InviteCodeCreator")
-  reviewedRegistrations     RegistrationSubmission[] @relation("RegistrationReviewer")
-  createdFromRegistration   RegistrationSubmission[] @relation("RegistrationCreatedUser")
+  createdInviteCodes      InviteCode[]             @relation("InviteCodeCreator")
+  reviewedRegistrations   RegistrationSubmission[] @relation("RegistrationReviewer")
+  createdFromRegistration RegistrationSubmission[] @relation("RegistrationCreatedUser")
 
   // Servant application relations
   reviewedServantApplications   ServantApplication[] @relation("ServantApplicationReviewer")
   createdFromServantApplication ServantApplication[] @relation("ServantApplicationCreatedUser")
 
   // Parent portal relations
-  guardianOfChildren           SundaySchoolChildGuardian[] @relation("GuardianOfChildren")
-  submittedChildRegistrations  ChildRegistrationRequest[]  @relation("ChildRegistrationSubmittedBy")
-  reviewedChildRegistrations   ChildRegistrationRequest[]  @relation("ChildRegistrationReviewer")
+  guardianOfChildren          SundaySchoolChildGuardian[] @relation("GuardianOfChildren")
+  submittedChildRegistrations ChildRegistrationRequest[]  @relation("ChildRegistrationSubmittedBy")
+  reviewedChildRegistrations  ChildRegistrationRequest[]  @relation("ChildRegistrationReviewer")
 
   // OAuth relations
   accounts Account[]
@@ -259,10 +263,10 @@ model AcademicYear {
   updatedAt DateTime @updatedAt
 
   // Relations
-  lessons                  Lesson[]
-  exams                    Exam[]
-  enrollments              StudentEnrollment[]      @relation("EnrollmentYear")
-  graduatedEnrollments     StudentEnrollment[]      @relation("GraduationYear")
+  lessons                        Lesson[]
+  exams                          Exam[]
+  enrollments                    StudentEnrollment[]             @relation("EnrollmentYear")
+  graduatedEnrollments           StudentEnrollment[]             @relation("GraduationYear")
   sundaySchoolAssignments        SundaySchoolAssignment[]
   sundaySchoolClasses            SundaySchoolClass[]
   sundaySchoolServantAssignments SundaySchoolServantAssignment[]
@@ -271,40 +275,40 @@ model AcademicYear {
 }
 
 model StudentEnrollment {
-  id                      String             @id @default(cuid())
-  studentId               String             @unique
-  academicYearId          String?            // The academic year this enrollment started in
-  graduatedAcademicYearId String?            // The academic year the student graduated in (if graduated)
+  id                      String           @id @default(cuid())
+  studentId               String           @unique
+  academicYearId          String? // The academic year this enrollment started in
+  graduatedAcademicYearId String? // The academic year the student graduated in (if graduated)
   yearLevel               YearLevel
   mentorId                String?
   mentorName              String?
   mentorPhone             String?
-  fatherOfConfessionId    String?            // Reference to FatherOfConfession (not a User)
-  isActive                Boolean            @default(true)
-  status                  EnrollmentStatus   @default(ACTIVE)
-  notes                   String?            @db.Text
-  enrolledAt              DateTime           @default(now())
-  graduatedAt             DateTime?          // When the student graduated
-  graduationNote          String?            @db.Text  // Required if graduating without meeting requirements (exception)
-  updatedAt               DateTime           @updatedAt @default(now())
+  fatherOfConfessionId    String? // Reference to FatherOfConfession (not a User)
+  isActive                Boolean          @default(true)
+  status                  EnrollmentStatus @default(ACTIVE)
+  notes                   String?          @db.Text
+  enrolledAt              DateTime         @default(now())
+  graduatedAt             DateTime? // When the student graduated
+  graduationNote          String?          @db.Text // Required if graduating without meeting requirements (exception)
+  updatedAt               DateTime         @default(now()) @updatedAt
 
   // Async student fields
-  isAsyncStudent          Boolean            @default(false)
-  asyncApprovedAt         DateTime?
-  asyncApprovedBy         String?
-  asyncReason             String?            @db.Text
+  isAsyncStudent  Boolean   @default(false)
+  asyncApprovedAt DateTime?
+  asyncApprovedBy String?
+  asyncReason     String?   @db.Text
 
   // Late-start attendance: lessons scheduled before this date are not counted
   // toward this student's attendance (auto-marked as EXCUSED / "joined later").
-  attendanceStartDate     DateTime?
+  attendanceStartDate DateTime?
 
   // Relations
-  student               User                 @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
-  mentor                User?                @relation("MentorServant", fields: [mentorId], references: [id])
-  academicYear          AcademicYear?        @relation("EnrollmentYear", fields: [academicYearId], references: [id])
-  graduatedAcademicYear AcademicYear?        @relation("GraduationYear", fields: [graduatedAcademicYearId], references: [id])
-  fatherOfConfession    FatherOfConfession?  @relation(fields: [fatherOfConfessionId], references: [id], onDelete: SetNull)
-  asyncApprover         User?                @relation("AsyncApprovedBy", fields: [asyncApprovedBy], references: [id], onDelete: SetNull)
+  student               User                @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+  mentor                User?               @relation("MentorServant", fields: [mentorId], references: [id])
+  academicYear          AcademicYear?       @relation("EnrollmentYear", fields: [academicYearId], references: [id])
+  graduatedAcademicYear AcademicYear?       @relation("GraduationYear", fields: [graduatedAcademicYearId], references: [id])
+  fatherOfConfession    FatherOfConfession? @relation(fields: [fatherOfConfessionId], references: [id], onDelete: SetNull)
+  asyncApprover         User?               @relation("AsyncApprovedBy", fields: [asyncApprovedBy], references: [id], onDelete: SetNull)
 
   @@index([studentId])
   @@index([mentorId])
@@ -319,11 +323,11 @@ model StudentEnrollment {
 }
 
 model ExamSection {
-  id                  String          @id @default(cuid())
-  name                ExamSectionType @unique
-  displayName         String
-  passingScore        Int             @default(60)
-  averageRequirement  Int             @default(75)
+  id                 String          @id @default(cuid())
+  name               ExamSectionType @unique
+  displayName        String
+  passingScore       Int             @default(60)
+  averageRequirement Int             @default(75)
 
   // Relations
   lessons Lesson[]
@@ -342,7 +346,7 @@ model Lesson {
   status             LessonStatus @default(SCHEDULED)
   cancellationReason String?      @db.Text
   lessonNumber       Int
-  isExamDay          Boolean      @default(false)  // If true, attendance doesn't count toward percentage
+  isExamDay          Boolean      @default(false) // If true, attendance doesn't count toward percentage
   createdBy          String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -377,27 +381,27 @@ model LessonResource {
 }
 
 model AttendanceRecord {
-  id              String           @id @default(cuid())
-  lessonId        String
-  studentId       String
-  status          AttendanceStatus
-  arrivedAt       DateTime?
-  notes           String?          @db.Text
-  recordedBy      String?
-  recordedAt      DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  conductRemoval  Boolean          @default(false)  // True if student was removed from lesson for conduct
-  conductNote     String?          @db.Text          // Required reason when conductRemoval is true
-  notEnrolledYet  Boolean          @default(false)  // True if EXCUSED because the lesson predates the student's attendance start date (late start)
-  expectedAbsenceId String?                          // Set when this record is covered by a planned/expected absence
-  expectedAbsenceNA Boolean        @default(false)  // True if marked N/A via an expected absence (excluded from the attendance rate)
+  id                String           @id @default(cuid())
+  lessonId          String
+  studentId         String
+  status            AttendanceStatus
+  arrivedAt         DateTime?
+  notes             String?          @db.Text
+  recordedBy        String?
+  recordedAt        DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  conductRemoval    Boolean          @default(false) // True if student was removed from lesson for conduct
+  conductNote       String?          @db.Text // Required reason when conductRemoval is true
+  notEnrolledYet    Boolean          @default(false) // True if EXCUSED because the lesson predates the student's attendance start date (late start)
+  expectedAbsenceId String? // Set when this record is covered by a planned/expected absence
+  expectedAbsenceNA Boolean          @default(false) // True if marked N/A via an expected absence (excluded from the attendance rate)
 
   // Relations
-  lesson               Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student              User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  recorder             User?                @relation("RecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
-  asyncNoteSubmission  AsyncNoteSubmission?
-  expectedAbsence      ExpectedAbsence?     @relation("ExpectedAbsenceRecords", fields: [expectedAbsenceId], references: [id], onDelete: SetNull)
+  lesson              Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student             User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  recorder            User?                @relation("RecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
+  asyncNoteSubmission AsyncNoteSubmission?
+  expectedAbsence     ExpectedAbsence?     @relation("ExpectedAbsenceRecords", fields: [expectedAbsenceId], references: [id], onDelete: SetNull)
 
   @@unique([lessonId, studentId])
   @@index([lessonId])
@@ -519,7 +523,7 @@ model AsyncNoteSubmission {
   studentId          String
   lessonId           String
   content            String               @db.Text
-  status             NoteSubmissionStatus  @default(PENDING)
+  status             NoteSubmissionStatus @default(PENDING)
   submittedAt        DateTime             @default(now())
   reviewedBy         String?
   reviewedAt         DateTime?
@@ -542,17 +546,17 @@ model AsyncNoteSubmission {
 }
 
 model SundaySchoolAssignment {
-  id              String            @id @default(cuid())
-  studentId       String
-  grade           SundaySchoolGrade
-  academicYearId  String
-  yearLevel       YearLevel
-  totalWeeks      Int               @default(6)
-  startDate       DateTime
-  isActive        Boolean           @default(true)
-  assignedBy      String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id             String            @id @default(cuid())
+  studentId      String
+  grade          SundaySchoolGrade
+  academicYearId String
+  yearLevel      YearLevel
+  totalWeeks     Int               @default(6)
+  startDate      DateTime
+  isActive       Boolean           @default(true)
+  assignedBy     String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   // Relations
   student      User              @relation("SundaySchoolAssignments", fields: [studentId], references: [id], onDelete: Cascade)
@@ -568,15 +572,15 @@ model SundaySchoolAssignment {
 }
 
 model SundaySchoolCode {
-  id           String            @id @default(cuid())
-  code         String            @unique
-  grade        SundaySchoolGrade
-  weekOf       DateTime
-  validUntil   DateTime
-  generatedBy  String?
-  generatedAt  DateTime          @default(now())
-  isActive     Boolean           @default(true)
-  createdAt    DateTime          @default(now())
+  id          String            @id @default(cuid())
+  code        String            @unique
+  grade       SundaySchoolGrade
+  weekOf      DateTime
+  validUntil  DateTime
+  generatedBy String?
+  generatedAt DateTime          @default(now())
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
 
   // Relations
   generator User?             @relation("GeneratedCodes", fields: [generatedBy], references: [id], onDelete: SetNull)
@@ -590,17 +594,17 @@ model SundaySchoolCode {
 }
 
 model SundaySchoolLog {
-  id            String                @id @default(cuid())
-  assignmentId  String
-  weekNumber    Int
-  weekOf        DateTime
-  status        SundaySchoolLogStatus
-  codeId        String?
-  markedBy      String?
-  notes         String?               @db.Text
-  studentNotes  String?               @db.Text
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  id           String                @id @default(cuid())
+  assignmentId String
+  weekNumber   Int
+  weekOf       DateTime
+  status       SundaySchoolLogStatus
+  codeId       String?
+  markedBy     String?
+  notes        String?               @db.Text
+  studentNotes String?               @db.Text
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 
   // Relations
   assignment SundaySchoolAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
@@ -624,7 +628,7 @@ model SundaySchoolLog {
 
 model SundaySchoolClass {
   id             String            @id @default(cuid())
-  name           String                              // e.g. "Grade 3 Boys"
+  name           String // e.g. "Grade 3 Boys"
   level          SundaySchoolLevel
   // Required: authority over a class is scoped to its academic year, so a
   // class with no year would be a class nobody can be assigned to.
@@ -638,12 +642,13 @@ model SundaySchoolClass {
   // re-parents its classes with no data migration.
 
   // Relations
-  academicYear AcademicYear             @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  assignments  SundaySchoolServantAssignment[]
-  children     SundaySchoolChild[]
-  sessions     SundaySchoolSession[]
+  academicYear              AcademicYear                    @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  assignments               SundaySchoolServantAssignment[]
+  children                  SundaySchoolChild[]
+  sessions                  SundaySchoolSession[]
+  weeklyLessons             SundaySchoolWeeklyLesson[]
   childRegistrationRequests ChildRegistrationRequest[]
-  visitations              SundaySchoolVisitation[]
+  visitations               SundaySchoolVisitation[]
 
   @@unique([name, academicYearId])
   @@index([level])
@@ -652,9 +657,13 @@ model SundaySchoolClass {
 }
 
 model SundaySchoolAgeGroup {
+  overseerId String?
+  overseer User? @relation("SundaySchoolPriestOverseer", fields: [overseerId], references: [id], onDelete: SetNull)
+
+  @@index([overseerId])
   id        String              @id @default(cuid())
-  name      String              @unique          // "Elementary", "Middle School", "High School"
-  levels    SundaySchoolLevel[]                  // the grades this band owns
+  name      String              @unique // "Elementary", "Middle School", "High School"
+  levels    SundaySchoolLevel[] // the grades this band owns
   sortOrder Int                 @default(0)
   isActive  Boolean             @default(true)
   createdAt DateTime            @default(now())
@@ -703,6 +712,8 @@ model SundaySchoolChild {
   lastName      String
   level         SundaySchoolLevel
   classId       String?
+  familyId      String?
+  userId        String?           @unique
   birthDate     DateTime?
   guardianName  String?
   guardianPhone String?
@@ -714,15 +725,76 @@ model SundaySchoolChild {
 
   // Relations
   class               SundaySchoolClass?            @relation(fields: [classId], references: [id], onDelete: SetNull)
+  family              SundaySchoolFamily?           @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  user                User?                         @relation("SundaySchoolChildAccount", fields: [userId], references: [id], onDelete: SetNull)
   attendance          SundaySchoolChildAttendance[]
   visitations         SundaySchoolVisitation[]
   guardians           SundaySchoolChildGuardian[]   @relation("ChildGuardians")
   registrationRequest ChildRegistrationRequest?     @relation("ChildRegistrationCreatedChild")
 
   @@index([classId])
+  @@index([familyId])
   @@index([level])
   @@index([isActive])
   @@index([lastName, firstName])
+}
+
+// Shared household information. A child belongs to at most one family, while
+// a family can connect siblings across multiple Sunday School classes.
+model SundaySchoolFamily {
+  id          String   @id @default(cuid())
+  name        String?
+  homeAddress String?  @db.Text
+  motherName  String?
+  motherPhone String?
+  motherEmail String?
+  fatherName  String?
+  fatherPhone String?
+  fatherEmail String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  children SundaySchoolChild[]
+
+  @@index([name])
+}
+
+// A future-facing Sunday School lesson plan. It is deliberately independent
+// from SundaySchoolSession: planning a lesson must not create attendance data
+// or make a future Sunday look completed.
+model SundaySchoolWeeklyLesson {
+  id           String   @id @default(cuid())
+  classId      String
+  sundayDate   DateTime
+  title        String?
+  ownerId      String?
+  assignedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  class     SundaySchoolClass                  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  owner     User?                              @relation("SundaySchoolWeeklyLessonOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  assigner  User?                              @relation("SundaySchoolWeeklyLessonAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  resources SundaySchoolWeeklyLessonResource[]
+
+  @@unique([classId, sundayDate])
+  @@index([sundayDate])
+  @@index([ownerId, sundayDate])
+}
+
+model SundaySchoolWeeklyLessonResource {
+  id             String   @id @default(cuid())
+  weeklyLessonId String
+  title          String
+  url            String
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  weeklyLesson SundaySchoolWeeklyLesson @relation(fields: [weeklyLessonId], references: [id], onDelete: Cascade)
+
+  @@unique([weeklyLessonId, sortOrder])
+  @@index([weeklyLessonId])
 }
 
 model SundaySchoolSession {
@@ -736,9 +808,9 @@ model SundaySchoolSession {
   updatedAt DateTime @updatedAt
 
   // Relations
-  class      SundaySchoolClass             @relation(fields: [classId], references: [id], onDelete: Cascade)
-  taker      User?                         @relation("TakenSundaySchoolSessions", fields: [takenBy], references: [id], onDelete: SetNull)
-  attendance SundaySchoolChildAttendance[]
+  class             SundaySchoolClass               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  taker             User?                           @relation("TakenSundaySchoolSessions", fields: [takenBy], references: [id], onDelete: SetNull)
+  attendance        SundaySchoolChildAttendance[]
   servantAttendance SundaySchoolServantAttendance[]
 
   @@unique([classId, date])
@@ -845,25 +917,25 @@ model SundaySchoolFeedbackVote {
 // ============================================
 
 model SystemSettings {
-  id                    String   @id @default("default")
-  registrationEnabled   Boolean  @default(true)
-  updatedAt             DateTime @updatedAt
+  id                  String   @id @default("default")
+  registrationEnabled Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
 }
 
 model InviteCode {
-  id          String    @id @default(cuid())
-  code        String    @unique
-  label       String?                     // Human-readable label, e.g. "Fall 2026 Registration"
-  maxUses     Int       @default(1)       // 0 = unlimited
-  usageCount  Int       @default(0)
-  expiresAt   DateTime?                   // null = never expires
-  isActive    Boolean   @default(true)
-  createdBy   String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  code       String    @unique
+  label      String? // Human-readable label, e.g. "Fall 2026 Registration"
+  maxUses    Int       @default(1) // 0 = unlimited
+  usageCount Int       @default(0)
+  expiresAt  DateTime? // null = never expires
+  isActive   Boolean   @default(true)
+  createdBy  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   // Relations
-  creator       User                    @relation("InviteCodeCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  creator       User                     @relation("InviteCodeCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   registrations RegistrationSubmission[]
 
   @@index([code])
@@ -872,48 +944,48 @@ model InviteCode {
 }
 
 model RegistrationSubmission {
-  id                      String             @id @default(cuid())
-  inviteCodeId            String
-  status                  RegistrationStatus @default(PENDING)
+  id           String             @id @default(cuid())
+  inviteCodeId String
+  status       RegistrationStatus @default(PENDING)
 
   // Applicant info
-  email                   String
-  fullName                String
-  dateOfBirth             DateTime
-  phone                   String
-  fatherOfConfessionName  String
-  previouslyServed        Boolean
-  currentlyServing        Boolean
-  previouslyAttendedPrep  Boolean
-  previousPrepLocation    String?            // Only if previouslyAttendedPrep = true
-  grade                   StudentGrade
+  email                  String
+  fullName               String
+  dateOfBirth            DateTime
+  phone                  String
+  fatherOfConfessionName String
+  previouslyServed       Boolean
+  currentlyServing       Boolean
+  previouslyAttendedPrep Boolean
+  previousPrepLocation   String? // Only if previouslyAttendedPrep = true
+  grade                  StudentGrade
 
   // Approval form upload
-  approvalFormUrl         String             // Vercel Blob URL
-  approvalFormFilename    String             // Original filename for display
+  approvalFormUrl      String // Vercel Blob URL
+  approvalFormFilename String // Original filename for display
 
   // Profile image upload
-  profileImageUrl         String?            // Vercel Blob URL for profile picture
-  profileImageFilename    String?            // Original filename for display
+  profileImageUrl      String? // Vercel Blob URL for profile picture
+  profileImageFilename String? // Original filename for display
 
   // Mentor info
-  mentorName              String
-  mentorPhone             String
-  mentorEmail             String
+  mentorName  String
+  mentorPhone String
+  mentorEmail String
 
   // Review fields
-  reviewedBy              String?
-  reviewedAt              DateTime?
-  reviewNote              String?            @db.Text  // Admin note (reason for rejection, etc.)
-  createdUserId           String?            // User.id created upon approval
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  reviewNote    String?   @db.Text // Admin note (reason for rejection, etc.)
+  createdUserId String? // User.id created upon approval
 
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  inviteCode    InviteCode  @relation(fields: [inviteCodeId], references: [id])
-  reviewer      User?       @relation("RegistrationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
-  createdUser   User?       @relation("RegistrationCreatedUser", fields: [createdUserId], references: [id], onDelete: SetNull)
+  inviteCode  InviteCode @relation(fields: [inviteCodeId], references: [id])
+  reviewer    User?      @relation("RegistrationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  createdUser User?      @relation("RegistrationCreatedUser", fields: [createdUserId], references: [id], onDelete: SetNull)
 
   @@index([inviteCodeId])
   @@index([status])
@@ -929,18 +1001,18 @@ model RegistrationSubmission {
 // SundaySchoolServantAssignment — class/age-group assignment stays a
 // separate step through the existing servant-assignments flow.
 model ServantApplication {
-  id           String             @id @default(cuid())
-  status       RegistrationStatus @default(PENDING)
+  id     String             @id @default(cuid())
+  status RegistrationStatus @default(PENDING)
 
   email        String
   fullName     String
   phone        String
-  availability String?            @db.Text
-  motivation   String?            @db.Text
+  availability String? @db.Text
+  motivation   String? @db.Text
 
   reviewedBy    String?
   reviewedAt    DateTime?
-  reviewNote    String?           @db.Text
+  reviewNote    String?   @db.Text
   createdUserId String?
 
   createdAt DateTime @default(now())
@@ -979,8 +1051,8 @@ model ChildRegistrationRequest {
 
   reviewedBy     String?
   reviewedAt     DateTime?
-  reviewNote     String?  @db.Text
-  createdChildId String?  @unique
+  reviewNote     String?   @db.Text
+  createdChildId String?   @unique
   placedClassId  String?
 
   createdAt DateTime @default(now())
@@ -1060,9 +1132,9 @@ model Notification {
   type      NotificationType
   title     String
   body      String           @db.Text
-  url       String?          // Deep link URL within the app
+  url       String? // Deep link URL within the app
   isRead    Boolean          @default(false)
-  metadata  Json?            // Extra data (studentId, examId, etc.)
+  metadata  Json? // Extra data (studentId, examId, etc.)
   createdAt DateTime         @default(now())
 
   // Relations

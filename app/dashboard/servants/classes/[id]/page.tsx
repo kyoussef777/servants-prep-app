@@ -20,9 +20,10 @@ import type {
   SundaySchoolChild,
   SundaySchoolClass,
   SundaySchoolSession,
+  SundaySchoolWeeklyLesson,
 } from '@/types/sunday-school'
 import { SundaySchoolAuthority } from '@prisma/client'
-import { ArrowLeft, ClipboardList, Trash2, UserPlus } from 'lucide-react'
+import { ArrowLeft, ClipboardList, ExternalLink, Trash2, UserPlus } from 'lucide-react'
 
 interface ServantOption {
   id: string
@@ -34,6 +35,7 @@ interface ServantOption {
 interface ClassDetail extends SundaySchoolClass {
   children: SundaySchoolChild[]
   sessions: SundaySchoolSession[]
+  weeklyLessons: SundaySchoolWeeklyLesson[]
   canServe: boolean
   canCoordinate: boolean
   canDelete: boolean
@@ -149,7 +151,10 @@ export default function SundaySchoolClassDetailPage() {
           actions={
             <div className="flex gap-2">
               <Button asChild variant="outline">
-                <Link href={`/dashboard/servants/children?classId=${detail.id}`}>
+                <Link href="/dashboard/servants/lessons">Lessons</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/dashboard/servants/roster?classId=${detail.id}`}>
                   <ClipboardList className="h-4 w-4 mr-1" />
                   Roster
                 </Link>
@@ -274,21 +279,33 @@ export default function SundaySchoolClassDetailPage() {
               <EmptyState message="No attendance has been taken for this class yet." />
             ) : (
               <div className="divide-y dark:divide-gray-800">
-                {detail.sessions.slice(0, 12).map(sessionItem => (
-                  <div key={sessionItem.id} className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0">
-                      <p className="font-medium">{formatDateUTC(sessionItem.date)}</p>
-                      {sessionItem.topic && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                          {sessionItem.topic}
-                        </p>
-                      )}
+                {detail.sessions.slice(0, 12).map(sessionItem => {
+                  const lesson = detail.weeklyLessons?.find(item => item.sundayDate.slice(0, 10) === sessionItem.date.slice(0, 10))
+                  return (
+                    <div key={sessionItem.id} className="flex items-start justify-between gap-3 py-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">{formatDateUTC(sessionItem.date)}</p>
+                        {(lesson?.title || sessionItem.topic) && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                            {lesson?.title || sessionItem.topic}
+                          </p>
+                        )}
+                        {lesson && lesson.resources.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-3">
+                            {lesson.resources.map(resource => (
+                              <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-maroon-700 hover:underline dark:text-maroon-300">
+                                <ExternalLink className="h-3.5 w-3.5" /> {resource.title}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-600 dark:text-gray-400 shrink-0">
+                        {sessionItem._count?.attendance ?? 0} marked
+                      </span>
                     </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400 shrink-0">
-                      {sessionItem._count?.attendance ?? 0} marked
-                    </span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>

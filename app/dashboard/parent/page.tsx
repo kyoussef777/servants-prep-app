@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { isParent } from '@/lib/roles'
-import { useParentChildren } from '@/lib/swr'
+import { useParentChildren, useSundaySchoolLessons } from '@/lib/swr'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,8 +30,9 @@ import {
 import { toast } from 'sonner'
 import { LEVEL_ORDER, getLevelDisplayName } from '@/lib/sunday-school-class'
 import { SundaySchoolLevel } from '@prisma/client'
-import { CheckCircle, Clock, Loader2, Plus, XCircle } from 'lucide-react'
+import { CheckCircle, Clock, ExternalLink, Loader2, Plus, XCircle } from 'lucide-react'
 import type { RegistrationStatus } from '@prisma/client'
+import type { SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 
 interface FormData {
   firstName: string
@@ -73,6 +74,7 @@ function statusBadge(status: RegistrationStatus) {
 export default function ParentDashboardPage() {
   const { session, status } = useAdminGuard(isParent)
   const { data, mutate } = useParentChildren()
+  const { data: lessonData } = useSundaySchoolLessons()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   if (status === 'loading' || !session) {
@@ -85,6 +87,7 @@ export default function ParentDashboardPage() {
 
   const children = data?.children ?? []
   const pendingRequests = data?.pendingRequests ?? []
+  const lessons = (lessonData as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -146,6 +149,39 @@ export default function ParentDashboardPage() {
                 </div>
               ))
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Lessons</CardTitle>
+            <CardDescription>Slides and resources shared by your children&apos;s classes</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {lessons.length === 0 ? (
+              <p className="text-sm text-gray-500">No upcoming lesson links have been shared yet.</p>
+            ) : lessons.map(lesson => (
+              <div key={lesson.id} className="rounded-lg border p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium">{lesson.title || lesson.class.name}</p>
+                    <p className="text-sm text-gray-600">
+                      {lesson.class.name} · {new Date(lesson.sundayDate).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                  {lesson.resources.length > 0 && <Badge className="bg-green-600">Ready</Badge>}
+                </div>
+                {lesson.resources.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {lesson.resources.map(resource => (
+                      <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-maroon-700 hover:underline">
+                        <ExternalLink className="h-3.5 w-3.5" /> {resource.title}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </CardContent>
         </Card>
 

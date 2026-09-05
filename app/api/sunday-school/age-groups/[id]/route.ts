@@ -28,6 +28,17 @@ export async function PATCH(
 
     const updateData: Record<string, unknown> = {}
 
+        if (body.overseerId !== undefined) {
+          if (body.overseerId !== null && (typeof body.overseerId !== 'string' || !body.overseerId)) {
+            return NextResponse.json({ error: 'Invalid priest overseer' }, { status: 400 })
+          }
+          if (body.overseerId !== null) {
+            const priest = await prisma.user.findFirst({ where: { id: body.overseerId, role: 'PRIEST', isDisabled: false }, select: { id: true } })
+            if (!priest) return NextResponse.json({ error: 'Choose an active priest as overseer' }, { status: 400 })
+          }
+          updateData.overseerId = body.overseerId
+        }
+
     if (name !== undefined) {
       if (!String(name).trim()) {
         return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 })

@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
-import { useSundaySchoolAgeGroups } from '@/lib/swr'
+import { useSundaySchoolAgeGroups, usePriestOverseers } from '@/lib/swr'
 import { getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
 import type { SundaySchoolAgeGroup } from '@/types/sunday-school'
 import { SundaySchoolLevel } from '@prisma/client'
@@ -32,7 +32,9 @@ import { Pencil, Plus, Trash2 } from 'lucide-react'
  * a different coordinator.
  */
 export default function SundaySchoolAgeGroupsPage() {
-  const { status } = useSundaySchoolGuard()
+  const { status, session } = useSundaySchoolGuard()
+    const { data: priests, error: priestsError, isLoading: priestsLoading } = usePriestOverseers(session?.user?.role === 'SUPER_ADMIN')
+    const [overseerId, setOverseerId] = useState('')
   const { data, isLoading, mutate } = useSundaySchoolAgeGroups()
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -49,14 +51,16 @@ export default function SundaySchoolAgeGroupsPage() {
   )
 
   const openCreate = () => {
-    setEditingId(null)
+    setOverseerId('')
+        setEditingId(null)
     setName('')
     setLevels([])
     setDialogOpen(true)
   }
 
   const openEdit = (group: SundaySchoolAgeGroup) => {
-    setEditingId(group.id)
+    setOverseerId(group.overseerId ?? '')
+        setEditingId(group.id)
     setName(group.name)
     setLevels(group.levels)
     setDialogOpen(true)
@@ -77,7 +81,7 @@ export default function SundaySchoolAgeGroupsPage() {
       const res = await fetch(url, {
         method: editingId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, levels }),
+        body: JSON.stringify({ name, levels, overseerId: overseerId || null }),
       })
       const body = await res.json()
       if (!res.ok) {
@@ -151,6 +155,7 @@ export default function SundaySchoolAgeGroupsPage() {
                     >
                       <div className="min-w-0">
                         <p className="font-medium">{group.name}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Priest overseer: {group.overseer?.name ?? 'Not assigned'}</p>
                         <div className="flex flex-wrap gap-1 mt-2">
                           {group.levels.map(level => (
                             <Badge key={level} variant="secondary">
@@ -166,7 +171,7 @@ export default function SundaySchoolAgeGroupsPage() {
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button variant="ghost" size="sm" onClick={() => openEdit(group)}>
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-4 w-4" /><span className="sr-only">Edit {group.name}</span>
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => handleDelete(group)}>
                           <Trash2 className="h-4 w-4 text-red-600" />
@@ -200,6 +205,16 @@ export default function SundaySchoolAgeGroupsPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="ag-overseer">Priest overseer</Label>
+              <select id="ag-overseer" value={overseerId} onChange={event => setOverseerId(event.target.value)} disabled={priestsLoading || !!priestsError} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <option value="">No priest assigned</option>
+                {overseerId && !priests?.some(priest => priest.id === overseerId && !priest.isDisabled) && <option value={overseerId} disabled>Current overseer unavailable — choose another priest</option>}
+                {(priests ?? []).filter(priest => !priest.isDisabled).map(priest => <option key={priest.id} value={priest.id}>{priest.name}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">The same priest can oversee multiple age groups. Oversight does not grant editing permissions.</p>
+              {priestsError && <p role="alert" className="text-sm text-red-600">Unable to load priests. Reopen this page to try again.</p>}
+              </div>
+              <div className="space-y-2">
               <Label>Grades</Label>
               <div className="grid grid-cols-2 gap-2">
                 {LEVEL_ORDER.map(level => {
@@ -227,7 +242,7 @@ export default function SundaySchoolAgeGroupsPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving || !name.trim() || levels.length === 0}>
+            <Button onClick={handleSave} disabled={saving || priestsLoading || !!priestsError || !name.trim() || levels.length === 0}>
               {saving ? 'Saving…' : editingId ? 'Save changes' : 'Create'}
             </Button>
           </DialogFooter>

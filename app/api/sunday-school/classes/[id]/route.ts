@@ -11,6 +11,7 @@ import {
   getSundaySchoolAccess,
 } from "@/lib/sunday-school-access"
 import { isValidLevel } from "@/lib/sunday-school-class"
+import { ensureSundaySchoolWeeklyLessons } from "@/lib/sunday-school-lessons"
 
 // Sunday School mode: a single Sunday School class.
 
@@ -43,6 +44,13 @@ export async function GET(
           include: {
             taker: { select: { id: true, name: true } },
             _count: { select: { attendance: true } },
+          },
+        },
+        weeklyLessons: {
+          orderBy: { sundayDate: "desc" },
+          include: {
+            owner: { select: { id: true, name: true, profileImageUrl: true } },
+            resources: { orderBy: { sortOrder: "asc" } },
           },
         },
       },
@@ -121,16 +129,22 @@ export async function PATCH(
     }
     if (isActive !== undefined) updateData.isActive = Boolean(isActive)
 
-    const updated = await prisma.sundaySchoolClass.update({
-      where: { id },
-      data: updateData,
-      include: {
-        academicYear: { select: { id: true, name: true } },
-        assignments: {
-          include: { user: { select: { id: true, name: true, email: true, profileImageUrl: true } } },
+    const updated = await prisma.$transaction(async (tx) => {
+      const changed = await tx.sundaySchoolClass.update({
+        where: { id },
+        data: updateData,
+        include: {
+          academicYear: { select: { id: true, name: true } },
+          assignments: {
+            include: { user: { select: { id: true, name: true, email: true, profileImageUrl: true } } },
+          },
+          _count: { select: { children: true, sessions: true } },
         },
-        _count: { select: { children: true, sessions: true } },
-      },
+      })
+      if (isActive === true) {
+        await ensureSundaySchoolWeeklyLessons({ classIds: [id], db: tx })
+      }
+      return changed
     })
 
     return NextResponse.json(updated)

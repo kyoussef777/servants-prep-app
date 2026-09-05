@@ -202,9 +202,9 @@ when no filter is needed, matching the contract of `getMentorStudentIds`.
    needs authority over where it is going, or someone could push a record into
    a class they have nothing to do with.
 4. **Guardian contact is sensitive.** Children are minors. It is returned only
-   by `/api/sunday-school/children*`, only to people who serve that child's
-   class and to admins — never from the dashboard summary or the command
-   palette.
+   by `/api/sunday-school/children*` and `/api/sunday-school/families`, scoped
+   to people who can see at least one child in that family — never from the
+   dashboard summary or the command palette.
 5. **A grade level belongs to at most one age group.** Enforced by
    `assertLevelsUnclaimed` on every age-group write. Without it a class would
    sit in two bands and answer to two coordinators.

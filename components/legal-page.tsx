@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { FileText, ShieldCheck } from 'lucide-react'
 import { FadeIn } from '@/components/fade-in'
 import { LegalHeader } from '@/components/legal-header'
+import { LegalBackLink } from '@/components/legal-back-link'
 
 interface LegalSection {
   title: string
@@ -24,6 +25,8 @@ export function LegalPage({ eyebrow, title, description, lastUpdated, sections }
       <LegalHeader />
 
       <main className="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-24">
+        <LegalBackLink />
+
         <FadeIn>
           <div className="mb-16 sm:mb-20">
             <div className="mb-6 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-maroon-700 dark:text-maroon-300">

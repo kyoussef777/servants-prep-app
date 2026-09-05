@@ -2,8 +2,18 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
-import { canServeClass, getSundaySchoolAccess, visibleClassFilter } from "@/lib/sunday-school-access"
+import {
+  canServeClass,
+  getSundaySchoolAccess,
+  visibleClassFilter,
+  type SundaySchoolAccess,
+} from "@/lib/sunday-school-access"
 import { isValidLevel } from "@/lib/sunday-school-class"
+import {
+  hasSundaySchoolFamilyDetails,
+  normalizeSundaySchoolFamilyDetails,
+  sundaySchoolFamilyInclude,
+} from "@/lib/sunday-school-family"
 import { SundaySchoolLevel } from "@prisma/client"
 
 // Sunday School mode: the children enrolled in the Sunday School classes.
@@ -11,6 +21,19 @@ import { SundaySchoolLevel } from "@prisma/client"
 // Guardian contact belongs to minors, so it is only ever returned here — to a
 // servant of the child's class or to an admin — and never from the dashboard
 // summary route or the command palette.
+
+async function canAccessFamily(familyId: string, access: SundaySchoolAccess) {
+  const allowedClassIds = visibleClassFilter(access)
+  return prisma.sundaySchoolFamily.findFirst({
+    where: {
+      id: familyId,
+      ...(allowedClassIds
+        ? { children: { some: { classId: { in: allowedClassIds } } } }
+        : {}),
+    },
+    select: { id: true },
+  })
+}
 
 // GET /api/sunday-school/children - List children
 // Query params: ?classId=xxx  ?level=GRADE_3  ?isActive=true  ?search=name
@@ -54,6 +77,8 @@ export async function GET(request: Request) {
       where,
       include: {
         class: { select: { id: true, name: true, level: true } },
+        family: { include: sundaySchoolFamilyInclude },
+        user: { select: { id: true, name: true, email: true } },
       },
       orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
     })
@@ -65,8 +90,8 @@ export async function GET(request: Request) {
 }
 
 // POST /api/sunday-school/children - Add a child to the roster
-// Body: { firstName, lastName, level, classId?, birthDate?, guardianName?,
-//         guardianPhone?, guardianEmail?, notes? }
+// Body: { firstName, lastName, level, classId?, birthDate?, familyId?,
+//         family?, guardianName?, guardianPhone?, guardianEmail?, notes? }
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
@@ -78,6 +103,8 @@ export async function POST(request: Request) {
       level,
       classId,
       birthDate,
+      familyId,
+      family,
       guardianName,
       guardianPhone,
       guardianEmail,
@@ -92,6 +119,16 @@ export async function POST(request: Request) {
     }
     if (!isValidLevel(level)) {
       return NextResponse.json({ error: "A valid grade level is required" }, { status: 400 })
+    }
+
+    if (familyId !== undefined && familyId !== null && typeof familyId !== "string") {
+      return NextResponse.json({ error: "Invalid family" }, { status: 400 })
+    }
+
+    const requestedFamilyId = typeof familyId === "string" ? familyId.trim() || null : null
+    const familyDetails = normalizeSundaySchoolFamilyDetails(family)
+    if (family !== undefined && family !== null && !familyDetails) {
+      return NextResponse.json({ error: "Invalid family details" }, { status: 400 })
     }
 
     // A child is added to a class you serve. An admin may also park a child
@@ -111,6 +148,13 @@ export async function POST(request: Request) {
       )
     }
 
+    if (requestedFamilyId && !(await canAccessFamily(requestedFamilyId, access))) {
+      return NextResponse.json(
+        { error: "You can only link a child to a family you can view" },
+        { status: 403 }
+      )
+    }
+
     let parsedBirthDate: Date | null = null
     if (birthDate) {
       parsedBirthDate = new Date(birthDate)
@@ -119,21 +163,38 @@ export async function POST(request: Request) {
       }
     }
 
-    const child = await prisma.sundaySchoolChild.create({
-      data: {
-        firstName: String(firstName).trim(),
-        lastName: String(lastName).trim(),
-        level,
-        classId: classId || null,
-        birthDate: parsedBirthDate,
-        guardianName: guardianName?.trim() || null,
-        guardianPhone: guardianPhone?.trim() || null,
-        guardianEmail: guardianEmail?.trim() || null,
-        notes: notes?.trim() || null,
-      },
-      include: {
-        class: { select: { id: true, name: true, level: true } },
-      },
+    const child = await prisma.$transaction(async (tx) => {
+      let resolvedFamilyId = requestedFamilyId
+
+      if (resolvedFamilyId && familyDetails) {
+        await tx.sundaySchoolFamily.update({
+          where: { id: resolvedFamilyId },
+          data: familyDetails,
+        })
+      } else if (!resolvedFamilyId && hasSundaySchoolFamilyDetails(familyDetails)) {
+        const createdFamily = await tx.sundaySchoolFamily.create({ data: familyDetails! })
+        resolvedFamilyId = createdFamily.id
+      }
+
+      return tx.sundaySchoolChild.create({
+        data: {
+          firstName: String(firstName).trim(),
+          lastName: String(lastName).trim(),
+          level,
+          classId: classId || null,
+          familyId: resolvedFamilyId,
+          birthDate: parsedBirthDate,
+          guardianName: guardianName?.trim() || null,
+          guardianPhone: guardianPhone?.trim() || null,
+          guardianEmail: guardianEmail?.trim() || null,
+          notes: notes?.trim() || null,
+        },
+        include: {
+          class: { select: { id: true, name: true, level: true } },
+          family: { include: sundaySchoolFamilyInclude },
+          user: { select: { id: true, name: true, email: true } },
+        },
+      })
     })
 
     return NextResponse.json(child, { status: 201 })

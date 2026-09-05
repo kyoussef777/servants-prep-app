@@ -51,8 +51,9 @@ function getNavItemsForRole(
   if (inSundaySchoolMode && hasSundaySchool) {
     const items: NavItem[] = [
       { label: 'Sunday School Dashboard', href: '/dashboard/servants', icon: LayoutDashboard },
+      { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
       { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
-      { label: 'Children', href: '/dashboard/servants/children', icon: Users },
+      { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
       { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
     ]
 
@@ -68,6 +69,7 @@ function getNavItemsForRole(
     return [
       { label: 'My Progress', href: '/dashboard/student', icon: LayoutDashboard },
       { label: 'My Lessons', href: '/dashboard/student/lessons', icon: BookOpen },
+      { label: 'Class Lessons', href: '/dashboard/student/class-lessons', icon: School },
       { label: 'Files', href: '/dashboard/files', icon: FolderOpen },
       { label: 'Settings', href: '/settings', icon: Settings },
     ]
@@ -85,8 +87,9 @@ function getNavItemsForRole(
   if (role === 'SERVANT') {
     return [
       { label: 'Sunday School Dashboard', href: '/dashboard/servants', icon: LayoutDashboard },
+      { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
       { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
-      { label: 'Children', href: '/dashboard/servants/children', icon: Users },
+      { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
       { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
       { label: 'My Account', href: '/dashboard/servants/account', icon: Settings },
     ]
@@ -242,6 +245,7 @@ export function CommandPalette() {
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
+          data-slot="dialog-overlay"
           className={cn(
             'fixed inset-0 z-50 bg-black/40 backdrop-blur-sm',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
@@ -249,6 +253,7 @@ export function CommandPalette() {
           )}
         />
         <DialogPrimitive.Content
+          data-slot="top-dialog-content"
           className={cn(
             'fixed left-1/2 z-50 w-full -translate-x-1/2 px-3 sm:px-4',
             // Mobile: near top, almost full width. Desktop: 15% from top, capped width.

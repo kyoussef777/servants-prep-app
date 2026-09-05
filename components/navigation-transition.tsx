@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { isLegalPath, LEGAL_RETURN_PATH_KEY } from '@/lib/legal-navigation'
 
 const EXIT_DURATION_MS = 120
 const ENTER_DURATION_MS = 200
@@ -44,8 +45,7 @@ export function NavigationTransition() {
         event.metaKey ||
         event.ctrlKey ||
         event.shiftKey ||
-        event.altKey ||
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        event.altKey
       ) {
         return
       }
@@ -70,6 +70,15 @@ export function NavigationTransition() {
       const currentLocation = `${window.location.pathname}${window.location.search}`
       const nextLocation = `${destination.pathname}${destination.search}`
       if (currentLocation === nextLocation) return
+
+      if (isLegalPath(destination.pathname) && !isLegalPath(window.location.pathname)) {
+        sessionStorage.setItem(
+          LEGAL_RETURN_PATH_KEY,
+          `${currentLocation}${window.location.hash}`
+        )
+      }
+
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
       event.preventDefault()
       if (navigating.current) return

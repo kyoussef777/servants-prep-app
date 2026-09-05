@@ -3,12 +3,19 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import {
+  canCoordinateClass,
   canServeClass,
   canViewClass,
   getSundaySchoolAccess,
+  visibleClassFilter,
   type SundaySchoolAccess,
 } from "@/lib/sunday-school-access"
 import { isValidLevel } from "@/lib/sunday-school-class"
+import {
+  hasSundaySchoolFamilyDetails,
+  normalizeSundaySchoolFamilyDetails,
+  sundaySchoolFamilyInclude,
+} from "@/lib/sunday-school-family"
 
 // Sunday School mode: a single child on a Sunday School roster.
 
@@ -26,7 +33,7 @@ async function loadChildForUser(
 ) {
   const child = await prisma.sundaySchoolChild.findUnique({
     where: { id: childId },
-    select: { id: true, classId: true },
+    select: { id: true, classId: true, familyId: true },
   })
   if (!child) {
     throw new Error("Not found")
@@ -50,6 +57,19 @@ async function loadChildForUser(
   return child
 }
 
+async function canAccessFamily(familyId: string, access: SundaySchoolAccess) {
+  const allowedClassIds = visibleClassFilter(access)
+  return prisma.sundaySchoolFamily.findFirst({
+    where: {
+      id: familyId,
+      ...(allowedClassIds
+        ? { children: { some: { classId: { in: allowedClassIds } } } }
+        : {}),
+    },
+    select: { id: true },
+  })
+}
+
 // GET /api/sunday-school/children/[id] - Child detail with attendance history
 export async function GET(
   request: Request,
@@ -70,6 +90,8 @@ export async function GET(
       where: { id },
       include: {
         class: { select: { id: true, name: true, level: true } },
+        family: { include: sundaySchoolFamilyInclude },
+        user: { select: { id: true, name: true, email: true } },
         attendance: {
           include: {
             session: { select: { id: true, date: true, topic: true } },
@@ -95,7 +117,7 @@ export async function PATCH(
     const { id } = await params
 
     const access = await getSundaySchoolAccess(user)
-    await loadChildForUser(id, access, true)
+    const currentChild = await loadChildForUser(id, access, true)
 
     const body = await request.json()
     const {
@@ -104,14 +126,47 @@ export async function PATCH(
       level,
       classId,
       birthDate,
+      familyId,
+      family,
       guardianName,
       guardianPhone,
       guardianEmail,
       notes,
       isActive,
+      linkedUserEmail,
     } = body
 
     const updateData: Record<string, unknown> = {}
+    const familyDetails = family === undefined
+      ? undefined
+      : normalizeSundaySchoolFamilyDetails(family)
+
+    if (family !== undefined && family !== null && !familyDetails) {
+      return NextResponse.json({ error: "Invalid family details" }, { status: 400 })
+    }
+
+    if (familyId !== undefined && familyId !== null && typeof familyId !== "string") {
+      return NextResponse.json({ error: "Invalid family" }, { status: 400 })
+    }
+
+    const requestedFamilyId = familyId === undefined
+      ? undefined
+      : typeof familyId === "string"
+        ? familyId.trim() || null
+        : null
+
+    if (
+      requestedFamilyId &&
+      requestedFamilyId !== currentChild.familyId &&
+      !(await canAccessFamily(requestedFamilyId, access))
+    ) {
+      return NextResponse.json(
+        { error: "You can only link a child to a family you can view" },
+        { status: 403 }
+      )
+    }
+
+    if (requestedFamilyId !== undefined) updateData.familyId = requestedFamilyId
 
     if (firstName !== undefined) {
       if (!String(firstName).trim()) {
@@ -158,13 +213,67 @@ export async function PATCH(
     if (guardianEmail !== undefined) updateData.guardianEmail = guardianEmail?.trim() || null
     if (notes !== undefined) updateData.notes = notes?.trim() || null
     if (isActive !== undefined) updateData.isActive = Boolean(isActive)
+    if (linkedUserEmail !== undefined) {
+      if (!access.isAdmin && (!currentChild.classId || !canCoordinateClass(access, currentChild.classId))) {
+        return NextResponse.json(
+          { error: "Only a coordinator can link a child account" },
+          { status: 403 }
+        )
+      }
 
-    const updated = await prisma.sundaySchoolChild.update({
-      where: { id },
-      data: updateData,
-      include: {
-        class: { select: { id: true, name: true, level: true } },
-      },
+      const email = String(linkedUserEmail).trim().toLowerCase()
+      if (!email) {
+        updateData.userId = null
+      } else {
+        const account = await prisma.user.findUnique({
+          where: { email },
+          select: { id: true, role: true, isDisabled: true },
+        })
+        if (!account || account.role !== "STUDENT" || account.isDisabled) {
+          return NextResponse.json(
+            { error: "Enter the email of an active student account" },
+            { status: 400 }
+          )
+        }
+        const existingLink = await prisma.sundaySchoolChild.findFirst({
+          where: { userId: account.id, id: { not: id } },
+          select: { id: true },
+        })
+        if (existingLink) {
+          return NextResponse.json(
+            { error: "That student account is already linked to another child" },
+            { status: 400 }
+          )
+        }
+        updateData.userId = account.id
+      }
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      let resolvedFamilyId = requestedFamilyId === undefined
+        ? currentChild.familyId
+        : requestedFamilyId
+
+      if (resolvedFamilyId && familyDetails) {
+        await tx.sundaySchoolFamily.update({
+          where: { id: resolvedFamilyId },
+          data: familyDetails,
+        })
+      } else if (!resolvedFamilyId && hasSundaySchoolFamilyDetails(familyDetails ?? null)) {
+        const createdFamily = await tx.sundaySchoolFamily.create({ data: familyDetails! })
+        resolvedFamilyId = createdFamily.id
+        updateData.familyId = resolvedFamilyId
+      }
+
+      return tx.sundaySchoolChild.update({
+        where: { id },
+        data: updateData,
+        include: {
+          class: { select: { id: true, name: true, level: true } },
+          family: { include: sundaySchoolFamilyInclude },
+          user: { select: { id: true, name: true, email: true } },
+        },
+      })
     })
 
     return NextResponse.json(updated)

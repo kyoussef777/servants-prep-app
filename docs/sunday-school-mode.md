@@ -1,7 +1,7 @@
 # Sunday School mode
 
 Reference for the Sunday School side of the application: the classes, the
-children in them, weekly child attendance, and pastoral visitations. For the
+children in them, weekly lesson resources, child attendance, and pastoral visitations. For the
 authorization rules that govern all of it, see [`permissions.md`](permissions.md).
 
 ## What it is, and what it is not
@@ -26,8 +26,8 @@ before editing it.
 |---|---|
 | `SundaySchoolAssignment` | `SundaySchoolServantAssignment` |
 | `SundaySchoolGrade` (Pre-K … `GRADE_6_PLUS`) | `SundaySchoolLevel` (Pre-K … `GRADE_12`) |
-| `SundaySchoolCode`, `SundaySchoolLog` | `SundaySchoolSession`, `SundaySchoolChildAttendance` |
-| Routes: `assignments/`, `codes/`, `logs/`, `progress/` | Routes: `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` |
+| `SundaySchoolCode`, `SundaySchoolLog` | `SundaySchoolSession`, `SundaySchoolChildAttendance`, `SundaySchoolWeeklyLesson` |
+| Routes: `assignments/`, `codes/`, `logs/`, `progress/` | Routes: `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `lessons/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` |
 | `lib/sunday-school-utils.ts` | `lib/sunday-school-class.ts`, `lib/sunday-school-access.ts` |
 | `canManageSundaySchool()` in `lib/roles.ts` | `getSundaySchoolAccess()` |
 
@@ -45,11 +45,14 @@ SundaySchoolAgeGroup          Elementary / Middle / High — owns a set of level
 SundaySchoolClass ──────────→ SundaySchoolServantAssignment ──→ User
    │  name, level, academicYearId    authority + exactly one scope,
    │                                 scoped to an academic year
-   ├──→ SundaySchoolChild[]          name, level, guardian contact
+   ├──→ SundaySchoolChild[]          name, level, optional User and family links
    │          │
-   │          └──→ SundaySchoolVisitation[]   done / not done, date, notes, recorder
+   │          ├──→ SundaySchoolFamily          parents, address, and connected siblings
+   │          └──→ SundaySchoolVisitation[]    done / not done, date, notes, recorder
    │
-   └──→ SundaySchoolSession[]        one weekly meeting, unique per (class, date)
+   ├──→ SundaySchoolWeeklyLesson[]   future lesson owner, title, and ordered links
+   │
+   └──→ SundaySchoolSession[]        one completed weekly meeting, unique per (class, date)
               │
               ├──→ SundaySchoolChildAttendance ←── SundaySchoolChild
               │        AttendanceStatus per child per session
@@ -65,7 +68,10 @@ SundaySchoolClass ──────────→ SundaySchoolServantAssignmen
 | `SundaySchoolAgeGroup` | `name`, `levels: SundaySchoolLevel[]`, `sortOrder`, `isActive`. A Postgres enum array, so no join table. |
 | `SundaySchoolClass` | `name`, `level`, `academicYearId` (**required**), `isActive`. Unique on `(name, academicYearId)`. |
 | `SundaySchoolServantAssignment` | `userId`, `academicYearId`, `authority`, and exactly one of `classId` / `ageGroupId`. |
-| `SundaySchoolChild` | Names, `level`, optional `classId`, `birthDate`, guardian contact, `notes`, `isActive`. |
+| `SundaySchoolChild` | Names, `level`, optional `classId`, family and unique child-account links, `birthDate`, legacy guardian contact, `notes`, `isActive`. |
+| `SundaySchoolFamily` | Shared family name, home address, separate mother/father contact, and every linked child. Children in the same family are siblings. |
+| `SundaySchoolWeeklyLesson` | One row per `(classId, sundayDate)`, with an optional title and designated owner. It is separate from attendance sessions. |
+| `SundaySchoolWeeklyLessonResource` | Ordered named HTTP(S) links for one weekly lesson. A save replaces the full list transactionally. |
 | `SundaySchoolSession` | `classId`, `date`, optional `topic` / `notes`, `takenBy`. Unique on `(classId, date)`. |
 | `SundaySchoolChildAttendance` | `sessionId`, `childId`, `status`, `notes`, `recordedBy`. Unique on `(sessionId, childId)`. |
 | `SundaySchoolServantAttendance` | `sessionId`, `servantId`, binary `status`, `recordedBy`. Unique on `(sessionId, servantId)`. |
@@ -80,10 +86,20 @@ Servant attendance uses its own binary `SundaySchoolServantAttendanceStatus`
 
 ### Design decisions worth understanding
 
-**Children are data rows, not users.** They never log in, have no `User`
-record, and no password. Guardian contact belongs to minors and is returned
-only by the child routes, only to people who serve that child's class and to
-admins.
+**Children are primarily data rows.** They do not need a login. A coordinator
+or admin may optionally link an existing active `STUDENT` account through the
+unique `userId` field so that child can see their class lessons. A separate
+`SundaySchoolFamily` groups siblings and stores shared parent/address details.
+Guardian and household contact belongs to minors and is returned only by the
+child and family routes, only to people with Sunday School class visibility.
+
+**Weekly lessons are not attendance sessions.** The generator maintains every
+Sunday in the active academic year for every active class. A Monday 10:00 UTC
+Vercel cron invokes the protected generator,
+and class creation/reactivation invokes the same idempotent helper. Lesson rows
+can represent future preparation; `SundaySchoolSession` continues to reject
+future dates and is only created when attendance is saved. History displays
+join the two by class and normalized UTC date.
 
 **A class's band is derived, not stored.** There is no `ageGroupId` on
 `SundaySchoolClass`. Whichever age group lists the class's `level` owns it.
@@ -140,6 +156,9 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `classes/[id]` | GET, PATCH, DELETE | View: scoped. Edit: class coordinator. Delete: band coordinator or `SUPER_ADMIN` |
 | `children` | GET, POST | People who serve the class |
 | `children/[id]` | GET, PATCH, DELETE | People who serve the child's class |
+| `families` | GET | Families connected to at least one visible child; includes all connected siblings |
+| `lessons` | GET | Class-scoped servants/leaders, linked parents, and linked child accounts |
+| `lessons/[id]` | PATCH | Coordinator/admin assigns owners; owner or coordinator/admin edits title and links |
 | `sessions` | GET, POST | People who serve the class |
 | `sessions/[id]` | PATCH, DELETE | People who serve the class |
 | `sessions/[id]/attendance` | GET | Anyone who can view the class |
@@ -151,6 +170,11 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `feedback` | GET, POST | Anyone with Sunday School access, including `PRIEST`; the board shows every status ranked by upvote count |
 | `feedback/[id]` | PATCH, DELETE | Author: edit/delete while open. `SUPER_ADMIN`: change status or delete any idea |
 | `feedback/[id]/vote` | PUT | Any Sunday School participant, including `PRIEST`; no self-votes and no voting on completed/declined ideas |
+
+`GET /api/cron/sunday-school-lessons` is outside that route group. It requires
+`Authorization: Bearer $CRON_SECRET` and is scheduled by `vercel.json` for
+Monday at 10:00 UTC. `bun lessons:generate` provides the same one-time rollout
+backfill and is safe to rerun.
 
 Two that exist for specific reasons:
 
@@ -173,11 +197,12 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | Page | Purpose |
 |---|---|
 | `page.tsx` | Landing: Children/Servants attendance chart, classes grouped by age group, attendance-due badges, totals |
+| `lessons/page.tsx` | Full academic-year schedule, My Lessons, past lessons, owner assignment, and multi-link editor |
 | `attendance/page.tsx` | The core screen — pick class and week, review its eight-week trend, mark each child, batch save |
 | `servant-attendance/page.tsx` | Coordinator-only screen — pick class and week, review servant history, mark Present/Absent, batch save |
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
-| `children/page.tsx` | Child roster CRUD including guardian fields |
+| `roster/page.tsx` | Child roster CRUD, family/parent details, sibling connections, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
 | `visitations/page.tsx` | Per-child visitation status, dated history, and notes across the viewer's assigned class scope |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
@@ -186,6 +211,10 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 Sunday School for anyone with a foot in both — which is how a `SERVANT_PREP`
 who also serves moves between them. A `SERVANT` has only one mode and sees no
 switcher.
+
+Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Linked
+student accounts use `/dashboard/student/class-lessons`; unlinked accounts get
+a clear empty state without gaining access to any class.
 
 ## Extending it
 

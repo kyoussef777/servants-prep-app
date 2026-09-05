@@ -31,6 +31,8 @@ export interface SundaySchoolAssignmentRow {
 }
 
 export interface SundaySchoolAgeGroup {
+  overseerId?: string | null
+  overseer?: SundaySchoolServantRef | null
   id: string
   name: string
   levels: SundaySchoolLevel[]
@@ -57,10 +59,35 @@ export interface SundaySchoolClass extends SundaySchoolClassRef {
   canCoordinate?: boolean
   canDelete?: boolean
   canTakeServantAttendance?: boolean
+  weeklyLessons?: SundaySchoolWeeklyLesson[]
+}
+
+export interface SundaySchoolFamilyChild {
+  id: string
+  firstName: string
+  lastName: string
+  level: SundaySchoolLevel
+  classId: string | null
+  class?: SundaySchoolClassRef | null
+}
+
+export interface SundaySchoolFamily {
+  id: string
+  name: string | null
+  homeAddress: string | null
+  motherName: string | null
+  motherPhone: string | null
+  motherEmail: string | null
+  fatherName: string | null
+  fatherPhone: string | null
+  fatherEmail: string | null
+  children: SundaySchoolFamilyChild[]
 }
 
 export interface SundaySchoolChild {
   id: string
+  familyId: string | null
+  userId: string | null
   firstName: string
   lastName: string
   level: SundaySchoolLevel
@@ -72,6 +99,42 @@ export interface SundaySchoolChild {
   notes: string | null
   isActive: boolean
   class?: SundaySchoolClassRef | null
+  family?: SundaySchoolFamily | null
+  user?: { id: string; name: string; email: string } | null
+}
+
+export type SundaySchoolWeeklyLessonStatus = 'UNASSIGNED' | 'NEEDS_LINKS' | 'READY'
+
+export interface SundaySchoolWeeklyLessonResource {
+  id: string
+  weeklyLessonId: string
+  title: string
+  url: string
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SundaySchoolWeeklyLesson {
+  id: string
+  classId: string
+  sundayDate: string
+  title: string | null
+  ownerId: string | null
+  assignedById: string | null
+  createdAt: string
+  updatedAt: string
+  class: SundaySchoolClassRef
+  owner: Pick<SundaySchoolServantRef, 'id' | 'name' | 'profileImageUrl'> | null
+  resources: SundaySchoolWeeklyLessonResource[]
+  status: SundaySchoolWeeklyLessonStatus
+  canEdit: boolean
+  canAssignOwner: boolean
+  eligibleOwners: SundaySchoolServantRef[]
+}
+
+export interface SundaySchoolWeeklyLessonsResponse {
+  lessons: SundaySchoolWeeklyLesson[]
 }
 
 export interface SundaySchoolVisitationRecord {

@@ -139,12 +139,32 @@ export function useSundaySchoolClasses(options?: SWRConfiguration) {
   return useSWR('/api/sunday-school/classes', fetcher, { ...defaultSWRConfig, ...options })
 }
 
+export function useSundaySchoolFamilies(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/families', fetcher, { ...defaultSWRConfig, ...options })
+}
+
 export function useSundaySchoolClass(classId?: string, options?: SWRConfiguration) {
   return useSWR(
     classId ? `/api/sunday-school/classes/${classId}` : null,
     fetcher,
     { ...defaultSWRConfig, ...options }
   )
+}
+
+export function useSundaySchoolLessons(
+  filters?: { from?: string; to?: string; classId?: string; scope?: 'year' },
+  options?: SWRConfiguration
+) {
+  const params = new URLSearchParams()
+  if (filters?.from) params.set('from', filters.from)
+  if (filters?.to) params.set('to', filters.to)
+  if (filters?.classId) params.set('classId', filters.classId)
+  if (filters?.scope) params.set('scope', filters.scope)
+  const query = params.toString()
+  return useSWR(`/api/sunday-school/lessons${query ? `?${query}` : ''}`, fetcher, {
+    ...defaultSWRConfig,
+    ...options,
+  })
 }
 
 export function useSundaySchoolChildren(classId?: string, options?: SWRConfiguration) {
@@ -186,4 +206,18 @@ export function useMenteeAnalytics(studentIds?: string[], options?: SWRConfigura
     ? `/api/students/analytics/batch?studentIds=${studentIds.join(',')}`
     : null
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+
+export function useSundaySchoolOrganization() {
+  return useSWR<import('@/lib/sunday-school-organization').SundaySchoolOrganization>(
+    '/api/sunday-school/organization', fetcher, defaultSWRConfig,
+  )
+}
+
+
+export function usePriestOverseers(enabled: boolean) {
+  return useSWR<Array<import('@/lib/sunday-school-organization').OrganizationPerson & { isDisabled: boolean }>>(
+    enabled ? '/api/users?role=PRIEST' : null, fetcher, defaultSWRConfig,
+  )
 }
