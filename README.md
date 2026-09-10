@@ -131,8 +131,8 @@ bun scripts/admin.ts list-admins
 bun scripts/admin.ts db-stats
 ```
 
-`bun run build` runs `prisma db push` first, so it needs a reachable database.
-To verify compilation without one, run `bunx next build`.
+`bun run build` generates Prisma Client and compiles the application, but never
+changes a database. Run schema updates as an explicit deployment step.
 
 ## Roles
 
@@ -174,6 +174,20 @@ A student must meet all four:
 
 Deployed on Vercel. Set `SP_DATABASE_URL`, `SP_DATABASE_URL_UNPOOLED`,
 `NEXTAUTH_URL`, and `NEXTAUTH_SECRET` in the project settings, then deploy.
+
+Keep Vercel Preview and Production connected to different Neon branches. For a
+schema change:
+
+1. Create an isolated Neon branch from production.
+2. Set the Preview environment's pooled and unpooled URLs to that branch.
+3. Run `bun db:push` explicitly against the branch and test the preview.
+4. Review the branch schema diff.
+5. Before release, take a production snapshot or backup, apply the tested
+   additive schema update explicitly, verify `/api/health`, and deploy the code.
+
+The build command deliberately does not run `prisma db push`; this prevents a
+preview build from changing production when environment variables are
+misconfigured.
 
 `/api/health` verifies database connectivity after a deploy.
 

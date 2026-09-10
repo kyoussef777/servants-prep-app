@@ -42,7 +42,7 @@ Prisma ORM, NextAuth.js (JWT sessions), Tailwind CSS v4, shadcn/ui, Sonner
 ```bash
 # Development
 bun dev                  # Dev server with Turbopack (http://localhost:3000)
-bun run build            # Production build (runs prisma generate + db push first)
+bun run build            # Production build (generates Prisma Client; never changes a database)
 bun lint                 # ESLint
 bunx tsc --noEmit        # Typecheck without emitting
 
@@ -65,9 +65,8 @@ bun scripts/admin.ts list-admins
 bun scripts/admin.ts db-stats
 ```
 
-`bun run build` runs `prisma db push`, so it needs a reachable database. To
-verify a build **without** one, run `bunx next build` directly with placeholder
-env vars — that still typechecks and compiles every route.
+`bun run build` never changes a database. Schema updates are an explicit,
+separate deployment step so a Vercel preview build cannot mutate production.
 
 ## Before you commit
 
@@ -262,8 +261,16 @@ database; keep new logic in that shape where you can.
 
 1. Edit `prisma/schema.prisma`
 2. `bun db:generate`
-3. `bun db:push` (or `bun db:migrate`)
-4. Update affected routes, components, and `types/`
+3. Create an isolated Neon branch from production and point only the local or
+   preview environment at that branch
+4. `bun db:push` (or `bun db:migrate`) against the isolated branch
+5. Review the schema diff and test the application there
+6. Update affected routes, components, and `types/`
+
+Never apply a schema change as part of `bun run build`. For production, take a
+snapshot or backup, apply the already-tested additive schema change explicitly,
+verify `/api/health`, and then deploy the code. Use the pooled URL for the app
+and the direct/unpooled URL for schema operations.
 
 **Adding a prep-side permission**
 
@@ -283,11 +290,12 @@ Do not add a role. Extend the assignment model — see
 |---|---|
 | Type errors after a schema change | `bun db:generate` |
 | Stale build artifacts | `rm -rf .next && bun dev` |
-| `bun run build` fails on `prisma db push` | No database reachable; use `bunx next build` to verify compilation |
+| A preview needs schema changes | Point the preview at an isolated Neon branch, then run `bun db:push` explicitly against that branch |
 | A route 403s unexpectedly in Sunday School | The user probably has no assignment for the **active academic year** |
 
 ## Production
 
 Deployed on Vercel at `https://servants-prep-app.vercel.app`. Required env vars
 are the four listed above. `/api/health` checks database connectivity after a
-deploy.
+deploy. Preview and production environments must use different Neon branch
+connection strings.

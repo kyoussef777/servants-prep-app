@@ -235,6 +235,9 @@ command palette.
 
 ## Local setup
 
+Point `.env` at a local database or an isolated Neon development branch first.
+Never use the production connection strings for this workflow.
+
 ```bash
 bun db:generate && bun db:push
 bun db:seed        # seeds Elementary / Middle / High, a class, children, servants, and both attendance histories
@@ -259,3 +262,34 @@ Worth exercising when changing this area:
 4. A **class coordinator** can staff their class but cannot create or delete one.
 5. Moving a grade between age groups re-parents its classes.
 6. `PRIEST` sees everything and is refused every write.
+
+
+## Organization chart and priest overseers
+
+Super admins can select a non-student name on either Users page to open the
+Sunday School organization chart. Each team shows its priest overseer,
+age-group coordinators, class coordinators, and servants. Selecting a person
+focuses the chart on that person’s teams; Back and Reset restore earlier views.
+The layout supports desktop and mobile, and missing assignments are explicit.
+
+Set the **Priest overseer** in **Age Groups → Edit** (or when creating a group).
+Each age group has one optional overseer; the same priest can oversee multiple
+groups, for example Middle School and High School. Only active PRIEST accounts
+can be selected, and only SUPER_ADMIN can save or clear the assignment.
+
+`SundaySchoolAgeGroup.overseerId` is a nullable relation to User and persists
+with the age group across academic years. It describes the reporting structure
+and does not confer new permissions: priests retain their existing read-only
+visibility. Deleting the priest account clears the relation. Disabled priests
+are omitted from the active chart until an active replacement is assigned.
+
+`GET /api/sunday-school/organization` is SUPER_ADMIN-only. It returns minimal
+person references and active groups/classes, with servant/coordinator staffing
+limited to the active academic year. With no active year it returns an empty
+chart rather than historical staffing. Priests appear only on the groups
+explicitly assigned to them; no church-wide reporting line is inferred.
+
+After pulling this change, run `bun db:generate` and apply the Prisma schema to
+a local database or isolated Neon branch with `bun db:push`. The additive schema
+change is the overseer column, index, and foreign key. Production schema changes
+remain an explicit, separately reviewed deployment step.
