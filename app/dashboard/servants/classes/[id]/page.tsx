@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -60,6 +61,7 @@ export default function SundaySchoolClassDetailPage() {
   const { data, isLoading, mutate } = useSundaySchoolClass(classId)
 
   const [servantOptions, setServantOptions] = useState<ServantOption[]>([])
+  const [servantSearch, setServantSearch] = useState('')
   const [selectedServantId, setSelectedServantId] = useState('')
   const [asCoordinator, setAsCoordinator] = useState(false)
   const [assigning, setAssigning] = useState(false)
@@ -102,6 +104,7 @@ export default function SundaySchoolClassDetailPage() {
       }
 
       toast.success('Servant assigned', { description: new Date().toLocaleString() })
+      setServantSearch('')
       setSelectedServantId('')
       setAsCoordinator(false)
       mutate()
@@ -173,6 +176,12 @@ export default function SundaySchoolClassDetailPage() {
   )
   const assignedIds = new Set(classAssignments.map(a => a.userId))
   const availableServants = servantOptions.filter(s => !assignedIds.has(s.id))
+  const normalizedServantSearch = servantSearch.trim().toLocaleLowerCase()
+  const filteredServants = normalizedServantSearch
+    ? availableServants.filter(servant =>
+        `${servant.name} ${servant.email}`.toLocaleLowerCase().includes(normalizedServantSearch)
+      )
+    : availableServants
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
@@ -293,20 +302,42 @@ export default function SundaySchoolClassDetailPage() {
             {canCoordinate && (
               <div className="flex flex-col sm:flex-row sm:items-end gap-2 pt-2 border-t dark:border-gray-800">
                 <div className="flex-1 space-y-2">
-                  <Label htmlFor="servant">Assign a servant</Label>
-                  <select
-                    id="servant"
-                    value={selectedServantId}
-                    onChange={e => setSelectedServantId(e.target.value)}
-                    className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
-                  >
-                    <option value="">Select a servant…</option>
-                    {availableServants.map(servant => (
-                      <option key={servant.id} value={servant.id}>
-                        {servant.name} ({servant.email})
+                  <Label htmlFor="servant-search">Assign a servant</Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Input
+                      id="servant-search"
+                      type="search"
+                      value={servantSearch}
+                      placeholder="Search by name or email…"
+                      onChange={event => {
+                        setServantSearch(event.target.value)
+                        setSelectedServantId('')
+                      }}
+                    />
+                    <select
+                      id="servant"
+                      aria-label="Servant"
+                      value={selectedServantId}
+                      onChange={e => setSelectedServantId(e.target.value)}
+                      className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                    >
+                      <option value="">
+                        {normalizedServantSearch
+                          ? `Select from ${filteredServants.length} matches…`
+                          : 'Select a servant…'}
                       </option>
-                    ))}
-                  </select>
+                      {filteredServants.map(servant => (
+                        <option key={servant.id} value={servant.id}>
+                          {servant.name} ({servant.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {normalizedServantSearch && filteredServants.length === 0 && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      No available servants match that search.
+                    </p>
+                  )}
                 </div>
                 <label className="flex items-center gap-2 text-sm h-9">
                   <input
