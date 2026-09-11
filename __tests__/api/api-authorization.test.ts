@@ -215,14 +215,14 @@ describe('API Authorization Patterns', () => {
     })
 
     describe('/api/sunday-school/servant-assignments target validation', () => {
-      it('accepts only servant-side accounts', () => {
+      it('accepts Sunday School servants and dual-program accounts', () => {
         expect(canBeAssignedToSundaySchool(UserRole.SERVANT)).toBe(true)
+        expect(canBeAssignedToSundaySchool(UserRole.MENTOR)).toBe(true)
         expect(canBeAssignedToSundaySchool(UserRole.SERVANT_PREP)).toBe(true)
       })
 
-      it('rejects students, mentors, priests and admins', () => {
+      it('rejects students, priests and admins', () => {
         expect(canBeAssignedToSundaySchool(UserRole.STUDENT)).toBe(false)
-        expect(canBeAssignedToSundaySchool(UserRole.MENTOR)).toBe(false)
         expect(canBeAssignedToSundaySchool(UserRole.PRIEST)).toBe(false)
         expect(canBeAssignedToSundaySchool(UserRole.SUPER_ADMIN)).toBe(false)
       })

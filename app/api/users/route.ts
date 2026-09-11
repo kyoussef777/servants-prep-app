@@ -110,7 +110,10 @@ export async function GET(request: Request) {
         },
         _count: {
           select: {
-            mentoredStudents: true
+            mentoredStudents: true,
+            sundaySchoolServing: {
+              where: { academicYear: { isActive: true } }
+            }
           }
         }
       },

@@ -159,7 +159,10 @@ export async function POST(request: Request) {
     }
     if (!canBeAssignedToSundaySchool(assignee.role)) {
       return NextResponse.json(
-        { error: "Only Sunday School Servant and Servants Prep Leader accounts can be assigned" },
+        {
+          error:
+            "Only Sunday School Servant, Mentor, and Servants Prep Leader accounts can be assigned",
+        },
         { status: 400 }
       )
     }

@@ -426,8 +426,9 @@ describe('Sunday School mode permissions', () => {
   })
 
   describe('canBeAssignedToSundaySchool', () => {
-    it('should allow SERVANT and SERVANT_PREP', () => {
+    it('should allow SERVANT, MENTOR, and SERVANT_PREP', () => {
       expect(canBeAssignedToSundaySchool(UserRole.SERVANT as UserRoleType)).toBe(true)
+      expect(canBeAssignedToSundaySchool(UserRole.MENTOR as UserRoleType)).toBe(true)
       // This is what lets one person serve both sides: a prep leader is
       // assignable as an individual, without the role granting anything
       expect(canBeAssignedToSundaySchool(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
@@ -435,7 +436,6 @@ describe('Sunday School mode permissions', () => {
 
     it('should exclude everyone else', () => {
       expect(canBeAssignedToSundaySchool(UserRole.STUDENT as UserRoleType)).toBe(false)
-      expect(canBeAssignedToSundaySchool(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canBeAssignedToSundaySchool(UserRole.PRIEST as UserRoleType)).toBe(false)
       expect(canBeAssignedToSundaySchool(UserRole.SUPER_ADMIN as UserRoleType)).toBe(false)
     })

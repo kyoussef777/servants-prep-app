@@ -141,7 +141,7 @@ changes a database. Run schema updates as an explicit deployment step.
 | Super Admin | Full | Full, every class | All users |
 | Priest | Full, read-only | Reads every class | None |
 | Servants Prep Leader | Full | Only if personally assigned | Students, Mentors |
-| Mentor | Own mentees, read-only | None | None |
+| Mentor | Own mentees, read-only | Only if personally assigned | None |
 | Student | Own data, read-only | None | None |
 | Sunday School Servant | None | Only their assignments | None |
 

@@ -180,8 +180,8 @@ Two that exist for specific reasons:
 
 - **`assignable-servants`** — a coordinator is often a plain `SERVANT`, and
   `/api/users` is admin-only, so staffing a class would 403. This returns just
-  enough to populate a picker (id, name, email, role) for assignable roles only,
-  and keeps `/api/users` closed to servants.
+  enough to populate a picker (id, name, email, role) for `SERVANT`, `MENTOR`,
+  and `SERVANT_PREP` accounts, and keeps `/api/users` closed to servants.
 - **`dashboard`** — a per-class summary grouped by age group, deliberately
   carrying **no guardian contact**.
 
@@ -209,8 +209,8 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 
 `components/navbar.tsx` shows a **mode switcher** between Servants Prep and
 Sunday School for anyone with a foot in both — which is how a `SERVANT_PREP`
-who also serves moves between them. A `SERVANT` has only one mode and sees no
-switcher.
+or `MENTOR` who also serves moves between them. A `SERVANT` has only one mode
+and sees no switcher.
 
 Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Linked
 student accounts use `/dashboard/student/class-lessons`; unlinked accounts get
@@ -257,11 +257,13 @@ Worth exercising when changing this area:
    and gets 403 from the API — the regression this model exists to prevent.
 2. Assigning that same person to a class gives them access and the mode
    switcher, without changing their role.
-3. A **band coordinator** sees every class in their band and none outside it,
+3. Assigning a **`MENTOR`** keeps their mentor dashboard and adds Sunday School
+   to the mode switcher; their primary role does not change.
+4. A **band coordinator** sees every class in their band and none outside it,
    and can create a class at their levels but not others.
-4. A **class coordinator** can staff their class but cannot create or delete one.
-5. Moving a grade between age groups re-parents its classes.
-6. `PRIEST` sees everything and is refused every write.
+5. A **class coordinator** can staff their class but cannot create or delete one.
+6. Moving a grade between age groups re-parents its classes.
+7. `PRIEST` sees everything and is refused every write.
 
 
 ## Organization chart and priest overseers

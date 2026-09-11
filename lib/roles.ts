@@ -191,11 +191,12 @@ export const isSundaySchoolReadOnly = (role: UserRole) => {
   return role === UserRole.PRIEST
 }
 
-// The roles that may be given a Sunday School assignment. SERVANT_PREP is here
-// because a prep leader can also serve Sunday School — as an individual, by
-// assignment, not by virtue of the role.
+// The roles that may be given a Sunday School assignment. MENTOR and
+// SERVANT_PREP are here because someone can serve in both programs — as an
+// individual, by assignment, not by virtue of their primary account role.
 export const SUNDAY_SCHOOL_ASSIGNABLE_ROLES: UserRole[] = [
   UserRole.SERVANT,
+  UserRole.MENTOR,
   UserRole.SERVANT_PREP,
 ]
 

@@ -23,7 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { canManageUsers, getRoleDisplayName, SERVANT_PREP_MANAGEABLE_ROLES } from '@/lib/roles'
 import { UserRole } from '@prisma/client'
 import { toast } from 'sonner'
-import { Camera, Trash2, Pencil, X } from 'lucide-react'
+import { Camera, Check, Trash2, Pencil, X } from 'lucide-react'
 import { ImageCropDialog } from '@/components/image-crop-dialog'
 import { PageLoading } from '@/components/ui/page-loading'
 
@@ -37,6 +37,7 @@ interface User {
   isDisabled?: boolean
   _count?: {
     mentoredStudents: number
+    sundaySchoolServing: number
   }
 }
 
@@ -718,18 +719,25 @@ export default function UsersPage() {
                           <td className="p-2 text-gray-600">{user.email}</td>
                           <td className="p-2 text-gray-600">{user.phone || '-'}</td>
                           <td className="p-2 text-center">
-                            <Badge
-                              className={
-                                user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
-                                user.role === 'PRIEST' ? 'bg-maroon-600' :
-                                user.role === 'SERVANT_PREP' ? 'bg-green-600' :
-                                user.role === 'MENTOR' ? 'bg-yellow-600' :
-                                user.role === 'SERVANT' ? 'bg-blue-600' :
-                                'bg-gray-600'
-                              }
-                            >
-                              {getRoleDisplayName(user.role)}
-                            </Badge>
+                            <div className="flex flex-col items-center gap-1">
+                              <Badge
+                                className={
+                                  user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
+                                  user.role === 'PRIEST' ? 'bg-maroon-600' :
+                                  user.role === 'SERVANT_PREP' ? 'bg-green-600' :
+                                  user.role === 'MENTOR' ? 'bg-yellow-600' :
+                                  user.role === 'SERVANT' ? 'bg-blue-600' :
+                                  'bg-gray-600'
+                                }
+                              >
+                                {getRoleDisplayName(user.role)}
+                              </Badge>
+                              {user.role !== 'SERVANT' && (user._count?.sundaySchoolServing ?? 0) > 0 && (
+                                <Badge variant="outline" className="gap-1 border-blue-300 text-blue-700">
+                                  <Check className="h-3 w-3" /> Sunday School
+                                </Badge>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 text-center">
                             {user.isDisabled ? (
@@ -888,6 +896,11 @@ export default function UsersPage() {
                           <Badge className={`text-[10px] px-1.5 py-0 ${user.role === 'SUPER_ADMIN' ? 'bg-purple-600' : user.role === 'PRIEST' ? 'bg-maroon-600' : user.role === 'SERVANT_PREP' ? 'bg-green-600' : user.role === 'MENTOR' ? 'bg-yellow-600' : user.role === 'SERVANT' ? 'bg-blue-600' : 'bg-gray-600'}`}>
                             {user.role === 'SUPER_ADMIN' ? 'Admin' : user.role === 'PRIEST' ? 'Priest' : user.role === 'SERVANT_PREP' ? 'Prep' : user.role === 'MENTOR' ? 'Mentor' : user.role === 'SERVANT' ? 'Servant' : 'Student'}
                           </Badge>
+                          {user.role !== 'SERVANT' && (user._count?.sundaySchoolServing ?? 0) > 0 && (
+                            <Badge variant="outline" className="gap-0.5 border-blue-300 px-1 py-0 text-[10px] text-blue-700">
+                              <Check className="h-2.5 w-2.5" /> Sunday School
+                            </Badge>
+                          )}
                           {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && user._count?.mentoredStudents ? (
                             <span className="text-[10px] text-gray-500">({user._count.mentoredStudents})</span>
                           ) : null}

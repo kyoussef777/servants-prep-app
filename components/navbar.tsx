@@ -63,10 +63,16 @@ export function Navbar() {
   const inSundaySchoolMode = pathname.startsWith('/dashboard/servants')
   // Sunday School access comes from assignments, not a role, so this reads the
   // standing the session carries. Someone with a foot in both modes — a prep
-  // leader who also serves — gets the switcher; a SERVANT has only one mode.
+  // leader or mentor who also serves — gets the switcher; a SERVANT has only
+  // one mode.
   const hasSundaySchool = session.user.sundaySchool?.hasAccess ?? false
-  const canSwitchModes = hasSundaySchool && isAdmin(session.user.role)
-  const modeDestination = inSundaySchoolMode ? '/dashboard/admin' : '/dashboard/servants'
+  const prepModeDestination =
+    session.user.role === 'MENTOR' ? '/dashboard/mentor' : '/dashboard/admin'
+  const canSwitchModes =
+    hasSundaySchool && (isAdmin(session.user.role) || session.user.role === 'MENTOR')
+  const modeDestination = inSundaySchoolMode
+    ? prepModeDestination
+    : '/dashboard/servants'
   const dashboardDestination = inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'
   const accountDestination = inSundaySchoolMode ? '/dashboard/servants/account' : '/settings'
 
@@ -143,7 +149,7 @@ export function Navbar() {
       return { primary: links, more: [] }
     }
 
-    if (role === 'MENTOR') {
+    if (role === 'MENTOR' && !inSundaySchoolMode) {
       return {
         primary: [
           { href: '/dashboard/mentor', label: 'Dashboard' },
