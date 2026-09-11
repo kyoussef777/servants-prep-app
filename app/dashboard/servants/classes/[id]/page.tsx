@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,16 @@ import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/admin/page-header'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClass } from '@/lib/swr'
 import { getChildFullName, getLevelDisplayName } from '@/lib/sunday-school-class'
@@ -45,6 +55,7 @@ interface ClassDetail extends SundaySchoolClass {
 export default function SundaySchoolClassDetailPage() {
   const params = useParams<{ id: string }>()
   const classId = params?.id
+  const router = useRouter()
   const { status } = useSundaySchoolGuard()
   const { data, isLoading, mutate } = useSundaySchoolClass(classId)
 
@@ -52,6 +63,8 @@ export default function SundaySchoolClassDetailPage() {
   const [selectedServantId, setSelectedServantId] = useState('')
   const [asCoordinator, setAsCoordinator] = useState(false)
   const [assigning, setAssigning] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const detail = data as ClassDetail | undefined
   const canCoordinate = detail?.canCoordinate ?? false
@@ -115,6 +128,32 @@ export default function SundaySchoolClassDetailPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!classId) return
+
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/sunday-school/classes/${classId}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const body = await res.json()
+        throw new Error(body.error || 'Failed to delete the class')
+      }
+
+      setDeleteDialogOpen(false)
+      toast.success('Class deleted', {
+        description: 'The children were preserved and moved to Unassigned.',
+      })
+      router.push('/dashboard/servants/classes')
+      router.refresh()
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete the class')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (status === 'loading' || isLoading) {
     return <PageLoading />
   }
@@ -173,9 +212,47 @@ export default function SundaySchoolClassDetailPage() {
                   </Link>
                 </Button>
               )}
+              {detail.canDelete && (
+                <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete class
+                </Button>
+              )}
             </div>
           }
         />
+
+        <AlertDialog
+          open={deleteDialogOpen}
+          onOpenChange={open => {
+            if (!deleting) setDeleteDialogOpen(open)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {detail.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently deletes the class, its servant assignments, attendance sessions,
+                and weekly lessons. {detail.children.length}{' '}
+                {detail.children.length === 1 ? 'child' : 'children'} on the roster will be preserved
+                and moved to Unassigned. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                disabled={deleting}
+                onClick={event => {
+                  event.preventDefault()
+                  void handleDelete()
+                }}
+              >
+                {deleting ? 'Deleting…' : 'Delete class'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Card>
           <CardHeader>
