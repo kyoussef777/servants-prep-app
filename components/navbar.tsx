@@ -22,7 +22,7 @@ export function Navbar() {
   const { data: session } = useSession()
   const pathname = usePathname()
   const router = useRouter()
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [switchingModes, setSwitchingModes] = useState(false)
 
@@ -476,9 +476,9 @@ export function Navbar() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="cursor-pointer flex items-center gap-2"
-                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
                 >
-                  {theme === 'dark' ? (
+                  {resolvedTheme === 'dark' ? (
                     <>
                       <Sun className="h-4 w-4" />
                       Light Mode
