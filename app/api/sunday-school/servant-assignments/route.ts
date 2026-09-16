@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { endedAt: null }
     if (academicYearId) where.academicYearId = academicYearId
     if (classId) where.classId = classId
     if (ageGroupId) where.ageGroupId = ageGroupId
@@ -117,11 +117,12 @@ export async function POST(request: Request) {
     }
 
     const access = await getSundaySchoolAccess(actor, academicYearId)
+    let sundaySchoolYearId: string | null = null
 
     if (classId) {
       const target = await prisma.sundaySchoolClass.findUnique({
         where: { id: classId },
-        select: { id: true, academicYearId: true },
+        select: { id: true, academicYearId: true, sundaySchoolYearId: true, status: true },
       })
       if (!target) {
         return NextResponse.json({ error: "Class not found" }, { status: 404 })
@@ -132,22 +133,42 @@ export async function POST(request: Request) {
           { status: 400 }
         )
       }
+      if (target.status !== "ACTIVE") {
+        return NextResponse.json({ error: "Archived classes cannot receive assignments" }, { status: 400 })
+      }
+      if (!target.sundaySchoolYearId) {
+        return NextResponse.json(
+          { error: "The class is not linked to a Sunday School year" },
+          { status: 409 }
+        )
+      }
       if (!canCoordinateClass(access, classId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
+      sundaySchoolYearId = target.sundaySchoolYearId
     } else {
       const target = await prisma.sundaySchoolAgeGroup.findUnique({
         where: { id: ageGroupId },
-        select: { id: true },
+        select: { id: true, sundaySchoolYearId: true, status: true },
       })
       if (!target) {
         return NextResponse.json({ error: "Age group not found" }, { status: 404 })
+      }
+      if (target.status !== "ACTIVE") {
+        return NextResponse.json({ error: "Archived age groups cannot receive assignments" }, { status: 400 })
+      }
+      if (!target.sundaySchoolYearId) {
+        return NextResponse.json(
+          { error: "The age group is not linked to a Sunday School year" },
+          { status: 409 }
+        )
       }
       // Only a super admin appoints an age-group coordinator; a band
       // coordinator cannot appoint their own peers.
       if (!access.isAdmin) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
+      sundaySchoolYearId = target.sundaySchoolYearId
     }
 
     const assignee = await prisma.user.findUnique({
@@ -156,6 +177,9 @@ export async function POST(request: Request) {
     })
     if (!assignee) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+    if (assignee.isDisabled) {
+      return NextResponse.json({ error: "Disabled users cannot be assigned" }, { status: 400 })
     }
     if (!canBeAssignedToSundaySchool(assignee.role)) {
       return NextResponse.json(
@@ -175,6 +199,7 @@ export async function POST(request: Request) {
         academicYearId,
         classId: classId ?? null,
         ageGroupId: ageGroupId ?? null,
+        endedAt: null,
       },
     })
     if (existing) {
@@ -184,15 +209,33 @@ export async function POST(request: Request) {
           { status: 409 }
         )
       }
-      // Promoting a servant to coordinator (or back) edits the row in place
-      const promoted = await prisma.sundaySchoolServantAssignment.update({
-        where: { id: existing.id },
-        data: { authority, assignedBy: actor.id },
-        include: {
-          user: { select: { id: true, name: true, email: true, role: true, profileImageUrl: true } },
-          class: { select: { id: true, name: true, level: true } },
-          ageGroup: { select: { id: true, name: true } },
-        },
+      // Authority changes close the old row and create a new row so the audit
+      // history cannot be overwritten.
+      const promoted = await prisma.$transaction(async (tx) => {
+        await tx.sundaySchoolServantAssignment.update({
+          where: { id: existing.id },
+          data: {
+            endedAt: new Date(),
+            endedById: actor.id,
+            endReason: "Authority changed",
+          },
+        })
+        return tx.sundaySchoolServantAssignment.create({
+          data: {
+            userId,
+            academicYearId,
+            sundaySchoolYearId,
+            authority,
+            classId: classId ?? null,
+            ageGroupId: ageGroupId ?? null,
+            assignedBy: actor.id,
+          },
+          include: {
+            user: { select: { id: true, name: true, email: true, role: true, profileImageUrl: true } },
+            class: { select: { id: true, name: true, level: true } },
+            ageGroup: { select: { id: true, name: true } },
+          },
+        })
       })
       return NextResponse.json(promoted)
     }
@@ -201,6 +244,7 @@ export async function POST(request: Request) {
       data: {
         userId,
         academicYearId,
+        sundaySchoolYearId,
         authority,
         classId: classId ?? null,
         ageGroupId: ageGroupId ?? null,
@@ -232,10 +276,13 @@ export async function DELETE(request: Request) {
 
     const assignment = await prisma.sundaySchoolServantAssignment.findUnique({
       where: { id },
-      select: { id: true, classId: true, ageGroupId: true, academicYearId: true },
+      select: { id: true, classId: true, ageGroupId: true, academicYearId: true, endedAt: true },
     })
     if (!assignment) {
       return NextResponse.json({ error: "Assignment not found" }, { status: 404 })
+    }
+    if (assignment.endedAt) {
+      return NextResponse.json({ success: true, action: "already-ended" })
     }
 
     const access = await getSundaySchoolAccess(actor, assignment.academicYearId)
@@ -250,7 +297,14 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    await prisma.sundaySchoolServantAssignment.delete({ where: { id } })
+    await prisma.sundaySchoolServantAssignment.update({
+      where: { id },
+      data: {
+        endedAt: new Date(),
+        endedById: actor.id,
+        endReason: "Removed from assignment",
+      },
+    })
 
     return NextResponse.json({ success: true })
   } catch (error: unknown) {

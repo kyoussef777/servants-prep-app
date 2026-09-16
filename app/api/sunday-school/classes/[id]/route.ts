@@ -127,7 +127,10 @@ export async function PATCH(
       }
       updateData.level = level
     }
-    if (isActive !== undefined) updateData.isActive = Boolean(isActive)
+    if (isActive !== undefined) {
+      updateData.isActive = Boolean(isActive)
+      updateData.status = isActive ? "ACTIVE" : "ARCHIVED"
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       const changed = await tx.sundaySchoolClass.update({
@@ -153,10 +156,10 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/sunday-school/classes/[id] - Delete a class
+// DELETE /api/sunday-school/classes/[id] - Archive a class, or hard-delete an
+// unused class when the caller is a SUPER_ADMIN.
 // SUPER_ADMIN or the coordinator of the class's age group. Coordinating the
-// class itself is not enough. Sessions and assignments cascade; children are
-// unassigned (SetNull) rather than deleted so a roster is never lost.
+// class itself is not enough. Historical facts are never cascade-deleted.
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -167,7 +170,22 @@ export async function DELETE(
 
     const existing = await prisma.sundaySchoolClass.findUnique({
       where: { id },
-      select: { id: true, level: true, academicYearId: true },
+      select: {
+        id: true,
+        level: true,
+        academicYearId: true,
+        _count: {
+          select: {
+            children: true,
+            placements: true,
+            sessions: true,
+            weeklyLessons: true,
+            assignments: true,
+            visitations: true,
+            rosterImports: true,
+          },
+        },
+      },
     })
     if (!existing) {
       return NextResponse.json({ error: "Class not found" }, { status: 404 })
@@ -178,9 +196,22 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    await prisma.sundaySchoolClass.delete({ where: { id } })
+    const hasHistory = Object.values(existing._count).some((count) => count > 0)
 
-    return NextResponse.json({ success: true })
+    if (access.isAdmin && !hasHistory) {
+      await prisma.sundaySchoolClass.delete({ where: { id } })
+      return NextResponse.json({ success: true, action: "deleted" })
+    }
+
+    await prisma.sundaySchoolClass.update({
+      where: { id },
+      data: {
+        status: "ARCHIVED",
+        isActive: false,
+      },
+    })
+
+    return NextResponse.json({ success: true, action: "archived" })
   } catch (error: unknown) {
     return handleApiError(error)
   }

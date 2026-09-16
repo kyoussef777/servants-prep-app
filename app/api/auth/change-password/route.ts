@@ -55,7 +55,8 @@ export async function POST(request: Request) {
       where: { id: user.id },
       data: {
         password: hashedPassword,
-        mustChangePassword: false
+        mustChangePassword: false,
+        authVersion: { increment: 1 },
       }
     })
 

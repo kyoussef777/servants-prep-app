@@ -47,11 +47,12 @@ describe('handleApiError', () => {
     expect(body.error).toBe('Not found')
   })
 
-  it('should return 500 with message for generic Error', async () => {
+  it('should not expose unexpected exception messages', async () => {
     const response = handleApiError(new Error('Something broke'))
     const body = await response.json()
     expect(response.status).toBe(500)
-    expect(body.error).toBe('Something broke')
+    expect(body.error).toBe('Internal server error')
+    expect(body.requestId).toEqual(expect.any(String))
   })
 
   it('should return 500 with generic message for non-Error values', async () => {
@@ -185,7 +186,8 @@ describe('withErrorHandler', () => {
     const response = await wrapped()
     const body = await response.json()
     expect(response.status).toBe(500)
-    expect(body.error).toBe('Something went wrong')
+    expect(body.error).toBe('Internal server error')
+    expect(body.requestId).toEqual(expect.any(String))
   })
 
   it('should handle Unauthorized errors with 401', async () => {

@@ -8,7 +8,8 @@ import { requireAuth } from "./auth-helpers"
  * Provides consistent error formatting across all API routes
  */
 export function handleApiError(error: unknown): NextResponse {
-  console.error("API Error:", error)
+  const requestId = crypto.randomUUID()
+  console.error("API Error:", { requestId, error })
 
   if (error instanceof Error) {
     if (error.message === "Unauthorized") {
@@ -26,11 +27,19 @@ export function handleApiError(error: unknown): NextResponse {
     if (error.message === "Not found") {
       return NextResponse.json({ error: "Not found" }, { status: 404 })
     }
-    // Return the error message for client-facing errors
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    // Unexpected exception messages can contain SQL, table names, provider
+    // details, or other implementation data. Keep them server-side and give
+    // support a correlation ID instead.
+    return NextResponse.json(
+      { error: "Internal server error", requestId },
+      { status: 500 }
+    )
   }
 
-  return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  return NextResponse.json(
+    { error: "Internal server error", requestId },
+    { status: 500 }
+  )
 }
 
 /**

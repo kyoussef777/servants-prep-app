@@ -1,7 +1,24 @@
 # Permissions
 
 Complete reference for authorization in this application. **Read this before
-touching any authorization code.**
+touching any authorization code.** The target identity and permission model is
+specified in [`sunday-school-feature-spec.md`](sunday-school-feature-spec.md).
+
+## Migration state
+
+The application is in a compatibility phase. Existing routes still read the
+legacy `User.role` and `SundaySchoolServantAssignment` access resolver so the
+current application keeps working. The additive foundation also stores:
+
+- multi-valued role tags in `UserRoleAssignment`;
+- Servants Prep mentor history in `MentorAssignment`;
+- Sunday School scope in year-bound servant assignments; and
+- guardian and child relationships separately from role tags.
+
+During this phase, legacy columns are not removed. New routes should resolve a
+server-side `AuthorizationContext` from `lib/authorization.ts`; they must not
+authorize from JWT role claims. Existing routes are migrated in small,
+reversible groups after their backfill counts have been reconciled.
 
 Two different models coexist, and using the wrong one is the most likely way to
 introduce a security bug here:
@@ -12,16 +29,22 @@ introduce a security bug here:
 | Sunday School | **Assignment-based** — authority over a named scope | `lib/sunday-school-access.ts` |
 
 The reason for the split is in [Why Sunday School is not
-role-based](#why-sunday-school-is-not-role-based) below. The short version: one
-person can serve both sides, and `User.role` holds a single value.
+role-based](#why-sunday-school-is-not-role-based) below. The short version is:
+role tags say which modes a person participates in, while assignments say
+which records they may reach.
 
 ---
 
-## Roles
+## Legacy primary role
 
-`UserRole` (in `prisma/schema.prisma`, import from `@prisma/client`) has six
-values. A role describes someone's standing in the **prep program**; it says
-nothing about Sunday School except for `SUPER_ADMIN` and `PRIEST`.
+`UserRole` remains during compatibility and drives the existing UI. It is not
+the long-term authorization source of truth. `RoleTag` is the multi-valued
+identity model; a person may simultaneously be a priest, a Servants Prep
+servant, and a Sunday School servant.
+
+Tags grant participation, not record scope. A `SUNDAY_SCHOOL_SERVANT` tag alone
+cannot reveal a class, and a `MENTOR` tag alone cannot reveal a student. Active
+assignments or guardian relationships grant that scope.
 
 | Role | Prep program | Sunday School | Manages users |
 |---|---|---|---|
@@ -186,8 +209,10 @@ if (!canServeClass(access, classId)) {
 The predicates over it are pure, so they unit-test without a database — see
 `__tests__/lib/sunday-school-access.test.ts`.
 
-Use `visibleClassFilter(access)` to scope a Prisma query. It returns `undefined`
-when no filter is needed, matching the contract of `getMentorStudentIds`.
+Legacy routes use `visibleClassFilter(access)`. New code should use the
+explicit `ResourceScope` helpers in `lib/authorization.ts`: `none`, `all`, or
+an ID set. `none` becomes `id IN []`; it must never become `undefined`, because
+an omitted Prisma filter can accidentally mean unrestricted access.
 
 ### Non-negotiable rules
 

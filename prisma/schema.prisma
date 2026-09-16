@@ -21,6 +21,95 @@ enum UserRole {
   PARENT
 }
 
+// Compatibility-era role tags. The singular User.role remains until every
+// authorization path has cut over to these historical grant rows.
+enum RoleTag {
+  SUPER_ADMIN
+  PRIEST
+  SERVANTS_PREP_SERVANT
+  SERVANTS_PREP_STUDENT
+  SUNDAY_SCHOOL_SERVANT
+  SUNDAY_SCHOOL_STUDENT
+  PARENT
+}
+
+enum RoleGrantSource {
+  SUPER_ADMIN
+  PREP_REGISTRATION
+  PARENT_SIGNUP
+  CHILD_REGISTRATION
+  GUARDIAN_LINK
+  SUNDAY_SCHOOL_ACCOUNT
+  GRADUATION
+  MIGRATION
+  SYSTEM
+}
+
+enum SundaySchoolYearStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum SundaySchoolRecordStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum SundaySchoolClassStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum SundaySchoolEnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  WITHDRAWN
+  GRADUATED
+}
+
+enum SundaySchoolRolloverDisposition {
+  PROMOTE
+  HOLD
+  WITHDRAW
+  GRADUATE
+  OVERRIDE
+}
+
+enum SundaySchoolRosterImportStatus {
+  PREVIEWED
+  IN_PROGRESS
+  COMMITTED
+  FAILED
+}
+
+enum SundaySchoolRosterImportRowOutcome {
+  CREATED
+  MATCHED
+  SKIPPED
+  FAILED
+}
+
+enum SundaySchoolRolloverRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum SundaySchoolRolloverItemStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+  FAILED
+}
+
+enum AuditEventResult {
+  SUCCESS
+  DENIED
+  FAILED
+}
+
 enum YearLevel {
   YEAR_1
   YEAR_2
@@ -156,17 +245,24 @@ enum StudentGrade {
 }
 
 model User {
-  id                 String   @id @default(cuid())
-  email              String   @unique
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  // Normalized identity fields and authVersion are also maintained by a
+  // database trigger so scripts and bulk updates cannot bypass the invariant.
+  emailNormalized    String?   @unique
+  username           String?
+  usernameNormalized String?   @unique
   name               String
   password           String
   role               UserRole
   phone              String?
   profileImageUrl    String?
-  mustChangePassword Boolean  @default(true)
-  isDisabled         Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  serviceStartedOn   DateTime? @db.Date
+  authVersion        Int       @default(1)
+  mustChangePassword Boolean   @default(true)
+  isDisabled         Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   // Relations
   enrollments          StudentEnrollment[] @relation("StudentEnrollments")
@@ -195,9 +291,10 @@ model User {
   markedSundaySchoolLogs  SundaySchoolLog[]        @relation("MarkedSundaySchoolLogs")
 
   // Sunday School mode relations (the Sunday School class itself)
-  overseenSundaySchoolAgeGroups SundaySchoolAgeGroup[] @relation("SundaySchoolPriestOverseer")
+  overseenSundaySchoolAgeGroups         SundaySchoolAgeGroup[]          @relation("SundaySchoolPriestOverseer")
   sundaySchoolServing                   SundaySchoolServantAssignment[] @relation("SundaySchoolServantAssignments")
   assignedSundaySchoolServants          SundaySchoolServantAssignment[] @relation("AssignedSundaySchoolServantAssignments")
+  endedSundaySchoolServantAssignments   SundaySchoolServantAssignment[] @relation("EndedSundaySchoolServantAssignments")
   takenSundaySchoolSessions             SundaySchoolSession[]           @relation("TakenSundaySchoolSessions")
   recordedSundaySchoolChildAttendance   SundaySchoolChildAttendance[]   @relation("RecordedSundaySchoolAttendance")
   sundaySchoolServantAttendance         SundaySchoolServantAttendance[] @relation("SundaySchoolServantAttendance")
@@ -230,7 +327,23 @@ model User {
   pushSubscriptions PushSubscription[]
   notifications     Notification[]
 
+  // Additive identity/authorization foundation. These relations become the
+  // source of truth only after the compatibility backfill is reconciled.
+  roleAssignments        UserRoleAssignment[]         @relation("RoleAssignmentUser")
+  roleGrantsMade         UserRoleAssignment[]         @relation("RoleAssignmentGrantedBy")
+  roleRevocationsMade    UserRoleAssignment[]         @relation("RoleAssignmentRevokedBy")
+  mentorAssignments      MentorAssignment[]           @relation("MentorAssignmentMentor")
+  mentorAssignmentsMade  MentorAssignment[]           @relation("MentorAssignmentAssignedBy")
+  mentorAssignmentsEnded MentorAssignment[]           @relation("MentorAssignmentEndedBy")
+  classPlacementsMoved   SundaySchoolClassPlacement[] @relation("SundaySchoolPlacementMovedBy")
+  rosterImportsCreated   SundaySchoolRosterImport[]   @relation("SundaySchoolRosterImportCreatedBy")
+  rolloverRunsTriggered  SundaySchoolRolloverRun[]    @relation("SundaySchoolRolloverTriggeredBy")
+  auditEvents            AuditEvent[]                 @relation("AuditEventActor")
+  guardianProfile        SundaySchoolGuardianProfile? @relation("SundaySchoolGuardianAccount")
+  guardianLinksCreated   SundaySchoolChildGuardian[]  @relation("SundaySchoolGuardianLinkedBy")
+
   @@index([email])
+  @@index([usernameNormalized])
   @@index([role])
 }
 
@@ -251,6 +364,49 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+}
+
+model UserRoleAssignment {
+  id          String          @id @default(cuid())
+  userId      String
+  tag         RoleTag
+  source      RoleGrantSource
+  grantedAt   DateTime        @default(now()) @db.Timestamptz(3)
+  grantedById String?
+  revokedAt   DateTime?       @db.Timestamptz(3)
+  revokedById String?
+  note        String?         @db.Text
+
+  user      User  @relation("RoleAssignmentUser", fields: [userId], references: [id], onDelete: Restrict)
+  grantedBy User? @relation("RoleAssignmentGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
+  revokedBy User? @relation("RoleAssignmentRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, revokedAt])
+  @@index([tag, revokedAt])
+  @@index([grantedById])
+  @@index([revokedById])
+}
+
+model MentorAssignment {
+  id                  String    @id @default(cuid())
+  studentEnrollmentId String
+  mentorUserId        String
+  assignedById        String?
+  assignedAt          DateTime  @default(now()) @db.Timestamptz(3)
+  effectiveFrom       DateTime? @db.Date
+  endedAt             DateTime? @db.Timestamptz(3)
+  endedById           String?
+  endReason           String?   @db.Text
+
+  studentEnrollment StudentEnrollment @relation(fields: [studentEnrollmentId], references: [id], onDelete: Restrict)
+  mentor            User              @relation("MentorAssignmentMentor", fields: [mentorUserId], references: [id], onDelete: Restrict)
+  assignedBy        User?             @relation("MentorAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  endedBy           User?             @relation("MentorAssignmentEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+
+  @@index([studentEnrollmentId, endedAt])
+  @@index([mentorUserId, endedAt])
+  @@index([assignedById])
+  @@index([endedById])
 }
 
 model AcademicYear {
@@ -309,6 +465,7 @@ model StudentEnrollment {
   graduatedAcademicYear AcademicYear?       @relation("GraduationYear", fields: [graduatedAcademicYearId], references: [id])
   fatherOfConfession    FatherOfConfession? @relation(fields: [fatherOfConfessionId], references: [id], onDelete: SetNull)
   asyncApprover         User?               @relation("AsyncApprovedBy", fields: [asyncApprovedBy], references: [id], onDelete: SetNull)
+  mentorAssignments     MentorAssignment[]
 
   @@index([studentId])
   @@index([mentorId])
@@ -626,62 +783,119 @@ model SundaySchoolLog {
 // that async Servants Prep students served their required weeks.
 // ============================================
 
+model SundaySchoolYear {
+  id             String                 @id @default(cuid())
+  name           String                 @unique
+  startDate      DateTime               @db.Date
+  endDate        DateTime               @db.Date
+  status         SundaySchoolYearStatus @default(DRAFT)
+  previousYearId String?                @unique
+  createdAt      DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime               @updatedAt @db.Timestamptz(3)
+
+  previousYear               SundaySchoolYear?               @relation("SundaySchoolYearSequence", fields: [previousYearId], references: [id], onDelete: SetNull)
+  nextYear                   SundaySchoolYear?               @relation("SundaySchoolYearSequence")
+  ageGroups                  SundaySchoolAgeGroup[]
+  classes                    SundaySchoolClass[]
+  enrollments                SundaySchoolEnrollment[]
+  assignments                SundaySchoolServantAssignment[]
+  rosterImports              SundaySchoolRosterImport[]
+  registrationRequests       ChildRegistrationRequest[]
+  rolloverRunsAsSource       SundaySchoolRolloverRun[]       @relation("SundaySchoolRolloverSourceYear")
+  rolloverRunsAsTarget       SundaySchoolRolloverRun[]       @relation("SundaySchoolRolloverTargetYear")
+  sundaySchoolAgeGroupLevels SundaySchoolAgeGroupLevel[]
+
+  @@index([status, startDate, endDate])
+}
+
 model SundaySchoolClass {
-  id             String            @id @default(cuid())
-  name           String // e.g. "Grade 3 Boys"
-  level          SundaySchoolLevel
+  id                 String                  @id @default(cuid())
+  name               String // e.g. "Grade 3 Boys"
+  level              SundaySchoolLevel
   // Required: authority over a class is scoped to its academic year, so a
   // class with no year would be a class nobody can be assigned to.
-  academicYearId String
-  isActive       Boolean           @default(true)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  academicYearId     String
+  sundaySchoolYearId String?
+  sectionName        String                  @default("General")
+  status             SundaySchoolClassStatus @default(ACTIVE)
+  isActive           Boolean                 @default(true)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
 
   // A class has no ageGroupId: its band is whichever SundaySchoolAgeGroup
   // lists its `level`. One source of truth, so moving a grade between bands
   // re-parents its classes with no data migration.
 
   // Relations
-  academicYear              AcademicYear                    @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  academicYear              AcademicYear                    @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  sundaySchoolYear          SundaySchoolYear?               @relation(fields: [sundaySchoolYearId], references: [id], onDelete: Restrict)
   assignments               SundaySchoolServantAssignment[]
   children                  SundaySchoolChild[]
+  placements                SundaySchoolClassPlacement[]
+  rosterImports             SundaySchoolRosterImport[]
   sessions                  SundaySchoolSession[]
   weeklyLessons             SundaySchoolWeeklyLesson[]
   childRegistrationRequests ChildRegistrationRequest[]
   visitations               SundaySchoolVisitation[]
 
   @@unique([name, academicYearId])
+  @@unique([sundaySchoolYearId, level, sectionName])
+  @@unique([id, sundaySchoolYearId])
+  @@unique([id, sundaySchoolYearId, level])
   @@index([level])
   @@index([isActive])
   @@index([academicYearId])
+  @@index([sundaySchoolYearId, status])
 }
 
 model SundaySchoolAgeGroup {
-  overseerId String?
-  overseer User? @relation("SundaySchoolPriestOverseer", fields: [overseerId], references: [id], onDelete: SetNull)
-
-  @@index([overseerId])
-  id        String              @id @default(cuid())
-  name      String              @unique // "Elementary", "Middle School", "High School"
-  levels    SundaySchoolLevel[] // the grades this band owns
-  sortOrder Int                 @default(0)
-  isActive  Boolean             @default(true)
-  createdAt DateTime            @default(now())
-  updatedAt DateTime            @updatedAt
+  overseerId         String?
+  overseer           User?                    @relation("SundaySchoolPriestOverseer", fields: [overseerId], references: [id], onDelete: SetNull)
+  id                 String                   @id @default(cuid())
+  sundaySchoolYearId String?
+  name               String // "Elementary", "Middle School", "High School"
+  levels             SundaySchoolLevel[] // the grades this band owns
+  sortOrder          Int                      @default(0)
+  status             SundaySchoolRecordStatus @default(ACTIVE)
+  isActive           Boolean                  @default(true)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   // Invariant enforced in the API (Prisma cannot express it): a level belongs
   // to at most one age group, or a class would sit in two bands at once.
 
-  assignments SundaySchoolServantAssignment[]
+  sundaySchoolYear SundaySchoolYear?               @relation(fields: [sundaySchoolYearId], references: [id], onDelete: Restrict)
+  assignments      SundaySchoolServantAssignment[]
+  levelRows        SundaySchoolAgeGroupLevel[]
 
+  @@unique([sundaySchoolYearId, name])
+  @@unique([id, sundaySchoolYearId])
+  @@index([overseerId])
   @@index([isActive])
+  @@index([sundaySchoolYearId, status])
+}
+
+model SundaySchoolAgeGroupLevel {
+  id                 String            @id @default(cuid())
+  sundaySchoolYearId String
+  ageGroupId         String
+  level              SundaySchoolLevel
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+
+  sundaySchoolYear SundaySchoolYear     @relation(fields: [sundaySchoolYearId], references: [id], onDelete: Restrict)
+  ageGroup         SundaySchoolAgeGroup @relation(fields: [ageGroupId, sundaySchoolYearId], references: [id, sundaySchoolYearId], onDelete: Restrict)
+
+  @@unique([sundaySchoolYearId, level])
+  @@unique([ageGroupId, level])
+  @@index([ageGroupId])
 }
 
 model SundaySchoolServantAssignment {
-  id             String                @id @default(cuid())
-  userId         String
-  academicYearId String
-  authority      SundaySchoolAuthority
+  id                 String                @id @default(cuid())
+  userId             String
+  academicYearId     String
+  sundaySchoolYearId String?
+  authority          SundaySchoolAuthority
 
   // Exactly one of classId / ageGroupId is set. Validated in the API: Prisma
   // cannot express the constraint, and Postgres unique indexes treat NULLs as
@@ -690,38 +904,48 @@ model SundaySchoolServantAssignment {
   ageGroupId String?
 
   assignedBy String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  assignedAt DateTime  @default(now()) @db.Timestamptz(3)
+  endedAt    DateTime? @db.Timestamptz(3)
+  endedById  String?
+  endReason  String?   @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   // Relations
-  user         User                  @relation("SundaySchoolServantAssignments", fields: [userId], references: [id], onDelete: Cascade)
-  academicYear AcademicYear          @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  class        SundaySchoolClass?    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  ageGroup     SundaySchoolAgeGroup? @relation(fields: [ageGroupId], references: [id], onDelete: Cascade)
-  assigner     User?                 @relation("AssignedSundaySchoolServantAssignments", fields: [assignedBy], references: [id], onDelete: SetNull)
+  user             User                  @relation("SundaySchoolServantAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  academicYear     AcademicYear          @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  sundaySchoolYear SundaySchoolYear?     @relation(fields: [sundaySchoolYearId], references: [id], onDelete: Restrict)
+  class            SundaySchoolClass?    @relation(fields: [classId, sundaySchoolYearId], references: [id, sundaySchoolYearId], onDelete: Restrict)
+  ageGroup         SundaySchoolAgeGroup? @relation(fields: [ageGroupId, sundaySchoolYearId], references: [id, sundaySchoolYearId], onDelete: Restrict)
+  assigner         User?                 @relation("AssignedSundaySchoolServantAssignments", fields: [assignedBy], references: [id], onDelete: SetNull)
+  endedBy          User?                 @relation("EndedSundaySchoolServantAssignments", fields: [endedById], references: [id], onDelete: SetNull)
 
   @@index([userId, academicYearId])
   @@index([classId])
   @@index([ageGroupId])
   @@index([academicYearId])
+  @@index([sundaySchoolYearId, endedAt])
+  @@index([userId, endedAt])
+  @@index([endedById])
 }
 
 model SundaySchoolChild {
-  id            String            @id @default(cuid())
+  id            String                   @id @default(cuid())
   firstName     String
   lastName      String
   level         SundaySchoolLevel
   classId       String?
   familyId      String?
-  userId        String?           @unique
+  userId        String?                  @unique
   birthDate     DateTime?
   guardianName  String?
   guardianPhone String?
   guardianEmail String?
-  notes         String?           @db.Text
-  isActive      Boolean           @default(true)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  notes         String?                  @db.Text
+  status        SundaySchoolRecordStatus @default(ACTIVE)
+  isActive      Boolean                  @default(true)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 
   // Relations
   class               SundaySchoolClass?            @relation(fields: [classId], references: [id], onDelete: SetNull)
@@ -731,12 +955,71 @@ model SundaySchoolChild {
   visitations         SundaySchoolVisitation[]
   guardians           SundaySchoolChildGuardian[]   @relation("ChildGuardians")
   registrationRequest ChildRegistrationRequest?     @relation("ChildRegistrationCreatedChild")
+  enrollments         SundaySchoolEnrollment[]
+  rosterImportRows    SundaySchoolRosterImportRow[]
 
   @@index([classId])
   @@index([familyId])
   @@index([level])
   @@index([isActive])
+  @@index([status])
   @@index([lastName, firstName])
+}
+
+model SundaySchoolEnrollment {
+  id                   String                          @id @default(cuid())
+  childId              String
+  sundaySchoolYearId   String
+  level                SundaySchoolLevel
+  status               SundaySchoolEnrollmentStatus    @default(ACTIVE)
+  previousEnrollmentId String?                         @unique
+  rolloverDisposition  SundaySchoolRolloverDisposition @default(PROMOTE)
+  nextLevelOverride    SundaySchoolLevel?
+  enrolledAt           DateTime                        @default(now()) @db.Timestamptz(3)
+  endedAt              DateTime?                       @db.Timestamptz(3)
+  createdAt            DateTime                        @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                        @updatedAt @db.Timestamptz(3)
+
+  child                 SundaySchoolChild             @relation(fields: [childId], references: [id], onDelete: Restrict)
+  sundaySchoolYear      SundaySchoolYear              @relation(fields: [sundaySchoolYearId], references: [id], onDelete: Restrict)
+  previousEnrollment    SundaySchoolEnrollment?       @relation("SundaySchoolEnrollmentSequence", fields: [previousEnrollmentId], references: [id], onDelete: SetNull)
+  nextEnrollment        SundaySchoolEnrollment?       @relation("SundaySchoolEnrollmentSequence")
+  placements            SundaySchoolClassPlacement[]
+  attendance            SundaySchoolChildAttendance[]
+  visitations           SundaySchoolVisitation[]
+  rolloverItemsAsSource SundaySchoolRolloverItem[]    @relation("SundaySchoolRolloverSourceEnrollment")
+  rolloverItemAsTarget  SundaySchoolRolloverItem?     @relation("SundaySchoolRolloverTargetEnrollment")
+  rosterImportRows      SundaySchoolRosterImportRow[]
+  registrationRequest   ChildRegistrationRequest?     @relation("ChildRegistrationEnrollment")
+
+  @@unique([childId, sundaySchoolYearId])
+  @@unique([id, sundaySchoolYearId, level])
+  @@index([sundaySchoolYearId, status])
+  @@index([childId, status])
+}
+
+model SundaySchoolClassPlacement {
+  id                 String            @id @default(cuid())
+  enrollmentId       String
+  classId            String
+  sundaySchoolYearId String
+  level              SundaySchoolLevel
+  startedAt          DateTime          @default(now()) @db.Timestamptz(3)
+  endedAt            DateTime?         @db.Timestamptz(3)
+  movedById          String?
+  moveReason         String?           @db.Text
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+
+  enrollment  SundaySchoolEnrollment        @relation(fields: [enrollmentId, sundaySchoolYearId, level], references: [id, sundaySchoolYearId, level], onDelete: Restrict)
+  class       SundaySchoolClass             @relation(fields: [classId, sundaySchoolYearId, level], references: [id, sundaySchoolYearId, level], onDelete: Restrict)
+  movedBy     User?                         @relation("SundaySchoolPlacementMovedBy", fields: [movedById], references: [id], onDelete: SetNull)
+  attendance  SundaySchoolChildAttendance[]
+  visitations SundaySchoolVisitation[]
+
+  @@unique([id, enrollmentId])
+  @@index([enrollmentId, endedAt])
+  @@index([classId, endedAt])
+  @@index([movedById])
 }
 
 // Shared household information. A child belongs to at most one family, while
@@ -819,23 +1102,29 @@ model SundaySchoolSession {
 }
 
 model SundaySchoolChildAttendance {
-  id         String           @id @default(cuid())
-  sessionId  String
-  childId    String
-  status     AttendanceStatus
-  notes      String?          @db.Text
-  recordedBy String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  id           String           @id @default(cuid())
+  sessionId    String
+  childId      String
+  enrollmentId String?
+  placementId  String?
+  status       AttendanceStatus
+  notes        String?          @db.Text
+  recordedBy   String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   // Relations
-  session  SundaySchoolSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  child    SundaySchoolChild   @relation(fields: [childId], references: [id], onDelete: Cascade)
-  recorder User?               @relation("RecordedSundaySchoolAttendance", fields: [recordedBy], references: [id], onDelete: SetNull)
+  session    SundaySchoolSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  child      SundaySchoolChild           @relation(fields: [childId], references: [id], onDelete: Cascade)
+  enrollment SundaySchoolEnrollment?     @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  placement  SundaySchoolClassPlacement? @relation(fields: [placementId], references: [id], onDelete: Restrict)
+  recorder   User?                       @relation("RecordedSundaySchoolAttendance", fields: [recordedBy], references: [id], onDelete: SetNull)
 
   @@unique([sessionId, childId])
   @@index([sessionId])
   @@index([childId])
+  @@index([enrollmentId])
+  @@index([placementId])
   @@index([status])
 }
 
@@ -859,22 +1148,28 @@ model SundaySchoolServantAttendance {
 }
 
 model SundaySchoolVisitation {
-  id         String                       @id @default(cuid())
-  classId    String
-  childId    String
-  status     SundaySchoolVisitationStatus @default(NOT_DONE)
-  visitedAt  DateTime?
-  notes      String?                      @db.Text
-  recordedBy String?
-  createdAt  DateTime                     @default(now())
-  updatedAt  DateTime                     @updatedAt
+  id           String                       @id @default(cuid())
+  classId      String
+  childId      String
+  enrollmentId String?
+  placementId  String?
+  status       SundaySchoolVisitationStatus @default(NOT_DONE)
+  visitedAt    DateTime?
+  notes        String?                      @db.Text
+  recordedBy   String?
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
 
-  class    SundaySchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
-  child    SundaySchoolChild @relation(fields: [childId], references: [id], onDelete: Cascade)
-  recorder User?             @relation("RecordedSundaySchoolVisitations", fields: [recordedBy], references: [id], onDelete: SetNull)
+  class      SundaySchoolClass           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  child      SundaySchoolChild           @relation(fields: [childId], references: [id], onDelete: Cascade)
+  enrollment SundaySchoolEnrollment?     @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  placement  SundaySchoolClassPlacement? @relation(fields: [placementId], references: [id], onDelete: Restrict)
+  recorder   User?                       @relation("RecordedSundaySchoolVisitations", fields: [recordedBy], references: [id], onDelete: SetNull)
 
   @@index([classId, createdAt])
   @@index([childId, createdAt])
+  @@index([enrollmentId, createdAt])
+  @@index([placementId, createdAt])
   @@index([status])
 }
 
@@ -1034,7 +1329,8 @@ model ChildRegistrationRequest {
   id     String             @id @default(cuid())
   status RegistrationStatus @default(PENDING)
 
-  submittedByUserId String
+  submittedByUserId  String
+  sundaySchoolYearId String?
 
   firstName     String
   lastName      String
@@ -1049,23 +1345,27 @@ model ChildRegistrationRequest {
   guardianEmail String?
   notes         String? @db.Text
 
-  reviewedBy     String?
-  reviewedAt     DateTime?
-  reviewNote     String?   @db.Text
-  createdChildId String?   @unique
-  placedClassId  String?
+  reviewedBy            String?
+  reviewedAt            DateTime?
+  reviewNote            String?   @db.Text
+  createdChildId        String?   @unique
+  placedClassId         String?
+  resultingEnrollmentId String?   @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submittedBy  User               @relation("ChildRegistrationSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: Cascade)
-  reviewer     User?              @relation("ChildRegistrationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
-  createdChild SundaySchoolChild? @relation("ChildRegistrationCreatedChild", fields: [createdChildId], references: [id], onDelete: SetNull)
-  placedClass  SundaySchoolClass? @relation(fields: [placedClassId], references: [id], onDelete: SetNull)
+  submittedBy         User                    @relation("ChildRegistrationSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: Cascade)
+  reviewer            User?                   @relation("ChildRegistrationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  createdChild        SundaySchoolChild?      @relation("ChildRegistrationCreatedChild", fields: [createdChildId], references: [id], onDelete: SetNull)
+  placedClass         SundaySchoolClass?      @relation(fields: [placedClassId], references: [id], onDelete: SetNull)
+  sundaySchoolYear    SundaySchoolYear?       @relation(fields: [sundaySchoolYearId], references: [id], onDelete: Restrict)
+  resultingEnrollment SundaySchoolEnrollment? @relation("ChildRegistrationEnrollment", fields: [resultingEnrollmentId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([submittedByUserId])
   @@index([intendedLevel])
+  @@index([sundaySchoolYearId, status])
   @@index([createdAt])
 }
 
@@ -1073,18 +1373,156 @@ model ChildRegistrationRequest {
 // they're a guardian of. Purely additive alongside SundaySchoolChild's
 // existing guardianName/Phone/Email text fields, which stay in place for
 // children added the old way by staff with no parent account.
+model SundaySchoolGuardianProfile {
+  id        String                   @id @default(cuid())
+  userId    String?                  @unique
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  status    SundaySchoolRecordStatus @default(ACTIVE)
+  createdAt DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime                 @updatedAt @db.Timestamptz(3)
+
+  user       User?                       @relation("SundaySchoolGuardianAccount", fields: [userId], references: [id], onDelete: SetNull)
+  childLinks SundaySchoolChildGuardian[]
+
+  @@index([lastName, firstName])
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+}
+
 model SundaySchoolChildGuardian {
-  id        String   @id @default(cuid())
-  parentId  String
-  childId   String
-  createdAt DateTime @default(now())
+  id                String    @id @default(cuid())
+  parentId          String
+  childId           String
+  guardianProfileId String?
+  linkedById        String?
+  linkedAt          DateTime  @default(now()) @db.Timestamptz(3)
+  endedAt           DateTime? @db.Timestamptz(3)
+  relationshipLabel String?
+  createdAt         DateTime  @default(now())
 
-  parent User              @relation("GuardianOfChildren", fields: [parentId], references: [id], onDelete: Cascade)
-  child  SundaySchoolChild @relation("ChildGuardians", fields: [childId], references: [id], onDelete: Cascade)
+  parent          User                         @relation("GuardianOfChildren", fields: [parentId], references: [id], onDelete: Restrict)
+  child           SundaySchoolChild            @relation("ChildGuardians", fields: [childId], references: [id], onDelete: Restrict)
+  guardianProfile SundaySchoolGuardianProfile? @relation(fields: [guardianProfileId], references: [id], onDelete: Restrict)
+  linkedBy        User?                        @relation("SundaySchoolGuardianLinkedBy", fields: [linkedById], references: [id], onDelete: SetNull)
 
-  @@unique([parentId, childId])
+  @@index([childId, endedAt])
+  @@index([parentId, endedAt])
+  @@index([guardianProfileId, endedAt])
+  @@index([linkedById])
+}
+
+model SundaySchoolRosterImport {
+  id                 String                         @id @default(cuid())
+  sundaySchoolYearId String
+  classId            String
+  idempotencyKey     String
+  requestHash        String
+  fileName           String?
+  status             SundaySchoolRosterImportStatus @default(PREVIEWED)
+  totalRows          Int                            @default(0)
+  createdRows        Int                            @default(0)
+  matchedRows        Int                            @default(0)
+  skippedRows        Int                            @default(0)
+  failedRows         Int                            @default(0)
+  summary            Json?
+  createdById        String
+  createdAt          DateTime                       @default(now()) @db.Timestamptz(3)
+  completedAt        DateTime?                      @db.Timestamptz(3)
+
+  sundaySchoolYear SundaySchoolYear              @relation(fields: [sundaySchoolYearId], references: [id], onDelete: Restrict)
+  class            SundaySchoolClass             @relation(fields: [classId, sundaySchoolYearId], references: [id, sundaySchoolYearId], onDelete: Restrict)
+  createdBy        User                          @relation("SundaySchoolRosterImportCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  rows             SundaySchoolRosterImportRow[]
+
+  @@unique([createdById, idempotencyKey])
+  @@index([sundaySchoolYearId, status])
+  @@index([classId, createdAt])
+}
+
+model SundaySchoolRosterImportRow {
+  id           String                             @id @default(cuid())
+  importId     String
+  rowNumber    Int
+  outcome      SundaySchoolRosterImportRowOutcome
+  childId      String?
+  enrollmentId String?
+  errorCode    String?
+  message      String?                            @db.Text
+  createdAt    DateTime                           @default(now()) @db.Timestamptz(3)
+
+  rosterImport SundaySchoolRosterImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  child        SundaySchoolChild?       @relation(fields: [childId], references: [id], onDelete: SetNull)
+  enrollment   SundaySchoolEnrollment?  @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+
+  @@unique([importId, rowNumber])
   @@index([childId])
-  @@index([parentId])
+  @@index([enrollmentId])
+  @@index([outcome])
+}
+
+model SundaySchoolRolloverRun {
+  id            String                        @id @default(cuid())
+  sourceYearId  String
+  targetYearId  String
+  status        SundaySchoolRolloverRunStatus @default(RUNNING)
+  startedAt     DateTime                      @default(now()) @db.Timestamptz(3)
+  completedAt   DateTime?                     @db.Timestamptz(3)
+  errorSummary  String?                       @db.Text
+  triggeredById String?
+
+  sourceYear  SundaySchoolYear           @relation("SundaySchoolRolloverSourceYear", fields: [sourceYearId], references: [id], onDelete: Restrict)
+  targetYear  SundaySchoolYear           @relation("SundaySchoolRolloverTargetYear", fields: [targetYearId], references: [id], onDelete: Restrict)
+  triggeredBy User?                      @relation("SundaySchoolRolloverTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+  items       SundaySchoolRolloverItem[]
+
+  @@unique([sourceYearId, targetYearId])
+  @@index([status, startedAt])
+  @@index([triggeredById])
+}
+
+model SundaySchoolRolloverItem {
+  id                 String                          @id @default(cuid())
+  rolloverRunId      String
+  sourceEnrollmentId String
+  targetEnrollmentId String?                         @unique
+  disposition        SundaySchoolRolloverDisposition
+  sourceLevel        SundaySchoolLevel
+  targetLevel        SundaySchoolLevel?
+  status             SundaySchoolRolloverItemStatus  @default(PENDING)
+  errorCode          String?
+  createdAt          DateTime                        @default(now()) @db.Timestamptz(3)
+  completedAt        DateTime?                       @db.Timestamptz(3)
+
+  rolloverRun      SundaySchoolRolloverRun @relation(fields: [rolloverRunId], references: [id], onDelete: Cascade)
+  sourceEnrollment SundaySchoolEnrollment  @relation("SundaySchoolRolloverSourceEnrollment", fields: [sourceEnrollmentId], references: [id], onDelete: Restrict)
+  targetEnrollment SundaySchoolEnrollment? @relation("SundaySchoolRolloverTargetEnrollment", fields: [targetEnrollmentId], references: [id], onDelete: Restrict)
+
+  @@unique([rolloverRunId, sourceEnrollmentId])
+  @@index([status])
+}
+
+model AuditEvent {
+  id          String           @id @default(cuid())
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  result      AuditEventResult
+  requestId   String?
+  reason      String?
+  metadata    Json?
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+
+  actor User? @relation("AuditEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([action, createdAt])
+  @@index([requestId])
 }
 
 // ============================================

@@ -3,11 +3,12 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
 import {
+  canCoordinateClass,
   canReviewChildRegistrationAtLevel,
   getSundaySchoolAccess,
 } from '@/lib/sunday-school-access'
 import { notifyChildRegistrationReviewed } from '@/lib/notifications'
-import { RegistrationStatus } from '@prisma/client'
+import { RegistrationStatus, RoleGrantSource, RoleTag } from '@prisma/client'
 
 /**
  * POST /api/sunday-school/child-registrations/[id]/review
@@ -48,11 +49,6 @@ export async function POST(
       )
     }
 
-    const access = await getSundaySchoolAccess(user)
-    if (!canReviewChildRegistrationAtLevel(access, registrationRequest.intendedLevel)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
     if (action === 'approve') {
       if (!classId) {
         return NextResponse.json(
@@ -63,11 +59,23 @@ export async function POST(
 
       const targetClass = await prisma.sundaySchoolClass.findUnique({
         where: { id: classId },
-        select: { id: true, name: true, level: true },
+        select: {
+          id: true,
+          name: true,
+          level: true,
+          academicYearId: true,
+          sundaySchoolYearId: true,
+          status: true,
+          isActive: true,
+        },
       })
 
       if (!targetClass) {
         return NextResponse.json({ error: 'Class not found' }, { status: 404 })
+      }
+
+      if (!targetClass.isActive || targetClass.status !== 'ACTIVE') {
+        return NextResponse.json({ error: 'The selected class is archived' }, { status: 400 })
       }
 
       if (targetClass.level !== registrationRequest.intendedLevel) {
@@ -75,6 +83,32 @@ export async function POST(
           { error: 'The selected class does not match this request\'s intended level' },
           { status: 400 }
         )
+      }
+
+      if (
+        registrationRequest.sundaySchoolYearId &&
+        registrationRequest.sundaySchoolYearId !== targetClass.sundaySchoolYearId
+      ) {
+        return NextResponse.json(
+          { error: 'The selected class belongs to a different Sunday School year' },
+          { status: 400 }
+        )
+      }
+
+      if (!targetClass.sundaySchoolYearId) {
+        return NextResponse.json(
+          { error: 'The selected class is not linked to a Sunday School year' },
+          { status: 409 }
+        )
+      }
+      const targetSundaySchoolYearId = targetClass.sundaySchoolYearId
+
+      const targetAccess = await getSundaySchoolAccess(user, targetClass.academicYearId)
+      if (
+        !canReviewChildRegistrationAtLevel(targetAccess, registrationRequest.intendedLevel) ||
+        !canCoordinateClass(targetAccess, targetClass.id)
+      ) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
 
       const result = await prisma.$transaction(async (tx) => {
@@ -89,7 +123,43 @@ export async function POST(
             guardianPhone: registrationRequest.guardianPhone,
             guardianEmail: registrationRequest.guardianEmail,
             notes: registrationRequest.notes,
+            status: 'ACTIVE',
             isActive: true,
+          },
+        })
+
+        const enrollment = await tx.sundaySchoolEnrollment.create({
+          data: {
+            childId: child.id,
+            sundaySchoolYearId: targetSundaySchoolYearId,
+            level: registrationRequest.intendedLevel,
+          },
+        })
+
+        await tx.sundaySchoolClassPlacement.create({
+          data: {
+            enrollmentId: enrollment.id,
+            classId: targetClass.id,
+            sundaySchoolYearId: targetSundaySchoolYearId,
+            level: registrationRequest.intendedLevel,
+            movedById: user.id,
+            moveReason: 'Initial child registration placement',
+          },
+        })
+
+        const guardianProfile = await tx.sundaySchoolGuardianProfile.upsert({
+          where: { userId: registrationRequest.submittedByUserId },
+          update: {
+            email: registrationRequest.guardianEmail,
+            phone: registrationRequest.guardianPhone,
+            status: 'ACTIVE',
+          },
+          create: {
+            userId: registrationRequest.submittedByUserId,
+            firstName: registrationRequest.guardianName,
+            lastName: '',
+            email: registrationRequest.guardianEmail,
+            phone: registrationRequest.guardianPhone,
           },
         })
 
@@ -97,8 +167,30 @@ export async function POST(
           data: {
             parentId: registrationRequest.submittedByUserId,
             childId: child.id,
+            guardianProfileId: guardianProfile.id,
+            linkedById: user.id,
+            relationshipLabel: 'Parent/Guardian',
           },
         })
+
+        const parentRole = await tx.userRoleAssignment.findFirst({
+          where: {
+            userId: registrationRequest.submittedByUserId,
+            tag: RoleTag.PARENT,
+            revokedAt: null,
+          },
+          select: { id: true },
+        })
+        if (!parentRole) {
+          await tx.userRoleAssignment.create({
+            data: {
+              userId: registrationRequest.submittedByUserId,
+              tag: RoleTag.PARENT,
+              source: RoleGrantSource.CHILD_REGISTRATION,
+              grantedById: user.id,
+            },
+          })
+        }
 
         const updatedRequest = await tx.childRegistrationRequest.update({
           where: { id },
@@ -109,10 +201,12 @@ export async function POST(
             reviewNote: note || null,
             createdChildId: child.id,
             placedClassId: targetClass.id,
+            sundaySchoolYearId: targetSundaySchoolYearId,
+            resultingEnrollmentId: enrollment.id,
           },
         })
 
-        return { child, request: updatedRequest }
+        return { child, enrollment, request: updatedRequest }
       })
 
       notifyChildRegistrationReviewed({
@@ -128,6 +222,10 @@ export async function POST(
         message: 'Registration request approved successfully',
       })
     } else {
+      const access = await getSundaySchoolAccess(user)
+      if (!canReviewChildRegistrationAtLevel(access, registrationRequest.intendedLevel)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
       const updatedRequest = await prisma.childRegistrationRequest.update({
         where: { id },
         data: {

@@ -30,6 +30,7 @@ declare module "next-auth" {
 
   interface User {
     role: UserRole
+    authVersion: number
     mustChangePassword: boolean
     isAsyncStudent: boolean
     sundaySchool?: SundaySchoolStanding
@@ -41,6 +42,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     role: UserRole
     id: string
+    authVersion?: number
     mustChangePassword: boolean
     isAsyncStudent: boolean
     sundaySchool?: SundaySchoolStanding

@@ -87,6 +87,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { name, level } = body
     let { academicYearId } = body
+    let { sundaySchoolYearId } = body
 
     if (!name || !String(name).trim()) {
       return NextResponse.json({ error: "Class name is required" }, { status: 400 })
@@ -109,15 +110,34 @@ export async function POST(request: Request) {
       academicYearId = activeYear.id
     }
 
+    const targetSundaySchoolYear = await prisma.sundaySchoolYear.findFirst({
+      where: sundaySchoolYearId
+        ? { id: sundaySchoolYearId, status: "OPEN" }
+        : { status: "OPEN" },
+      select: { id: true },
+    })
+    if (!targetSundaySchoolYear) {
+      return NextResponse.json(
+        { error: "No matching open Sunday School year. Open a year before adding classes." },
+        { status: 409 }
+      )
+    }
+    sundaySchoolYearId = targetSundaySchoolYear.id
+
     const access = await getSundaySchoolAccess(user, academicYearId)
     if (!canCreateClassAtLevel(access, level)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const trimmedName = String(name).trim()
+    const sectionName = String(body.sectionName ?? "General").trim() || "General"
 
     const existing = await prisma.sundaySchoolClass.findFirst({
-      where: { name: trimmedName, academicYearId },
+      where: {
+        sundaySchoolYearId,
+        level,
+        sectionName,
+      },
     })
     if (existing) {
       return NextResponse.json(
@@ -128,7 +148,14 @@ export async function POST(request: Request) {
 
     const created = await prisma.$transaction(async (tx) => {
       const newClass = await tx.sundaySchoolClass.create({
-        data: { name: trimmedName, level, academicYearId },
+        data: {
+          name: trimmedName,
+          level,
+          academicYearId,
+          sundaySchoolYearId,
+          sectionName,
+          status: "ACTIVE",
+        },
         include: classInclude,
       })
       await ensureSundaySchoolWeeklyLessons({ classIds: [newClass.id], db: tx })

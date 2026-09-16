@@ -33,7 +33,21 @@ async function loadChildForUser(
 ) {
   const child = await prisma.sundaySchoolChild.findUnique({
     where: { id: childId },
-    select: { id: true, classId: true, familyId: true },
+    select: {
+      id: true,
+      classId: true,
+      familyId: true,
+      level: true,
+      enrollments: {
+        where: { status: "ACTIVE" },
+        take: 1,
+        select: {
+          id: true,
+          sundaySchoolYearId: true,
+          level: true,
+        },
+      },
+    },
   })
   if (!child) {
     throw new Error("Not found")
@@ -137,9 +151,28 @@ export async function PATCH(
     } = body
 
     const updateData: Record<string, unknown> = {}
+    const activeEnrollment = currentChild.enrollments[0] ?? null
+    let destinationClass: {
+      id: string
+      level: typeof currentChild.level
+      sundaySchoolYearId: string | null
+      status: "ACTIVE" | "ARCHIVED"
+      isActive: boolean
+    } | null = null
     const familyDetails = family === undefined
       ? undefined
       : normalizeSundaySchoolFamilyDetails(family)
+
+    if (
+      activeEnrollment &&
+      level !== undefined &&
+      level !== activeEnrollment.level
+    ) {
+      return NextResponse.json(
+        { error: "A child's grade is fixed for the current enrollment; use annual rollover or an enrollment correction" },
+        { status: 400 }
+      )
+    }
 
     if (family !== undefined && family !== null && !familyDetails) {
       return NextResponse.json({ error: "Invalid family details" }, { status: 400 })
@@ -195,7 +228,43 @@ export async function PATCH(
           { status: 403 }
         )
       }
+      if (classId) {
+        destinationClass = await prisma.sundaySchoolClass.findUnique({
+          where: { id: classId },
+          select: {
+            id: true,
+            level: true,
+            sundaySchoolYearId: true,
+            status: true,
+            isActive: true,
+          },
+        })
+        if (!destinationClass || !destinationClass.isActive || destinationClass.status !== "ACTIVE") {
+          return NextResponse.json({ error: "The destination class is archived or missing" }, { status: 400 })
+        }
+        const destinationLevel = level ?? currentChild.level
+        if (destinationClass.level !== destinationLevel) {
+          return NextResponse.json(
+            { error: "The destination class does not match the child's grade" },
+            { status: 400 }
+          )
+        }
+        if (
+          activeEnrollment &&
+          destinationClass.sundaySchoolYearId !== activeEnrollment.sundaySchoolYearId
+        ) {
+          return NextResponse.json(
+            { error: "Children cannot be moved between Sunday School years" },
+            { status: 400 }
+          )
+        }
+      }
       updateData.classId = classId || null
+    } else if (level !== undefined && level !== currentChild.level) {
+      return NextResponse.json(
+        { error: "Changing a child's grade requires selecting a class in that grade" },
+        { status: 400 }
+      )
     }
     if (birthDate !== undefined) {
       if (birthDate) {
@@ -265,6 +334,33 @@ export async function PATCH(
         updateData.familyId = resolvedFamilyId
       }
 
+      if (
+        activeEnrollment &&
+        destinationClass &&
+        destinationClass.id !== currentChild.classId
+      ) {
+        const movedAt = new Date()
+        await tx.sundaySchoolClassPlacement.updateMany({
+          where: { enrollmentId: activeEnrollment.id, endedAt: null },
+          data: {
+            endedAt: movedAt,
+            movedById: user.id,
+            moveReason: "Moved to another class",
+          },
+        })
+        await tx.sundaySchoolClassPlacement.create({
+          data: {
+            enrollmentId: activeEnrollment.id,
+            classId: destinationClass.id,
+            sundaySchoolYearId: activeEnrollment.sundaySchoolYearId,
+            level: destinationClass.level,
+            startedAt: movedAt,
+            movedById: user.id,
+            moveReason: "Moved to another class",
+          },
+        })
+      }
+
       return tx.sundaySchoolChild.update({
         where: { id },
         data: updateData,
@@ -282,7 +378,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/sunday-school/children/[id] - Remove a child from the roster
+// DELETE /api/sunday-school/children/[id] - Archive a child from the roster
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -294,9 +390,31 @@ export async function DELETE(
     const access = await getSundaySchoolAccess(user)
     await loadChildForUser(id, access, true)
 
-    await prisma.sundaySchoolChild.delete({ where: { id } })
+    await prisma.$transaction(async (tx) => {
+      const endedAt = new Date()
+      await tx.sundaySchoolClassPlacement.updateMany({
+        where: { enrollment: { childId: id }, endedAt: null },
+        data: {
+          endedAt,
+          movedById: user.id,
+          moveReason: "Child archived",
+        },
+      })
+      await tx.sundaySchoolEnrollment.updateMany({
+        where: { childId: id, status: "ACTIVE" },
+        data: { status: "WITHDRAWN", endedAt },
+      })
+      await tx.sundaySchoolChild.update({
+        where: { id },
+        data: {
+          status: "ARCHIVED",
+          isActive: false,
+          classId: null,
+        },
+      })
+    })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, action: "archived" })
   } catch (error: unknown) {
     return handleApiError(error)
   }

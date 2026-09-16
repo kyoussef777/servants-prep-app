@@ -7,9 +7,10 @@ authorization rules that govern all of it, see [`permissions.md`](permissions.md
 ## What it is, and what it is not
 
 Sunday School mode (`/dashboard/servants`) manages the church's actual Sunday
-School ministry, including weekly attendance for both children and servants. It shares a deployment, database, and login with the Servants
-Prep program but is otherwise independent — **no model here references a prep
-model**.
+School ministry, including weekly attendance for both children and servants. It
+shares a deployment, database, login, and identity layer with the Servants Prep
+program. Ministry records remain separate; shared users can receive tags and
+scoped assignments in both modes.
 
 It was built inside this app rather than as a separate deployment so that auth,
 UI components, and the schema live in one place instead of being maintained
@@ -37,38 +38,34 @@ be extended to cover a Pre-K–12 ministry without migrating it.
 
 ## Data model
 
-```
-SundaySchoolAgeGroup          Elementary / Middle / High — owns a set of levels
-        ↑
-        │ band derived from class.level (no foreign key)
-        │
-SundaySchoolClass ──────────→ SundaySchoolServantAssignment ──→ User
-   │  name, level, academicYearId    authority + exactly one scope,
-   │                                 scoped to an academic year
-   ├──→ SundaySchoolChild[]          name, level, optional User and family links
-   │          │
-   │          ├──→ SundaySchoolFamily          parents, address, and connected siblings
-   │          └──→ SundaySchoolVisitation[]    done / not done, date, notes, recorder
-   │
-   ├──→ SundaySchoolWeeklyLesson[]   future lesson owner, title, and ordered links
-   │
-   └──→ SundaySchoolSession[]        one completed weekly meeting, unique per (class, date)
-              │
-              ├──→ SundaySchoolChildAttendance ←── SundaySchoolChild
-              │        AttendanceStatus per child per session
-              │
-              └──→ SundaySchoolServantAttendance ←── User
-                       PRESENT / ABSENT per servant per session
-```
+The durable structure is year-first:
+
+`SundaySchoolYear → SundaySchoolEnrollment → SundaySchoolClassPlacement → SundaySchoolClass`
+
+The child is the stable person record. Enrollment says the child participates
+in one Sunday School year and at which grade. Placement is dated history of the
+class they belong to, so moving a child never rewrites prior-year or
+prior-class history. `SundaySchoolGuardianProfile` stores a guardian even when
+that guardian has no login; `SundaySchoolChildGuardian` grants an optional user
+account access through a dated relationship.
 
 ### Models
 
 | Model | Notes |
 |---|---|
+| `SundaySchoolYear` | Independent ministry year with explicit dates and lifecycle. At most one year may be `OPEN`; years may not overlap. |
+| `SundaySchoolEnrollment` | One child and level per ministry year. Links rollover history without changing the stable child. |
+| `SundaySchoolClassPlacement` | Dated enrollment-to-class history. At most one placement is active for an enrollment. |
+| `SundaySchoolAgeGroupLevel` | Year-bound ownership of levels by age groups; replaces relying on an unenforced enum array. |
 | `SundaySchoolAgeGroup` | `name`, `levels: SundaySchoolLevel[]`, `sortOrder`, `isActive`. A Postgres enum array, so no join table. |
-| `SundaySchoolClass` | `name`, `level`, `academicYearId` (**required**), `isActive`. Unique on `(name, academicYearId)`. |
-| `SundaySchoolServantAssignment` | `userId`, `academicYearId`, `authority`, and exactly one of `classId` / `ageGroupId`. |
+| `SundaySchoolClass` | Legacy `academicYearId` remains during compatibility; new rows also use `sundaySchoolYearId`, `level`, `sectionName`, and lifecycle status. |
+| `SundaySchoolServantAssignment` | Year-bound authority with exactly one class or age-group scope and dated end history. |
 | `SundaySchoolChild` | Names, `level`, optional `classId`, family and unique child-account links, `birthDate`, legacy guardian contact, `notes`, `isActive`. |
+| `SundaySchoolGuardianProfile` | Guardian identity/contact independent of whether the guardian has a login. |
+| `SundaySchoolChildGuardian` | Dated relationship between guardian, child, and optional parent user; this relationship grants parent scope. |
+| `SundaySchoolRosterImport` / `Row` | Idempotent import run and per-row outcome ledger. |
+| `SundaySchoolRolloverRun` / `Item` | Resumable annual promotion run and per-enrollment result. |
+| `AuditEvent` | Append-only security/business audit event with actor, action, entity, result, and request correlation. |
 | `SundaySchoolFamily` | Shared family name, home address, separate mother/father contact, and every linked child. Children in the same family are siblings. |
 | `SundaySchoolWeeklyLesson` | One row per `(classId, sundayDate)`, with an optional title and designated owner. It is separate from attendance sessions. |
 | `SundaySchoolWeeklyLessonResource` | Ordered named HTTP(S) links for one weekly lesson. A save replaces the full list transactionally. |
@@ -102,16 +99,18 @@ future dates and is only created when attendance is saved. History displays
 join the two by class and normalized UTC date.
 
 **A class's band is derived, not stored.** There is no `ageGroupId` on
-`SundaySchoolClass`. Whichever age group lists the class's `level` owns it.
+`SundaySchoolClass`. During compatibility the enum array remains; the durable
+mapping is `SundaySchoolAgeGroupLevel`, unique per year and level. Whichever
+age group owns the class's year and level owns it.
 Moving Grade 6 from Middle to Elementary re-parents every Grade 6 class and
 hands them to a different coordinator — data entry, not a migration. The cost is
 an invariant Prisma cannot enforce: **a level belongs to at most one age
 group**, checked by `assertLevelsUnclaimed` on every age-group write.
 
-**Assignments are per academic year.** Staffing is redone each year and last
-year's roster stays as history, matching how enrollments and lessons already
-scope. `SundaySchoolClass.academicYearId` is required for the same reason — a
-class with no year would be one nobody could be assigned to.
+**Assignments are per Sunday School year.** Staffing is redone each year and
+last year's roster stays as history. The new year key is independent from the
+Servants Prep `AcademicYear`; the legacy academic-year key stays populated only
+for compatibility until routes have cut over.
 
 **Sessions are created on save, not on page load.** Browsing dates on the
 attendance page leaves no empty rows behind, and `PRIEST` can look without
@@ -236,7 +235,9 @@ command palette.
 ## Local setup
 
 Point `.env` at a local database or an isolated Neon development branch first.
-Never use the production connection strings for this workflow.
+Never use the production connection strings for this workflow. Follow
+[`sunday-school-migration-runbook.md`](sunday-school-migration-runbook.md) for
+shared databases; do not use `db push` there.
 
 ```bash
 bun db:generate && bun db:push

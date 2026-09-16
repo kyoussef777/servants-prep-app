@@ -298,15 +298,24 @@ async function main() {
   ]
 
   for (const group of ageGroupSeeds) {
-    await prisma.sundaySchoolAgeGroup.upsert({
-      where: { name: group.name },
-      update: {},
-      create: { name: group.name, sortOrder: group.sortOrder, levels: [...group.levels] },
+    const existing = await prisma.sundaySchoolAgeGroup.findFirst({
+      where: { name: group.name, sundaySchoolYearId: null },
+      select: { id: true },
     })
+    if (existing) {
+      await prisma.sundaySchoolAgeGroup.update({
+        where: { id: existing.id },
+        data: { sortOrder: group.sortOrder, levels: [...group.levels] },
+      })
+    } else {
+      await prisma.sundaySchoolAgeGroup.create({
+        data: { name: group.name, sortOrder: group.sortOrder, levels: [...group.levels] },
+      })
+    }
   }
 
-  const elementary = await prisma.sundaySchoolAgeGroup.findUniqueOrThrow({
-    where: { name: 'Elementary' },
+  const elementary = await prisma.sundaySchoolAgeGroup.findFirstOrThrow({
+    where: { name: 'Elementary', sundaySchoolYearId: null },
   })
 
   const servant = await prisma.user.upsert({

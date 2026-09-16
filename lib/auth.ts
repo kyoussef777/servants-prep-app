@@ -88,7 +88,7 @@ export const authOptions: NextAuthOptions = {
 
         // Check if user is disabled
         if (user.isDisabled) {
-          throw new Error("Your account has been disabled. Please contact an administrator.")
+          throw new Error("Invalid credentials")
         }
 
         const isCorrectPassword = await bcrypt.compare(
@@ -110,6 +110,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          authVersion: user.authVersion,
           mustChangePassword: user.mustChangePassword,
           isAsyncStudent,
           sundaySchool,
@@ -142,6 +143,7 @@ export const authOptions: NextAuthOptions = {
       if (user && account?.provider === "credentials") {
         token.role = user.role
         token.id = user.id
+        token.authVersion = user.authVersion
         token.mustChangePassword = user.mustChangePassword
         token.isAsyncStudent = user.isAsyncStudent ?? false
         token.sundaySchool = user.sundaySchool ?? { hasAccess: false, isCoordinator: false }
@@ -159,6 +161,7 @@ export const authOptions: NextAuthOptions = {
           const { isAsyncStudent, sundaySchool } = await getUserSessionData(dbUser)
           token.id = dbUser.id
           token.role = dbUser.role
+          token.authVersion = dbUser.authVersion
           token.mustChangePassword = dbUser.mustChangePassword
           token.isAsyncStudent = isAsyncStudent
           token.sundaySchool = sundaySchool
@@ -201,6 +204,7 @@ export const authOptions: NextAuthOptions = {
                 const { isAsyncStudent, sundaySchool } = await getUserSessionData(target)
                 token.id = target.id
                 token.role = target.role
+                token.authVersion = target.authVersion
                 token.name = target.name
                 token.email = target.email
                 token.mustChangePassword = false
@@ -220,6 +224,7 @@ export const authOptions: NextAuthOptions = {
                 const { isAsyncStudent, sundaySchool } = await getUserSessionData(original)
                 token.id = original.id
                 token.role = original.role
+                token.authVersion = original.authVersion
                 token.name = original.name
                 token.email = original.email
                 token.mustChangePassword = original.mustChangePassword
@@ -238,19 +243,30 @@ export const authOptions: NextAuthOptions = {
 
       // Periodically re-check the user against the DB so that disabling an
       // account or changing its role takes effect without waiting for the
-      // 30-day JWT to expire. Skip while impersonating - the impersonated
+      // long-lived JWT to expire. Skip while impersonating - the impersonated
       // identity is intentionally divergent from a "real" login.
       const validatedAt = (token.validatedAt as number | undefined) ?? 0
       if (!token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { id: true, role: true, isDisabled: true, mustChangePassword: true }
+          select: {
+            id: true,
+            role: true,
+            authVersion: true,
+            isDisabled: true,
+            mustChangePassword: true,
+          }
         })
 
-        if (!dbUser || dbUser.isDisabled) {
+        if (
+          !dbUser ||
+          dbUser.isDisabled ||
+          (token.authVersion !== undefined && token.authVersion !== dbUser.authVersion)
+        ) {
           token.invalidated = true
         } else {
           token.role = dbUser.role
+          token.authVersion = dbUser.authVersion
           token.mustChangePassword = dbUser.mustChangePassword
           token.sundaySchool = await getSundaySchoolStanding(dbUser)
           token.validatedAt = Date.now()

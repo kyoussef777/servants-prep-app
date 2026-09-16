@@ -35,7 +35,8 @@ async function main() {
       where: { id: userByName.id },
       data: {
         password: hashedPassword,
-        mustChangePassword: false
+        mustChangePassword: false,
+        authVersion: { increment: 1 },
       }
     })
 
@@ -46,7 +47,8 @@ async function main() {
       where: { id: user.id },
       data: {
         password: hashedPassword,
-        mustChangePassword: false
+        mustChangePassword: false,
+        authVersion: { increment: 1 },
       }
     })
 

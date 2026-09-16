@@ -14,10 +14,18 @@ export async function GET() {
 
     const [guardianLinks, requests] = await Promise.all([
       prisma.sundaySchoolChildGuardian.findMany({
-        where: { parentId: user.id },
-        include: {
+        where: { parentId: user.id, endedAt: null },
+        select: {
+          relationshipLabel: true,
+          linkedAt: true,
           child: {
-            include: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              birthDate: true,
+              status: true,
+              isActive: true,
               class: { select: { id: true, name: true, level: true } },
             },
           },
@@ -26,12 +34,27 @@ export async function GET() {
       }),
       prisma.childRegistrationRequest.findMany({
         where: { submittedByUserId: user.id },
+        select: {
+          id: true,
+          status: true,
+          firstName: true,
+          lastName: true,
+          birthDate: true,
+          intendedLevel: true,
+          placedClass: { select: { id: true, name: true, level: true } },
+          createdAt: true,
+          reviewedAt: true,
+        },
         orderBy: { createdAt: 'desc' },
       }),
     ])
 
     return NextResponse.json({
-      children: guardianLinks.map((link) => link.child),
+      children: guardianLinks.map((link) => ({
+        ...link.child,
+        relationshipLabel: link.relationshipLabel,
+        linkedAt: link.linkedAt,
+      })),
       pendingRequests: requests,
     })
   } catch (error: unknown) {
