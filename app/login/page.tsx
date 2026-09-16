@@ -144,7 +144,7 @@ function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading || googleLoading}
-                className="bg-white text-black"
+                className="bg-background text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <div className="space-y-2">
@@ -156,7 +156,7 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading || googleLoading}
-                className="bg-white text-black"
+                className="bg-background text-foreground placeholder:text-muted-foreground"
               />
             </div>
             {error && (
