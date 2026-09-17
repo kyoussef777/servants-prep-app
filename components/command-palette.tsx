@@ -68,6 +68,7 @@ function getNavItemsForRole(role: UserRole): NavItem[] {
     { label: 'Exams', href: '/dashboard/admin/exams', icon: GraduationCap },
     { label: 'Curriculum', href: '/dashboard/admin/curriculum', icon: BookOpen },
     { label: 'Mentees', href: '/dashboard/admin/mentees', icon: UserCheck },
+    { label: 'Confession', href: '/dashboard/admin/confession', icon: FileText },
     { label: 'Async Students', href: '/dashboard/admin/async-students', icon: FileText },
     { label: 'Files', href: '/dashboard/files', icon: FolderOpen },
   ]

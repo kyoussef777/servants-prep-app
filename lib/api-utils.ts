@@ -216,6 +216,31 @@ export async function backfillAttendanceForStudent(
 type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
 /**
+ * Enrollment fields that change with its status. Graduating records the date and
+ * the active academic year; reactivating clears graduation data; only ACTIVE
+ * enrollments stay isActive.
+ */
+export async function enrollmentStatusUpdate(
+  status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN',
+  graduationNote?: string | null
+): Promise<Record<string, unknown>> {
+  if (status === 'GRADUATED') {
+    const activeYear = await prisma.academicYear.findFirst({ where: { isActive: true }, select: { id: true } })
+    return {
+      status,
+      isActive: false,
+      graduatedAt: new Date(),
+      ...(activeYear ? { graduatedAcademicYearId: activeYear.id } : {}),
+      ...(graduationNote ? { graduationNote } : {}),
+    }
+  }
+  if (status === 'ACTIVE') {
+    return { status, isActive: true, graduatedAt: null, graduatedAcademicYearId: null, graduationNote: null }
+  }
+  return { status, isActive: false }
+}
+
+/**
  * Reconcile a student's attendance records against their attendance start date
  * (late-start curve). Lessons scheduled before the start date are marked
  * EXCUSED with notEnrolledYet=true (shown as "N/A — joined later" and excluded

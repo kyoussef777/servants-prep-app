@@ -63,8 +63,8 @@ export async function PATCH(
     const body = await request.json()
     const { email, name, phone, password, role, profileImageUrl } = body
 
-    // Get the user being updated
-    const targetUser = await prisma.user.findUnique({ where: { id } })
+    // Get the user being updated (with password, to verify self-service email changes)
+    const targetUser = await prisma.user.findUnique({ where: { id }, omit: { password: false } })
 
     if (!targetUser) {
       return NextResponse.json(

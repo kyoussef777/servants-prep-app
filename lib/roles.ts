@@ -91,11 +91,6 @@ export const canViewStudents = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.PRIEST || role === UserRole.SERVANT_PREP || role === UserRole.MENTOR
 }
 
-// Can review async note submissions (approve/reject/revert)
-export const canReviewAsyncNotes = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
-}
-
 // Can generate/manage Sunday School codes and manage assignments
 export const canManageSundaySchool = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
@@ -109,11 +104,6 @@ export const canManageSundaySchoolAttendance = (role: UserRole) => {
 // Can set async student status on enrollments
 export const canSetAsyncStatus = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
-}
-
-// Can submit async notes and log Sunday School (must also be async student)
-export const canSubmitAsyncContent = (role: UserRole) => {
-  return role === UserRole.STUDENT
 }
 
 // Can manage invite codes (generate, edit, revoke)

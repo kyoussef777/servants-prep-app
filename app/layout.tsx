@@ -44,14 +44,19 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <Providers>
-          <NotificationProvider />
-          <DevImpersonation />
-          <Navbar />
-          <CommandPalette />
-          <ProfilePhotoReminder />
+          {/* App chrome; `contents` keeps the navbar sticky, print:hidden keeps it off printouts */}
+          <div className="contents print:hidden">
+            <NotificationProvider />
+            <DevImpersonation />
+            <Navbar />
+            <CommandPalette />
+            <ProfilePhotoReminder />
+          </div>
           {children}
-          <PushNotificationPrompt />
-          <Toaster />
+          <div className="contents print:hidden">
+            <PushNotificationPrompt />
+            <Toaster />
+          </div>
           <Analytics />
           <SpeedInsights />
         </Providers>

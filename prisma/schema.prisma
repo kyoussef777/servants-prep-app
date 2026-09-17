@@ -61,10 +61,9 @@ enum ExamYearLevel {
   BOTH
 }
 
-enum NoteSubmissionStatus {
-  PENDING
-  APPROVED
-  REJECTED
+enum SlipType {
+  ATTENDANCE
+  CONFESSION
 }
 
 enum SundaySchoolGrade {
@@ -132,10 +131,10 @@ model User {
   expectedAbsences         ExpectedAbsence[] @relation("StudentExpectedAbsences")
   createdExpectedAbsences  ExpectedAbsence[] @relation("CreatedExpectedAbsences")
 
-  // Async notes relations
-  noteSubmissions           AsyncNoteSubmission[] @relation("StudentNoteSubmissions")
-  reviewedNoteSubmissions   AsyncNoteSubmission[] @relation("ReviewedNoteSubmissions")
+  // Async / slip relations
   asyncApprovedEnrollments  StudentEnrollment[]   @relation("AsyncApprovedBy")
+  slips                     StudentSlip[]         @relation("StudentSlips")
+  uploadedSlips             StudentSlip[]         @relation("UploadedSlips")
 
   // Sunday School relations
   sundaySchoolAssignments  SundaySchoolAssignment[] @relation("SundaySchoolAssignments")
@@ -280,7 +279,6 @@ model Lesson {
   creator              User?                 @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   attendanceRecords    AttendanceRecord[]
   resources            LessonResource[]
-  asyncNoteSubmissions AsyncNoteSubmission[]
 
   @@unique([academicYearId, lessonNumber])
   @@index([academicYearId])
@@ -318,12 +316,13 @@ model AttendanceRecord {
   notEnrolledYet  Boolean          @default(false)  // True if EXCUSED because the lesson predates the student's attendance start date (late start)
   expectedAbsenceId String?                          // Set when this record is covered by a planned/expected absence
   expectedAbsenceNA Boolean        @default(false)  // True if marked N/A via an expected absence (excluded from the attendance rate)
+  slipId          String?                            // Set when an async student's attendance slip marked this lesson PRESENT
 
   // Relations
   lesson               Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   student              User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
   recorder             User?                @relation("RecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
-  asyncNoteSubmission  AsyncNoteSubmission?
+  slip                 StudentSlip?         @relation(fields: [slipId], references: [id], onDelete: SetNull)
   expectedAbsence      ExpectedAbsence?     @relation("ExpectedAbsenceRecords", fields: [expectedAbsenceId], references: [id], onDelete: SetNull)
 
   @@unique([lessonId, studentId])
@@ -333,6 +332,7 @@ model AttendanceRecord {
   @@index([conductRemoval])
   @@index([notEnrolledYet])
   @@index([expectedAbsenceId])
+  @@index([slipId])
   @@index([studentId, lessonId]) // Compound index for student+lesson queries
 }
 
@@ -438,34 +438,29 @@ model FatherOfConfession {
 }
 
 // ============================================
-// ASYNC STUDENT MODELS
+// SLIPS (photos of signed paper slips, uploaded by servants)
 // ============================================
 
-model AsyncNoteSubmission {
-  id                 String               @id @default(cuid())
-  studentId          String
-  lessonId           String
-  content            String               @db.Text
-  status             NoteSubmissionStatus  @default(PENDING)
-  submittedAt        DateTime             @default(now())
-  reviewedBy         String?
-  reviewedAt         DateTime?
-  reviewFeedback     String?              @db.Text
-  attendanceRecordId String?              @unique
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+// ATTENDANCE: an async student's signed attendance slip. The lessons it covers
+//   are marked PRESENT and linked through AttendanceRecord.slipId.
+// CONFESSION: a father-of-confession sign-off for the 2-month period starting
+//   at periodStart (see lib/confession.ts).
+model StudentSlip {
+  id          String    @id @default(cuid())
+  studentId   String
+  type        SlipType
+  imageUrl    String
+  periodStart DateTime? // CONFESSION only
+  uploadedBy  String?
+  createdAt   DateTime  @default(now())
 
   // Relations
-  student          User              @relation("StudentNoteSubmissions", fields: [studentId], references: [id], onDelete: Cascade)
-  lesson           Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  reviewer         User?             @relation("ReviewedNoteSubmissions", fields: [reviewedBy], references: [id], onDelete: SetNull)
-  attendanceRecord AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id], onDelete: SetNull)
+  student           User               @relation("StudentSlips", fields: [studentId], references: [id], onDelete: Cascade)
+  uploader          User?              @relation("UploadedSlips", fields: [uploadedBy], references: [id], onDelete: SetNull)
+  attendanceRecords AttendanceRecord[]
 
-  @@unique([studentId, lessonId])
-  @@index([studentId])
-  @@index([lessonId])
-  @@index([status])
-  @@index([submittedAt])
+  @@unique([studentId, type, periodStart])
+  @@index([type])
 }
 
 model SundaySchoolAssignment {
@@ -633,7 +628,7 @@ enum NotificationType {
   REGISTRATION_RECEIVED
   REGISTRATION_APPROVED
   REGISTRATION_REJECTED
-  ASYNC_NOTE_REVIEWED
+  ASYNC_NOTE_REVIEWED // Legacy: async note review was removed; kept so db push doesn't drop an enum value
   MENTOR_ASSIGNED
   ANNOUNCEMENT
   CONDUCT_REMOVAL

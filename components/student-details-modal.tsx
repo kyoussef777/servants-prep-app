@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -15,6 +15,10 @@ import { Edit, Check, X, Trash2, Send, Camera, Plane, Plus, CalendarClock } from
 import { UserRole } from '@prisma/client'
 import { getRoleDisplayName, isAdmin, canManageUsers, canManageData } from '@/lib/roles'
 import { formatDateUTC } from '@/lib/utils'
+import { StudentProgramEditor, type EditableStudent } from '@/components/student-program-editor'
+import { ConfessionTracker } from '@/components/admin/confession-tracker'
+import { AttendanceSlipsPanel } from '@/components/admin/attendance-slips-panel'
+import { AsyncBadge } from '@/components/async-badge'
 
 interface StudentNote {
   id: string
@@ -105,34 +109,6 @@ interface Lesson {
   }
 }
 
-interface Mentor {
-  id: string
-  name: string
-  email?: string
-}
-
-interface FatherOfConfession {
-  id: string
-  name: string
-  phone?: string
-  church?: string
-}
-
-interface AsyncNoteSubmission {
-  id: string
-  content: string
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
-  submittedAt: string
-  reviewedAt: string | null
-  reviewFeedback: string | null
-  lesson: {
-    title: string
-    lessonNumber: number
-    examSection: { displayName: string }
-  }
-  reviewer: { name: string } | null
-}
-
 interface ExpectedAbsence {
   id: string
   startDate: string
@@ -144,16 +120,8 @@ interface ExpectedAbsence {
 
 interface StudentDetailsModalProps {
   studentId: string | null
-  studentName: string
-  studentEmail?: string
-  studentPhone?: string
-  profileImageUrl?: string | null
-  yearLevel?: string
-  mentor?: Mentor | null
-  fatherOfConfession?: FatherOfConfession | null
-  enrollmentId?: string
-  attendanceStartDate?: string | null
-  isAsyncStudent?: boolean
+  studentName: string // shown until details load
+  student?: EditableStudent
   examScores: ExamScore[]
   attendanceRecords: AttendanceRecord[]
   allExams?: Exam[]
@@ -165,16 +133,8 @@ interface StudentDetailsModalProps {
 
 export function StudentDetailsModal({
   studentId,
-  studentName,
-  studentEmail = '',
-  studentPhone = '',
-  profileImageUrl,
-  yearLevel,
-  mentor,
-  fatherOfConfession,
-  enrollmentId,
-  attendanceStartDate,
-  isAsyncStudent = false,
+  studentName: listName,
+  student,
   examScores,
   attendanceRecords,
   allExams = [],
@@ -184,6 +144,19 @@ export function StudentDetailsModal({
 }: StudentDetailsModalProps) {
   const { data: session } = useSession()
   const canEditData = session?.user?.role ? canManageData(session.user.role as UserRole) : false
+  const enrollment = student?.enrollments?.[0]
+  const studentName = student?.name ?? listName
+  const studentEmail = student?.email ?? ''
+  const studentPhone = student?.phone ?? ''
+  const profileImageUrl = student?.profileImageUrl
+  const enrollmentId = enrollment?.id
+  const attendanceStartDate = enrollment?.attendanceStartDate
+  const isAsyncStudent = !!enrollment?.isAsyncStudent
+  // Scoped to this student so the slip and confession panels don't refetch the enrollment
+  const scopedEnrollment = useMemo(
+    () => (student && enrollment ? { ...enrollment, student: { id: student.id, name: student.name } } : undefined),
+    [student, enrollment]
+  )
   const [editingScoreId, setEditingScoreId] = useState<string | null>(null)
   const [editingScore, setEditingScore] = useState<number>(0)
   const [editingScoreNotes, setEditingScoreNotes] = useState<string>('')
@@ -205,15 +178,6 @@ export function StudentDetailsModal({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteContent, setEditingNoteContent] = useState('')
 
-  // Father of Confession state
-  const [fathersList, setFathersList] = useState<FatherOfConfession[]>([])
-  const [selectedFatherId, setSelectedFatherId] = useState<string>('')
-  const [savingFather, setSavingFather] = useState(false)
-
-  // Async notes state
-  const [asyncNotes, setAsyncNotes] = useState<AsyncNoteSubmission[]>([])
-  const [asyncNotesLoading, setAsyncNotesLoading] = useState(false)
-
   // Expected absences state
   const [expectedAbsences, setExpectedAbsences] = useState<ExpectedAbsence[]>([])
   const [eaStart, setEaStart] = useState('')
@@ -230,26 +194,18 @@ export function StudentDetailsModal({
   useEffect(() => {
     if (studentId) {
       fetchNotes()
-      fetchFathersList()
       fetchExpectedAbsences()
-      if (isAsyncStudent) fetchAsyncNotes()
     } else {
       setNotes([])
-      setAsyncNotes([])
       setExpectedAbsences([])
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId, isAsyncStudent])
+  }, [studentId])
 
   // Sync the late-start date input with the current enrollment value
   useEffect(() => {
     setStartDateInput(attendanceStartDate ? new Date(attendanceStartDate).toISOString().slice(0, 10) : '')
   }, [attendanceStartDate, studentId])
-
-  // Update selectedFatherId when fatherOfConfession prop changes
-  useEffect(() => {
-    setSelectedFatherId(fatherOfConfession?.id || '')
-  }, [fatherOfConfession])
 
   const fetchNotes = async () => {
     if (!studentId) return
@@ -264,34 +220,6 @@ export function StudentDetailsModal({
       console.error('Failed to fetch notes:', error)
     } finally {
       setNotesLoading(false)
-    }
-  }
-
-  const fetchAsyncNotes = async () => {
-    if (!studentId) return
-    setAsyncNotesLoading(true)
-    try {
-      const res = await fetch(`/api/async-notes?studentId=${studentId}`)
-      if (res.ok) {
-        const data = await res.json()
-        setAsyncNotes(Array.isArray(data) ? data : data.data || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch async notes:', error)
-    } finally {
-      setAsyncNotesLoading(false)
-    }
-  }
-
-  const fetchFathersList = async () => {
-    try {
-      const res = await fetch('/api/fathers-of-confession')
-      if (res.ok) {
-        const data = await res.json()
-        setFathersList(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch fathers of confession:', error)
     }
   }
 
@@ -383,37 +311,6 @@ export function StudentDetailsModal({
       toast.error('Failed to save attendance start date')
     } finally {
       setSavingStartDate(false)
-    }
-  }
-
-  const updateFatherOfConfession = async (fatherId: string) => {
-    if (!enrollmentId) {
-      toast.error('No enrollment found for this student')
-      return
-    }
-    setSavingFather(true)
-    try {
-      const res = await fetch(`/api/enrollments/${enrollmentId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fatherOfConfessionId: fatherId || null
-        })
-      })
-
-      if (res.ok) {
-        toast.success('Father of Confession updated successfully!')
-        setSelectedFatherId(fatherId)
-        onRefresh()
-      } else {
-        const data = await res.json()
-        toast.error(data.error || 'Failed to update Father of Confession')
-      }
-    } catch (error) {
-      console.error('Failed to update Father of Confession:', error)
-      toast.error('Failed to update Father of Confession')
-    } finally {
-      setSavingFather(false)
     }
   }
 
@@ -681,17 +578,18 @@ export function StudentDetailsModal({
 
   return (
     <Dialog open={!!studentId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-8">
             <span>{studentName} - Details</span>
             <div className="flex items-center gap-2 text-sm font-normal">
-              {yearLevel && (
-                <Badge variant="outline">{yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}</Badge>
+              {isAsyncStudent && <AsyncBadge />}
+              {enrollment && (
+                <Badge variant="outline">{enrollment.yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}</Badge>
               )}
-              {mentor && (
+              {enrollment?.mentor && (
                 <div className="text-gray-600">
-                  Mentor: <span className="font-medium">{mentor.name}</span>
+                  Mentor: <span className="font-medium">{enrollment.mentor.name}</span>
                 </div>
               )}
             </div>
@@ -702,12 +600,12 @@ export function StudentDetailsModal({
           <div className="py-8 text-center text-gray-500">Loading...</div>
         ) : (
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className={`grid w-full ${isAsyncStudent ? 'grid-cols-5' : 'grid-cols-4'}`}>
+            <TabsList className="grid w-full grid-cols-5 [&>button]:px-1 [&>button]:text-xs sm:[&>button]:text-sm">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
               <TabsTrigger value="scores">Exams</TabsTrigger>
               <TabsTrigger value="attendance">Attendance</TabsTrigger>
-              {isAsyncStudent && <TabsTrigger value="async-notes">Lesson Notes</TabsTrigger>}
+              <TabsTrigger value="confession">Confession</TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile" className="space-y-4">
@@ -834,39 +732,11 @@ export function StudentDetailsModal({
                         <span className="text-gray-600">Phone</span>
                         <span className="font-medium">{studentPhone || '-'}</span>
                       </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600">Year Level</span>
-                        <span className="font-medium">
-                          {yearLevel === 'YEAR_1' ? 'Year 1' : yearLevel === 'YEAR_2' ? 'Year 2' : '-'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-gray-600">Mentor</span>
-                        <span className="font-medium">{mentor?.name || 'Not assigned'}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 gap-1 sm:gap-2">
-                        <span className="text-gray-600 shrink-0">Father of Confession</span>
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={selectedFatherId}
-                            onChange={(e) => updateFatherOfConfession(e.target.value)}
-                            disabled={savingFather || !enrollmentId}
-                            className="border rounded px-2 py-1 text-sm w-full sm:w-auto sm:max-w-[180px] truncate dark:bg-gray-800 dark:text-white dark:border-gray-600"
-                          >
-                            <option value="">Not assigned</option>
-                            {fathersList.map((father) => (
-                              <option key={father.id} value={father.id}>
-                                {father.name}
-                              </option>
-                            ))}
-                          </select>
-                          {savingFather && <span className="text-xs text-gray-500">Saving...</span>}
-                        </div>
-                      </div>
                     </div>
                   )}
                 </CardContent>
               </Card>
+              {student && <StudentProgramEditor student={student} onRefresh={onRefresh} />}
             </TabsContent>
 
             <TabsContent value="notes" className="space-y-4">
@@ -1158,6 +1028,10 @@ export function StudentDetailsModal({
             </TabsContent>
 
             <TabsContent value="attendance" className="space-y-4">
+              {scopedEnrollment && (
+                <AttendanceSlipsPanel enrollment={scopedEnrollment} canEdit={canEditData} onChange={onRefresh} />
+              )}
+
               {/* Late-start attendance date (admins only) */}
               {canEditData && (
                 <Card>
@@ -1502,52 +1376,11 @@ export function StudentDetailsModal({
                 </div>
               )}
             </TabsContent>
-            {/* Async Notes Tab */}
-            {isAsyncStudent && (
-              <TabsContent value="async-notes" className="space-y-4">
-                {asyncNotesLoading ? (
-                  <div className="py-4 text-center text-gray-500">Loading...</div>
-                ) : asyncNotes.length === 0 ? (
-                  <div className="py-4 text-center text-gray-500">No lesson note submissions yet.</div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {asyncNotes.map(note => (
-                      <Card key={note.id}>
-                        <CardContent className="pt-4 pb-3 space-y-2">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="text-sm font-medium">
-                                Lesson {note.lesson.lessonNumber}: {note.lesson.title}
-                              </p>
-                              <p className="text-xs text-gray-500">{note.lesson.examSection.displayName}</p>
-                            </div>
-                            <Badge className={
-                              note.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                              note.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }>
-                              {note.status}
-                            </Badge>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-900 p-2 rounded text-sm whitespace-pre-wrap max-h-24 overflow-y-auto">
-                            {note.content}
-                          </div>
-                          {note.reviewFeedback && (
-                            <div className="bg-red-50 dark:bg-red-950 p-2 rounded text-xs text-red-600">
-                              <strong>Feedback:</strong> {note.reviewFeedback}
-                            </div>
-                          )}
-                          <p className="text-xs text-gray-400">
-                            Submitted {new Date(note.submittedAt).toLocaleDateString()}
-                            {note.reviewer && ` • Reviewed by ${note.reviewer.name}`}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            )}
+            <TabsContent value="confession" className="space-y-4">
+              {scopedEnrollment
+                ? <ConfessionTracker enrollment={scopedEnrollment} canEdit={canEditData} />
+                : <div className="py-8 text-center text-gray-500">Not enrolled in the program.</div>}
+            </TabsContent>
           </Tabs>
         )}
       </DialogContent>

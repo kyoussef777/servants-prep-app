@@ -376,30 +376,6 @@ export async function notifyRegistrationReviewed({
 }
 
 /**
- * Notify student when their async note submission is reviewed
- */
-export async function notifyAsyncNoteReviewed({
-  studentId,
-  lessonTitle,
-  status,
-  feedback,
-}: {
-  studentId: string
-  lessonTitle: string
-  status: 'APPROVED' | 'REJECTED'
-  feedback?: string
-}) {
-  await createNotification({
-    userId: studentId,
-    type: NotificationType.ASYNC_NOTE_REVIEWED,
-    title: `Async Note ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`,
-    body: `Your async note for "${lessonTitle}" has been ${status.toLowerCase()}${feedback ? `. Feedback: ${feedback}` : ''}.`,
-    url: '/dashboard/student/async',
-    metadata: { lessonTitle, status, feedback },
-  })
-}
-
-/**
  * Notify student when a mentor is assigned to them
  */
 export async function notifyMentorAssigned({

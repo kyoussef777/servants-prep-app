@@ -5,6 +5,7 @@ import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { AsyncBadge } from '@/components/async-badge'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { PageLoading } from '@/components/ui/page-loading'
@@ -43,6 +44,7 @@ interface Student {
   enrollments: Array<{
     yearLevel: string
     mentorId: string
+    isAsyncStudent?: boolean
   }>
 }
 
@@ -634,6 +636,9 @@ export default function AttendancePage() {
                             <Badge variant="outline" className="text-xs">
                               {yearBadge}
                             </Badge>
+                            {student.enrollments[0]?.isAsyncStudent && (
+                              <AsyncBadge className="text-xs ml-1" />
+                            )}
                           </td>
                           <td className="p-2">
                             <div className="flex justify-center gap-1">
@@ -728,6 +733,9 @@ export default function AttendancePage() {
                         <Badge variant="outline" className="text-[9px] shrink-0 px-0.5 py-0">
                           {yearLevel === 'YEAR_1' ? 'Y1' : 'Y2'}
                         </Badge>
+                        {student.enrollments[0]?.isAsyncStudent && (
+                          <AsyncBadge className="text-[9px] shrink-0 px-0.5 py-0" />
+                        )}
                         <div className="flex shrink-0">
                           <AttendanceStatusButtons
                             currentStatus={currentStatus}
