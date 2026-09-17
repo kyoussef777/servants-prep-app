@@ -39,6 +39,18 @@ export function formatToastTimestamp(date: Date = new Date()): string {
 }
 
 /**
+ * Options for a select that must still show the current value when the option
+ * list doesn't include it (e.g. an inactive father of confession, or a mentor
+ * the viewer's role can't list), instead of falling back to "Unassigned".
+ */
+export function withCurrentOption<T extends { id: string; name: string }>(
+  options: T[],
+  current?: { id: string; name: string } | null
+): { id: string; name: string }[] {
+  return current && !options.some(o => o.id === current.id) ? [current, ...options] : options
+}
+
+/**
  * Build a deduplicated student array from enrollment data.
  * Groups multiple enrollments under the same student.
  */
@@ -46,13 +58,14 @@ export interface EnrollmentForStudentMap {
   isActive: boolean
   student: { id: string; name: string; [key: string]: unknown }
   yearLevel: string
+  isAsyncStudent?: boolean
   mentor?: { id: string; [key: string]: unknown } | null
 }
 
 export interface StudentWithEnrollments {
   id: string
   name: string
-  enrollments: Array<{ yearLevel: string; mentorId?: string }>
+  enrollments: Array<{ yearLevel: string; mentorId?: string; isAsyncStudent?: boolean }>
   [key: string]: unknown
 }
 
@@ -72,7 +85,8 @@ export function buildStudentMapFromEnrollments(
         }
         studentMap.get(student.id)!.enrollments.push({
           yearLevel: enrollment.yearLevel,
-          mentorId: enrollment.mentor?.id
+          mentorId: enrollment.mentor?.id,
+          isAsyncStudent: enrollment.isAsyncStudent
         })
       }
     }

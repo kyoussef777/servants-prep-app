@@ -4,14 +4,14 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { isAdmin, isReadOnlyAdmin, canReviewAsyncNotes, canManageSundaySchool, canManageSundaySchoolAttendance } from '@/lib/roles'
-import { AsyncNotesPanel } from '@/components/admin/async-notes-panel'
+import { isAdmin, isReadOnlyAdmin, canManageData, canManageSundaySchool, canManageSundaySchoolAttendance } from '@/lib/roles'
+import { AttendanceSlipsPanel } from '@/components/admin/attendance-slips-panel'
 import { SundaySchoolPanel } from '@/components/admin/sunday-school-panel'
 
 export default function AsyncStudentsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('notes')
+  const [activeTab, setActiveTab] = useState('slips')
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -34,21 +34,18 @@ export default function AsyncStudentsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Async Students</h1>
           <p className="text-muted-foreground">
-            Manage async student note submissions and Sunday School assignments
+            Upload async students' signed attendance slips and manage Sunday School assignments
           </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="notes">Notes Review</TabsTrigger>
+            <TabsTrigger value="slips">Attendance Slips</TabsTrigger>
             <TabsTrigger value="sunday-school">Sunday School</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="notes" className="mt-6">
-            <AsyncNotesPanel
-              canReview={canReviewAsyncNotes(role)}
-              isReadOnly={readOnly}
-            />
+          <TabsContent value="slips" className="mt-6">
+            <AttendanceSlipsPanel canEdit={canManageData(role)} />
           </TabsContent>
 
           <TabsContent value="sunday-school" className="mt-6">

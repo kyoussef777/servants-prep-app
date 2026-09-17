@@ -15,7 +15,7 @@ A Next.js 15 web application for managing a 2-year Coptic Church Servants Prepar
 ```bash
 # Development
 bun dev                  # Start dev server with Turbopack (http://localhost:3000)
-bun run build            # Production build
+bun run build            # Production build (does NOT touch the database)
 bun lint                 # Run ESLint
 
 # Testing (Vitest)
@@ -38,6 +38,8 @@ bun scripts/admin.ts db-stats                     # Show database statistics
 ```
 
 **After schema changes:** Always run `bun db:generate` to update Prisma Client types.
+
+**Schema rollout is explicit:** builds (including Vercel previews, which share the production database) no longer run `prisma db push`. Apply schema changes deliberately with `bun db:push`, after checking `prisma migrate diff` for unexpected drops.
 
 ## Architecture & Key Patterns
 
@@ -98,6 +100,7 @@ StudentNote ←──→ User (student, author)
 ```
 
 **Key Fields:**
+- `StudentEnrollment.isAsyncStudent` - attendance comes from signed slips (`AttendanceRecord.slipId`) instead of in-person marking
 - `StudentEnrollment.studentId` is UNIQUE (one enrollment per student)
 - `StudentEnrollment.academicYearId` - nullable, tracks enrollment start year
 - `Lesson.isExamDay` - if true, attendance NOT counted toward graduation
@@ -152,6 +155,7 @@ export async function POST(req: NextRequest) {
 - `/api/attendance/batch` - Batch attendance updates
 - `/api/fathers-of-confession` - Father of confession management
 - `/api/students/[id]/notes` - Student notes
+- `/api/slips` - Slip photo uploads: `ATTENDANCE` (async students; marks lessons PRESENT) and `CONFESSION` (2-month father-of-confession sign-offs, see `lib/confession.ts`)
 - `/api/health` - Database connectivity check
 
 ### UI Patterns

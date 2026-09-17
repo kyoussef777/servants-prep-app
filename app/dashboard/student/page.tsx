@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
 import type { AttendanceAnalytics, ExamAnalytics, GraduationStatus } from '@/lib/types'
 import { getAttendanceGuidance, getExamGuidance } from '@/lib/graduation-guidance'
-import { Phone, Mail, Church, Lightbulb, BookOpen, FileText, GraduationCap as GradCap } from 'lucide-react'
+import { Phone, Mail, Church, Lightbulb, BookOpen, Printer, GraduationCap as GradCap } from 'lucide-react'
 
 interface Analytics {
   enrollment: {
@@ -43,12 +43,6 @@ interface Analytics {
   attendance: AttendanceAnalytics
   exams: ExamAnalytics
   graduation: GraduationStatus
-  asyncNotes?: {
-    total: number
-    pending: number
-    approved: number
-    rejected: number
-  }
   sundaySchool?: {
     assignments: Array<{
       id: string
@@ -151,13 +145,13 @@ export default function StudentDashboard() {
               {analytics.enrollment.isAsyncStudent && (
                 <>
                   <Button
-                    onClick={() => router.push('/dashboard/student/async-notes')}
+                    onClick={() => router.push('/dashboard/student/attendance-slip')}
                     size="sm"
                     variant="outline"
                     className="gap-2"
                   >
-                    <FileText className="h-4 w-4" />
-                    My Notes
+                    <Printer className="h-4 w-4" />
+                    Attendance Slip
                   </Button>
                   <Button
                     onClick={() => router.push('/dashboard/student/sunday-school')}
@@ -307,39 +301,28 @@ export default function StudentDashboard() {
         {/* Async Student Progress */}
         {analytics.enrollment.isAsyncStudent && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Lesson Notes Summary */}
-            {analytics.asyncNotes && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Lesson Notes</CardTitle>
-                  <CardDescription>Your note submissions for lessons</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="p-2 bg-green-50 rounded border border-green-200">
-                      <div className="text-2xl font-bold text-green-700">{analytics.asyncNotes.approved}</div>
-                      <div className="text-xs text-green-600">Approved</div>
-                    </div>
-                    <div className="p-2 bg-yellow-50 rounded border border-yellow-200">
-                      <div className="text-2xl font-bold text-yellow-700">{analytics.asyncNotes.pending}</div>
-                      <div className="text-xs text-yellow-600">Pending</div>
-                    </div>
-                    <div className="p-2 bg-red-50 rounded border border-red-200">
-                      <div className="text-2xl font-bold text-red-700">{analytics.asyncNotes.rejected}</div>
-                      <div className="text-xs text-red-600">Rejected</div>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={() => router.push('/dashboard/student/async-notes')}
-                    variant="ghost"
-                    size="sm"
-                    className="mt-3 w-full"
-                  >
-                    View All Notes →
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            {/* Attendance Slip */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Attendance Slip</CardTitle>
+                <CardDescription>How your lessons are counted as an async student</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-gray-600">
+                <p>
+                  Print your attendance slip and have each lesson signed. Give it to a Servants Prep
+                  servant — your lessons count as attended once they upload it.
+                </p>
+                <Button
+                  onClick={() => router.push('/dashboard/student/attendance-slip')}
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print Attendance Slip
+                </Button>
+              </CardContent>
+            </Card>
 
             {/* Sunday School Summary */}
             {analytics.sundaySchool && analytics.sundaySchool.assignments.length > 0 && (
