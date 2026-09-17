@@ -11,7 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from '@/lib/roles'
 import { PageLoading } from '@/components/ui/page-loading'
+import { AsyncBadge } from '@/components/async-badge'
 import type { AcademicYear } from '@/lib/types'
+import { withCurrentOption } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users } from 'lucide-react'
@@ -527,7 +529,7 @@ export default function EnrollmentsPage() {
                           disabled={!canEdit}
                         >
                           <option value="">Unassigned</option>
-                          {mentors.map(mentor => (
+                          {withCurrentOption(mentors, enrollment.mentor).map(mentor => (
                             <option key={mentor.id} value={mentor.id}>
                               {mentor.name}
                             </option>
@@ -542,7 +544,7 @@ export default function EnrollmentsPage() {
                           disabled={!canEdit}
                         >
                           <option value="">Unassigned</option>
-                          {fathersOfConfession.map(father => (
+                          {withCurrentOption(fathersOfConfession, enrollment.fatherOfConfession).map(father => (
                             <option key={father.id} value={father.id}>
                               {father.name}
                             </option>
@@ -625,9 +627,7 @@ export default function EnrollmentsPage() {
                         </Badge>
                       )}
                       {enrollment.isAsyncStudent && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                          Async
-                        </Badge>
+                        <AsyncBadge className="text-xs" />
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -649,7 +649,7 @@ export default function EnrollmentsPage() {
                         disabled={!canEdit}
                       >
                         <option value="">Unassigned</option>
-                        {mentors.map(mentor => (
+                        {withCurrentOption(mentors, enrollment.mentor).map(mentor => (
                           <option key={mentor.id} value={mentor.id}>
                             {mentor.name}
                           </option>
@@ -665,7 +665,7 @@ export default function EnrollmentsPage() {
                         disabled={!canEdit}
                       >
                         <option value="">Unassigned</option>
-                        {fathersOfConfession.map(father => (
+                        {withCurrentOption(fathersOfConfession, enrollment.fatherOfConfession).map(father => (
                           <option key={father.id} value={father.id}>
                             {father.name}
                           </option>

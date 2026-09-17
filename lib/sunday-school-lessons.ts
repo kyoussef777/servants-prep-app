@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client"
 import { prisma } from "./prisma"
 import { normalizeSessionDate } from "./sunday-school-class"
 
@@ -11,8 +10,10 @@ export interface SundaySchoolLessonResourceInput {
   url: string
 }
 
+// Derived from our own client (it configures omits), so both `prisma` and a
+// `$transaction` client satisfy it.
 type LessonDatabase = Pick<
-  Prisma.TransactionClient,
+  typeof prisma,
   "sundaySchoolClass" | "sundaySchoolWeeklyLesson"
 >
 

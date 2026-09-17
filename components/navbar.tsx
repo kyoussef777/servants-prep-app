@@ -143,7 +143,7 @@ export function Navbar() {
         { href: '/dashboard/files', label: 'Files' },
       ]
       if (session.user.isAsyncStudent) {
-        links.push({ href: '/dashboard/student/async-notes', label: 'My Notes' })
+        links.push({ href: '/dashboard/student/attendance-slip', label: 'Attendance Slip' })
         links.push({ href: '/dashboard/student/sunday-school', label: 'Sunday School' })
       }
       return { primary: links, more: [] }
@@ -220,6 +220,7 @@ export function Navbar() {
     const more: NavLink[] = [
       { href: '/dashboard/admin/curriculum', label: 'Curriculum' },
       { href: '/dashboard/admin/mentees', label: 'Mentees' },
+      { href: '/dashboard/admin/confession', label: 'Confession' },
       { href: '/dashboard/files', label: 'Files' },
     ]
 

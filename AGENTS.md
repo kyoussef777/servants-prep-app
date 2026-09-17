@@ -10,7 +10,7 @@ Deep references live in `docs/`:
 |---|---|
 | [`docs/permissions.md`](docs/permissions.md) | Every role, every permission helper, and the Sunday School authority model. **Read before touching any authorization code.** |
 | [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end: schema, routes, invariants, how to extend it |
-| [`docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md`](docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md) | Design notes for the async-student note submission flow |
+| [`docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md`](docs/ASYNC_STUDENT_NOTES_FEATURE_PLAN.md) | Async-student design notes. The note-submission flow it describes was replaced by attendance slips; its Sunday School sections still apply |
 
 ## What this application is
 
@@ -237,9 +237,19 @@ database; keep new logic in that shape where you can.
 3. At least 60% in every individual exam section.
 4. Both `YEAR_1` and `YEAR_2` completed.
 
+**Slips** (`StudentSlip`, uploaded by a servant as a photo of a paper slip)
+
+- `ATTENDANCE`: an async student's signed slip. It marks the lessons it covers
+  `PRESENT` and links them through `AttendanceRecord.slipId`. A slip only
+  converts `ABSENT`/unrecorded lessons, so deleting it reverts them cleanly.
+- `CONFESSION`: a father-of-confession sign-off for one 2-month period
+  (`lib/confession.ts`). Every student must confess at least once per period;
+  the period they join in is covered by their registration form.
+
 **Key fields**
 
 - `StudentEnrollment.studentId` is unique — one enrollment per student.
+- `StudentEnrollment.isAsyncStudent` — attendance comes from signed slips.
 - `Lesson.isExamDay` — attendance that day does not count toward graduation.
 - `SundaySchoolClass.academicYearId` is required; Sunday School authority is
   scoped per academic year.
@@ -254,6 +264,7 @@ database; keep new logic in that shape where you can.
 - `SundaySchoolLevel`: PRE_K, KINDERGARTEN, GRADE_1 … GRADE_12
 - `SundaySchoolAuthority`: SERVANT, COORDINATOR
 - `SundaySchoolGrade`: prep-side only, Pre-K … GRADE_6_PLUS
+- `SlipType`: ATTENDANCE, CONFESSION
 
 ## Common workflows
 

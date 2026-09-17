@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { canViewStudents } from "@/lib/roles"
-import { LessonStatus, NoteSubmissionStatus, UserRole } from "@prisma/client"
+import { LessonStatus, UserRole } from "@prisma/client"
 import { handleApiError } from "@/lib/api-utils"
 import {
   calculateAttendancePercentage,
@@ -148,7 +148,7 @@ export async function GET(request: Request) {
     const asyncStudentIds = enrollments.filter(e => e.isAsyncStudent).map(e => e.studentId)
 
     // Run all queries in parallel for better performance
-    const [lessonsWithAttendanceCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear, ssAssignments, asyncNoteAggregates, conductRemovalCounts] = await Promise.all([
+    const [lessonsWithAttendanceCount, attendanceAggregates, examAggregates, examScoresWithSections, attendanceWithYear, ssAssignments, conductRemovalCounts] = await Promise.all([
       // Count only lessons that have attendance records (completed lessons with attendance taken)
       prisma.lesson.count({
         where: lessonsWithAttendanceFilter
@@ -219,15 +219,6 @@ export async function GET(request: Request) {
         ? prisma.sundaySchoolAssignment.findMany({
             where: { studentId: { in: asyncStudentIds } },
             include: { logs: { select: { status: true, weekNumber: true } } }
-          })
-        : Promise.resolve([]),
-
-      // Get async note submission counts for async students
-      asyncStudentIds.length > 0
-        ? prisma.asyncNoteSubmission.groupBy({
-            by: ['studentId', 'status'],
-            where: { studentId: { in: asyncStudentIds } },
-            _count: { status: true }
           })
         : Promise.resolve([]),
 
@@ -311,20 +302,6 @@ export async function GET(request: Request) {
     const conductRemovalByStudent = new Map<string, number>()
     for (const agg of conductRemovalCounts) {
       conductRemovalByStudent.set(agg.studentId, agg._count.id)
-    }
-
-    // Build async note counts per student
-    type NoteAgg = { studentId: string; status: import('@prisma/client').NoteSubmissionStatus; _count: { status: number } }
-    const asyncNotesByStudent = new Map<string, { total: number; pending: number; approved: number; rejected: number }>()
-    for (const agg of asyncNoteAggregates as NoteAgg[]) {
-      if (!asyncNotesByStudent.has(agg.studentId)) {
-        asyncNotesByStudent.set(agg.studentId, { total: 0, pending: 0, approved: 0, rejected: 0 })
-      }
-      const counts = asyncNotesByStudent.get(agg.studentId)!
-      counts.total += agg._count.status
-      if (agg.status === NoteSubmissionStatus.PENDING) counts.pending = agg._count.status
-      else if (agg.status === NoteSubmissionStatus.APPROVED) counts.approved = agg._count.status
-      else if (agg.status === NoteSubmissionStatus.REJECTED) counts.rejected = agg._count.status
     }
 
     // Calculate stats for each student using pre-aggregated data
@@ -461,10 +438,7 @@ export async function GET(request: Request) {
         conductDismissalCount: conductRemovalByStudent.get(studentId) || 0,
         // Async student fields
         isAsyncStudent: enrollment.isAsyncStudent,
-        ...(enrollment.isAsyncStudent ? {
-          sundaySchoolMet,
-          asyncNotes: asyncNotesByStudent.get(studentId) || { total: 0, pending: 0, approved: 0, rejected: 0 }
-        } : {})
+        ...(enrollment.isAsyncStudent ? { sundaySchoolMet } : {})
       }
     })
 

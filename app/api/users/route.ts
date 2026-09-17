@@ -100,6 +100,7 @@ export async function GET(request: Request) {
             isActive: true,
             status: true,
             notes: true,
+            isAsyncStudent: true,
             mentor: {
               select: {
                 id: true,

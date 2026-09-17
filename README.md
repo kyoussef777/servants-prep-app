@@ -32,7 +32,7 @@ program, and vice versa.
 - **Exams** — eight sections, per-section and overall requirements
 - **Graduation tracking** — live validation of every requirement
 - **Mentors** — each student assigned a mentor, with mentee dashboards
-- **Async students** — note submissions and serving verification for students
+- **Async students** — signed attendance slips and serving verification for students
   who cannot attend in person
 - **Registration** — invite codes and a review queue for new applicants
 - **Analytics** — progress, at-risk students, trends, class averages

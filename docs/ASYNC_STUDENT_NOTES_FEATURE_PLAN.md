@@ -1,5 +1,10 @@
 # Asynchronous Student Feature - Complete Implementation Plan
 
+> **Superseded (Sept 2026):** Lesson Notes submission/review was replaced by **attendance slips**.
+> Async students print a slip from `/dashboard/student/attendance-slip`, get each lesson signed, and a
+> servant uploads a photo of it (Async Students → Attendance Slips, or the student's Attendance tab),
+> which marks the covered lessons Present. See `app/api/slips`. The Sunday School sections below still apply.
+
 ## Executive Summary
 
 This document outlines the implementation plan for the **Asynchronous Student** feature, which encompasses two major components:

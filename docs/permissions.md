@@ -100,7 +100,7 @@ client, and used identically on both sides.
 | `canBeMentor` | `SUPER_ADMIN`, `SERVANT_PREP`, `MENTOR` | Eligibility to hold mentees |
 | `canViewStudents` | admin roles + `MENTOR` | Student lists (mentors filtered to their own) |
 | `isReadOnlyAdmin` | `PRIEST` | Rendering read-only affordances |
-| `canReviewAsyncNotes` | `SUPER_ADMIN`, `SERVANT_PREP` | Approving async note submissions |
+| `canManageData` | `SUPER_ADMIN`, `SERVANT_PREP` | Uploading attendance and confession slips (`/api/slips`) |
 | `canSetAsyncStatus` | `SUPER_ADMIN`, `SERVANT_PREP` | Marking a student async |
 | `canSubmitAsyncContent` | `STUDENT` | Submitting notes (must also *be* async) |
 | `canManageInviteCodes` | `SUPER_ADMIN`, `SERVANT_PREP` | Registration invite codes |

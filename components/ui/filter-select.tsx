@@ -9,12 +9,14 @@ interface FilterSelectProps {
   options: FilterSelectOption[]
   placeholder?: string
   className?: string
+  'aria-label'?: string
 }
 
-export function FilterSelect({ value, onChange, options, placeholder, className }: FilterSelectProps) {
+export function FilterSelect({ value, onChange, options, placeholder, className, 'aria-label': ariaLabel }: FilterSelectProps) {
   return (
     <select
       value={value}
+      aria-label={ariaLabel}
       onChange={(e) => onChange(e.target.value)}
       className={`h-10 rounded-md border border-input bg-background px-3 py-2 text-sm dark:bg-gray-800 dark:text-white dark:border-gray-600 ${className ?? ''}`}
     >

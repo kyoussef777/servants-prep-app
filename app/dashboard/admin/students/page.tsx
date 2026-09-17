@@ -18,6 +18,8 @@ import { StudentDetailsModal } from '@/components/student-details-modal'
 import { BulkStudentImport } from '@/components/bulk-student-import'
 import { YearEndReviewPanel } from '@/components/year-end-review-panel'
 import { GraduationDialog } from '@/components/graduation-dialog'
+import { AsyncBadge } from '@/components/async-badge'
+import type { EditableStudent } from '@/components/student-program-editor'
 
 interface Student {
   id: string
@@ -31,16 +33,10 @@ interface Student {
     isActive: boolean
     status: 'ACTIVE' | 'GRADUATED' | 'WITHDRAWN'
     notes?: string
-    attendanceStartDate?: string | null
+    isAsyncStudent?: boolean
     mentor?: {
       id: string
       name: string
-    }
-    fatherOfConfession?: {
-      id: string
-      name: string
-      phone?: string
-      church?: string
     }
   }>
 }
@@ -143,7 +139,7 @@ interface Lesson {
 }
 
 interface StudentDetails {
-  student: Student
+  student: EditableStudent
   examScores: ExamScore[]
   attendanceRecords: AttendanceRecord[]
   allExams: Exam[]
@@ -251,8 +247,7 @@ function StudentsManagementContent() {
 
   const refreshStudentDetails = async () => {
     if (viewingStudent) {
-      await openStudentDetails(viewingStudent)
-      await fetchStudents()
+      await Promise.all([openStudentDetails(viewingStudent), fetchStudents()])
     }
   }
 
@@ -756,9 +751,14 @@ function StudentsManagementContent() {
                         </td>
                         <td className="p-3">
                           {student.enrollments?.[0] ? (
-                            <Badge variant="outline">
-                              {student.enrollments[0].yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
-                            </Badge>
+                            <div className="flex flex-wrap gap-1">
+                              <Badge variant="outline">
+                                {student.enrollments[0].yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
+                              </Badge>
+                              {student.enrollments[0].isAsyncStudent && (
+                                <AsyncBadge />
+                              )}
+                            </div>
                           ) : (
                             <span className="text-gray-400 text-sm">Not enrolled</span>
                           )}
@@ -916,6 +916,9 @@ function StudentsManagementContent() {
                                   {student.enrollments[0].yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}
                                 </Badge>
                               )}
+                              {student.enrollments?.[0]?.isAsyncStudent && (
+                                <AsyncBadge className="text-xs" />
+                              )}
                               {student.enrollments?.[0]?.status === 'ACTIVE' && (
                                 <Badge className="bg-green-100 text-green-800 text-xs">Active</Badge>
                               )}
@@ -1046,19 +1049,12 @@ function StudentsManagementContent() {
       <StudentDetailsModal
         studentId={viewingStudent}
         studentName={students.find(s => s.id === viewingStudent)?.name || ''}
-        studentEmail={students.find(s => s.id === viewingStudent)?.email || ''}
-        studentPhone={students.find(s => s.id === viewingStudent)?.phone || ''}
-        profileImageUrl={studentDetails?.student?.profileImageUrl}
-        yearLevel={studentDetails?.student?.enrollments?.[0]?.yearLevel}
-        mentor={studentDetails?.student?.enrollments?.[0]?.mentor}
-        fatherOfConfession={studentDetails?.student?.enrollments?.[0]?.fatherOfConfession}
-        enrollmentId={studentDetails?.student?.enrollments?.[0]?.id}
-        attendanceStartDate={studentDetails?.student?.enrollments?.[0]?.attendanceStartDate}
+        student={studentDetails?.student}
         examScores={studentDetails?.examScores || []}
         attendanceRecords={studentDetails?.attendanceRecords || []}
         allExams={studentDetails?.allExams || []}
         allLessons={studentDetails?.allLessons || []}
-        loading={detailsLoading}
+        loading={detailsLoading && studentDetails?.student.id !== viewingStudent}
         onClose={() => {
           setViewingStudent(null)
           setStudentDetails(null)
