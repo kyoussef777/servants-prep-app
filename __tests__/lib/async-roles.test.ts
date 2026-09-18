@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
-  canReviewAsyncNotes,
   canManageSundaySchool,
   canManageSundaySchoolAttendance,
   canSetAsyncStatus,
-  canSubmitAsyncContent,
 } from '@/lib/roles'
 
 const UserRole = {
@@ -18,19 +16,6 @@ const UserRole = {
 type UserRoleType = (typeof UserRole)[keyof typeof UserRole]
 
 describe('Async Student Permission Helpers', () => {
-  describe('canReviewAsyncNotes', () => {
-    it('should return true for SUPER_ADMIN and SERVANT_PREP', () => {
-      expect(canReviewAsyncNotes(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
-      expect(canReviewAsyncNotes(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
-    })
-
-    it('should return false for PRIEST, MENTOR, and STUDENT', () => {
-      expect(canReviewAsyncNotes(UserRole.PRIEST as UserRoleType)).toBe(false)
-      expect(canReviewAsyncNotes(UserRole.MENTOR as UserRoleType)).toBe(false)
-      expect(canReviewAsyncNotes(UserRole.STUDENT as UserRoleType)).toBe(false)
-    })
-  })
-
   describe('canManageSundaySchool', () => {
     it('should return true for SUPER_ADMIN and SERVANT_PREP', () => {
       expect(canManageSundaySchool(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
@@ -67,19 +52,6 @@ describe('Async Student Permission Helpers', () => {
       expect(canSetAsyncStatus(UserRole.PRIEST as UserRoleType)).toBe(false)
       expect(canSetAsyncStatus(UserRole.MENTOR as UserRoleType)).toBe(false)
       expect(canSetAsyncStatus(UserRole.STUDENT as UserRoleType)).toBe(false)
-    })
-  })
-
-  describe('canSubmitAsyncContent', () => {
-    it('should return true only for STUDENT', () => {
-      expect(canSubmitAsyncContent(UserRole.STUDENT as UserRoleType)).toBe(true)
-    })
-
-    it('should return false for all other roles', () => {
-      expect(canSubmitAsyncContent(UserRole.SUPER_ADMIN as UserRoleType)).toBe(false)
-      expect(canSubmitAsyncContent(UserRole.PRIEST as UserRoleType)).toBe(false)
-      expect(canSubmitAsyncContent(UserRole.SERVANT_PREP as UserRoleType)).toBe(false)
-      expect(canSubmitAsyncContent(UserRole.MENTOR as UserRoleType)).toBe(false)
     })
   })
 })

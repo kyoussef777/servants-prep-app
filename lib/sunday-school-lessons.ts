@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client"
 import { prisma } from "./prisma"
 import { normalizeSessionDate } from "./sunday-school-class"
 
@@ -11,10 +10,33 @@ export interface SundaySchoolLessonResourceInput {
   url: string
 }
 
-type LessonDatabase = Pick<
-  Prisma.TransactionClient,
-  "sundaySchoolClass" | "sundaySchoolWeeklyLesson"
->
+// Keep this deliberately structural: the application Prisma client has a
+// global password omission, while transaction clients do not. These are the
+// only two operations this helper needs from either client shape.
+type LessonDatabase = {
+  sundaySchoolClass: {
+    findMany(args: {
+      where: {
+        isActive: boolean
+        academicYear: { isActive: boolean }
+        id?: { in: string[] }
+      }
+      select: {
+        id: true
+        academicYear: { select: { startDate: true; endDate: true } }
+      }
+    }): Promise<Array<{
+      id: string
+      academicYear: { startDate: Date; endDate: Date }
+    }>>
+  }
+  sundaySchoolWeeklyLesson: {
+    createMany(args: {
+      data: Array<{ classId: string; sundayDate: Date }>
+      skipDuplicates: boolean
+    }): Promise<{ count: number }>
+  }
+}
 
 export function getUpcomingSundays(
   from: Date = new Date(),

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canManageEnrollments } from '@/lib/roles'
+import { enrollmentStatusUpdate } from '@/lib/api-utils'
 
 interface BulkUpdateRequest {
   enrollmentIds: string[]
@@ -45,34 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (updates.status) {
-      updateData.status = updates.status
-
-      // If graduating, set related fields
-      if (updates.status === 'GRADUATED') {
-        updateData.isActive = false
-        updateData.graduatedAt = new Date()
-
-        // Get the active academic year for graduation tracking
-        const activeYear = await prisma.academicYear.findFirst({
-          where: { isActive: true }
-        })
-
-        if (activeYear) {
-          updateData.graduatedAcademicYearId = activeYear.id
-        }
-
-        // Include graduation note if provided (for exceptions)
-        if (updates.graduationNote) {
-          updateData.graduationNote = updates.graduationNote
-        }
-      } else if (updates.status === 'ACTIVE') {
-        updateData.isActive = true
-        updateData.graduatedAt = null
-        updateData.graduatedAcademicYearId = null
-        updateData.graduationNote = null
-      } else if (updates.status === 'WITHDRAWN') {
-        updateData.isActive = false
-      }
+      Object.assign(updateData, await enrollmentStatusUpdate(updates.status, updates.graduationNote))
     }
 
     if (updates.isActive !== undefined && !updates.status) {

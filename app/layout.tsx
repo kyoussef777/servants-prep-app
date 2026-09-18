@@ -47,15 +47,20 @@ export default function RootLayout({
       >
         <Providers>
           <NavigationTransition />
-          <NotificationProvider />
-          <DevImpersonation />
-          <Navbar />
-          <CommandPalette />
-          <ProfilePhotoReminder />
+          {/* App chrome; `contents` preserves the flex layout while print:hidden keeps it off printouts. */}
+          <div className="contents print:hidden">
+            <NotificationProvider />
+            <DevImpersonation />
+            <Navbar />
+            <CommandPalette />
+            <ProfilePhotoReminder />
+          </div>
           <div id="app-content" className="flex-1">{children}</div>
-          <SiteFooter />
-          <PushNotificationPrompt />
-          <Toaster />
+          <div className="contents print:hidden">
+            <SiteFooter />
+            <PushNotificationPrompt />
+            <Toaster />
+          </div>
           <Analytics />
           <SpeedInsights />
         </Providers>

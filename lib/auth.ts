@@ -4,7 +4,7 @@ import GoogleProvider from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
-import { SundaySchoolAuthority, UserRole } from "@prisma/client"
+import { SundaySchoolAuthority, UserRole, type PrismaClient } from "@prisma/client"
 import { checkLoginRateLimit, resetLoginRateLimit } from "./rate-limit"
 import { seesAllSundaySchoolClasses } from "./roles"
 
@@ -49,7 +49,7 @@ async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
 const TOKEN_REVALIDATE_INTERVAL_MS = 60 * 1000
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as unknown as NextAuthOptions['adapter'],
+  adapter: PrismaAdapter(prisma as unknown as PrismaClient) as unknown as NextAuthOptions['adapter'],
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -79,7 +79,8 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
-          }
+          },
+          omit: { password: false }
         })
 
         if (!user || !user.password) {
@@ -247,16 +248,22 @@ export const authOptions: NextAuthOptions = {
       // identity is intentionally divergent from a "real" login.
       const validatedAt = (token.validatedAt as number | undefined) ?? 0
       if (!token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: {
-            id: true,
-            role: true,
-            authVersion: true,
-            isDisabled: true,
-            mustChangePassword: true,
-          }
-        })
+        const [dbUser, enrollment] = await Promise.all([
+          prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: {
+              id: true,
+              role: true,
+              authVersion: true,
+              isDisabled: true,
+              mustChangePassword: true,
+            }
+          }),
+          prisma.studentEnrollment.findUnique({
+            where: { studentId: token.id as string },
+            select: { isAsyncStudent: true }
+          }),
+        ])
 
         if (
           !dbUser ||
@@ -268,6 +275,8 @@ export const authOptions: NextAuthOptions = {
           token.role = dbUser.role
           token.authVersion = dbUser.authVersion
           token.mustChangePassword = dbUser.mustChangePassword
+          // Pick up async status changes made by a servant without a re-login
+          token.isAsyncStudent = dbUser.role === UserRole.STUDENT && !!enrollment?.isAsyncStudent
           token.sundaySchool = await getSundaySchoolStanding(dbUser)
           token.validatedAt = Date.now()
         }

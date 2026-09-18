@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 
 import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from "@/lib/roles"
 import { notifyMentorAssigned } from "@/lib/notifications"
-import { reconcileLateStartAttendance } from "@/lib/api-utils"
+import { enrollmentStatusUpdate, reconcileLateStartAttendance } from "@/lib/api-utils"
 
 // PATCH /api/enrollments/[id] - Update an enrollment
 // - SUPER_ADMIN: Can update all fields including mentor assignment
@@ -27,7 +27,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { yearLevel, mentorId, isActive, status, notes, academicYearId, fatherOfConfessionId, isAsyncStudent, asyncReason, attendanceStartDate } = body
+    const { yearLevel, mentorId, isActive, status, notes, academicYearId, fatherOfConfessionId, isAsyncStudent, asyncReason, attendanceStartDate, graduationNote } = body
 
     const updateData: Record<string, unknown> = {}
     if (yearLevel) updateData.yearLevel = yearLevel
@@ -56,50 +56,30 @@ export async function PATCH(
       attendanceStartChanged = true
     }
 
-    // Handle async student status change
-    if (isAsyncStudent !== undefined) {
+    // Async status and reason (the reason can be edited on its own)
+    if (isAsyncStudent !== undefined || asyncReason !== undefined) {
       if (!canSetAsyncStatus(user.role)) {
         return NextResponse.json(
           { error: "Forbidden: You do not have permission to set async student status" },
           { status: 403 }
         )
       }
-
-      updateData.isAsyncStudent = isAsyncStudent
-
-      if (isAsyncStudent) {
+      if (isAsyncStudent === true) {
+        updateData.isAsyncStudent = true
         updateData.asyncApprovedAt = new Date()
         updateData.asyncApprovedBy = user.id
-        if (asyncReason !== undefined) {
-          updateData.asyncReason = asyncReason
-        }
-      } else {
+      }
+      if (asyncReason !== undefined) updateData.asyncReason = asyncReason || null
+      if (isAsyncStudent === false) {
+        updateData.isAsyncStudent = false
         updateData.asyncApprovedAt = null
         updateData.asyncApprovedBy = null
         updateData.asyncReason = null
       }
     }
 
-    // Handle graduation status change
     if (status !== undefined) {
-      updateData.status = status
-
-      // When marking as GRADUATED, set the graduation academic year and date
-      if (status === 'GRADUATED') {
-        updateData.graduatedAt = new Date()
-
-        // Use the active academic year as the graduation year
-        const activeYear = await prisma.academicYear.findFirst({
-          where: { isActive: true }
-        })
-        if (activeYear) {
-          updateData.graduatedAcademicYearId = activeYear.id
-        }
-      } else if (status === 'ACTIVE') {
-        // If reactivating, clear graduation data
-        updateData.graduatedAt = null
-        updateData.graduatedAcademicYearId = null
-      }
+      Object.assign(updateData, await enrollmentStatusUpdate(status, graduationNote))
     }
 
     const enrollment = await prisma.$transaction(async (tx) => {

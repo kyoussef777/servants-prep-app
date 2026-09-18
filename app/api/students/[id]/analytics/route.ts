@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { ExamYearLevel, LessonStatus, NoteSubmissionStatus, UserRole } from "@prisma/client"
+import { ExamYearLevel, LessonStatus, UserRole } from "@prisma/client"
 import { canViewStudents } from "@/lib/roles"
 import { handleApiError } from "@/lib/api-utils"
 import {
@@ -271,27 +271,10 @@ export async function GET(
     const allSectionsPassing = sectionAverages.length === 0 ? true : sectionAverages.every(s => s.passingMet)
 
     // Async student data
-    let asyncNotes = null
     let sundaySchool = null
     let sundaySchoolMet = true // Default true for non-async students
 
     if (enrollment.isAsyncStudent) {
-      // Get async note submission stats
-      const noteSubmissions = await prisma.asyncNoteSubmission.groupBy({
-        by: ['status'],
-        where: { studentId },
-        _count: { status: true }
-      })
-
-      const noteCounts = { total: 0, pending: 0, approved: 0, rejected: 0 }
-      for (const ns of noteSubmissions) {
-        noteCounts.total += ns._count.status
-        if (ns.status === NoteSubmissionStatus.PENDING) noteCounts.pending = ns._count.status
-        else if (ns.status === NoteSubmissionStatus.APPROVED) noteCounts.approved = ns._count.status
-        else if (ns.status === NoteSubmissionStatus.REJECTED) noteCounts.rejected = ns._count.status
-      }
-      asyncNotes = noteCounts
-
       // Get Sunday School assignments with logs
       const ssAssignments = await prisma.sundaySchoolAssignment.findMany({
         where: { studentId },
@@ -386,7 +369,7 @@ export async function GET(
         allSectionsPassing,
         sundaySchoolMet: enrollment.isAsyncStudent ? sundaySchoolMet : undefined
       },
-      ...(enrollment.isAsyncStudent ? { asyncNotes, sundaySchool } : {})
+      ...(enrollment.isAsyncStudent ? { sundaySchool } : {})
     })
   } catch (error: unknown) {
     return handleApiError(error)
