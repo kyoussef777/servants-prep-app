@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { signIn, useSession } from 'next-auth/react'
+import { signIn, signOut, useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -42,6 +42,7 @@ function LoginForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [clearingInvalidSession, setClearingInvalidSession] = useState(false)
 
   // Show error from URL params (e.g., Google sign-in rejection)
   useEffect(() => {
@@ -53,15 +54,30 @@ function LoginForm() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      // Check if user needs to change password
-      if (session.user.mustChangePassword) {
-        router.push('/change-password')
-      } else {
-        router.push('/dashboard')
-      }
+    if (status !== 'authenticated') return
+
+    // A disabled, deleted, or auth-version-invalidated account deliberately
+    // returns a session without a user. Clear its stale cookie so the visitor
+    // can sign in again instead of remaining on "Redirecting..." forever.
+    if (!session?.user) {
+      if (clearingInvalidSession) return
+
+      setClearingInvalidSession(true)
+      void signOut({ redirect: false }).finally(() => {
+        setClearingInvalidSession(false)
+        router.replace('/login')
+        router.refresh()
+      })
+      return
     }
-  }, [status, session, router])
+
+    // Check if user needs to change password
+    if (session.user.mustChangePassword) {
+      router.push('/change-password')
+    } else {
+      router.push('/dashboard')
+    }
+  }, [status, session, router, clearingInvalidSession])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,7 +111,7 @@ function LoginForm() {
   }
 
   // Show loading state while checking session
-  if (status === 'loading') {
+  if (status === 'loading' || clearingInvalidSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-lg text-gray-600">Loading...</div>
@@ -104,7 +120,7 @@ function LoginForm() {
   }
 
   // Don't render login form if already authenticated (will redirect)
-  if (status === 'authenticated') {
+  if (status === 'authenticated' && session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-lg text-gray-600">Redirecting...</div>
