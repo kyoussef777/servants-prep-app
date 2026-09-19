@@ -160,7 +160,7 @@ function SortableTableHeader({
 }: {
   column: StudentTableSortKey
   label: string
-  activeColumn: StudentTableSortKey
+  activeColumn: StudentTableSortKey | null
   direction: SortDirection
   onSort: (column: StudentTableSortKey) => void
 }) {
@@ -212,7 +212,7 @@ function StudentsManagementContent() {
   const [studentDetails, setStudentDetails] = useState<StudentDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [, setAcademicYearId] = useState<string | null>(null)
-  const [sortColumn, setSortColumn] = useState<StudentTableSortKey>('name')
+  const [sortColumn, setSortColumn] = useState<StudentTableSortKey | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   useEffect(() => {
@@ -524,13 +524,11 @@ function StudentsManagementContent() {
     return <PageLoading />
   }
 
-  const filteredStudents = sortStudentTableRows(
-    getFilteredStudents(),
-    analytics,
-    sortColumn,
-    sortDirection
-  )
-  const hasActiveFilters = searchTerm.trim() !== '' || filterYearLevel !== 'all' || filterStatus !== 'all'
+  const filtered = getFilteredStudents()
+  const filteredStudents = sortColumn
+    ? sortStudentTableRows(filtered, analytics, sortColumn, sortDirection)
+    : filtered
+  const hasActiveSort = sortColumn !== null
   const activeCount = students.filter(s => s.enrollments?.[0]?.status === 'ACTIVE').length
   const graduatedCount = students.filter(s => s.enrollments?.[0]?.status === 'GRADUATED').length
   const year1Count = students.filter(s => s.enrollments?.[0]?.yearLevel === 'YEAR_1' && s.enrollments?.[0]?.status === 'ACTIVE').length
@@ -619,7 +617,7 @@ function StudentsManagementContent() {
           <CardHeader>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <CardTitle>Students ({filteredStudents.length})</CardTitle>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
                 {session?.user?.role === 'SUPER_ADMIN' && (
                   <BulkStudentImport onSuccess={fetchStudents} />
                 )}
@@ -648,21 +646,28 @@ function StudentsManagementContent() {
                   <option value="GRADUATED">Graduated</option>
                   <option value="WITHDRAWN">Withdrawn</option>
                 </select>
-                {hasActiveFilters && (
+                <div
+                  className={`overflow-hidden transition-[max-width,opacity] duration-300 ease-out motion-reduce:transition-none ${
+                    hasActiveSort
+                      ? 'max-w-32 opacity-100'
+                      : 'pointer-events-none max-w-0 opacity-0'
+                  }`}
+                  aria-hidden={!hasActiveSort}
+                >
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      setSearchTerm('')
-                      setFilterYearLevel('all')
-                      setFilterStatus('all')
+                      setSortColumn(null)
+                      setSortDirection('asc')
                     }}
-                    className="gap-1.5"
+                    tabIndex={hasActiveSort ? 0 : -1}
+                    className="w-28 gap-1.5"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
-                    Clear filters
+                    Clear sort
                   </Button>
-                )}
+                </div>
               </div>
             </div>
           </CardHeader>
