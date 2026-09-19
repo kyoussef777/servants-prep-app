@@ -50,6 +50,26 @@ export function ViewAsMode() {
   const isSuperAdminActor = session?.user?.role === 'SUPER_ADMIN' || !!viewingAs
 
   useEffect(() => {
+    if (!isSuperAdminActor) return
+
+    const handleViewAsShortcut = (event: KeyboardEvent) => {
+      if (
+        event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === 'q' &&
+        !event.repeat
+      ) {
+        event.preventDefault()
+        setOpen((currentlyOpen) => !currentlyOpen)
+      }
+    }
+
+    window.addEventListener('keydown', handleViewAsShortcut)
+    return () => window.removeEventListener('keydown', handleViewAsShortcut)
+  }, [isSuperAdminActor])
+
+  useEffect(() => {
     if (!open || !isSuperAdminActor) return
     let cancelled = false
 
@@ -119,12 +139,6 @@ export function ViewAsMode() {
   return (
     <>
       {viewingAs && <ViewAsBanner session={session} busy={busy} onStop={stop} />}
-      <FloatingTrigger
-        onClick={() => setOpen(true)}
-        viewingAs={viewingAs}
-        onStop={stop}
-        busy={busy}
-      />
       <PickerDialog
         open={open}
         onOpenChange={setOpen}
@@ -165,6 +179,7 @@ function ViewAsBanner({
             <span className="hidden md:inline opacity-80">
               {' '}— acting admin: {session.impersonating?.originalName ?? session.impersonating?.originalEmail}
             </span>
+            <span className="hidden lg:inline opacity-80"> · Ctrl+Q to switch</span>
           </span>
         </div>
         <button
@@ -178,55 +193,6 @@ function ViewAsBanner({
         </button>
       </div>
     </div>
-  )
-}
-
-function FloatingTrigger({
-  onClick,
-  viewingAs,
-  onStop,
-  busy,
-}: {
-  onClick: () => void
-  viewingAs: { originalName: string | null; originalEmail: string | null } | null
-  onStop: () => void
-  busy: boolean
-}) {
-  if (viewingAs) {
-    return (
-      <div className="fixed bottom-4 right-4 z-[55] flex items-center gap-1.5 rounded-full bg-amber-500 text-amber-950 px-1.5 py-1 shadow-lg border-2 border-amber-600">
-        <button
-          type="button"
-          onClick={onClick}
-          className="inline-flex items-center gap-2 rounded-full hover:bg-amber-400 px-2.5 py-1 text-xs font-semibold transition-colors"
-        >
-          <Eye className="h-4 w-4" />
-          <span className="hidden sm:inline">Switch user</span>
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onStop}
-          aria-label="Stop View as mode"
-          className="inline-flex items-center gap-1 rounded-full bg-amber-950/10 hover:bg-amber-950/20 px-2.5 py-1 text-xs font-semibold disabled:opacity-50 transition-colors"
-        >
-          <EyeOff className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Stop</span>
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      aria-label="View as another user"
-      onClick={onClick}
-      className="fixed bottom-4 right-4 z-[55] inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs font-medium shadow-lg hover:bg-amber-100 hover:shadow-xl transition-all dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100 dark:hover:bg-amber-900"
-    >
-      <Eye className="h-4 w-4" />
-      <span className="hidden sm:inline">View as</span>
-    </button>
   )
 }
 
@@ -343,7 +309,10 @@ function PickerDialog({
               <span className="flex items-center gap-1.5">
                 <Search className="h-3 w-3" /> Permissions and scope match the selected account
               </span>
-              <span className="hidden sm:inline">Automatically ends after 30 minutes</span>
+              <span className="hidden sm:inline">
+                <kbd className="rounded border bg-gray-50 dark:bg-gray-800 px-1 font-mono">Ctrl Q</kbd>
+                {' '}close · expires after 30 minutes
+              </span>
             </div>
           </Command>
         </DialogPrimitive.Content>
