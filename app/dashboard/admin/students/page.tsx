@@ -677,9 +677,9 @@ function StudentsManagementContent() {
 
           <CardContent>
             {/* Desktop View */}
-            <div className="hidden lg:block overflow-x-auto">
+            <div className="hidden lg:block max-h-[calc(100vh-12rem)] overflow-auto rounded-md">
               <table className="w-full">
-                <thead className="border-b">
+                <thead className="sticky top-0 z-20 border-b bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950">
                   <tr>
                     <th className="text-left p-3">
                       <input
