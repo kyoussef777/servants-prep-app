@@ -5,7 +5,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/navbar";
 import { CommandPalette } from "@/components/command-palette";
-import { DevImpersonation } from "@/components/dev-impersonation";
+import { ViewAsMode } from "@/components/view-as-mode";
 import { ProfilePhotoReminder } from "@/components/profile-photo-reminder";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationProvider } from "@/components/notifications/notification-provider";
@@ -50,7 +50,7 @@ export default function RootLayout({
           {/* App chrome; `contents` preserves the flex layout while print:hidden keeps it off printouts. */}
           <div className="contents print:hidden">
             <NotificationProvider />
-            <DevImpersonation />
+            <ViewAsMode />
             <Navbar />
             <CommandPalette />
             <ProfilePhotoReminder />

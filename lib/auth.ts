@@ -4,7 +4,8 @@ import GoogleProvider from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
-import { SundaySchoolAuthority, UserRole, type PrismaClient } from "@prisma/client"
+import { AuditEventResult, RoleTag, SundaySchoolAuthority, UserRole, type PrismaClient } from "@prisma/client"
+import type { JWT } from "next-auth/jwt"
 import { checkLoginRateLimit, resetLoginRateLimit } from "./rate-limit"
 import { seesAllSundaySchoolClasses } from "./roles"
 
@@ -47,6 +48,129 @@ async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
 // Keeps the blast radius for disabled accounts / role demotions to ~1 minute
 // without paying a DB lookup on every authenticated request.
 const TOKEN_REVALIDATE_INTERVAL_MS = 60 * 1000
+const VIEW_AS_MAX_AGE_MS = 30 * 60 * 1000
+
+async function loadAuthUser(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      authVersion: true,
+      isDisabled: true,
+      mustChangePassword: true,
+      profileImageUrl: true,
+    },
+  })
+}
+
+async function loadViewAsActor(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      authVersion: true,
+      isDisabled: true,
+      mustChangePassword: true,
+      profileImageUrl: true,
+      roleAssignments: {
+        where: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
+        select: { id: true },
+        take: 1,
+      },
+    },
+  })
+}
+
+function canUseViewAs(actor: Awaited<ReturnType<typeof loadViewAsActor>>): actor is NonNullable<typeof actor> {
+  return !!actor &&
+    !actor.isDisabled &&
+    actor.role === UserRole.SUPER_ADMIN &&
+    actor.roleAssignments.length > 0
+}
+
+async function applyUserToToken(
+  token: JWT,
+  user: NonNullable<Awaited<ReturnType<typeof loadAuthUser>>>,
+  options: { suppressPasswordChange?: boolean } = {}
+) {
+  const { isAsyncStudent, sundaySchool } = await getUserSessionData(user)
+  token.id = user.id
+  token.role = user.role
+  token.authVersion = user.authVersion
+  token.name = user.name
+  token.email = user.email
+  token.mustChangePassword = options.suppressPasswordChange ? false : user.mustChangePassword
+  token.isAsyncStudent = isAsyncStudent
+  token.sundaySchool = sundaySchool
+  token.profileImageUrl = user.profileImageUrl ?? null
+  token.validatedAt = Date.now()
+  token.invalidated = undefined
+}
+
+async function recordViewAsAudit(input: {
+  actorUserId: string | null
+  action: 'ADMIN_VIEW_AS_STARTED' | 'ADMIN_VIEW_AS_SWITCHED' | 'ADMIN_VIEW_AS_STOPPED'
+  targetUserId?: string | null
+  result: AuditEventResult
+  reason?: string
+  metadata?: Record<string, string | number | boolean | null>
+}) {
+  try {
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: input.actorUserId,
+        action: input.action,
+        entityType: 'User',
+        entityId: input.targetUserId ?? null,
+        result: input.result,
+        reason: input.reason,
+        metadata: input.metadata,
+      },
+    })
+  } catch (error) {
+    // Audit availability must not strand an administrator inside View as mode.
+    console.error('Failed to write View as audit event', error)
+  }
+}
+
+function clearViewAsTokenState(token: JWT) {
+  token.originalId = undefined
+  token.originalName = undefined
+  token.originalEmail = undefined
+  token.viewAsExpiresAt = undefined
+}
+
+async function restoreViewAsActor(
+  token: JWT,
+  reason: 'STOPPED_BY_ADMIN' | 'EXPIRED' | 'TARGET_UNAVAILABLE'
+) {
+  const actorId = token.originalId
+  if (!actorId) return false
+
+  const previousTargetId = token.id
+  const actor = await loadViewAsActor(actorId)
+  if (!canUseViewAs(actor)) {
+    token.invalidated = true
+    return false
+  }
+
+  await applyUserToToken(token, actor)
+  clearViewAsTokenState(token)
+  await recordViewAsAudit({
+    actorUserId: actor.id,
+    action: 'ADMIN_VIEW_AS_STOPPED',
+    targetUserId: previousTargetId,
+    result: AuditEventResult.SUCCESS,
+    reason,
+  })
+  return true
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma as unknown as PrismaClient) as unknown as NextAuthOptions['adapter'],
@@ -183,71 +307,79 @@ export const authOptions: NextAuthOptions = {
           token.name = session.name
         }
 
-        // Dev-only: SUPER_ADMIN impersonation via session.update()
-        if (process.env.NODE_ENV !== 'production' && 'impersonate' in (session as Record<string, unknown>)) {
+        // Read-only View as mode. The client may request a target, but the
+        // acting identity and current SUPER_ADMIN grant are re-derived from
+        // the database before the effective session can change.
+        if ('impersonate' in (session as Record<string, unknown>)) {
           const impersonateId = (session as { impersonate?: string | null }).impersonate
 
           if (impersonateId) {
-            // Starting impersonation. The acting user must be a SUPER_ADMIN
-            // (either currently, or already impersonating from a SUPER_ADMIN base).
-            const isAdminBase = token.role === UserRole.SUPER_ADMIN || !!token.originalId
-            if (isAdminBase) {
-              const target = await prisma.user.findUnique({
-                where: { id: impersonateId as string }
-              })
-              if (target && !target.isDisabled) {
-                // Capture original identity on first hop
-                if (!token.originalId) {
-                  token.originalId = token.id
-                  token.originalName = token.name ?? null
-                  token.originalEmail = token.email ?? null
-                }
-                const { isAsyncStudent, sundaySchool } = await getUserSessionData(target)
-                token.id = target.id
-                token.role = target.role
-                token.authVersion = target.authVersion
-                token.name = target.name
-                token.email = target.email
-                token.mustChangePassword = false
-                token.isAsyncStudent = isAsyncStudent
-                token.sundaySchool = sundaySchool
-                token.profileImageUrl = target.profileImageUrl ?? null
-                token.validatedAt = Date.now()
+            const actorId = token.originalId ?? token.id
+            const [actor, target] = await Promise.all([
+              loadViewAsActor(actorId),
+              loadAuthUser(impersonateId),
+            ])
+
+            if (canUseViewAs(actor) && target && !target.isDisabled && target.id !== actor.id) {
+              const previousTargetId = token.originalId ? token.id : null
+              if (!token.originalId) {
+                token.originalId = actor.id
+                token.originalName = actor.name
+                token.originalEmail = actor.email
               }
+              token.viewAsExpiresAt = Date.now() + VIEW_AS_MAX_AGE_MS
+              await applyUserToToken(token, target, { suppressPasswordChange: true })
+              await recordViewAsAudit({
+                actorUserId: actor.id,
+                action: previousTargetId ? 'ADMIN_VIEW_AS_SWITCHED' : 'ADMIN_VIEW_AS_STARTED',
+                targetUserId: target.id,
+                result: AuditEventResult.SUCCESS,
+                metadata: previousTargetId
+                  ? { previousTargetUserId: previousTargetId, readOnly: true }
+                  : { readOnly: true },
+              })
+            } else {
+              await recordViewAsAudit({
+                actorUserId: actor?.id ?? null,
+                action: 'ADMIN_VIEW_AS_STARTED',
+                targetUserId: target?.id ?? null,
+                result: AuditEventResult.DENIED,
+                reason: 'Actor is not an active Super Admin, or the target is unavailable',
+              })
             }
           } else {
-            // Stop impersonating - restore original identity
-            if (token.originalId) {
-              const original = await prisma.user.findUnique({
-                where: { id: token.originalId }
-              })
-              if (original) {
-                const { isAsyncStudent, sundaySchool } = await getUserSessionData(original)
-                token.id = original.id
-                token.role = original.role
-                token.authVersion = original.authVersion
-                token.name = original.name
-                token.email = original.email
-                token.mustChangePassword = original.mustChangePassword
-                token.isAsyncStudent = isAsyncStudent
-                token.sundaySchool = sundaySchool
-                token.profileImageUrl = original.profileImageUrl ?? null
-              }
-              token.originalId = undefined
-              token.originalName = undefined
-              token.originalEmail = undefined
-              token.validatedAt = Date.now()
-            }
+            await restoreViewAsActor(token, 'STOPPED_BY_ADMIN')
           }
         }
       }
 
+      if (
+        token.originalId &&
+        token.viewAsExpiresAt &&
+        Date.now() >= token.viewAsExpiresAt
+      ) {
+        await restoreViewAsActor(token, 'EXPIRED')
+      }
+
       // Periodically re-check the user against the DB so that disabling an
       // account or changing its role takes effect without waiting for the
-      // long-lived JWT to expire. Skip while impersonating - the impersonated
-      // identity is intentionally divergent from a "real" login.
+      // long-lived JWT to expire. While viewing as another user, validate both
+      // the real administrator and the effective target.
       const validatedAt = (token.validatedAt as number | undefined) ?? 0
-      if (!token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
+      if (token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
+        const [actor, target] = await Promise.all([
+          loadViewAsActor(token.originalId),
+          loadAuthUser(token.id),
+        ])
+
+        if (!canUseViewAs(actor)) {
+          token.invalidated = true
+        } else if (!target || target.isDisabled) {
+          await restoreViewAsActor(token, 'TARGET_UNAVAILABLE')
+        } else {
+          await applyUserToToken(token, target, { suppressPasswordChange: true })
+        }
+      } else if (!token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
         const [dbUser, enrollment] = await Promise.all([
           prisma.user.findUnique({
             where: { id: token.id as string },
@@ -300,12 +432,14 @@ export const authOptions: NextAuthOptions = {
         session.user.sundaySchool = (token.sundaySchool as { hasAccess: boolean; isCoordinator: boolean } | undefined)
           ?? { hasAccess: false, isCoordinator: false }
       }
-      // Surface impersonation state to the client (dev only)
-      if (process.env.NODE_ENV !== 'production' && token.originalId) {
+      // Surface View as state without exposing any authority-changing input.
+      if (token.originalId) {
         session.impersonating = {
           originalId: token.originalId as string,
           originalName: (token.originalName as string | null) ?? null,
           originalEmail: (token.originalEmail as string | null) ?? null,
+          expiresAt: (token.viewAsExpiresAt as number | undefined) ?? Date.now(),
+          readOnly: true,
         }
       } else {
         session.impersonating = null

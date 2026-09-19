@@ -19,17 +19,40 @@ function isAllowedDuringPasswordChange(pathname: string) {
   )
 }
 
+const READ_ONLY_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
+const VIEW_AS_WRITE_ALLOWLIST = new Set([
+  "/api/auth/session", // switch or stop View as mode
+  "/api/auth/signout", // always let the administrator leave the session
+])
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-
-  if (isAllowedDuringPasswordChange(pathname)) {
-    return NextResponse.next()
-  }
 
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   })
+
+  // View as mode is deliberately read-only in every environment. Blocking at
+  // the proxy covers API handlers and Server Actions, including routes that
+  // have not yet migrated to the normalized authorization helpers.
+  if (
+    token?.originalId &&
+    !READ_ONLY_METHODS.has(request.method) &&
+    !VIEW_AS_WRITE_ALLOWLIST.has(pathname)
+  ) {
+    return NextResponse.json(
+      {
+        error: "ViewAsReadOnly",
+        message: "View as mode is read-only. Stop viewing as this user before making changes.",
+      },
+      { status: 403 }
+    )
+  }
+
+  if (isAllowedDuringPasswordChange(pathname)) {
+    return NextResponse.next()
+  }
 
   if (!token?.mustChangePassword) {
     return NextResponse.next()

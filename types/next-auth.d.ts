@@ -20,11 +20,14 @@ declare module "next-auth" {
       sundaySchool: SundaySchoolStanding
       profileImageUrl?: string | null
     } & DefaultSession["user"]
-    // Dev-only: when SUPER_ADMIN is impersonating another user
+    // Read-only View as mode. user.* is the effective identity while this
+    // object preserves the real Super Admin actor.
     impersonating?: {
       originalId: string
       originalName: string | null
       originalEmail: string | null
+      expiresAt: number
+      readOnly: true
     } | null
   }
 
@@ -49,9 +52,10 @@ declare module "next-auth/jwt" {
     profileImageUrl?: string | null
     validatedAt?: number
     invalidated?: boolean
-    // Dev-only impersonation
+    // Read-only View as state
     originalId?: string
     originalName?: string | null
     originalEmail?: string | null
+    viewAsExpiresAt?: number
   }
 }
