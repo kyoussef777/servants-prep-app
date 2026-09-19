@@ -31,6 +31,11 @@ export async function GET(
         phone: true,
         profileImageUrl: true,
         role: true,
+        roleAssignments: {
+          where: { revokedAt: null },
+          select: { tag: true },
+          orderBy: { grantedAt: 'asc' },
+        },
         createdAt: true,
         updatedAt: true,
       }
@@ -130,12 +135,15 @@ export async function PATCH(
     if (profileImageUrl !== undefined) updateData.profileImageUrl = profileImageUrl || null
 
     // Role change permissions:
-    // - SUPER_ADMIN: Can change any role
+    // - SUPER_ADMIN: Uses the normalized access-tag endpoint so the legacy
+    //   compatibility role and historical grants cannot drift apart
     // - SERVANT_PREP: Can only change between STUDENT and MENTOR
     if (role) {
       if (canManageAllUsers(currentUser.role)) {
-        // SUPER_ADMIN can change any role
-        updateData.role = role
+        return NextResponse.json(
+          { error: "Use access tags to change this user's access" },
+          { status: 400 }
+        )
       } else if (currentUser.role === UserRole.SERVANT_PREP) {
         // SERVANT_PREP can only set the roles it manages
         if (canServantPrepManageRole(role)) {
@@ -166,6 +174,11 @@ export async function PATCH(
         name: true,
         profileImageUrl: true,
         role: true,
+        roleAssignments: {
+          where: { revokedAt: null },
+          select: { tag: true },
+          orderBy: { grantedAt: 'asc' },
+        },
         updatedAt: true,
       }
     })

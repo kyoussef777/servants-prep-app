@@ -131,7 +131,7 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
   const saveEnrollment = (body: object, message: string) =>
     enrollment && save(`/api/enrollments/${enrollment.id}`, body, message)
 
-  const roleOptions = isSuperAdmin ? Object.values(UserRole) : [UserRole.STUDENT, UserRole.MENTOR]
+  const roleOptions: UserRole[] = [UserRole.STUDENT, UserRole.MENTOR]
   const enrollmentLocked = !canEdit || saving
 
   return (
@@ -140,19 +140,30 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
         <CardContent className="pt-6">
           <h3 className="font-semibold mb-2">Program &amp; Account</h3>
 
-          <SelectField
-            id="student-role"
-            label="Role"
-            value={student.role}
-            disabled={!canEditRole || saving}
-            options={(roleOptions.includes(student.role) ? roleOptions : [student.role, ...roleOptions])
-              .map(r => ({ value: r, label: getRoleDisplayName(r) }))}
-            onChange={(value) => {
-              const role = value as UserRole
-              if (role !== UserRole.STUDENT && !confirm(`Change this student to ${getRoleDisplayName(role)}? They will no longer appear in the student list.`)) return
-              save(`/api/users/${student.id}`, { role }, 'Role updated')
-            }}
-          />
+          {isSuperAdmin ? (
+            <Field id="student-access" label="Access">
+              <div id="student-access" className="text-sm">
+                <span className="font-medium">{getRoleDisplayName(student.role)}</span>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Add or remove this person&apos;s access tags from User Management.
+                </p>
+              </div>
+            </Field>
+          ) : (
+            <SelectField
+              id="student-role"
+              label="Role"
+              value={student.role}
+              disabled={!canEditRole || saving}
+              options={(roleOptions.includes(student.role) ? roleOptions : [student.role, ...roleOptions])
+                .map(r => ({ value: r, label: getRoleDisplayName(r) }))}
+              onChange={(value) => {
+                const role = value as UserRole
+                if (role !== UserRole.STUDENT && !confirm(`Change this student to ${getRoleDisplayName(role)}? They will no longer appear in the student list.`)) return
+                save(`/api/users/${student.id}`, { role }, 'Role updated')
+              }}
+            />
+          )}
 
           <Field id="student-disabled" label="Account">
             {isSuperAdmin ? (
