@@ -1,4 +1,22 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { RoleTag, UserRole, type SundaySchoolLevel } from '@prisma/client'
+
+const prismaMocks = vi.hoisted(() => ({
+  activeYear: vi.fn(),
+  participantGrant: vi.fn(),
+  servantAssignments: vi.fn(),
+  classes: vi.fn(),
+}))
+
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    academicYear: { findFirst: prismaMocks.activeYear },
+    userRoleAssignment: { findFirst: prismaMocks.participantGrant },
+    sundaySchoolServantAssignment: { findMany: prismaMocks.servantAssignments },
+    sundaySchoolClass: { findMany: prismaMocks.classes },
+  },
+}))
+
 import {
   canCoordinateAgeGroup,
   canCoordinateClass,
@@ -11,11 +29,11 @@ import {
   canTakeServantAttendance,
   canViewClass,
   canViewServantAttendanceReport,
+  getSundaySchoolAccess,
   visibleClassFilter,
   type SundaySchoolAccess,
 } from '@/lib/sunday-school-access'
 import { assertLevelsUnclaimed, findAgeGroupForLevel } from '@/lib/sunday-school-class'
-import type { SundaySchoolLevel } from '@prisma/client'
 
 /**
  * These cover the predicates over a resolved SundaySchoolAccess — the part of
@@ -68,6 +86,47 @@ const priest = makeAccess({ readOnly: true, visibleClassIds: 'all' })
 
 // A SERVANT_PREP who has not been assigned anything: the bug this model fixes
 const unassignedPrepLeader = makeAccess({ canRead: false })
+
+describe('Sunday School access resolution', () => {
+  beforeEach(() => {
+    prismaMocks.activeYear.mockReset().mockResolvedValue({ id: 'active-year' })
+    prismaMocks.participantGrant.mockReset().mockResolvedValue(null)
+    prismaMocks.servantAssignments.mockReset().mockResolvedValue([])
+    prismaMocks.classes.mockReset().mockResolvedValue([])
+  })
+
+  it('lets a tagged servant enter the mode without granting any class scope', async () => {
+    prismaMocks.participantGrant.mockResolvedValue({ id: 'active-tag' })
+
+    const access = await getSundaySchoolAccess({
+      id: 'mentor-and-servant',
+      role: UserRole.MENTOR,
+    })
+
+    expect(prismaMocks.participantGrant).toHaveBeenCalledWith({
+      where: {
+        userId: 'mentor-and-servant',
+        tag: RoleTag.SUNDAY_SCHOOL_SERVANT,
+        revokedAt: null,
+      },
+      select: { id: true },
+    })
+    expect(access.canRead).toBe(true)
+    expect(access.visibleClassIds).toEqual(new Set())
+    expect(canViewClass(access, CLASS_A)).toBe(false)
+    expect(canServeClass(access, CLASS_A)).toBe(false)
+  })
+
+  it('keeps an untagged and unassigned prep leader out of the mode', async () => {
+    const access = await getSundaySchoolAccess({
+      id: 'prep-only',
+      role: UserRole.SERVANT_PREP,
+    })
+
+    expect(access.canRead).toBe(false)
+    expect(access.visibleClassIds).toEqual(new Set())
+  })
+})
 
 describe('Sunday School access predicates', () => {
   describe('an unassigned prep leader', () => {

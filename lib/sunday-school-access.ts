@@ -1,4 +1,4 @@
-import { SundaySchoolAuthority, SundaySchoolLevel, UserRole } from "@prisma/client"
+import { RoleTag, SundaySchoolAuthority, SundaySchoolLevel, UserRole } from "@prisma/client"
 import { prisma } from "./prisma"
 import {
   canAdministerSundaySchool,
@@ -59,12 +59,25 @@ export async function getSundaySchoolAccess(
   const readOnly = isSundaySchoolReadOnly(user.role)
   const seesAll = seesAllSundaySchoolClasses(user.role)
 
-  const yearId =
-    academicYearId ??
-    (await prisma.academicYear.findFirst({
-      where: { isActive: true },
-      select: { id: true },
-    }))?.id
+  const [activeYear, participantGrant] = await Promise.all([
+    academicYearId
+      ? Promise.resolve({ id: academicYearId })
+      : prisma.academicYear.findFirst({
+          where: { isActive: true },
+          select: { id: true },
+        }),
+    seesAll
+      ? Promise.resolve(null)
+      : prisma.userRoleAssignment.findFirst({
+          where: {
+            userId: user.id,
+            tag: RoleTag.SUNDAY_SCHOOL_SERVANT,
+            revokedAt: null,
+          },
+          select: { id: true },
+        }),
+  ])
+  const yearId = activeYear?.id
 
   const servantClassIds = new Set<string>()
   const coordinatorClassIds = new Set<string>()
@@ -123,6 +136,7 @@ export async function getSundaySchoolAccess(
     }
   }
 
+  const hasParticipantTag = participantGrant !== null
   const hasAssignment =
     servantClassIds.size > 0 || coordinatorClassIds.size > 0 || coordinatorAgeGroupIds.size > 0
 
@@ -133,7 +147,10 @@ export async function getSundaySchoolAccess(
   return {
     isAdmin,
     readOnly,
-    canRead: seesAll || hasAssignment,
+    // The tag grants entry to the mode, while assignments remain the only
+    // source of class scope. A tagged, unassigned servant therefore gets a
+    // valid empty workspace rather than access to somebody else's records.
+    canRead: seesAll || hasParticipantTag || hasAssignment,
     servantClassIds,
     coordinatorClassIds,
     coordinatorAgeGroupIds,

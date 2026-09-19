@@ -83,7 +83,10 @@ export async function PUT(
           take: 1,
         },
         mentorAssignments: {
-          where: { endedAt: null },
+          where: {
+            endedAt: null,
+            studentEnrollment: { status: 'ACTIVE' },
+          },
           select: { id: true },
           take: 1,
         },
@@ -143,7 +146,9 @@ export async function PUT(
 
     const tagsToGrant = desiredTags.filter((tag) => !activeTags.has(tag))
     const assignmentsToRevoke = target.roleAssignments.filter((assignment) => removedTags.has(assignment.tag))
-    const compatibilityRole = legacyRoleForTags(desiredTags, target.role)
+    const compatibilityRole = legacyRoleForTags(desiredTags, target.role, {
+      hasActiveMentorAssignment: target.mentorAssignments.length > 0,
+    })
     const now = new Date()
 
     const result = await prisma.$transaction(async (tx) => {

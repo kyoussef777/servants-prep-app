@@ -38,4 +38,20 @@ describe('role tag compatibility mapping', () => {
   it('preserves mentor-only compatibility because mentor is assignment-derived', () => {
     expect(legacyRoleForTags([], UserRole.MENTOR)).toBe(UserRole.MENTOR)
   })
+
+  it('keeps an active mentor on the mentor dashboard when Sunday School is added', () => {
+    expect(legacyRoleForTags(
+      [RoleTag.SUNDAY_SCHOOL_SERVANT],
+      UserRole.SERVANT,
+      { hasActiveMentorAssignment: true }
+    )).toBe(UserRole.MENTOR)
+  })
+
+  it('uses the Sunday School dashboard after the last mentor assignment ends', () => {
+    expect(legacyRoleForTags(
+      [RoleTag.SUNDAY_SCHOOL_SERVANT],
+      UserRole.MENTOR,
+      { hasActiveMentorAssignment: false }
+    )).toBe(UserRole.SERVANT)
+  })
 })

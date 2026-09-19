@@ -33,13 +33,23 @@ async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
     return { hasAccess: true, isCoordinator: user.role === UserRole.SUPER_ADMIN }
   }
 
-  const assignments = await prisma.sundaySchoolServantAssignment.findMany({
-    where: { userId: user.id, academicYear: { isActive: true } },
-    select: { authority: true }
-  })
+  const [participantGrant, assignments] = await Promise.all([
+    prisma.userRoleAssignment.findFirst({
+      where: {
+        userId: user.id,
+        tag: RoleTag.SUNDAY_SCHOOL_SERVANT,
+        revokedAt: null,
+      },
+      select: { id: true },
+    }),
+    prisma.sundaySchoolServantAssignment.findMany({
+      where: { userId: user.id, academicYear: { isActive: true } },
+      select: { authority: true }
+    }),
+  ])
 
   return {
-    hasAccess: assignments.length > 0,
+    hasAccess: participantGrant !== null || assignments.length > 0,
     isCoordinator: assignments.some(a => a.authority === SundaySchoolAuthority.COORDINATOR)
   }
 }

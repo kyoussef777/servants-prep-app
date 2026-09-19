@@ -74,18 +74,31 @@ export function roleTagForLegacyRole(role: UserRole): RoleTag | null {
  * yet moved to the normalized authorization resolver. PRIEST is always first
  * because it is a read-only override.
  */
-export function legacyRoleForTags(tags: Iterable<RoleTag>, currentRole: UserRole): UserRole {
+export function legacyRoleForTags(
+  tags: Iterable<RoleTag>,
+  currentRole: UserRole,
+  options: { hasActiveMentorAssignment?: boolean } = {}
+): UserRole {
   const selected = new Set(tags)
 
   if (selected.has(RoleTag.PRIEST)) return UserRole.PRIEST
   if (selected.has(RoleTag.SUPER_ADMIN)) return UserRole.SUPER_ADMIN
   if (selected.has(RoleTag.SERVANTS_PREP_SERVANT)) return UserRole.SERVANT_PREP
+
+  // Mentor is intentionally assignment-derived instead of a permanent tag.
+  // During the compatibility rollout, keep an actively assigned mentor on
+  // the mentor dashboard even when they also participate in Sunday School.
+  // Callers that have loaded current assignments should pass an explicit
+  // boolean so a stale legacy MENTOR role is not preserved after mentoring
+  // ends. Callers without assignment context retain the previous fallback.
+  const hasMentorAccess =
+    options.hasActiveMentorAssignment ?? currentRole === UserRole.MENTOR
+  if (hasMentorAccess) return UserRole.MENTOR
+
   if (selected.has(RoleTag.SUNDAY_SCHOOL_SERVANT)) return UserRole.SERVANT
   if (selected.has(RoleTag.PARENT)) return UserRole.PARENT
   if (selected.has(RoleTag.SERVANTS_PREP_STUDENT)) return UserRole.STUDENT
   if (selected.has(RoleTag.SUNDAY_SCHOOL_STUDENT)) return UserRole.STUDENT
 
-  // A mentor has derived access from MentorAssignment, so no permanent mentor
-  // tag exists. Keep the compatibility role for mentor-only accounts.
-  return currentRole === UserRole.MENTOR ? UserRole.MENTOR : currentRole
+  return currentRole
 }
