@@ -260,12 +260,12 @@ export function Navbar() {
               >
                 <span className="flex h-10 w-12 shrink-0 items-center justify-center">
                   <Image
-                    src={inSundaySchoolMode ? '/st-mark-logo.png' : '/sp-logo.png'}
+                    src={inSundaySchoolMode ? '/sunday-school-favicon.png' : '/sp-logo.png'}
                     alt={inSundaySchoolMode ? 'St. Mark Coptic Orthodox Church Logo' : 'Servants Prep Logo'}
-                    width={inSundaySchoolMode ? 47 : 40}
+                    width={inSundaySchoolMode ? 48 : 40}
                     height={40}
                     className={inSundaySchoolMode
-                      ? 'h-10 w-auto object-contain'
+                      ? 'h-11 w-11 object-contain'
                       : 'h-10 w-10 rounded-md bg-black p-1'}
                   />
                 </span>

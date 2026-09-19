@@ -72,13 +72,13 @@ describe('Sunday School feedback page', () => {
     }))
   })
 
-  it('renders attributed ideas with separate vote totals and score', () => {
+  it('renders attributed feedback with a Reddit-style score and bug-report guidance', () => {
     render(<SundaySchoolFeedbackPage />)
 
     expect(screen.getByText('Add lesson reminders')).toBeInTheDocument()
     expect(screen.getByText(/Submitted by Sunday Servant/)).toBeInTheDocument()
-    expect(screen.getByText('3 upvotes')).toBeInTheDocument()
-    expect(screen.getByText('1 downvotes')).toBeInTheDocument()
+    expect(screen.getByText(/report bugs/i)).toBeInTheDocument()
+    expect(screen.getByText('3 upvotes and 1 downvotes')).toHaveClass('sr-only')
     expect(screen.getByLabelText('Net score 2')).toBeInTheDocument()
   })
 
@@ -90,16 +90,55 @@ describe('Sunday School feedback page', () => {
     }))
     render(<SundaySchoolFeedbackPage />)
 
-    await user.click(screen.getByRole('button', { name: 'Submit an idea' }))
+    await user.click(screen.getByRole('button', { name: 'Post feedback' }))
     await user.type(screen.getByLabelText('Title'), 'Add calendar export')
     await user.type(screen.getByLabelText('Details (optional)'), 'Let servants export sessions.')
-    await user.click(screen.getByRole('button', { name: 'Submit idea' }))
+    await user.click(screen.getByRole('button', { name: 'Submit feedback' }))
 
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(
       '/api/sunday-school/feedback',
       expect.objectContaining({ method: 'POST' })
     ))
     expect(mocks.mutate).toHaveBeenCalled()
+  })
+
+  it('uses distinct animated colors for an upvote and a downvote', () => {
+    const upvoted = makeResponse()
+    upvoted.ideas[0] = {
+      ...upvoted.ideas[0],
+      viewerVote: SundaySchoolFeedbackVoteType.UP,
+    }
+    mocks.useSundaySchoolFeedback.mockReturnValueOnce({
+      data: upvoted,
+      error: null,
+      isLoading: false,
+      mutate: mocks.mutate,
+    })
+    const { unmount } = render(<SundaySchoolFeedbackPage />)
+
+    const upvote = screen.getByRole('button', { name: 'Upvote Add lesson reminders' })
+    expect(upvote).toHaveAttribute('aria-pressed', 'true')
+    expect(upvote).toHaveClass('text-orange-600')
+    expect(upvote.querySelector('svg')).toHaveClass('feedback-vote-pop-up')
+    unmount()
+
+    const downvoted = makeResponse()
+    downvoted.ideas[0] = {
+      ...downvoted.ideas[0],
+      viewerVote: SundaySchoolFeedbackVoteType.DOWN,
+    }
+    mocks.useSundaySchoolFeedback.mockReturnValueOnce({
+      data: downvoted,
+      error: null,
+      isLoading: false,
+      mutate: mocks.mutate,
+    })
+    render(<SundaySchoolFeedbackPage />)
+
+    const downvote = screen.getByRole('button', { name: 'Downvote Add lesson reminders' })
+    expect(downvote).toHaveAttribute('aria-pressed', 'true')
+    expect(downvote).toHaveClass('text-blue-600')
+    expect(downvote.querySelector('svg')).toHaveClass('feedback-vote-pop-down')
   })
 
   it('opens the author edit form with the existing content', async () => {

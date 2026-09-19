@@ -180,6 +180,58 @@
   }
 }
 
+@keyframes feedback-vote-pop-up {
+  0% {
+    transform: translateY(2px) scale(0.72);
+  }
+  55% {
+    transform: translateY(-4px) scale(1.28);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes feedback-vote-pop-down {
+  0% {
+    transform: translateY(-2px) scale(0.72);
+  }
+  55% {
+    transform: translateY(4px) scale(1.28);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes feedback-score-pop {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.72);
+  }
+  65% {
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .feedback-vote-pop-up {
+    animation: feedback-vote-pop-up 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .feedback-vote-pop-down {
+    animation: feedback-vote-pop-down 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .feedback-score-pop {
+    animation: feedback-score-pop 220ms ease-out;
+  }
+}
+
 @keyframes mode-content-out-left {
   to {
     opacity: 0;

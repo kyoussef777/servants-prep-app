@@ -20,8 +20,20 @@ export const metadata: Metadata = {
   description: "Shared portal for St. Mark Servants Prep and Sunday School ministries",
   manifest: "/manifest.json",
   icons: {
-    icon: '/sp-logo.avif',
-    apple: '/sp-logo.avif',
+    icon: [
+      {
+        url: '/sunday-school-favicon-32.png',
+        sizes: '32x32',
+        type: 'image/png',
+      },
+      {
+        url: '/sunday-school-favicon.png',
+        sizes: '512x512',
+        type: 'image/png',
+      },
+    ],
+    shortcut: '/sunday-school-favicon-32.png',
+    apple: '/sunday-school-apple-touch-icon.png',
   },
   appleWebApp: {
     capable: true,

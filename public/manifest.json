@@ -1,7 +1,7 @@
 {
-  "name": "Servants Preparation Program",
-  "short_name": "Servants Prep",
-  "description": "Coptic Church Servants 2-Year Preparation Program",
+  "name": "St. Mark Ministry Portal",
+  "short_name": "St. Mark Portal",
+  "description": "Shared portal for St. Mark Servants Prep and Sunday School ministries",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -9,15 +9,15 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/sp-logo.png",
+      "src": "/sunday-school-favicon.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/sp-logo.avif",
+      "src": "/sunday-school-favicon.png",
       "sizes": "512x512",
-      "type": "image/avif",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

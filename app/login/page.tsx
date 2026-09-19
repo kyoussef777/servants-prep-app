@@ -133,15 +133,13 @@ function LoginForm() {
       <Card className="w-full max-w-md bg-[#5c1a1a] border-[#5c1a1a]">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
-            <div className="rounded-xl bg-[#fff] p-2 shadow-sm">
-              <Image
-                src="/sunday-school-favicon.png"
-                alt="St. Mark Coptic Orthodox Church"
-                width={144}
-                height={144}
-                className="h-32 w-32 object-contain"
-              />
-            </div>
+            <Image
+              src="/sunday-school-favicon.png"
+              alt="St. Mark Coptic Orthodox Church"
+              width={144}
+              height={144}
+              className="h-32 w-32 object-contain drop-shadow-md"
+            />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-white">
             <h1>St. Mark Ministry Portal</h1>

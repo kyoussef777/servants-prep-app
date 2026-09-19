@@ -6,8 +6,8 @@ import {
   SundaySchoolFeedbackVoteType,
 } from '@prisma/client'
 import {
-  ArrowDown,
-  ArrowUp,
+  ArrowBigDown,
+  ArrowBigUp,
   Pencil,
   Plus,
   Trash2,
@@ -46,6 +46,7 @@ import {
   FEEDBACK_TITLE_MAX_LENGTH,
 } from '@/lib/sunday-school-feedback'
 import { useSundaySchoolFeedback } from '@/lib/swr'
+import { cn } from '@/lib/utils'
 import type {
   SundaySchoolFeedbackIdea,
   SundaySchoolFeedbackResponse,
@@ -103,6 +104,85 @@ function optimisticVote(
   }
 }
 
+interface FeedbackVoteRailProps {
+  idea: SundaySchoolFeedbackIdea
+  disabled: boolean
+  onVote: (vote: SundaySchoolFeedbackVoteType) => void
+}
+
+function FeedbackVoteRail({ idea, disabled, onVote }: FeedbackVoteRailProps) {
+  const hasUpvote = idea.viewerVote === SundaySchoolFeedbackVoteType.UP
+  const hasDownvote = idea.viewerVote === SundaySchoolFeedbackVoteType.DOWN
+
+  return (
+    <div
+      className="flex h-fit shrink-0 flex-col items-center rounded-full border border-gray-200 bg-gray-50 p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+      aria-label={`Voting for ${idea.title}`}
+    >
+      <button
+        type="button"
+        aria-label={`Upvote ${idea.title}`}
+        aria-pressed={hasUpvote}
+        title={hasUpvote ? 'Remove upvote' : 'Upvote'}
+        disabled={disabled}
+        onClick={() => onVote(SundaySchoolFeedbackVoteType.UP)}
+        className={cn(
+          'group flex h-9 w-9 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:focus-visible:ring-offset-gray-950',
+          hasUpvote
+            ? 'bg-orange-100 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400'
+            : 'text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:text-gray-400 dark:hover:bg-orange-950/60 dark:hover:text-orange-400'
+        )}
+      >
+        <ArrowBigUp
+          className={cn(
+            'h-6 w-6 transition-transform group-active:-translate-y-0.5 group-active:scale-90',
+            hasUpvote && 'feedback-vote-pop-up fill-current'
+          )}
+        />
+      </button>
+
+      <span
+        key={`${idea.score}-${idea.viewerVote ?? 'none'}`}
+        aria-label={`Net score ${idea.score}`}
+        aria-live="polite"
+        className={cn(
+          'feedback-score-pop min-w-9 py-0.5 text-center text-sm font-bold tabular-nums',
+          hasUpvote && 'text-orange-600 dark:text-orange-400',
+          hasDownvote && 'text-blue-600 dark:text-blue-400',
+          !hasUpvote && !hasDownvote && 'text-gray-900 dark:text-gray-100'
+        )}
+      >
+        {idea.score}
+      </span>
+      <span className="sr-only">
+        {idea.upvotes} upvotes and {idea.downvotes} downvotes
+      </span>
+
+      <button
+        type="button"
+        aria-label={`Downvote ${idea.title}`}
+        aria-pressed={hasDownvote}
+        title={hasDownvote ? 'Remove downvote' : 'Downvote'}
+        disabled={disabled}
+        onClick={() => onVote(SundaySchoolFeedbackVoteType.DOWN)}
+        className={cn(
+          'group flex h-9 w-9 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:focus-visible:ring-offset-gray-950',
+          hasDownvote
+            ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400'
+            : 'text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-blue-950/60 dark:hover:text-blue-400'
+        )}
+      >
+        <ArrowBigDown
+          className={cn(
+            'h-6 w-6 transition-transform group-active:translate-y-0.5 group-active:scale-90',
+            hasDownvote && 'feedback-vote-pop-down fill-current'
+          )}
+        />
+      </button>
+    </div>
+  )
+}
+
 export default function SundaySchoolFeedbackPage() {
   const { status: sessionStatus } = useSundaySchoolGuard()
   const { data, error, isLoading, mutate } = useSundaySchoolFeedback('ALL', 'TOP')
@@ -147,16 +227,16 @@ export default function SundaySchoolFeedbackPage() {
         }
       )
       const body = await res.json()
-      if (!res.ok) throw new Error(body.error || 'Failed to save the idea')
+      if (!res.ok) throw new Error(body.error || 'Failed to save feedback')
 
       setDialogOpen(false)
       setEditingIdea(null)
       setTitle('')
       setDescription('')
       await mutate()
-      toast.success(editingIdea ? 'Idea updated' : 'Idea submitted')
+      toast.success(editingIdea ? 'Feedback updated' : 'Feedback submitted')
     } catch (saveError: unknown) {
-      toast.error(saveError instanceof Error ? saveError.message : 'Failed to save the idea')
+      toast.error(saveError instanceof Error ? saveError.message : 'Failed to save feedback')
     } finally {
       setSaving(false)
     }
@@ -225,7 +305,7 @@ export default function SundaySchoolFeedbackPage() {
       if (!res.ok) throw new Error(body.error || 'Failed to delete the idea')
       setDeleteIdea(null)
       await mutate()
-      toast.success('Idea deleted')
+      toast.success('Feedback deleted')
     } catch (deleteError: unknown) {
       toast.error(deleteError instanceof Error ? deleteError.message : 'Failed to delete the idea')
     } finally {
@@ -240,12 +320,12 @@ export default function SundaySchoolFeedbackPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <PageHeader
           title="Feedback"
-          description="Share ideas for the app and help prioritize what would be most useful."
+          description="Share ideas, request improvements, or report bugs. Vote on feedback to help prioritize what matters most."
           actions={
             response?.viewer.canSubmit ? (
               <Button onClick={openCreateDialog}>
                 <Plus className="h-4 w-4" />
-                Submit an idea
+                Post feedback
               </Button>
             ) : undefined
           }
@@ -260,44 +340,19 @@ export default function SundaySchoolFeedbackPage() {
         ) : !response?.ideas.length ? (
           <Card>
             <CardContent className="pt-6">
-              <EmptyState message="No ideas yet. Submit the first one!" />
+              <EmptyState message="No feedback yet. Post the first idea or bug report!" />
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
             {response.ideas.map(idea => (
-              <Card key={idea.id}>
-                <CardContent className="flex flex-col gap-5 pt-6 sm:flex-row">
-                  <div className="flex shrink-0 flex-row items-center gap-2 sm:w-24 sm:flex-col">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant={idea.viewerVote === SundaySchoolFeedbackVoteType.UP ? 'default' : 'outline'}
-                      aria-label={`Upvote ${idea.title}`}
-                      aria-pressed={idea.viewerVote === SundaySchoolFeedbackVoteType.UP}
-                      disabled={!idea.canVote || votingIdeaId === idea.id}
-                      onClick={() => handleVote(idea, SundaySchoolFeedbackVoteType.UP)}
-                    >
-                      <ArrowUp className="h-4 w-4" />
-                    </Button>
-                    <div className="min-w-12 text-center">
-                      <p className="text-xl font-bold" aria-label={`Net score ${idea.score}`}>
-                        {idea.score}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">score</p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant={idea.viewerVote === SundaySchoolFeedbackVoteType.DOWN ? 'default' : 'outline'}
-                      aria-label={`Downvote ${idea.title}`}
-                      aria-pressed={idea.viewerVote === SundaySchoolFeedbackVoteType.DOWN}
-                      disabled={!idea.canVote || votingIdeaId === idea.id}
-                      onClick={() => handleVote(idea, SundaySchoolFeedbackVoteType.DOWN)}
-                    >
-                      <ArrowDown className="h-4 w-4" />
-                    </Button>
-                  </div>
+              <Card key={idea.id} className="overflow-hidden transition-colors hover:border-gray-300 dark:hover:border-gray-700">
+                <CardContent className="grid grid-cols-[auto_minmax(0,1fr)] gap-4 pt-6 sm:gap-5">
+                  <FeedbackVoteRail
+                    idea={idea}
+                    disabled={!idea.canVote || votingIdeaId === idea.id}
+                    onVote={vote => handleVote(idea, vote)}
+                  />
 
                   <div className="min-w-0 flex-1 space-y-3">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -367,8 +422,6 @@ export default function SundaySchoolFeedbackPage() {
                     )}
 
                     <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                      <span>{idea.upvotes} upvotes</span>
-                      <span>{idea.downvotes} downvotes</span>
                       {!idea.canVote && idea.submitter && idea.canEdit && <span>Your idea</span>}
                       {!idea.canVote &&
                         (idea.status === SundaySchoolFeedbackStatus.COMPLETED ||
@@ -388,9 +441,9 @@ export default function SundaySchoolFeedbackPage() {
         <DialogContent>
           <form onSubmit={handleSave} className="space-y-5">
             <DialogHeader>
-              <DialogTitle>{editingIdea ? 'Edit idea' : 'Submit an idea'}</DialogTitle>
+              <DialogTitle>{editingIdea ? 'Edit feedback' : 'Post feedback'}</DialogTitle>
               <DialogDescription>
-                Describe a change that would make the Sunday School application more useful.
+                Share an idea, request an improvement, or report a bug in the Sunday School application.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
@@ -400,7 +453,7 @@ export default function SundaySchoolFeedbackPage() {
                 value={title}
                 onChange={event => setTitle(event.target.value)}
                 maxLength={FEEDBACK_TITLE_MAX_LENGTH}
-                placeholder="What would you like to add or improve?"
+                placeholder="Summarize the idea, improvement, or bug"
                 required
                 autoFocus
               />
@@ -416,7 +469,7 @@ export default function SundaySchoolFeedbackPage() {
                 onChange={event => setDescription(event.target.value)}
                 maxLength={FEEDBACK_DESCRIPTION_MAX_LENGTH}
                 rows={6}
-                placeholder="Explain the need, who it would help, or how it could work."
+                placeholder="Add helpful context. For bugs, include what happened, what you expected, and how to reproduce it."
               />
               <p className="text-right text-xs text-gray-500">
                 {description.length}/{FEEDBACK_DESCRIPTION_MAX_LENGTH}
@@ -427,7 +480,7 @@ export default function SundaySchoolFeedbackPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={saving || title.trim().length < 3}>
-                {saving ? 'Saving…' : editingIdea ? 'Save changes' : 'Submit idea'}
+                {saving ? 'Saving…' : editingIdea ? 'Save changes' : 'Submit feedback'}
               </Button>
             </DialogFooter>
           </form>
@@ -437,7 +490,7 @@ export default function SundaySchoolFeedbackPage() {
       <AlertDialog open={Boolean(deleteIdea)} onOpenChange={open => !open && setDeleteIdea(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this idea?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this feedback?</AlertDialogTitle>
             <AlertDialogDescription>
               “{deleteIdea?.title}” and all of its votes will be permanently deleted.
             </AlertDialogDescription>
