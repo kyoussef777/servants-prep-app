@@ -64,4 +64,20 @@ describe('LoginPage', () => {
       expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
     })
   })
+
+  it('presents one shared portal for Servants Prep and Sunday School', () => {
+    mocks.authState.data = null
+    mocks.authState.status = 'unauthenticated'
+
+    render(<LoginPage />)
+
+    expect(screen.getByRole('heading', { name: 'St. Mark Ministry Portal' })).toBeInTheDocument()
+    expect(screen.getByText('Servants Prep')).toBeInTheDocument()
+    expect(screen.getByText('Sunday School')).toBeInTheDocument()
+    expect(screen.getByAltText('St. Mark Coptic Orthodox Church')).toHaveAttribute(
+      'src',
+      '/sunday-school-favicon.png'
+    )
+    expect(screen.getByText(/sign in once to access the ministries/i)).toBeInTheDocument()
+  })
 })

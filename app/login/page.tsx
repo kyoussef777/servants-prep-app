@@ -24,8 +24,8 @@ function GoogleIcon() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
       </div>
     }>
       <LoginForm />
@@ -113,8 +113,8 @@ function LoginForm() {
   // Show loading state while checking session
   if (status === 'loading' || clearingInvalidSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
       </div>
     )
   }
@@ -122,30 +122,40 @@ function LoginForm() {
   // Don't render login form if already authenticated (will redirect)
   if (status === 'authenticated' && session?.user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg text-gray-600">Redirecting...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Redirecting...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 dark:bg-gray-950">
       <Card className="w-full max-w-md bg-[#5c1a1a] border-[#5c1a1a]">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
-            <Image
-              src="/sp-logo.avif"
-              alt="Servants Prep Logo"
-              width={150}
-              height={150}
-              className="rounded-lg"
-            />
+            <div className="rounded-xl bg-[#fff] p-2 shadow-sm">
+              <Image
+                src="/sunday-school-favicon.png"
+                alt="St. Mark Coptic Orthodox Church"
+                width={144}
+                height={144}
+                className="h-32 w-32 object-contain"
+              />
+            </div>
           </div>
           <CardTitle className="text-2xl font-bold text-center text-white">
-            Servants Preparation Program
+            <h1>St. Mark Ministry Portal</h1>
           </CardTitle>
+          <div className="flex flex-wrap justify-center gap-2" aria-label="Programs available in this portal">
+            <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+              Servants Prep
+            </span>
+            <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+              Sunday School
+            </span>
+          </div>
           <CardDescription className="text-center text-gray-200">
-            Enter your credentials to access the system
+            Sign in once to access the ministries connected to your account.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

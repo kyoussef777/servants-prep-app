@@ -16,8 +16,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { NavigationTransition } from "@/components/navigation-transition";
 
 export const metadata: Metadata = {
-  title: "Servants Preparation Program",
-  description: "Coptic Church Servants 2-Year Preparation Program Management",
+  title: "St. Mark Ministry Portal",
+  description: "Shared portal for St. Mark Servants Prep and Sunday School ministries",
   manifest: "/manifest.json",
   icons: {
     icon: '/sp-logo.avif',
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Servants Prep",
+    title: "St. Mark Portal",
   },
 };
 
