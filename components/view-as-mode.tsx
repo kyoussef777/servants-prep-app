@@ -8,6 +8,7 @@ import { Command } from 'cmdk'
 import { Eye, EyeOff, Search, ShieldCheck, User as UserIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { RoleTag, UserRole } from '@prisma/client'
+import { replaceBrowserLocation } from '@/lib/browser-navigation'
 
 interface UserRow {
   id: string
@@ -118,13 +119,7 @@ export function ViewAsMode() {
 
   if (!session?.user || !isSuperAdminActor) return null
 
-  const reloadForEffectiveIdentity = (destination?: string) => {
-    // A full reload clears data cached for the previous effective identity.
-    // When stopping View as, change the URL synchronously first so the reload
-    // cannot leave the restored admin on the target user's current page.
-    if (destination && window.location.pathname !== destination) {
-      window.history.replaceState(window.history.state, '', destination)
-    }
+  const reloadForEffectiveIdentity = () => {
     router.refresh()
     window.setTimeout(() => window.location.reload(), 50)
   }
@@ -153,7 +148,10 @@ export function ViewAsMode() {
         toast.error('View as could not be stopped. Sign out if the problem continues.')
         return
       }
-      reloadForEffectiveIdentity(defaultDashboardPath(updated.user.role))
+      // Navigate with the browser rather than the client router. This both
+      // clears data cached for the viewed user and prevents Next.js from
+      // restoring the target user's old route during the identity change.
+      replaceBrowserLocation(defaultDashboardPath(updated.user.role))
     } finally {
       setBusy(false)
     }

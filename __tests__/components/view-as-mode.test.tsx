@@ -6,6 +6,7 @@ import { defaultDashboardPath, ViewAsMode } from '@/components/view-as-mode'
 const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   refresh: vi.fn(),
+  replaceBrowserLocation: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -33,10 +34,15 @@ vi.mock('next-auth/react', () => ({
   }),
 }))
 
+vi.mock('@/lib/browser-navigation', () => ({
+  replaceBrowserLocation: mocks.replaceBrowserLocation,
+}))
+
 describe('ViewAsMode', () => {
   afterEach(() => {
     mocks.update.mockReset()
     mocks.refresh.mockReset()
+    mocks.replaceBrowserLocation.mockReset()
     window.history.replaceState(window.history.state, '', '/')
   })
 
@@ -51,7 +57,6 @@ describe('ViewAsMode', () => {
   })
 
   it('returns to the restored super admin dashboard after stopping View as', async () => {
-    window.history.replaceState(window.history.state, '', '/dashboard/mentor')
     mocks.update.mockResolvedValue({
       user: { id: 'admin', role: UserRole.SUPER_ADMIN },
       impersonating: null,
@@ -62,8 +67,7 @@ describe('ViewAsMode', () => {
 
     await waitFor(() => {
       expect(mocks.update).toHaveBeenCalledWith({ impersonate: null })
-      expect(window.location.pathname).toBe('/dashboard/admin')
-      expect(mocks.refresh).toHaveBeenCalledOnce()
+      expect(mocks.replaceBrowserLocation).toHaveBeenCalledWith('/dashboard/admin')
     })
   })
 })
