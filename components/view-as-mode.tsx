@@ -37,6 +37,23 @@ const TAG_LABEL: Record<RoleTag, string> = {
   PARENT: 'Parent',
 }
 
+export function defaultDashboardPath(role: UserRole): string {
+  switch (role) {
+    case 'STUDENT':
+      return '/dashboard/student'
+    case 'MENTOR':
+      return '/dashboard/mentor'
+    case 'SERVANT':
+      return '/dashboard/servants'
+    case 'PARENT':
+      return '/dashboard/parent'
+    case 'SERVANT_PREP':
+    case 'PRIEST':
+    case 'SUPER_ADMIN':
+      return '/dashboard/admin'
+  }
+}
+
 export function ViewAsMode() {
   const { data: session, update } = useSession()
   const router = useRouter()
@@ -101,7 +118,13 @@ export function ViewAsMode() {
 
   if (!session?.user || !isSuperAdminActor) return null
 
-  const reloadForEffectiveIdentity = () => {
+  const reloadForEffectiveIdentity = (destination?: string) => {
+    // A full reload clears data cached for the previous effective identity.
+    // When stopping View as, change the URL synchronously first so the reload
+    // cannot leave the restored admin on the target user's current page.
+    if (destination && window.location.pathname !== destination) {
+      window.history.replaceState(window.history.state, '', destination)
+    }
     router.refresh()
     window.setTimeout(() => window.location.reload(), 50)
   }
@@ -126,11 +149,11 @@ export function ViewAsMode() {
     setBusy(true)
     try {
       const updated = await update({ impersonate: null })
-      if (updated?.impersonating) {
+      if (updated?.impersonating || !updated?.user) {
         toast.error('View as could not be stopped. Sign out if the problem continues.')
         return
       }
-      reloadForEffectiveIdentity()
+      reloadForEffectiveIdentity(defaultDashboardPath(updated.user.role))
     } finally {
       setBusy(false)
     }
