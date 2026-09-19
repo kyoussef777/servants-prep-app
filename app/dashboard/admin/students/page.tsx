@@ -18,7 +18,7 @@ import {
   type StudentTableSortKey,
 } from '@/lib/student-table-sort'
 import { toast } from 'sonner'
-import { ChevronUp, ChevronDown, ChevronRight, ArrowUpDown, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, GraduationCap, UserX } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronRight, ArrowUpDown, X, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, GraduationCap, UserX } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
 import { BulkStudentImport } from '@/components/bulk-student-import'
 import { YearEndReviewPanel } from '@/components/year-end-review-panel'
@@ -530,6 +530,7 @@ function StudentsManagementContent() {
     sortColumn,
     sortDirection
   )
+  const hasActiveFilters = searchTerm.trim() !== '' || filterYearLevel !== 'all' || filterStatus !== 'all'
   const activeCount = students.filter(s => s.enrollments?.[0]?.status === 'ACTIVE').length
   const graduatedCount = students.filter(s => s.enrollments?.[0]?.status === 'GRADUATED').length
   const year1Count = students.filter(s => s.enrollments?.[0]?.yearLevel === 'YEAR_1' && s.enrollments?.[0]?.status === 'ACTIVE').length
@@ -647,6 +648,21 @@ function StudentsManagementContent() {
                   <option value="GRADUATED">Graduated</option>
                   <option value="WITHDRAWN">Withdrawn</option>
                 </select>
+                {hasActiveFilters && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('')
+                      setFilterYearLevel('all')
+                      setFilterStatus('all')
+                    }}
+                    className="gap-1.5"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                    Clear filters
+                  </Button>
+                )}
               </div>
             </div>
           </CardHeader>
