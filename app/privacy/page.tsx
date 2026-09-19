@@ -3,7 +3,7 @@ import { LegalPage } from '@/components/legal-page'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | St. Mark Church Ministry Portal',
-  description: 'How the St. Mark Church Ministry Portal collects, uses, and protects information.',
+  description: 'How the St. Mark Church Ministry Portal collects, uses, shares, and protects information.',
 }
 
 export function PrivacyPageContent() {
@@ -12,107 +12,277 @@ export function PrivacyPageContent() {
       eyebrow="Privacy"
       title="Privacy Policy"
       description="This policy explains how information is handled when families, students, servants, mentors, clergy, and administrators use the ministry portal."
-      lastUpdated="September 3, 2026"
+      lastUpdated="September 19, 2026"
       sections={[
         {
-          title: 'Information we collect',
+          title: 'Who operates the portal and what this policy covers',
           content: (
             <>
               <p>
-                We collect account details such as name, email address, phone number, profile photo,
-                ministry role, and sign-in information. We also maintain records needed to operate the
-                Servants Preparation and Sunday School ministries.
+                The St. Mark Church Ministry Portal is operated for the Coptic Orthodox Church of Saint Mark
+                in Jersey City, New Jersey. It supports the church&apos;s Sunday School and Servants Preparation
+                ministries. This policy applies to the portal, its registration forms, and the ministry records
+                maintained through it. It does not govern unrelated church websites or third-party sites.
               </p>
               <p>
-                Those ministry records may include enrollment, class and mentor assignments, attendance,
-                expected absences, exam results, lesson progress, notes, uploaded resources, notification
-                preferences, and Sunday School service activity.
+                In this policy, &quot;the church,&quot; &quot;we,&quot; and &quot;us&quot; refer to the Coptic Orthodox Church of Saint
+                Mark and the authorized ministry leaders who operate the portal on its behalf.
               </p>
             </>
           ),
         },
         {
-          title: 'Children and guardian information',
+          title: 'Information we collect',
+          content: (
+            <>
+              <p>
+                Account and contact information may include a person&apos;s name, email address, username, phone
+                number, profile photo, ministry roles, service start date, account status, password hash,
+                Google sign-in identifier, and sign-in or session information.
+              </p>
+              <p>
+                Servants Preparation records may include enrollment and year level, mentor and father-of-
+                confession information, attendance and expected-absence reasons, conduct records, exam scores,
+                lesson progress, eligibility or graduation status, notes, signed approval forms, profile photos,
+                and attendance or confession-verification slips. The portal is not intended to record the
+                content of a confession.
+              </p>
+              <p>
+                Sunday School records may include a child&apos;s name, date of birth, grade or level, class and
+                yearly enrollment, attendance, visitation status, guardian contact information and relationship,
+                servant assignments and attendance, lesson plans, registrations, feedback, and related notes.
+                Roster imports may also record source filename, row outcomes, and import history.
+              </p>
+              <p>
+                We also maintain role and assignment history, notification preferences and messages, push
+                subscription details, uploads, support communications, and security or audit records such as
+                who made an administrative change and when it occurred.
+              </p>
+            </>
+          ),
+        },
+        {
+          title: 'Where information comes from',
           content: (
             <p>
-              For Sunday School registration and administration, we may collect a child&apos;s name, date of
-              birth, grade, class, attendance, and relevant registration details, together with a parent or
-              guardian&apos;s name, contact information, and relationship to the child. This information is used
-              only for church ministry administration, communication, and safeguarding purposes.
+              Information may be provided by you, a parent or guardian, the child where appropriate, authorized
+              church staff or servants, a mentor, or an administrator importing an existing ministry roster.
+              We also receive limited account information from Google if you choose Google sign-in, and
+              technical information automatically from your browser, device, and our service providers.
             </p>
+          ),
+        },
+        {
+          title: 'Children and guardian information',
+          content: (
+            <>
+              <p>
+                The portal is not intended for unsupervised self-registration by children under 13. A parent,
+                legal guardian, or authorized ministry leader should provide information for a younger child.
+                A child does not need an email address or portal account to appear on a Sunday School roster.
+              </p>
+              <p>
+                A guardian account receives access to a child&apos;s information only after an active guardian
+                relationship is approved or created in the portal. Parents and guardians may ask to review or
+                correct their child&apos;s information, end a guardian link, or request deletion, subject to identity
+                verification and records the church must reasonably retain for safeguarding, ministry history,
+                or legal obligations.
+              </p>
+              <p>
+                If you believe a child submitted personal information without appropriate guardian authorization,
+                contact us so we can review the account and take appropriate action.
+              </p>
+            </>
           ),
         },
         {
           title: 'How we use information',
           content: (
             <p>
-              Information is used to authenticate users, manage classes and rosters, record attendance and
-              academic progress, coordinate servants and mentors, review registrations, communicate ministry
-              updates, support users, maintain security, and improve the reliability of the portal.
+              We use information to authenticate users; review applications; manage accounts, roles, classes,
+              rosters, and guardian links; record attendance, service, lessons, exams, mentoring, and progress;
+              coordinate annual rollover; communicate ministry updates; send requested notifications; support
+              users; investigate misuse; maintain audit history; protect the portal and church community; and
+              improve the portal&apos;s reliability and ministry administration.
             </p>
           ),
         },
         {
-          title: 'Who can access information',
+          title: 'Eligibility calculations and human review',
           content: (
             <p>
-              Access is limited according to a person&apos;s church role and current ministry assignments.
-              Administrators, clergy, mentors, coordinators, and servants receive only the access needed for
-              their responsibilities. Sensitive guardian contact details are restricted to authorized people
-              responsible for the child&apos;s class and appropriate administrators.
+              The portal may calculate attendance percentages, exam averages, missing requirements, or an
+              eligibility status from ministry records. These calculations are administrative aids, not final
+              decisions made solely by an automated system. Authorized ministry leaders may review the underlying
+              records, correct errors, and make exceptions or final ministry decisions.
             </p>
           ),
         },
         {
-          title: 'Service providers and disclosure',
+          title: 'Who can access ministry records',
           content: (
             <p>
-              We may use trusted providers for hosting, database services, authentication, file delivery,
-              analytics, email, and notifications. They may process information only as needed to provide
-              those services. We do not sell personal information or use ministry records for targeted
-              advertising. Information may also be disclosed when required by law or necessary to protect
-              the safety and rights of the church community.
+              Access is limited by role tags, current ministry assignments, mentor relationships, and guardian
+              relationships. Super administrators operate the portal; clergy may receive broad read-only access;
+              coordinators and servants receive the scope needed for assigned classes or programs; mentors receive
+              access to assigned mentees; students receive access to their own records; and guardians receive
+              access to linked children. Authorized people must use information only for their church duties.
             </p>
           ),
         },
         {
-          title: 'Cookies and technical information',
+          title: 'Service providers and other disclosures',
+          content: (
+            <>
+              <p>
+                We use service providers to operate the portal, including Vercel for application hosting, file
+                storage, performance measurement, and privacy-focused web analytics; Neon for managed database
+                hosting; Google for optional sign-in and linked ministry resources; and browser or device push
+                services when you enable notifications. These providers may process information only as needed
+                to provide their services and under their own terms and privacy notices.
+              </p>
+              <p>
+                We may also disclose information when required by law; to respond to a valid legal request; to
+                investigate abuse or a security incident; to protect a child or another person from harm; or in
+                connection with a transition to a successor church-operated service. We do not sell personal
+                information, share it for cross-context behavioral advertising, or use ministry records for
+                targeted advertising.
+              </p>
+            </>
+          ),
+        },
+        {
+          title: 'Cookies, local storage, and analytics',
+          content: (
+            <>
+              <p>
+                The portal uses essential cookies and browser storage for secure sign-in, session continuity,
+                security protections, theme preferences, and selected portal settings. Blocking essential cookies
+                may prevent sign-in or other features from working.
+              </p>
+              <p>
+                Vercel Web Analytics and Speed Insights may collect page or route, referrer, timestamp, approximate
+                location, browser, operating system, device type, and performance measurements. Vercel describes
+                its standard web analytics as aggregated and not tied to a person or persistent cross-site
+                identifier. We do not intentionally send names, contact details, ministry notes, or record contents
+                as analytics events.
+              </p>
+            </>
+          ),
+        },
+        {
+          title: 'Push notifications',
           content: (
             <p>
-              The portal uses cookies and similar browser storage for essential functions such as secure
-              sign-in, session continuity, theme preferences, and notification settings. Basic technical and
-              usage information may be collected to diagnose errors, prevent abuse, and understand portal
-              performance.
+              Push notifications are optional. If enabled, we store a device subscription endpoint, encryption
+              keys, and limited device or browser information so ministry notifications can be delivered. You can
+              disable notifications in your browser or device settings. Notification previews may be visible on a
+              locked device, so choose device settings appropriate for your privacy needs.
             </p>
           ),
         },
         {
-          title: 'Retention and security',
+          title: 'Retention and deletion',
+          content: (
+            <>
+              <p>
+                We retain information for as long as it is reasonably needed to run the ministries, preserve
+                academic-year and service history, support safeguarding and accountability, resolve disputes,
+                maintain security, and meet legal obligations. Role grants, assignments, attendance, audit records,
+                and ministry outcomes may be archived rather than overwritten so the church can understand the
+                historical record.
+              </p>
+              <p>
+                Retention depends on the record&apos;s purpose, sensitivity, age, and whether an account or ministry
+                relationship remains active. When information is no longer reasonably needed, we may delete,
+                anonymize, or securely archive it. Provider backups and logs may remain for a limited period after
+                deletion. A request to delete an account does not necessarily remove records that must remain part
+                of another person&apos;s ministry history, an audit trail, or a safeguarding record.
+              </p>
+            </>
+          ),
+        },
+        {
+          title: 'Security and data location',
+          content: (
+            <>
+              <p>
+                We use role-based access controls, assignment-based scoping, password hashing, authenticated
+                sessions, transport encryption, administrative audit records, and service-provider safeguards.
+                Access should be removed when a person&apos;s ministry responsibility ends. No online system can
+                guarantee absolute security.
+              </p>
+              <p>
+                The portal and its providers may process or store information in the United States and other
+                locations where a provider operates. If you believe an account or record has been exposed, notify
+                church administration promptly.
+              </p>
+            </>
+          ),
+        },
+        {
+          title: 'Your choices and privacy requests',
           content: (
             <p>
-              We keep information only as long as reasonably needed for ministry administration, safety,
-              recordkeeping, and legal obligations. We use reasonable administrative and technical safeguards
-              to protect it, but no online system can guarantee absolute security.
+              You may ask to access, correct, or receive information associated with your account or linked child;
+              ask us to review an access relationship; withdraw optional push permission; or request account or
+              record deletion. We may need to verify your identity, authority, or guardianship before responding.
+              We may deny or limit a request when necessary to protect another person, preserve confidential church
+              records, maintain safeguarding or audit history, or comply with law, and will explain the reason when
+              appropriate.
             </p>
           ),
         },
         {
-          title: 'Your choices and requests',
+          title: 'Sensitive information and free-text fields',
           content: (
             <p>
-              You may ask church administration to review or correct your account or family information, or
-              to consider a deletion request. Some records may need to be retained for legitimate ministry,
-              safeguarding, or legal reasons. Parents and guardians may make these requests for their children.
+              Ministry records can be sensitive, particularly records concerning children, religious participation,
+              conduct, mentoring, and confession verification. Do not enter medical details, government identifiers,
+              financial information, the substance of a confession, or other highly sensitive information into a
+              note or upload unless the church specifically requests it and it is necessary for an authorized
+              ministry purpose. For emergencies, contact emergency services and church leadership directly rather
+              than relying on the portal.
             </p>
           ),
         },
         {
-          title: 'Changes and contact',
+          title: 'External links',
           content: (
             <p>
-              We may update this policy as the portal or ministry practices change. The date above identifies
-              the latest revision. For privacy questions or requests, contact St. Mark church administration
-              through the church&apos;s usual contact channels.
+              The portal may link to Google Drive, curriculum resources, or other websites. Those services are
+              governed by their own privacy practices. A link does not mean the church controls how the external
+              service collects or uses information.
+            </p>
+          ),
+        },
+        {
+          title: 'Changes to this policy',
+          content: (
+            <p>
+              We may update this policy as the portal, providers, or ministry practices change. The date above
+              identifies the latest revision. When a change materially affects how personal information is used,
+              we will provide additional notice through the portal or available contact information when reasonably
+              practical and seek consent when required.
+            </p>
+          ),
+        },
+        {
+          title: 'Contact us',
+          content: (
+            <p>
+              For privacy questions or requests, contact church administration at Coptic Orthodox Church of Saint
+              Mark, 427 West Side Avenue, Jersey City, NJ 07304; call (201) 333-0004; or use the official church
+              website at{' '}
+              <a
+                href="https://saintmark.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-maroon-700 underline underline-offset-2 dark:text-maroon-300"
+              >
+                saintmark.com
+              </a>
+              . Please do not include sensitive child or ministry information in an unsecured initial message.
             </p>
           ),
         },
