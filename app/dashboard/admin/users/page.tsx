@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { canManageUsers, getRoleDisplayName, SERVANT_PREP_MANAGEABLE_ROLES } from '@/lib/roles'
+import { canManageAllUsers, getRoleDisplayName } from '@/lib/roles'
 import { RoleTag, UserRole } from '@prisma/client'
 import { toast } from 'sonner'
 import { Camera, Check, Trash2, Pencil, X } from 'lucide-react'
@@ -46,7 +46,7 @@ interface User {
 
 export default function UsersPage() {
   const [organizationUser, setOrganizationUser] = useState<User | null>(null)
-  const { session, status } = useAdminGuard(canManageUsers)
+  const { session, status } = useAdminGuard(canManageAllUsers)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [isFiltering, setIsFiltering] = useState(false)
@@ -120,7 +120,7 @@ export default function UsersPage() {
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false)
 
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user?.role && canManageAllUsers(session.user.role)) {
       const isInitial = !hasInitiallyLoaded
       fetchUsers(debouncedSearch, roleFilter, isInitial)
       if (!hasInitiallyLoaded) {
@@ -474,21 +474,17 @@ export default function UsersPage() {
   const selectableUsers = users.filter(u => u.role !== 'SUPER_ADMIN' && u.id !== session?.user?.id)
   const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
 
-  if (loading || status === 'loading') {
+  if (
+    loading ||
+    status !== 'authenticated' ||
+    !session?.user?.role ||
+    !canManageAllUsers(session.user.role)
+  ) {
     return <PageLoading />
   }
 
-  // SERVANT_PREP can only create the roles it manages, SUPER_ADMIN can create all
-  const roleOptions: UserRole[] = session?.user?.role === 'SERVANT_PREP'
-    ? SERVANT_PREP_MANAGEABLE_ROLES
-    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'SERVANT', 'STUDENT']
-
-  // Filter options based on role permissions
-  // SERVANT_PREP can only filter by the roles it manages, plus SERVANT_PREP
-  // SUPER_ADMIN/PRIEST can filter by all roles
-  const filterRoleOptions: UserRole[] = session?.user?.role === 'SERVANT_PREP'
-    ? [...SERVANT_PREP_MANAGEABLE_ROLES, 'SERVANT_PREP']
-    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'SERVANT', 'STUDENT']
+  const roleOptions: UserRole[] = ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'SERVANT', 'STUDENT']
+  const filterRoleOptions = roleOptions
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">

@@ -20,7 +20,7 @@ import {
   School,
   X,
 } from 'lucide-react'
-import { isAdmin, canManageUsers, canManageEnrollments, canAdministerSundaySchool } from '@/lib/roles'
+import { isAdmin, canManageAllUsers, canManageEnrollments, canAdministerSundaySchool, canViewRegistrations } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
 
 interface SearchUser {
@@ -109,8 +109,10 @@ function getNavItemsForRole(
   if (canManageEnrollments(role)) {
     items.push({ label: 'Roster', href: '/dashboard/admin/enrollments', icon: Users })
   }
-  if (canManageUsers(role)) {
+  if (canManageAllUsers(role)) {
     items.push({ label: 'Users', href: '/dashboard/admin/users', icon: Users })
+  }
+  if (canViewRegistrations(role)) {
     items.push({ label: 'Registrations', href: '/dashboard/admin/registrations', icon: FileText })
   }
   if (hasSundaySchool) {

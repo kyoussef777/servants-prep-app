@@ -9,7 +9,7 @@ import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations, isAdmin, canAdministerSundaySchool } from '@/lib/roles'
+import { getRoleDisplayName, canManageAllUsers, canManageEnrollments, canViewRegistrations, isAdmin, canAdministerSundaySchool } from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
@@ -231,7 +231,7 @@ export function Navbar() {
     if (canManageEnrollments(role)) {
       more.push({ href: '/dashboard/admin/enrollments', label: 'Roster' })
     }
-    if (canManageUsers(role)) {
+    if (canManageAllUsers(role)) {
       more.push({ href: '/dashboard/admin/users', label: 'Users' })
     }
     if (canViewRegistrations(role)) {
