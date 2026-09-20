@@ -115,12 +115,12 @@ export default function SundaySchoolVisitationsPage() {
   }, [])
 
   useEffect(() => {
-    if (!selectedChildId || !isPriest) {
+    if (!selectedChildId || (!isPriest && !selectedClass?.canEdit)) {
       setPriestNotes([])
       return
     }
     void loadPriestNotes(selectedChildId)
-  }, [isPriest, loadPriestNotes, selectedChildId])
+  }, [isPriest, loadPriestNotes, selectedChildId, selectedClass?.canEdit])
 
   const handleSave = async () => {
     if (!selectedChild) return
@@ -173,9 +173,7 @@ export default function SundaySchoolVisitationsPage() {
         throw new Error(body.error || 'Failed to save the confidential note')
       }
 
-      if (isPriest) {
-        setPriestNotes(current => [body as SundaySchoolPriestNote, ...current])
-      }
+      setPriestNotes(current => [body as SundaySchoolPriestNote, ...current])
       setConfidentialNote('')
       toast.success(
         isPriest
@@ -473,7 +471,7 @@ export default function SundaySchoolVisitationsPage() {
                       <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
                         {isPriest
                           ? 'Confidential. These notes are available only to users with an active Priest access tag and never appear in the shared visitation history.'
-                          : 'Send confidential or personal context directly to the priests. Other servants cannot read it, and you will not be able to view it after submitting.'}
+                          : 'Send confidential or personal context directly to the priests. Only you and users with an active Priest access tag can read notes you submit.'}
                       </p>
                     </div>
                   </div>
@@ -486,7 +484,7 @@ export default function SundaySchoolVisitationsPage() {
                       id="priest-confidential-note"
                       value={confidentialNote}
                       onChange={event => setConfidentialNote(event.target.value)}
-                      placeholder="Add confidential pastoral context…"
+                      placeholder="Add confidential note…"
                       rows={4}
                       maxLength={5000}
                     />
@@ -507,37 +505,39 @@ export default function SundaySchoolVisitationsPage() {
                     </div>
                   </div>
 
-                  {isPriest && (
-                    <div className="space-y-3 border-t border-amber-200 pt-4 dark:border-amber-900">
-                      <h4 className="text-sm font-medium">Confidential history</h4>
-                      {loadingPriestNotes ? (
-                        <p className="text-sm text-amber-800 dark:text-amber-300">
-                          Loading confidential notes…
-                        </p>
-                      ) : priestNotes.length === 0 ? (
-                        <p className="text-sm text-amber-800 dark:text-amber-300">
-                          No priest-only notes have been added for this child.
-                        </p>
-                      ) : (
-                        priestNotes.map(priestNote => (
-                          <div
-                            key={priestNote.id}
-                            className="rounded-md border border-amber-200 bg-white/70 p-3 dark:border-amber-900 dark:bg-gray-950/50"
-                          >
-                            <p className="whitespace-pre-wrap text-sm">{priestNote.content}</p>
-                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                              {priestNote.author.name} ·{' '}
-                              {formatDateUTC(priestNote.createdAt, {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
+                  <div className="space-y-3 border-t border-amber-200 pt-4 dark:border-amber-900">
+                    <h4 className="text-sm font-medium">
+                      {isPriest ? 'Confidential history' : 'Your private notes'}
+                    </h4>
+                    {loadingPriestNotes ? (
+                      <p className="text-sm text-amber-800 dark:text-amber-300">
+                        Loading confidential notes…
+                      </p>
+                    ) : priestNotes.length === 0 ? (
+                      <p className="text-sm text-amber-800 dark:text-amber-300">
+                        {isPriest
+                          ? 'No priest-only notes have been added for this child.'
+                          : 'You have not sent a private note about this child.'}
+                      </p>
+                    ) : (
+                      priestNotes.map(priestNote => (
+                        <div
+                          key={priestNote.id}
+                          className="rounded-md border border-amber-200 bg-white/70 p-3 dark:border-amber-900 dark:bg-gray-950/50"
+                        >
+                          <p className="whitespace-pre-wrap text-sm">{priestNote.content}</p>
+                          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            {isPriest ? priestNote.author.name : 'You'} ·{' '}
+                            {formatDateUTC(priestNote.createdAt, {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -51,8 +51,8 @@ export function PrivacyPageContent() {
                 Sunday School records may include a child&apos;s name, date of birth, grade or level, class and
                 yearly enrollment, attendance, visitation status, guardian contact information and relationship,
                 servant assignments and attendance, lesson plans, registrations, feedback, related notes, and
-                confidential pastoral notes restricted to clergy with active Priest access. Roster imports may
-                also record source filename, row outcomes, and import history.
+                confidential pastoral notes restricted to their authors and clergy with active Priest access.
+                Roster imports may also record source filename, row outcomes, and import history.
               </p>
               <p>
                 We also maintain role and assignment history, notification preferences and messages, push
@@ -128,9 +128,9 @@ export function PrivacyPageContent() {
               coordinators and servants receive the scope needed for assigned classes or programs; mentors receive
               access to assigned mentees; students receive access to their own records; and guardians receive
               access to linked children. Confidential pastoral notes attached to Sunday School visitations are
-              available only to users with active Priest access and are not included in the general visitation
-              history. Administrative access alone does not grant access to those notes. Authorized people must
-              use information only for their church duties.
+              available only to the person who submitted the note and users with active Priest access; they are
+              not included in the general visitation history. Administrative access alone does not grant access
+              to those notes. Authorized people must use information only for their church duties.
             </p>
           ),
         },

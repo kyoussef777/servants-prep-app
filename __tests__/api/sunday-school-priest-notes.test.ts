@@ -69,19 +69,26 @@ describe('Sunday School priest-only notes API', () => {
     }))
   })
 
-  it('refuses to reveal notes to a user without an active Priest tag', async () => {
+  it('restricts a non-priest to notes they personally authored', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'servant-1', role: 'SERVANT' })
     mocks.getAuthorizationContext.mockResolvedValue({
       disabled: false,
-      roleTags: new Set([RoleTag.SUPER_ADMIN]),
+      roleTags: new Set([RoleTag.SUNDAY_SCHOOL_SERVANT]),
     })
+    mocks.findNotes.mockResolvedValue([{ id: 'own-note', content: 'My private note' }])
 
     const response = await GET(
       new Request('http://localhost/api/sunday-school/priest-notes?childId=child-1')
     )
 
-    expect(response.status).toBe(403)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      notes: [{ id: 'own-note', content: 'My private note' }],
+    })
+    expect(mocks.findNotes).toHaveBeenCalledWith(expect.objectContaining({
+      where: { childId: 'child-1', authorId: 'servant-1' },
+    }))
     expect(mocks.findChild).not.toHaveBeenCalled()
-    expect(mocks.findNotes).not.toHaveBeenCalled()
   })
 
   it('refuses a disabled priest before looking up the child', async () => {
@@ -174,7 +181,7 @@ describe('Sunday School priest-only notes API', () => {
     })
   })
 
-  it('lets an assigned visitation servant submit a note without granting read access', async () => {
+  it('lets an assigned visitation servant submit and then read only their own notes', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'servant-1', role: 'SERVANT' })
     mocks.getAuthorizationContext.mockResolvedValue({
       disabled: false,
@@ -184,7 +191,10 @@ describe('Sunday School priest-only notes API', () => {
     const getResponse = await GET(
       new Request('http://localhost/api/sunday-school/priest-notes?childId=child-1')
     )
-    expect(getResponse.status).toBe(403)
+    expect(getResponse.status).toBe(200)
+    expect(mocks.findNotes).toHaveBeenCalledWith(expect.objectContaining({
+      where: { childId: 'child-1', authorId: 'servant-1' },
+    }))
 
     const postResponse = await POST(new Request(
       'http://localhost/api/sunday-school/priest-notes',
