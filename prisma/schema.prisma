@@ -162,6 +162,14 @@ enum SlipType {
   CONFESSION
 }
 
+// Retained only to describe the pre-slip async-note data that remains in the
+// database during the deprecation window. Application code must not write it.
+enum NoteSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum SundaySchoolGrade {
   PRE_K
   KINDERGARTEN
@@ -279,9 +287,11 @@ model User {
   createdExpectedAbsences ExpectedAbsence[] @relation("CreatedExpectedAbsences")
 
   // Async / slip relations
-  asyncApprovedEnrollments StudentEnrollment[] @relation("AsyncApprovedBy")
-  slips                    StudentSlip[]       @relation("StudentSlips")
-  uploadedSlips            StudentSlip[]       @relation("UploadedSlips")
+  asyncApprovedEnrollments StudentEnrollment[]   @relation("AsyncApprovedBy")
+  slips                    StudentSlip[]         @relation("StudentSlips")
+  uploadedSlips            StudentSlip[]         @relation("UploadedSlips")
+  legacyNoteSubmissions    AsyncNoteSubmission[] @relation("StudentNoteSubmissions") @ignore
+  legacyReviewedNotes      AsyncNoteSubmission[] @relation("ReviewedNoteSubmissions") @ignore
 
   // Sunday School relations
   sundaySchoolAssignments SundaySchoolAssignment[] @relation("SundaySchoolAssignments")
@@ -509,11 +519,12 @@ model Lesson {
   updatedAt          DateTime     @updatedAt
 
   // Relations
-  academicYear      AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  examSection       ExamSection        @relation(fields: [examSectionId], references: [id])
-  creator           User?              @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  academicYear      AcademicYear          @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  examSection       ExamSection           @relation(fields: [examSectionId], references: [id])
+  creator           User?                 @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   attendanceRecords AttendanceRecord[]
   resources         LessonResource[]
+  legacyAsyncNotes  AsyncNoteSubmission[] @ignore
 
   @@unique([academicYearId, lessonNumber])
   @@index([academicYearId])
@@ -554,11 +565,12 @@ model AttendanceRecord {
   slipId            String? // Set when an async student's attendance slip marked this lesson PRESENT
 
   // Relations
-  lesson          Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student         User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  recorder        User?            @relation("RecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
-  slip            StudentSlip?     @relation(fields: [slipId], references: [id], onDelete: SetNull)
-  expectedAbsence ExpectedAbsence? @relation("ExpectedAbsenceRecords", fields: [expectedAbsenceId], references: [id], onDelete: SetNull)
+  lesson          Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student         User                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  recorder        User?                @relation("RecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
+  slip            StudentSlip?         @relation(fields: [slipId], references: [id], onDelete: SetNull)
+  expectedAbsence ExpectedAbsence?     @relation("ExpectedAbsenceRecords", fields: [expectedAbsenceId], references: [id], onDelete: SetNull)
+  legacyAsyncNote AsyncNoteSubmission? @ignore
 
   @@unique([lessonId, studentId])
   @@index([lessonId])
@@ -696,6 +708,36 @@ model StudentSlip {
 
   @@unique([studentId, type, periodStart])
   @@index([type])
+}
+
+// Legacy async lesson-note submissions were replaced by StudentSlip. The table
+// remains mapped so schema drift checks account for preserved production data,
+// while @@ignore keeps it out of Prisma Client and prevents new application use.
+model AsyncNoteSubmission {
+  id                 String               @id @default(cuid())
+  studentId          String
+  lessonId           String
+  content            String               @db.Text
+  status             NoteSubmissionStatus @default(PENDING)
+  submittedAt        DateTime             @default(now())
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  reviewFeedback     String?              @db.Text
+  attendanceRecordId String?              @unique
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  student          User              @relation("StudentNoteSubmissions", fields: [studentId], references: [id], onDelete: Cascade)
+  lesson           Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  reviewer         User?             @relation("ReviewedNoteSubmissions", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  attendanceRecord AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, lessonId])
+  @@index([studentId])
+  @@index([lessonId])
+  @@index([status])
+  @@index([submittedAt])
+  @@ignore
 }
 
 model SundaySchoolAssignment {

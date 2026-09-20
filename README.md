@@ -19,6 +19,7 @@ program, and vice versa.
 | [`AGENTS.md`](AGENTS.md) | The working guide — commands, layout, conventions, gotchas. Start here, whether you are a person or an AI coding agent. |
 | [`docs/permissions.md`](docs/permissions.md) | Every role and permission, and the Sunday School authority model |
 | [`docs/sunday-school-mode.md`](docs/sunday-school-mode.md) | Sunday School mode end to end |
+| [`docs/sunday-school-migration-runbook.md`](docs/sunday-school-migration-runbook.md) | Production database rehearsal, deployment, verification, and rollback |
 
 ## Features
 
