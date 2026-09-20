@@ -46,6 +46,11 @@ Tags grant participation, not record scope. A `SUNDAY_SCHOOL_SERVANT` tag alone
 cannot reveal a class, and a `MENTOR` tag alone cannot reveal a student. Active
 assignments or guardian relationships grant that scope.
 
+Creating a Sunday School servant assignment automatically grants the active
+`SUNDAY_SCHOOL_SERVANT` tag in the same transaction when it is missing. This
+keeps mode access and assignment scope consistent without making the tag itself
+grant access to any roster.
+
 | Role | Prep program | Sunday School | Manages users |
 |---|---|---|---|
 | `SUPER_ADMIN` | Full | Full, every class | All users |
@@ -155,8 +160,10 @@ classes with no migration.
 | Servant of a class | One class | That class's children and weekly child attendance; no servant-attendance entry or reporting |
 | Anyone else, including an unassigned `SERVANT_PREP` | — | Nothing |
 
-Only `SERVANT` and `SERVANT_PREP` accounts may be assigned
-(`SUNDAY_SCHOOL_ASSIGNABLE_ROLES`).
+`SERVANT`, `MENTOR`, and `SERVANT_PREP` accounts may be assigned directly. A
+`SUPER_ADMIN` may also be assigned when they have an active
+`SUNDAY_SCHOOL_SERVANT` tag, allowing an administrator to personally serve a
+class without weakening the read-only rule for priests.
 
 ### The role helpers that remain
 
@@ -167,7 +174,7 @@ Only these four things about Sunday School are genuinely role-derived:
 | `canAdministerSundaySchool` | `SUPER_ADMIN` | Age groups, servant accounts, any class |
 | `seesAllSundaySchoolClasses` | `SUPER_ADMIN`, `PRIEST` | Visibility without an assignment |
 | `isSundaySchoolReadOnly` | `PRIEST` | Sees, never writes |
-| `canBeAssignedToSundaySchool` | `SERVANT`, `SERVANT_PREP` | May receive an assignment |
+| `canBeAssignedToSundaySchool` | `SERVANT`, `MENTOR`, `SERVANT_PREP`; tagged `SUPER_ADMIN` | May receive an assignment |
 
 Everything else goes through the resolver.
 

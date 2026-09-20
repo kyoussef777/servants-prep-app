@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { SUNDAY_SCHOOL_ASSIGNABLE_ROLES } from "@/lib/roles"
 import { getSundaySchoolAccess } from "@/lib/sunday-school-access"
+import { RoleTag, UserRole } from "@prisma/client"
 
 // Sunday School mode: the people a coordinator may pick from when staffing.
 //
@@ -29,8 +30,19 @@ export async function GET(request: Request) {
 
     const servants = await prisma.user.findMany({
       where: {
-        role: { in: SUNDAY_SCHOOL_ASSIGNABLE_ROLES },
         isDisabled: false,
+        OR: [
+          { role: { in: SUNDAY_SCHOOL_ASSIGNABLE_ROLES } },
+          {
+            role: UserRole.SUPER_ADMIN,
+            roleAssignments: {
+              some: {
+                tag: RoleTag.SUNDAY_SCHOOL_SERVANT,
+                revokedAt: null,
+              },
+            },
+          },
+        ],
         ...(search ? { name: { contains: search, mode: "insensitive" as const } } : {}),
       },
       select: { id: true, name: true, email: true, role: true, profileImageUrl: true },

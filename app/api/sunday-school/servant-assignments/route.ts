@@ -9,7 +9,12 @@ import {
   getSundaySchoolAccess,
   visibleClassFilter,
 } from "@/lib/sunday-school-access"
-import { SundaySchoolAuthority } from "@prisma/client"
+import {
+  RoleGrantSource,
+  RoleTag,
+  SundaySchoolAuthority,
+  type Prisma,
+} from "@prisma/client"
 
 // Sunday School mode: who serves or coordinates what.
 //
@@ -28,6 +33,26 @@ async function resolveAcademicYearId(requested?: string | null): Promise<string 
     select: { id: true },
   })
   return active?.id ?? null
+}
+
+async function ensureSundaySchoolServantTag(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  grantedById: string
+) {
+  // The database has a partial unique index for active user/tag pairs. Using
+  // createMany + skipDuplicates keeps concurrent class assignments idempotent
+  // while still creating a fresh grant after a historical one was revoked.
+  await tx.userRoleAssignment.createMany({
+    data: [{
+      userId,
+      tag: RoleTag.SUNDAY_SCHOOL_SERVANT,
+      source: RoleGrantSource.SYSTEM,
+      grantedById,
+      note: "Granted automatically with a Sunday School servant assignment",
+    }],
+    skipDuplicates: true,
+  })
 }
 
 // GET /api/sunday-school/assignments
@@ -173,7 +198,15 @@ export async function POST(request: Request) {
 
     const assignee = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true, isDisabled: true },
+      select: {
+        id: true,
+        role: true,
+        isDisabled: true,
+        roleAssignments: {
+          where: { revokedAt: null },
+          select: { tag: true },
+        },
+      },
     })
     if (!assignee) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -181,11 +214,14 @@ export async function POST(request: Request) {
     if (assignee.isDisabled) {
       return NextResponse.json({ error: "Disabled users cannot be assigned" }, { status: 400 })
     }
-    if (!canBeAssignedToSundaySchool(assignee.role)) {
+    if (!canBeAssignedToSundaySchool(
+      assignee.role,
+      assignee.roleAssignments.map((assignment) => assignment.tag)
+    )) {
       return NextResponse.json(
         {
           error:
-            "Only Sunday School Servant, Mentor, and Servants Prep Leader accounts can be assigned",
+            "Only Sunday School Servant, Mentor, Servants Prep Leader, or tagged Super Admin accounts can be assigned",
         },
         { status: 400 }
       )
@@ -220,6 +256,7 @@ export async function POST(request: Request) {
             endReason: "Authority changed",
           },
         })
+        await ensureSundaySchoolServantTag(tx, userId, actor.id)
         return tx.sundaySchoolServantAssignment.create({
           data: {
             userId,
@@ -240,21 +277,24 @@ export async function POST(request: Request) {
       return NextResponse.json(promoted)
     }
 
-    const created = await prisma.sundaySchoolServantAssignment.create({
-      data: {
-        userId,
-        academicYearId,
-        sundaySchoolYearId,
-        authority,
-        classId: classId ?? null,
-        ageGroupId: ageGroupId ?? null,
-        assignedBy: actor.id,
-      },
-      include: {
-        user: { select: { id: true, name: true, email: true, role: true, profileImageUrl: true } },
-        class: { select: { id: true, name: true, level: true } },
-        ageGroup: { select: { id: true, name: true } },
-      },
+    const created = await prisma.$transaction(async (tx) => {
+      await ensureSundaySchoolServantTag(tx, userId, actor.id)
+      return tx.sundaySchoolServantAssignment.create({
+        data: {
+          userId,
+          academicYearId,
+          sundaySchoolYearId,
+          authority,
+          classId: classId ?? null,
+          ageGroupId: ageGroupId ?? null,
+          assignedBy: actor.id,
+        },
+        include: {
+          user: { select: { id: true, name: true, email: true, role: true, profileImageUrl: true } },
+          class: { select: { id: true, name: true, level: true } },
+          ageGroup: { select: { id: true, name: true } },
+        },
+      })
     })
 
     return NextResponse.json(created, { status: 201 })
