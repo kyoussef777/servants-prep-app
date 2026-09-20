@@ -46,6 +46,11 @@ Tags grant participation, not record scope. A `SUNDAY_SCHOOL_SERVANT` tag alone
 cannot reveal a class, and a `MENTOR` tag alone cannot reveal a student. Active
 assignments or guardian relationships grant that scope.
 
+Creating a Sunday School servant assignment automatically grants the active
+`SUNDAY_SCHOOL_SERVANT` tag in the same transaction when it is missing. This
+keeps mode access and assignment scope consistent without making the tag itself
+grant access to any roster.
+
 | Role | Prep program | Sunday School | Manages users |
 |---|---|---|---|
 | `SUPER_ADMIN` | Full | Full, every class | All users |

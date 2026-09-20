@@ -468,7 +468,12 @@ Any signed-in user may begin the child-registration flow; successful submission 
 ### Servant placement
 
 - Search-as-you-type servant selector replaces long scrolling lists.
-- Search returns only active `SUNDAY_SCHOOL_SERVANT` users and displays existing placements and derived mentor status.
+- Search returns active accounts eligible to serve in Sunday School, including
+  mentors and Servants Prep leaders who may serve in both programs.
+- Creating an assignment automatically grants `SUNDAY_SCHOOL_SERVANT` when the
+  active tag is missing; the assignment and tag grant commit atomically.
+- The tag grants Sunday School mode participation while the assignment alone
+  determines the servant's class or age-group scope.
 - Move ends the source assignment and creates the destination assignment.
 - Existing add-assignment behavior is used for “Add another class.”
 - Server authorization is calculated from both current-year assignment scope and the source/target class age groups.
