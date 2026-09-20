@@ -147,6 +147,15 @@ export interface SundaySchoolVisitationRecord {
   recorder: { id: string; name: string } | null
 }
 
+export interface SundaySchoolPriestNote {
+  id: string
+  childId: string
+  content: string
+  createdAt: string
+  updatedAt: string
+  author: { id: string; name: string }
+}
+
 export interface SundaySchoolVisitationChild {
   id: string
   firstName: string
@@ -164,6 +173,7 @@ export interface SundaySchoolVisitationsResponse {
   standing: {
     readOnly: boolean
     isAdmin: boolean
+    isPriest: boolean
   }
 }
 

@@ -1,9 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SundaySchoolVisitationStatus } from '@prisma/client'
 import { toast } from 'sonner'
-import { CalendarCheck, CheckCircle2, ClipboardList, MessageSquareText, Search } from 'lucide-react'
+import {
+  CalendarCheck,
+  CheckCircle2,
+  ClipboardList,
+  LockKeyhole,
+  MessageSquareText,
+  Search,
+} from 'lucide-react'
 import { PageHeader } from '@/components/admin/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -26,6 +33,7 @@ import { getLevelDisplayName } from '@/lib/sunday-school-class'
 import { useSundaySchoolVisitations } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
 import type {
+  SundaySchoolPriestNote,
   SundaySchoolVisitationChild,
   SundaySchoolVisitationsResponse,
 } from '@/types/sunday-school'
@@ -47,6 +55,11 @@ export default function SundaySchoolVisitationsPage() {
   const [visitedAt, setVisitedAt] = useState(TODAY)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [priestNotes, setPriestNotes] = useState<SundaySchoolPriestNote[]>([])
+  const [confidentialNote, setConfidentialNote] = useState('')
+  const [loadingPriestNotes, setLoadingPriestNotes] = useState(false)
+  const [savingPriestNote, setSavingPriestNote] = useState(false)
+  const isPriest = response?.standing.isPriest ?? false
 
   useEffect(() => {
     if (!selectedClassId && classes.length > 0) {
@@ -78,7 +91,36 @@ export default function SundaySchoolVisitationsPage() {
     setVisitationStatus(SundaySchoolVisitationStatus.DONE)
     setVisitedAt(TODAY)
     setNotes('')
+    setPriestNotes([])
+    setConfidentialNote('')
   }
+
+  const loadPriestNotes = useCallback(async (childId: string) => {
+    setLoadingPriestNotes(true)
+    try {
+      const res = await fetch(`/api/sunday-school/priest-notes?childId=${encodeURIComponent(childId)}`)
+      const body = await res.json()
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to load confidential notes')
+      }
+      setPriestNotes((body.notes ?? []) as SundaySchoolPriestNote[])
+    } catch (loadError: unknown) {
+      setPriestNotes([])
+      toast.error(
+        loadError instanceof Error ? loadError.message : 'Failed to load confidential notes'
+      )
+    } finally {
+      setLoadingPriestNotes(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedChildId || !isPriest) {
+      setPriestNotes([])
+      return
+    }
+    void loadPriestNotes(selectedChildId)
+  }, [isPriest, loadPriestNotes, selectedChildId])
 
   const handleSave = async () => {
     if (!selectedChild) return
@@ -113,6 +155,36 @@ export default function SundaySchoolVisitationsPage() {
     }
   }
 
+  const handlePriestNoteSave = async () => {
+    if (!selectedChild || !confidentialNote.trim()) return
+
+    setSavingPriestNote(true)
+    try {
+      const res = await fetch('/api/sunday-school/priest-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          childId: selectedChild.id,
+          content: confidentialNote,
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to save the confidential note')
+      }
+
+      setPriestNotes(current => [body as SundaySchoolPriestNote, ...current])
+      setConfidentialNote('')
+      toast.success('Confidential priest note saved')
+    } catch (saveError: unknown) {
+      toast.error(
+        saveError instanceof Error ? saveError.message : 'Failed to save the confidential note'
+      )
+    } finally {
+      setSavingPriestNote(false)
+    }
+  }
+
   if (status === 'loading' || isLoading) {
     return <PageLoading />
   }
@@ -127,7 +199,8 @@ export default function SundaySchoolVisitationsPage() {
 
         {response?.standing.readOnly && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
-            You have read-only access. You can review visitation status and notes for every class.
+            You have read-only access to ministry records. You can review visitation status and
+            notes for every class{isPriest ? ' and add confidential priest notes.' : '.'}
           </div>
         )}
 
@@ -382,6 +455,76 @@ export default function SundaySchoolVisitationsPage() {
                   ))
                 )}
               </div>
+
+              {isPriest && (
+                <div className="space-y-4 rounded-lg border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-900 dark:bg-amber-950/20">
+                  <div className="flex items-start gap-3">
+                    <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400" />
+                    <div>
+                      <h3 className="font-medium text-amber-950 dark:text-amber-100">
+                        Priest-only notes
+                      </h3>
+                      <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                        Confidential. These notes are available only to users with an active Priest
+                        access tag and never appear in the shared visitation history.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="priest-confidential-note">New confidential note</Label>
+                    <Textarea
+                      id="priest-confidential-note"
+                      value={confidentialNote}
+                      onChange={event => setConfidentialNote(event.target.value)}
+                      placeholder="Add confidential pastoral context…"
+                      rows={4}
+                      maxLength={5000}
+                    />
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                        {confidentialNote.length}/5,000
+                      </p>
+                      <Button
+                        onClick={handlePriestNoteSave}
+                        disabled={savingPriestNote || !confidentialNote.trim()}
+                      >
+                        {savingPriestNote ? 'Saving…' : 'Add confidential note'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 border-t border-amber-200 pt-4 dark:border-amber-900">
+                    <h4 className="text-sm font-medium">Confidential history</h4>
+                    {loadingPriestNotes ? (
+                      <p className="text-sm text-amber-800 dark:text-amber-300">
+                        Loading confidential notes…
+                      </p>
+                    ) : priestNotes.length === 0 ? (
+                      <p className="text-sm text-amber-800 dark:text-amber-300">
+                        No priest-only notes have been added for this child.
+                      </p>
+                    ) : (
+                      priestNotes.map(priestNote => (
+                        <div
+                          key={priestNote.id}
+                          className="rounded-md border border-amber-200 bg-white/70 p-3 dark:border-amber-900 dark:bg-gray-950/50"
+                        >
+                          <p className="whitespace-pre-wrap text-sm">{priestNote.content}</p>
+                          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            {priestNote.author.name} ·{' '}
+                            {formatDateUTC(priestNote.createdAt, {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -12,7 +12,7 @@ export function PrivacyPageContent() {
       eyebrow="Privacy"
       title="Privacy Policy"
       description="This policy explains how information is handled when families, students, servants, mentors, clergy, and administrators use the ministry portal."
-      lastUpdated="September 19, 2026"
+      lastUpdated="September 20, 2026"
       sections={[
         {
           title: 'Who operates the portal and what this policy covers',
@@ -50,8 +50,9 @@ export function PrivacyPageContent() {
               <p>
                 Sunday School records may include a child&apos;s name, date of birth, grade or level, class and
                 yearly enrollment, attendance, visitation status, guardian contact information and relationship,
-                servant assignments and attendance, lesson plans, registrations, feedback, and related notes.
-                Roster imports may also record source filename, row outcomes, and import history.
+                servant assignments and attendance, lesson plans, registrations, feedback, related notes, and
+                confidential pastoral notes restricted to clergy with active Priest access. Roster imports may
+                also record source filename, row outcomes, and import history.
               </p>
               <p>
                 We also maintain role and assignment history, notification preferences and messages, push
@@ -126,7 +127,10 @@ export function PrivacyPageContent() {
               relationships. Super administrators operate the portal; clergy may receive broad read-only access;
               coordinators and servants receive the scope needed for assigned classes or programs; mentors receive
               access to assigned mentees; students receive access to their own records; and guardians receive
-              access to linked children. Authorized people must use information only for their church duties.
+              access to linked children. Confidential pastoral notes attached to Sunday School visitations are
+              available only to users with active Priest access and are not included in the general visitation
+              history. Administrative access alone does not grant access to those notes. Authorized people must
+              use information only for their church duties.
             </p>
           ),
         },
@@ -238,11 +242,13 @@ export function PrivacyPageContent() {
           content: (
             <p>
               Ministry records can be sensitive, particularly records concerning children, religious participation,
-              conduct, mentoring, and confession verification. Do not enter medical details, government identifiers,
-              financial information, the substance of a confession, or other highly sensitive information into a
-              note or upload unless the church specifically requests it and it is necessary for an authorized
-              ministry purpose. For emergencies, contact emergency services and church leadership directly rather
-              than relying on the portal.
+              conduct, mentoring, confession verification, and pastoral care. Even in a priest-only field, record
+              only what is necessary for the authorized ministry purpose. Do not enter medical details, government
+              identifiers, financial information, the substance of a confession, or other highly sensitive
+              information into a note or upload unless the church specifically requests it and it is necessary and
+              authorized. The priest-only field is not intended to store the content of a confession. For
+              emergencies, contact emergency services and church leadership directly rather than relying on the
+              portal.
             </p>
           ),
         },

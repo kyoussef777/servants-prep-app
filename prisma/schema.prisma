@@ -299,6 +299,7 @@ model User {
   sundaySchoolServantAttendance         SundaySchoolServantAttendance[] @relation("SundaySchoolServantAttendance")
   recordedSundaySchoolServantAttendance SundaySchoolServantAttendance[] @relation("RecordedSundaySchoolServantAttendance")
   recordedSundaySchoolVisitations       SundaySchoolVisitation[]        @relation("RecordedSundaySchoolVisitations")
+  authoredSundaySchoolPriestNotes       SundaySchoolPriestNote[]        @relation("SundaySchoolPriestNoteAuthor")
   submittedSundaySchoolFeedback         SundaySchoolFeedbackIdea[]      @relation("SubmittedSundaySchoolFeedback")
   sundaySchoolFeedbackVotes             SundaySchoolFeedbackVote[]      @relation("SundaySchoolFeedbackVotes")
   ownedSundaySchoolWeeklyLessons        SundaySchoolWeeklyLesson[]      @relation("SundaySchoolWeeklyLessonOwner")
@@ -948,6 +949,7 @@ model SundaySchoolChild {
   user                User?                         @relation("SundaySchoolChildAccount", fields: [userId], references: [id], onDelete: SetNull)
   attendance          SundaySchoolChildAttendance[]
   visitations         SundaySchoolVisitation[]
+  priestNotes         SundaySchoolPriestNote[]
   guardians           SundaySchoolChildGuardian[]   @relation("ChildGuardians")
   registrationRequest ChildRegistrationRequest?     @relation("ChildRegistrationCreatedChild")
   enrollments         SundaySchoolEnrollment[]
@@ -1166,6 +1168,24 @@ model SundaySchoolVisitation {
   @@index([enrollmentId, createdAt])
   @@index([placementId, createdAt])
   @@index([status])
+}
+
+// Confidential pastoral notes are deliberately separate from visitation
+// notes so they can never be included accidentally by the general visitation
+// API. Only users with an active PRIEST role tag may access these records.
+model SundaySchoolPriestNote {
+  id        String   @id @default(cuid())
+  childId   String
+  authorId  String
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  child  SundaySchoolChild @relation(fields: [childId], references: [id], onDelete: Restrict)
+  author User              @relation("SundaySchoolPriestNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([childId, createdAt])
+  @@index([authorId, createdAt])
 }
 
 // Product ideas for the Sunday School side of the application. These are

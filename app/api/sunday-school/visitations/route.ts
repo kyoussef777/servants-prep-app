@@ -1,5 +1,6 @@
-import { SundaySchoolVisitationStatus } from "@prisma/client"
+import { RoleTag, SundaySchoolVisitationStatus } from "@prisma/client"
 import { NextResponse } from "next/server"
+import { getAuthorizationContext } from "@/lib/authorization"
 import { handleApiError } from "@/lib/api-utils"
 import { requireAuth } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
   try {
     const user = await requireAuth()
     const access = await getSundaySchoolAccess(user)
+    const authorization = await getAuthorizationContext(user.id)
 
     if (!access.canRead) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -81,6 +83,7 @@ export async function GET(request: Request) {
       standing: {
         readOnly: access.readOnly,
         isAdmin: access.isAdmin,
+        isPriest: authorization.roleTags.has(RoleTag.PRIEST),
       },
     })
   } catch (error: unknown) {
