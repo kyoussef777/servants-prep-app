@@ -1,4 +1,5 @@
 'use client'
+import { UserOrganizationDialog } from '@/components/user-organization-dialog'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
@@ -19,12 +20,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { canManageUsers, getRoleDisplayName } from '@/lib/roles'
-import { UserRole } from '@prisma/client'
+import { canManageAllUsers, getRoleDisplayName } from '@/lib/roles'
+import { RoleTag, UserRole } from '@prisma/client'
 import { toast } from 'sonner'
-import { Camera, Trash2, Pencil, X } from 'lucide-react'
+import { Camera, Check, Trash2, Pencil, X } from 'lucide-react'
 import { ImageCropDialog } from '@/components/image-crop-dialog'
 import { PageLoading } from '@/components/ui/page-loading'
+import { UserRoleTagEditor } from '@/components/user-role-tag-editor'
+import { UserRoleTagBadges } from '@/components/user-role-tag-badges'
 
 interface User {
   id: string
@@ -33,14 +36,17 @@ interface User {
   phone?: string
   profileImageUrl?: string | null
   role: UserRole
+  roleAssignments?: { tag: RoleTag }[]
   isDisabled?: boolean
   _count?: {
     mentoredStudents: number
+    sundaySchoolServing: number
   }
 }
 
 export default function UsersPage() {
-  const { session, status } = useAdminGuard(canManageUsers)
+  const [organizationUser, setOrganizationUser] = useState<User | null>(null)
+  const { session, status } = useAdminGuard(canManageAllUsers)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [isFiltering, setIsFiltering] = useState(false)
@@ -80,7 +86,9 @@ export default function UsersPage() {
     email: '',
     phone: '',
     password: '',
-    role: 'STUDENT' as UserRole
+    role: 'STUDENT' as UserRole,
+    roleTags: [RoleTag.SERVANTS_PREP_STUDENT] as RoleTag[],
+    roleAuditNote: '',
   })
   const [formError, setFormError] = useState('')
 
@@ -112,7 +120,7 @@ export default function UsersPage() {
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false)
 
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user?.role && canManageAllUsers(session.user.role)) {
       const isInitial = !hasInitiallyLoaded
       fetchUsers(debouncedSearch, roleFilter, isInitial)
       if (!hasInitiallyLoaded) {
@@ -126,10 +134,19 @@ export default function UsersPage() {
     setFormError('')
 
     try {
+      const createPayload: Record<string, unknown> = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        role: formData.role,
+      }
+      if (isSuperAdmin) createPayload.roleTags = formData.roleTags
+
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(createPayload)
       })
 
       const data = await res.json()
@@ -140,7 +157,7 @@ export default function UsersPage() {
 
       await fetchUsers(debouncedSearch, roleFilter)
       setShowCreateForm(false)
-      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create user')
     }
@@ -156,8 +173,8 @@ export default function UsersPage() {
         name: formData.name,
         email: formData.email,
         phone: formData.phone || null,
-        role: formData.role
       }
+      if (!isSuperAdmin) updatePayload.role = formData.role
 
       // Include password only if provided (SUPER_ADMIN only)
       if (formData.password) {
@@ -176,6 +193,21 @@ export default function UsersPage() {
         throw new Error(data.error || 'Failed to update user')
       }
 
+      if (isSuperAdmin) {
+        const roleResponse = await fetch(`/api/admin/users/${editingUser.id}/roles`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roleTags: formData.roleTags,
+            note: formData.roleAuditNote || undefined,
+          }),
+        })
+        const roleData = await roleResponse.json()
+        if (!roleResponse.ok) {
+          throw new Error(`Profile fields were saved, but access tags were not updated: ${roleData.error || 'Unknown error'}`)
+        }
+      }
+
       await fetchUsers(debouncedSearch, roleFilter)
 
       // Show appropriate success message
@@ -188,7 +220,7 @@ export default function UsersPage() {
       }
 
       setEditingUser(null)
-      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
+      setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to update user')
     }
@@ -231,7 +263,9 @@ export default function UsersPage() {
       email: user.email,
       phone: user.phone || '',
       password: '',
-      role: user.role
+      role: user.role,
+      roleTags: user.roleAssignments?.map((assignment) => assignment.tag) ?? [],
+      roleAuditNote: '',
     })
     setShowCreateForm(false)
     setFormError('')
@@ -244,7 +278,7 @@ export default function UsersPage() {
   const cancelForm = () => {
     setShowCreateForm(false)
     setEditingUser(null)
-    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
     setFormError('')
   }
 
@@ -440,21 +474,17 @@ export default function UsersPage() {
   const selectableUsers = users.filter(u => u.role !== 'SUPER_ADMIN' && u.id !== session?.user?.id)
   const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
 
-  if (loading || status === 'loading') {
+  if (
+    loading ||
+    status !== 'authenticated' ||
+    !session?.user?.role ||
+    !canManageAllUsers(session.user.role)
+  ) {
     return <PageLoading />
   }
 
-  // SERVANT_PREP can only create STUDENT and MENTOR users, SUPER_ADMIN can create all
-  const roleOptions: UserRole[] = session?.user?.role === 'SERVANT_PREP'
-    ? ['STUDENT', 'MENTOR']
-    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT']
-
-  // Filter options based on role permissions
-  // SERVANT_PREP can only filter by STUDENT, MENTOR, or SERVANT_PREP
-  // SUPER_ADMIN/PRIEST can filter by all roles
-  const filterRoleOptions: UserRole[] = session?.user?.role === 'SERVANT_PREP'
-    ? ['STUDENT', 'MENTOR', 'SERVANT_PREP']
-    : ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'STUDENT']
+  const roleOptions: UserRole[] = ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'SERVANT', 'STUDENT']
+  const filterRoleOptions = roleOptions
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -522,7 +552,7 @@ export default function UsersPage() {
               onClick={() => {
                 setShowCreateForm(true)
                 setEditingUser(null)
-                setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT' })
+                setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
               }}
               disabled={showCreateForm || editingUser !== null}
             >
@@ -612,13 +642,21 @@ export default function UsersPage() {
                     <Label htmlFor="password">Password</Label>
                     <Input id="password" type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
                   </div>
-                  <div>
-                    <Label htmlFor="role">Role</Label>
-                    <select id="role" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
-                      {roleOptions.map(role => (<option key={role} value={role}>{getRoleDisplayName(role)}</option>))}
-                    </select>
-                  </div>
+                  {!isSuperAdmin && (
+                    <div>
+                      <Label htmlFor="role">Role</Label>
+                      <select id="role" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
+                        {roleOptions.map(role => (<option key={role} value={role}>{getRoleDisplayName(role)}</option>))}
+                      </select>
+                    </div>
+                  )}
                 </div>
+                {isSuperAdmin && (
+                  <UserRoleTagEditor
+                    value={formData.roleTags}
+                    onChange={(roleTags) => setFormData({ ...formData, roleTags })}
+                  />
+                )}
                 <div className="flex gap-2">
                   <Button type="submit">Create User</Button>
                   <Button type="button" variant="outline" onClick={cancelForm}>Cancel</Button>
@@ -657,7 +695,7 @@ export default function UsersPage() {
                     <th className="text-left p-2">Name</th>
                     <th className="text-left p-2">Email</th>
                     <th className="text-left p-2">Phone</th>
-                    <th className="text-center p-2 w-40">Role</th>
+                    <th className="text-center p-2 min-w-52">Access tags</th>
                     <th className="text-center p-2 w-24">Status</th>
                     <th className="text-center p-2 w-24">Mentees</th>
                     <th className="text-center p-2 w-32">Actions</th>
@@ -698,7 +736,9 @@ export default function UsersPage() {
                                 </AvatarFallback>
                               </Avatar>
                               <span>
-                                {user.role === 'STUDENT' ? (
+                                {isSuperAdmin && user.role !== 'STUDENT' ? (
+                                                                  <button type="button" onClick={() => setOrganizationUser(user)} className="text-left hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label={`View ${user.name}'s organization`}>{user.name}<span className="ml-1 text-xs text-muted-foreground">↗</span></button>
+                                                                ) : user.role === 'STUDENT' ? (
                                   <Link href={`/dashboard/admin/students?student=${user.id}`} className="hover:text-blue-600 hover:underline">
                                     {user.name}
                                   </Link>
@@ -714,17 +754,17 @@ export default function UsersPage() {
                           <td className="p-2 text-gray-600">{user.email}</td>
                           <td className="p-2 text-gray-600">{user.phone || '-'}</td>
                           <td className="p-2 text-center">
-                            <Badge
-                              className={
-                                user.role === 'SUPER_ADMIN' ? 'bg-purple-600' :
-                                user.role === 'PRIEST' ? 'bg-maroon-600' :
-                                user.role === 'SERVANT_PREP' ? 'bg-green-600' :
-                                user.role === 'MENTOR' ? 'bg-yellow-600' :
-                                'bg-gray-600'
-                              }
-                            >
-                              {getRoleDisplayName(user.role)}
-                            </Badge>
+                            <div className="flex flex-col items-center gap-1">
+                              <UserRoleTagBadges
+                                tags={user.roleAssignments?.map((assignment) => assignment.tag) ?? []}
+                                legacyRole={user.role}
+                              />
+                              {(user._count?.sundaySchoolServing ?? 0) > 0 && (
+                                <Badge variant="outline" className="gap-1 border-blue-300 text-blue-700">
+                                  <Check className="h-3 w-3" /> Assigned to Sunday School
+                                </Badge>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 text-center">
                             {user.isDisabled ? (
@@ -806,12 +846,14 @@ export default function UsersPage() {
                                         <Label htmlFor="edit-phone" className="text-xs">Phone</Label>
                                         <Input id="edit-phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="(555) 123-4567" className="h-9" />
                                       </div>
-                                      <div>
-                                        <Label htmlFor="edit-role" className="text-xs">Role</Label>
-                                        <select id="edit-role" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm" required>
-                                          {roleOptions.map(role => (<option key={role} value={role}>{getRoleDisplayName(role)}</option>))}
-                                        </select>
-                                      </div>
+                                      {!isSuperAdmin && (
+                                        <div>
+                                          <Label htmlFor="edit-role" className="text-xs">Role</Label>
+                                          <select id="edit-role" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm" required>
+                                            {roleOptions.map(role => (<option key={role} value={role}>{getRoleDisplayName(role)}</option>))}
+                                          </select>
+                                        </div>
+                                      )}
                                       {session?.user?.role === 'SUPER_ADMIN' && (
                                         <div>
                                           <Label htmlFor="edit-password" className="text-xs">New Password</Label>
@@ -820,6 +862,26 @@ export default function UsersPage() {
                                       )}
                                     </div>
                                   </div>
+                                  {isSuperAdmin && (
+                                    <div className="space-y-2 rounded-md border bg-background p-3">
+                                      <UserRoleTagEditor
+                                        value={formData.roleTags}
+                                        onChange={(roleTags) => setFormData({ ...formData, roleTags })}
+                                        compact
+                                      />
+                                      <div>
+                                        <Label htmlFor="edit-role-note" className="text-xs">Audit note (optional)</Label>
+                                        <Input
+                                          id="edit-role-note"
+                                          value={formData.roleAuditNote}
+                                          onChange={(e) => setFormData({ ...formData, roleAuditNote: e.target.value })}
+                                          placeholder="Why are these access tags changing?"
+                                          maxLength={500}
+                                          className="h-9"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
                                   <div className="flex gap-2 justify-end">
                                     <Button type="button" variant="outline" size="sm" onClick={cancelForm}>Cancel</Button>
                                     <Button type="submit" size="sm">Save Changes</Button>
@@ -871,16 +933,24 @@ export default function UsersPage() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {user.role === 'STUDENT' ? (
+                          {isSuperAdmin && user.role !== 'STUDENT' ? (
+                                                      <button type="button" onClick={() => setOrganizationUser(user)} className="text-left font-medium text-sm hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label={`View ${user.name}'s organization`}>{user.name}<span className="ml-1 text-xs text-muted-foreground">↗</span></button>
+                                                    ) : user.role === 'STUDENT' ? (
                             <Link href={`/dashboard/admin/students?student=${user.id}`} className="font-medium text-sm truncate hover:text-blue-600 hover:underline">{user.name}</Link>
                           ) : (
                             <span className="font-medium text-sm truncate">{user.name}</span>
                           )}
                           {isCurrentUser && <Badge variant="outline" className="text-[10px] px-1 py-0">You</Badge>}
                           {user.isDisabled && <Badge className="bg-red-500 text-[10px] px-1 py-0">Disabled</Badge>}
-                          <Badge className={`text-[10px] px-1.5 py-0 ${user.role === 'SUPER_ADMIN' ? 'bg-purple-600' : user.role === 'PRIEST' ? 'bg-maroon-600' : user.role === 'SERVANT_PREP' ? 'bg-green-600' : user.role === 'MENTOR' ? 'bg-yellow-600' : 'bg-gray-600'}`}>
-                            {user.role === 'SUPER_ADMIN' ? 'Admin' : user.role === 'PRIEST' ? 'Priest' : user.role === 'SERVANT_PREP' ? 'Prep' : user.role === 'MENTOR' ? 'Mentor' : 'Student'}
-                          </Badge>
+                          <UserRoleTagBadges
+                            tags={user.roleAssignments?.map((assignment) => assignment.tag) ?? []}
+                            legacyRole={user.role}
+                          />
+                          {(user._count?.sundaySchoolServing ?? 0) > 0 && (
+                            <Badge variant="outline" className="gap-0.5 border-blue-300 px-1 py-0 text-[10px] text-blue-700">
+                              <Check className="h-2.5 w-2.5" /> Assigned
+                            </Badge>
+                          )}
                           {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && user._count?.mentoredStudents ? (
                             <span className="text-[10px] text-gray-500">({user._count.mentoredStudents})</span>
                           ) : null}
@@ -943,12 +1013,14 @@ export default function UsersPage() {
                               <Label className="text-xs">Phone</Label>
                               <Input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="Optional" className="h-8 text-sm" />
                             </div>
-                            <div>
-                              <Label className="text-xs">Role</Label>
-                              <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm" required>
-                                {roleOptions.map(role => (<option key={role} value={role}>{getRoleDisplayName(role)}</option>))}
-                              </select>
-                            </div>
+                            {!isSuperAdmin && (
+                              <div>
+                                <Label className="text-xs">Role</Label>
+                                <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })} className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm" required>
+                                  {roleOptions.map(role => (<option key={role} value={role}>{getRoleDisplayName(role)}</option>))}
+                                </select>
+                              </div>
+                            )}
                             {session?.user?.role === 'SUPER_ADMIN' && (
                               <div className="col-span-2">
                                 <Label className="text-xs">New Password</Label>
@@ -956,6 +1028,25 @@ export default function UsersPage() {
                               </div>
                             )}
                           </div>
+                          {isSuperAdmin && (
+                            <div className="space-y-2 rounded-md border bg-background p-2">
+                              <UserRoleTagEditor
+                                value={formData.roleTags}
+                                onChange={(roleTags) => setFormData({ ...formData, roleTags })}
+                                compact
+                              />
+                              <div>
+                                <Label className="text-xs">Audit note (optional)</Label>
+                                <Input
+                                  value={formData.roleAuditNote}
+                                  onChange={(e) => setFormData({ ...formData, roleAuditNote: e.target.value })}
+                                  placeholder="Why are these tags changing?"
+                                  maxLength={500}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                            </div>
+                          )}
                           <div className="flex gap-2 justify-end">
                             <Button type="button" variant="outline" size="sm" onClick={cancelForm} className="h-8 text-xs">Cancel</Button>
                             <Button type="submit" size="sm" className="h-8 text-xs">Save</Button>
@@ -979,7 +1070,10 @@ export default function UsersPage() {
         </Card>
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {organizationUser && (
+              <UserOrganizationDialog key={organizationUser.id} user={{ ...organizationUser, profileImageUrl: organizationUser.profileImageUrl ?? null }} onClose={() => setOrganizationUser(null)} />
+            )}
+            {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DashboardSkeleton } from '@/components/ui/skeleton'
 import { PageHeader } from '@/components/admin/page-header'
 import { AttendanceTrendChart, ExamTrendChart, type AttendancePoint, type ExamPoint } from '@/components/admin/trend-charts'
-import { isAdmin, canAssignMentors, canManageUsers } from '@/lib/roles'
+import { isAdmin, canAssignMentors, canManageAllUsers } from '@/lib/roles'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useDashboardStats } from '@/lib/swr'
 import {
@@ -145,7 +145,7 @@ export default function AdminDashboard() {
 
   const userRole = session?.user?.role
   const canAssign = userRole ? canAssignMentors(userRole) : false
-  const canManage = userRole ? canManageUsers(userRole) : false
+  const canManage = userRole ? canManageAllUsers(userRole) : false
 
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'text-gray-400'

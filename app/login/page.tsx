@@ -1,9 +1,10 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { signIn, useSession } from 'next-auth/react'
+import { signIn, signOut, useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,8 +24,8 @@ function GoogleIcon() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
       </div>
     }>
       <LoginForm />
@@ -41,6 +42,7 @@ function LoginForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [clearingInvalidSession, setClearingInvalidSession] = useState(false)
 
   // Show error from URL params (e.g., Google sign-in rejection)
   useEffect(() => {
@@ -52,15 +54,30 @@ function LoginForm() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      // Check if user needs to change password
-      if (session.user.mustChangePassword) {
-        router.push('/change-password')
-      } else {
-        router.push('/dashboard')
-      }
+    if (status !== 'authenticated') return
+
+    // A disabled, deleted, or auth-version-invalidated account deliberately
+    // returns a session without a user. Clear its stale cookie so the visitor
+    // can sign in again instead of remaining on "Redirecting..." forever.
+    if (!session?.user) {
+      if (clearingInvalidSession) return
+
+      setClearingInvalidSession(true)
+      void signOut({ redirect: false }).finally(() => {
+        setClearingInvalidSession(false)
+        router.replace('/login')
+        router.refresh()
+      })
+      return
     }
-  }, [status, session, router])
+
+    // Check if user needs to change password
+    if (session.user.mustChangePassword) {
+      router.push('/change-password')
+    } else {
+      router.push('/dashboard')
+    }
+  }, [status, session, router, clearingInvalidSession])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,41 +111,49 @@ function LoginForm() {
   }
 
   // Show loading state while checking session
-  if (status === 'loading') {
+  if (status === 'loading' || clearingInvalidSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Loading...</div>
       </div>
     )
   }
 
   // Don't render login form if already authenticated (will redirect)
-  if (status === 'authenticated') {
+  if (status === 'authenticated' && session?.user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg text-gray-600">Redirecting...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-lg text-gray-600 dark:text-gray-300">Redirecting...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 dark:bg-gray-950">
       <Card className="w-full max-w-md bg-[#5c1a1a] border-[#5c1a1a]">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
             <Image
-              src="/sp-logo.avif"
-              alt="Servants Prep Logo"
-              width={150}
-              height={150}
-              className="rounded-lg"
+              src="/sunday-school-favicon.png"
+              alt="St. Mark Coptic Orthodox Church"
+              width={144}
+              height={144}
+              className="h-32 w-32 object-contain drop-shadow-md"
             />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-white">
-            Servants Preparation Program
+            <h1>St. Mark Ministry Portal</h1>
           </CardTitle>
+          <div className="flex flex-wrap justify-center gap-2" aria-label="Programs available in this portal">
+            <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+              Servants Prep
+            </span>
+            <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+              Sunday School
+            </span>
+          </div>
           <CardDescription className="text-center text-gray-200">
-            Enter your credentials to access the system
+            Sign in once to access the ministries connected to your account.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -143,7 +168,7 @@ function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading || googleLoading}
-                className="bg-white text-black"
+                className="bg-background text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <div className="space-y-2">
@@ -155,7 +180,7 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading || googleLoading}
-                className="bg-white text-black"
+                className="bg-background text-foreground placeholder:text-muted-foreground"
               />
             </div>
             {error && (
@@ -187,6 +212,21 @@ function LoginForm() {
             <GoogleIcon />
             <span className="ml-2">{googleLoading ? 'Redirecting...' : 'Sign in with Google'}</span>
           </Button>
+
+          <div className="text-center text-sm text-gray-300 space-y-1 pt-2">
+            <p>New here?</p>
+            <p>
+              <Link href="/signup/parent" className="text-white underline hover:text-gray-200">
+                Register your child for Sunday School
+              </Link>
+            </p>
+            <p>
+              <Link href="/signup/servant" className="text-white underline hover:text-gray-200">
+                Sign up as a Sunday School servant
+              </Link>
+            </p>
+          </div>
+
         </CardContent>
       </Card>
     </div>

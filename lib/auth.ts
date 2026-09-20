@@ -4,8 +4,10 @@ import GoogleProvider from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
-import { UserRole, type PrismaClient } from "@prisma/client"
+import { AuditEventResult, RoleTag, SundaySchoolAuthority, UserRole, type PrismaClient } from "@prisma/client"
+import type { JWT } from "next-auth/jwt"
 import { checkLoginRateLimit, resetLoginRateLimit } from "./rate-limit"
+import { seesAllSundaySchoolClasses } from "./roles"
 
 async function getUserSessionData(user: { id: string; role: UserRole }) {
   let isAsyncStudent = false
@@ -16,13 +18,169 @@ async function getUserSessionData(user: { id: string; role: UserRole }) {
     })
     isAsyncStudent = enrollment?.isAsyncStudent ?? false
   }
-  return { isAsyncStudent }
+  return { isAsyncStudent, sundaySchool: await getSundaySchoolStanding(user) }
+}
+
+/**
+ * Whether this person has any Sunday School standing, for rendering only —
+ * the navbar mode switcher and the page guard are synchronous and cannot wait
+ * on a fetch. Deliberately coarse: which classes and what authority is
+ * re-derived from the database on every request (lib/sunday-school-access.ts),
+ * so a stale token can at worst show or hide a nav entry for up to a minute.
+ */
+async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
+  if (seesAllSundaySchoolClasses(user.role)) {
+    return { hasAccess: true, isCoordinator: user.role === UserRole.SUPER_ADMIN }
+  }
+
+  const [participantGrant, assignments] = await Promise.all([
+    prisma.userRoleAssignment.findFirst({
+      where: {
+        userId: user.id,
+        tag: RoleTag.SUNDAY_SCHOOL_SERVANT,
+        revokedAt: null,
+      },
+      select: { id: true },
+    }),
+    prisma.sundaySchoolServantAssignment.findMany({
+      where: { userId: user.id, academicYear: { isActive: true } },
+      select: { authority: true }
+    }),
+  ])
+
+  return {
+    hasAccess: participantGrant !== null || assignments.length > 0,
+    isCoordinator: assignments.some(a => a.authority === SundaySchoolAuthority.COORDINATOR)
+  }
 }
 
 // Re-validate token against the current DB state at most once per this window.
 // Keeps the blast radius for disabled accounts / role demotions to ~1 minute
 // without paying a DB lookup on every authenticated request.
 const TOKEN_REVALIDATE_INTERVAL_MS = 60 * 1000
+const VIEW_AS_MAX_AGE_MS = 30 * 60 * 1000
+
+async function loadAuthUser(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      authVersion: true,
+      isDisabled: true,
+      mustChangePassword: true,
+      profileImageUrl: true,
+    },
+  })
+}
+
+async function loadViewAsActor(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      authVersion: true,
+      isDisabled: true,
+      mustChangePassword: true,
+      profileImageUrl: true,
+      roleAssignments: {
+        where: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
+        select: { id: true },
+        take: 1,
+      },
+    },
+  })
+}
+
+function canUseViewAs(actor: Awaited<ReturnType<typeof loadViewAsActor>>): actor is NonNullable<typeof actor> {
+  return !!actor &&
+    !actor.isDisabled &&
+    actor.role === UserRole.SUPER_ADMIN &&
+    actor.roleAssignments.length > 0
+}
+
+async function applyUserToToken(
+  token: JWT,
+  user: NonNullable<Awaited<ReturnType<typeof loadAuthUser>>>,
+  options: { suppressPasswordChange?: boolean } = {}
+) {
+  const { isAsyncStudent, sundaySchool } = await getUserSessionData(user)
+  token.id = user.id
+  token.role = user.role
+  token.authVersion = user.authVersion
+  token.name = user.name
+  token.email = user.email
+  token.mustChangePassword = options.suppressPasswordChange ? false : user.mustChangePassword
+  token.isAsyncStudent = isAsyncStudent
+  token.sundaySchool = sundaySchool
+  token.profileImageUrl = user.profileImageUrl ?? null
+  token.validatedAt = Date.now()
+  token.invalidated = undefined
+}
+
+async function recordViewAsAudit(input: {
+  actorUserId: string | null
+  action: 'ADMIN_VIEW_AS_STARTED' | 'ADMIN_VIEW_AS_SWITCHED' | 'ADMIN_VIEW_AS_STOPPED'
+  targetUserId?: string | null
+  result: AuditEventResult
+  reason?: string
+  metadata?: Record<string, string | number | boolean | null>
+}) {
+  try {
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: input.actorUserId,
+        action: input.action,
+        entityType: 'User',
+        entityId: input.targetUserId ?? null,
+        result: input.result,
+        reason: input.reason,
+        metadata: input.metadata,
+      },
+    })
+  } catch (error) {
+    // Audit availability must not strand an administrator inside View as mode.
+    console.error('Failed to write View as audit event', error)
+  }
+}
+
+function clearViewAsTokenState(token: JWT) {
+  token.originalId = undefined
+  token.originalName = undefined
+  token.originalEmail = undefined
+  token.viewAsExpiresAt = undefined
+}
+
+async function restoreViewAsActor(
+  token: JWT,
+  reason: 'STOPPED_BY_ADMIN' | 'EXPIRED' | 'TARGET_UNAVAILABLE'
+) {
+  const actorId = token.originalId
+  if (!actorId) return false
+
+  const previousTargetId = token.id
+  const actor = await loadViewAsActor(actorId)
+  if (!canUseViewAs(actor)) {
+    token.invalidated = true
+    return false
+  }
+
+  await applyUserToToken(token, actor)
+  clearViewAsTokenState(token)
+  await recordViewAsAudit({
+    actorUserId: actor.id,
+    action: 'ADMIN_VIEW_AS_STOPPED',
+    targetUserId: previousTargetId,
+    result: AuditEventResult.SUCCESS,
+    reason,
+  })
+  return true
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma as unknown as PrismaClient) as unknown as NextAuthOptions['adapter'],
@@ -65,7 +223,7 @@ export const authOptions: NextAuthOptions = {
 
         // Check if user is disabled
         if (user.isDisabled) {
-          throw new Error("Your account has been disabled. Please contact an administrator.")
+          throw new Error("Invalid credentials")
         }
 
         const isCorrectPassword = await bcrypt.compare(
@@ -80,15 +238,17 @@ export const authOptions: NextAuthOptions = {
         // Successful login - reset rate limit
         resetLoginRateLimit(credentials.email)
 
-        const { isAsyncStudent } = await getUserSessionData(user)
+        const { isAsyncStudent, sundaySchool } = await getUserSessionData(user)
 
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
+          authVersion: user.authVersion,
           mustChangePassword: user.mustChangePassword,
           isAsyncStudent,
+          sundaySchool,
           profileImageUrl: user.profileImageUrl,
         }
       }
@@ -118,8 +278,10 @@ export const authOptions: NextAuthOptions = {
       if (user && account?.provider === "credentials") {
         token.role = user.role
         token.id = user.id
+        token.authVersion = user.authVersion
         token.mustChangePassword = user.mustChangePassword
         token.isAsyncStudent = user.isAsyncStudent ?? false
+        token.sundaySchool = user.sundaySchool ?? { hasAccess: false, isCoordinator: false }
         token.profileImageUrl = user.profileImageUrl ?? null
         token.validatedAt = Date.now()
       }
@@ -131,11 +293,13 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (dbUser) {
-          const { isAsyncStudent } = await getUserSessionData(dbUser)
+          const { isAsyncStudent, sundaySchool } = await getUserSessionData(dbUser)
           token.id = dbUser.id
           token.role = dbUser.role
+          token.authVersion = dbUser.authVersion
           token.mustChangePassword = dbUser.mustChangePassword
           token.isAsyncStudent = isAsyncStudent
+          token.sundaySchool = sundaySchool
           token.profileImageUrl = dbUser.profileImageUrl ?? null
           token.validatedAt = Date.now()
         }
@@ -153,71 +317,89 @@ export const authOptions: NextAuthOptions = {
           token.name = session.name
         }
 
-        // Dev-only: SUPER_ADMIN impersonation via session.update()
-        if (process.env.NODE_ENV !== 'production' && 'impersonate' in (session as Record<string, unknown>)) {
+        // Read-only View as mode. The client may request a target, but the
+        // acting identity and current SUPER_ADMIN grant are re-derived from
+        // the database before the effective session can change.
+        if ('impersonate' in (session as Record<string, unknown>)) {
           const impersonateId = (session as { impersonate?: string | null }).impersonate
 
           if (impersonateId) {
-            // Starting impersonation. The acting user must be a SUPER_ADMIN
-            // (either currently, or already impersonating from a SUPER_ADMIN base).
-            const isAdminBase = token.role === UserRole.SUPER_ADMIN || !!token.originalId
-            if (isAdminBase) {
-              const target = await prisma.user.findUnique({
-                where: { id: impersonateId as string }
-              })
-              if (target && !target.isDisabled) {
-                // Capture original identity on first hop
-                if (!token.originalId) {
-                  token.originalId = token.id
-                  token.originalName = token.name ?? null
-                  token.originalEmail = token.email ?? null
-                }
-                const { isAsyncStudent } = await getUserSessionData(target)
-                token.id = target.id
-                token.role = target.role
-                token.name = target.name
-                token.email = target.email
-                token.mustChangePassword = false
-                token.isAsyncStudent = isAsyncStudent
-                token.profileImageUrl = target.profileImageUrl ?? null
-                token.validatedAt = Date.now()
+            const actorId = token.originalId ?? token.id
+            const [actor, target] = await Promise.all([
+              loadViewAsActor(actorId),
+              loadAuthUser(impersonateId),
+            ])
+
+            if (canUseViewAs(actor) && target && !target.isDisabled && target.id !== actor.id) {
+              const previousTargetId = token.originalId ? token.id : null
+              if (!token.originalId) {
+                token.originalId = actor.id
+                token.originalName = actor.name
+                token.originalEmail = actor.email
               }
+              token.viewAsExpiresAt = Date.now() + VIEW_AS_MAX_AGE_MS
+              await applyUserToToken(token, target, { suppressPasswordChange: true })
+              await recordViewAsAudit({
+                actorUserId: actor.id,
+                action: previousTargetId ? 'ADMIN_VIEW_AS_SWITCHED' : 'ADMIN_VIEW_AS_STARTED',
+                targetUserId: target.id,
+                result: AuditEventResult.SUCCESS,
+                metadata: previousTargetId
+                  ? { previousTargetUserId: previousTargetId, readOnly: true }
+                  : { readOnly: true },
+              })
+            } else {
+              await recordViewAsAudit({
+                actorUserId: actor?.id ?? null,
+                action: 'ADMIN_VIEW_AS_STARTED',
+                targetUserId: target?.id ?? null,
+                result: AuditEventResult.DENIED,
+                reason: 'Actor is not an active Super Admin, or the target is unavailable',
+              })
             }
           } else {
-            // Stop impersonating - restore original identity
-            if (token.originalId) {
-              const original = await prisma.user.findUnique({
-                where: { id: token.originalId }
-              })
-              if (original) {
-                const { isAsyncStudent } = await getUserSessionData(original)
-                token.id = original.id
-                token.role = original.role
-                token.name = original.name
-                token.email = original.email
-                token.mustChangePassword = original.mustChangePassword
-                token.isAsyncStudent = isAsyncStudent
-                token.profileImageUrl = original.profileImageUrl ?? null
-              }
-              token.originalId = undefined
-              token.originalName = undefined
-              token.originalEmail = undefined
-              token.validatedAt = Date.now()
-            }
+            await restoreViewAsActor(token, 'STOPPED_BY_ADMIN')
           }
         }
       }
 
+      if (
+        token.originalId &&
+        token.viewAsExpiresAt &&
+        Date.now() >= token.viewAsExpiresAt
+      ) {
+        await restoreViewAsActor(token, 'EXPIRED')
+      }
+
       // Periodically re-check the user against the DB so that disabling an
       // account or changing its role takes effect without waiting for the
-      // 30-day JWT to expire. Skip while impersonating - the impersonated
-      // identity is intentionally divergent from a "real" login.
+      // long-lived JWT to expire. While viewing as another user, validate both
+      // the real administrator and the effective target.
       const validatedAt = (token.validatedAt as number | undefined) ?? 0
-      if (!token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
+      if (token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
+        const [actor, target] = await Promise.all([
+          loadViewAsActor(token.originalId),
+          loadAuthUser(token.id),
+        ])
+
+        if (!canUseViewAs(actor)) {
+          token.invalidated = true
+        } else if (!target || target.isDisabled) {
+          await restoreViewAsActor(token, 'TARGET_UNAVAILABLE')
+        } else {
+          await applyUserToToken(token, target, { suppressPasswordChange: true })
+        }
+      } else if (!token.originalId && token.id && Date.now() - validatedAt > TOKEN_REVALIDATE_INTERVAL_MS) {
         const [dbUser, enrollment] = await Promise.all([
           prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { id: true, role: true, isDisabled: true, mustChangePassword: true }
+            select: {
+              id: true,
+              role: true,
+              authVersion: true,
+              isDisabled: true,
+              mustChangePassword: true,
+            }
           }),
           prisma.studentEnrollment.findUnique({
             where: { studentId: token.id as string },
@@ -225,13 +407,19 @@ export const authOptions: NextAuthOptions = {
           }),
         ])
 
-        if (!dbUser || dbUser.isDisabled) {
+        if (
+          !dbUser ||
+          dbUser.isDisabled ||
+          (token.authVersion !== undefined && token.authVersion !== dbUser.authVersion)
+        ) {
           token.invalidated = true
         } else {
           token.role = dbUser.role
+          token.authVersion = dbUser.authVersion
           token.mustChangePassword = dbUser.mustChangePassword
           // Pick up async status changes made by a servant without a re-login
           token.isAsyncStudent = dbUser.role === UserRole.STUDENT && !!enrollment?.isAsyncStudent
+          token.sundaySchool = await getSundaySchoolStanding(dbUser)
           token.validatedAt = Date.now()
         }
       }
@@ -251,13 +439,17 @@ export const authOptions: NextAuthOptions = {
         session.user.mustChangePassword = token.mustChangePassword as boolean
         session.user.isAsyncStudent = (token.isAsyncStudent as boolean) ?? false
         session.user.profileImageUrl = (token.profileImageUrl as string | null) ?? null
+        session.user.sundaySchool = (token.sundaySchool as { hasAccess: boolean; isCoordinator: boolean } | undefined)
+          ?? { hasAccess: false, isCoordinator: false }
       }
-      // Surface impersonation state to the client (dev only)
-      if (process.env.NODE_ENV !== 'production' && token.originalId) {
+      // Surface View as state without exposing any authority-changing input.
+      if (token.originalId) {
         session.impersonating = {
           originalId: token.originalId as string,
           originalName: (token.originalName as string | null) ?? null,
           originalEmail: (token.originalEmail as string | null) ?? null,
+          expiresAt: (token.viewAsExpiresAt as number | undefined) ?? Date.now(),
+          readOnly: true,
         }
       } else {
         session.impersonating = null

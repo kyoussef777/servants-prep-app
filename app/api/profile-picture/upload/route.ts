@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { put, del } from '@vercel/blob'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
-import { canManageUsers } from '@/lib/roles'
+import { canManageUsers, canServantPrepManageRole } from '@/lib/roles'
 import { UserRole } from '@prisma/client'
 
 const ALLOWED_IMAGE_TYPES = [
@@ -34,15 +34,15 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // SERVANT_PREP can only manage STUDENT and MENTOR users
+      // SERVANT_PREP can only manage the roles it is allowed to manage
       if (currentUser.role === UserRole.SERVANT_PREP) {
         const targetUser = await prisma.user.findUnique({
           where: { id: targetUserId },
           select: { role: true },
         })
-        if (targetUser && targetUser.role !== UserRole.STUDENT && targetUser.role !== UserRole.MENTOR) {
+        if (targetUser && !canServantPrepManageRole(targetUser.role)) {
           return NextResponse.json(
-            { error: 'Servants Prep can only manage Student and Mentor users' },
+            { error: 'Servants Prep can only manage Student, Mentor, and Sunday School Servant users' },
             { status: 403 }
           )
         }

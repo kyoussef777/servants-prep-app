@@ -56,7 +56,8 @@ async function resetPassword(email: string) {
     where: { email },
     data: {
       password: hashedPassword,
-      mustChangePassword: false
+      mustChangePassword: false,
+      authVersion: { increment: 1 },
     }
   })
 

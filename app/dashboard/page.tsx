@@ -26,6 +26,12 @@ export default function DashboardPage() {
         case 'MENTOR':
           router.push('/dashboard/mentor')
           break
+        case 'SERVANT':
+          router.push('/dashboard/servants')
+          break
+        case 'PARENT':
+          router.push('/dashboard/parent')
+          break
         case 'SERVANT_PREP':
         case 'PRIEST':
         case 'SUPER_ADMIN':

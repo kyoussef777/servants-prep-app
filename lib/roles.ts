@@ -26,9 +26,34 @@ export const isStudent = (role: UserRole) => {
   return role === UserRole.STUDENT
 }
 
+// Sunday School servant (serves in the Sunday School class, not a prep student)
+export const isServant = (role: UserRole) => {
+  return role === UserRole.SERVANT
+}
+
+// A child's guardian, self-registered. No authority over anyone else's data —
+// only their own linked children (SundaySchoolChildGuardian).
+export const isParent = (role: UserRole) => {
+  return role === UserRole.PARENT
+}
+
 // Can manage users (create, edit, delete)
 export const canManageUsers = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP
+}
+
+// The roles a SERVANT_PREP leader may create, edit, or delete.
+// SUPER_ADMIN is unrestricted; everyone else manages nobody.
+// Deliberately excludes SERVANT: running the prep program confers no authority
+// over Sunday School. Servant accounts are created by SUPER_ADMIN, and Sunday
+// School authority comes from an assignment (lib/sunday-school-access.ts).
+export const SERVANT_PREP_MANAGEABLE_ROLES: UserRole[] = [
+  UserRole.STUDENT,
+  UserRole.MENTOR,
+]
+
+export const canServantPrepManageRole = (targetRole: UserRole) => {
+  return SERVANT_PREP_MANAGEABLE_ROLES.includes(targetRole)
 }
 
 // Can manage only students (SERVANT_PREP limitation)
@@ -121,6 +146,54 @@ export const canViewRegistrations = (role: UserRole) => {
   return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP || role === UserRole.PRIEST
 }
 
+// Can review servant sign-up applications (approve/reject). SUPER_ADMIN
+// only — same reasoning as SERVANT_PREP_MANAGEABLE_ROLES excluding SERVANT:
+// prep leadership confers no authority to create Sunday School servant
+// accounts.
+export const canReviewServantApplications = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN
+}
+
+// ============================================
+// SUNDAY SCHOOL MODE PERMISSIONS
+//
+// Sunday School authority is NOT conferred by a role. It comes from an
+// assignment naming a scope — one class, or one age group (Elementary, Middle,
+// High) — resolved in lib/sunday-school-access.ts. That is what lets one
+// person wear two hats: a SERVANT_PREP who also serves gets in because they
+// are assigned to a class, not because of their prep title.
+//
+// Only the handful of things below are genuinely role-derived.
+// ============================================
+
+// Full authority over every class, plus age groups and servant accounts
+export const canAdministerSundaySchool = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN
+}
+
+// Sees every class without needing an assignment (PRIEST is read-only)
+export const seesAllSundaySchoolClasses = (role: UserRole) => {
+  return role === UserRole.SUPER_ADMIN || role === UserRole.PRIEST
+}
+
+// Has Sunday School visibility but every write is refused
+export const isSundaySchoolReadOnly = (role: UserRole) => {
+  return role === UserRole.PRIEST
+}
+
+// The roles that may be given a Sunday School assignment. MENTOR and
+// SERVANT_PREP are here because someone can serve in both programs — as an
+// individual, by assignment, not by virtue of their primary account role.
+export const SUNDAY_SCHOOL_ASSIGNABLE_ROLES: UserRole[] = [
+  UserRole.SERVANT,
+  UserRole.MENTOR,
+  UserRole.SERVANT_PREP,
+]
+
+export const canBeAssignedToSundaySchool = (role: UserRole) => {
+  return SUNDAY_SCHOOL_ASSIGNABLE_ROLES.includes(role)
+}
+
 // Display names for roles
 export const getRoleDisplayName = (role: UserRole): string => {
   const displayNames: Record<UserRole, string> = {
@@ -128,7 +201,9 @@ export const getRoleDisplayName = (role: UserRole): string => {
     PRIEST: 'Priest',
     SERVANT_PREP: 'Servants Prep Leader',
     MENTOR: 'Mentor',
-    STUDENT: 'Student'
+    STUDENT: 'Student',
+    SERVANT: 'Sunday School Servant',
+    PARENT: 'Parent'
   }
   return displayNames[role]
 }

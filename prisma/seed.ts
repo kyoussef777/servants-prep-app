@@ -1,7 +1,18 @@
-import { PrismaClient } from '@prisma/client'
+import {
+  AttendanceStatus,
+  PrismaClient,
+  SundaySchoolServantAttendanceStatus,
+} from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
+
+function getFirstSundayAfterSeptember11(year: number) {
+  const september11 = new Date(Date.UTC(year, 8, 11))
+  const daysUntilSunday = (7 - september11.getUTCDay()) % 7 || 7
+
+  return new Date(Date.UTC(year, 8, 11 + daysUntilSunday))
+}
 
 async function main() {
   console.log('Starting seed...')
@@ -267,7 +278,289 @@ async function main() {
     })
   }
 
+  // Sunday School mode: the age-group bands, a class, its servants, children
+  console.log('Creating Sunday School sample data...')
 
+  // Bands are data, not an enum, so this is a starting point the church can
+  // redraw. A grade belongs to exactly one band.
+  const ageGroupSeeds = [
+    {
+      name: 'Elementary',
+      sortOrder: 0,
+      levels: ['PRE_K', 'KINDERGARTEN', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5'] as const,
+    },
+    { name: 'Middle School', sortOrder: 1, levels: ['GRADE_6', 'GRADE_7', 'GRADE_8'] as const },
+    {
+      name: 'High School',
+      sortOrder: 2,
+      levels: ['GRADE_9', 'GRADE_10', 'GRADE_11', 'GRADE_12'] as const,
+    },
+  ]
+
+  for (const group of ageGroupSeeds) {
+    const existing = await prisma.sundaySchoolAgeGroup.findFirst({
+      where: { name: group.name, sundaySchoolYearId: null },
+      select: { id: true },
+    })
+    if (existing) {
+      await prisma.sundaySchoolAgeGroup.update({
+        where: { id: existing.id },
+        data: { sortOrder: group.sortOrder, levels: [...group.levels] },
+      })
+    } else {
+      await prisma.sundaySchoolAgeGroup.create({
+        data: { name: group.name, sortOrder: group.sortOrder, levels: [...group.levels] },
+      })
+    }
+  }
+
+  const elementary = await prisma.sundaySchoolAgeGroup.findFirstOrThrow({
+    where: { name: 'Elementary', sundaySchoolYearId: null },
+  })
+
+  const servant = await prisma.user.upsert({
+    where: { email: 'servant@church.com' },
+    update: {},
+    create: {
+      email: 'servant@church.com',
+      name: 'Marina Fahmy',
+      password: hashedPassword,
+      role: 'SERVANT',
+    },
+  })
+
+  // Coordinates the whole Elementary band: every elementary class, plus the
+  // power to open and close classes within it.
+  const elementaryCoordinator = await prisma.user.upsert({
+    where: { email: 'elementary.coordinator@church.com' },
+    update: {},
+    create: {
+      email: 'elementary.coordinator@church.com',
+      name: 'Sandra Wahba',
+      password: hashedPassword,
+      role: 'SERVANT',
+    },
+  })
+
+  const sundaySchoolClass = await prisma.sundaySchoolClass.upsert({
+    where: {
+      name_academicYearId: {
+        name: 'Grade 3 Boys',
+        academicYearId: academicYear.id,
+      },
+    },
+    update: {},
+    create: {
+      name: 'Grade 3 Boys',
+      level: 'GRADE_3',
+      academicYearId: academicYear.id,
+    },
+  })
+
+  const assignmentSeeds = [
+    { userId: servant.id, classId: sundaySchoolClass.id, ageGroupId: null, authority: 'SERVANT' as const },
+    { userId: elementaryCoordinator.id, classId: null, ageGroupId: elementary.id, authority: 'COORDINATOR' as const },
+    // Age-group coordination grants Sandra permission to record attendance;
+    // this direct class assignment also makes her part of this class's roster.
+    { userId: elementaryCoordinator.id, classId: sundaySchoolClass.id, ageGroupId: null, authority: 'COORDINATOR' as const },
+  ]
+
+  for (const assignment of assignmentSeeds) {
+    const existing = await prisma.sundaySchoolServantAssignment.findFirst({
+      where: {
+        userId: assignment.userId,
+        academicYearId: academicYear.id,
+        classId: assignment.classId,
+        ageGroupId: assignment.ageGroupId,
+      },
+    })
+    if (!existing) {
+      await prisma.sundaySchoolServantAssignment.create({
+        data: { ...assignment, academicYearId: academicYear.id },
+      })
+    }
+  }
+
+  const girgisFamily = await prisma.sundaySchoolFamily.upsert({
+    where: { id: 'seed-girgis-family' },
+    update: {
+      name: 'Girgis Family',
+      homeAddress: '125 St. Mark Way, Jersey City, NJ 07306',
+      motherName: 'Mariam Girgis',
+      motherPhone: '555-0191',
+      motherEmail: 'mariam.girgis@example.com',
+      fatherName: 'Nader Girgis',
+      fatherPhone: '555-0101',
+      fatherEmail: 'nader.girgis@example.com',
+    },
+    create: {
+      id: 'seed-girgis-family',
+      name: 'Girgis Family',
+      homeAddress: '125 St. Mark Way, Jersey City, NJ 07306',
+      motherName: 'Mariam Girgis',
+      motherPhone: '555-0191',
+      motherEmail: 'mariam.girgis@example.com',
+      fatherName: 'Nader Girgis',
+      fatherPhone: '555-0101',
+      fatherEmail: 'nader.girgis@example.com',
+    },
+  })
+
+  const sampleChildren = [
+    {
+      firstName: 'Mina',
+      lastName: 'Girgis',
+      guardianName: 'Nader Girgis',
+      guardianPhone: '555-0101',
+    },
+    { firstName: 'Joseph', lastName: 'Girgis', guardianName: 'Nader Girgis', guardianPhone: '555-0101' },
+    { firstName: 'Kirollos', lastName: 'Samir', guardianName: 'Hoda Samir', guardianPhone: '555-0102' },
+    { firstName: 'Youssef', lastName: 'Adel', guardianName: 'Adel Fawzy', guardianPhone: '555-0103' },
+    { firstName: 'Mark', lastName: 'Botros', guardianName: 'Mariam Botros', guardianPhone: '555-0104' },
+    { firstName: 'Andrew', lastName: 'Mikhail', guardianName: 'George Mikhail', guardianPhone: '555-0105' },
+    { firstName: 'David', lastName: 'Naguib', guardianName: 'Nancy Naguib', guardianPhone: '555-0106' },
+    { firstName: 'Matthew', lastName: 'Hanna', guardianName: 'Mona Hanna', guardianPhone: '555-0107' },
+    { firstName: 'Peter', lastName: 'Fawzy', guardianName: 'Samia Fawzy', guardianPhone: '555-0108' },
+    { firstName: 'John', lastName: 'Salib', guardianName: 'Maged Salib', guardianPhone: '555-0109' },
+    { firstName: 'Daniel', lastName: 'Yacoub', guardianName: 'Dina Yacoub', guardianPhone: '555-0110' },
+  ]
+
+  const children = []
+  for (const child of sampleChildren) {
+    let savedChild = await prisma.sundaySchoolChild.findFirst({
+      where: {
+        firstName: child.firstName,
+        lastName: child.lastName,
+        classId: sundaySchoolClass.id,
+      },
+    })
+    if (!savedChild) {
+      savedChild = await prisma.sundaySchoolChild.create({
+        data: {
+          ...child,
+          level: 'GRADE_3',
+          classId: sundaySchoolClass.id,
+          familyId: child.lastName === 'Girgis' ? girgisFamily.id : null,
+        },
+      })
+    } else if (child.lastName === 'Girgis' && savedChild.familyId !== girgisFamily.id) {
+      savedChild = await prisma.sundaySchoolChild.update({
+        where: { id: savedChild.id },
+        data: { familyId: girgisFamily.id },
+      })
+    }
+    children.push(savedChild)
+  }
+
+  // A deterministic attendance history gives the dashboard chart enough data
+  // to show weekly movement while keeping repeated seed runs idempotent. The
+  // saved attendance snapshots intentionally grow as children join the class.
+  const topics = [
+    'God Creates the World',
+    'Noah Trusts God',
+    'Abraham and the Promise',
+    'Joseph Forgives His Brothers',
+    'Moses and the Burning Bush',
+    'The Ten Commandments',
+    'David and Goliath',
+    'Daniel in the Lions\' Den',
+    'The Birth of Jesus',
+    'Jesus Calms the Storm',
+    'The Good Samaritan',
+    'The Prodigal Son',
+  ]
+  const firstSunday = getFirstSundayAfterSeptember11(academicYear.startDate.getUTCFullYear())
+  const skippedWeeks = new Set([13, 27])
+  const servantAttendanceSkippedWeeks = new Set([5, 18])
+
+  for (let week = 0; week < 38; week += 1) {
+    if (skippedWeeks.has(week)) continue
+
+    const date = new Date(firstSunday)
+    date.setUTCDate(date.getUTCDate() + week * 7)
+
+    const session = await prisma.sundaySchoolSession.upsert({
+      where: {
+        classId_date: {
+          classId: sundaySchoolClass.id,
+          date,
+        },
+      },
+      update: {
+        topic: topics[week % topics.length],
+        takenBy: servant.id,
+      },
+      create: {
+        classId: sundaySchoolClass.id,
+        date,
+        topic: topics[week % topics.length],
+        takenBy: servant.id,
+      },
+    })
+
+    const rosterSize = week < 8 ? 7 : week < 20 ? 9 : children.length
+    for (const [childIndex, child] of children.slice(0, rosterSize).entries()) {
+      const attendanceKey = (week * 7 + childIndex * 3) % 17
+      let status: AttendanceStatus = AttendanceStatus.PRESENT
+
+      if (attendanceKey === 0) status = AttendanceStatus.EXCUSED
+      else if ((week + childIndex * 2) % 9 === 0) status = AttendanceStatus.ABSENT
+      else if ((week * 2 + childIndex) % 8 === 0) status = AttendanceStatus.LATE
+
+      await prisma.sundaySchoolChildAttendance.upsert({
+        where: {
+          sessionId_childId: {
+            sessionId: session.id,
+            childId: child.id,
+          },
+        },
+        update: { status, recordedBy: servant.id },
+        create: {
+          sessionId: session.id,
+          childId: child.id,
+          status,
+          recordedBy: servant.id,
+        },
+      })
+    }
+
+    if (!servantAttendanceSkippedWeeks.has(week)) {
+      const servantMarks = [
+        {
+          servantId: servant.id,
+          status: week % 10 === 0
+            ? SundaySchoolServantAttendanceStatus.ABSENT
+            : SundaySchoolServantAttendanceStatus.PRESENT,
+        },
+        {
+          servantId: elementaryCoordinator.id,
+          status: week % 13 === 0
+            ? SundaySchoolServantAttendanceStatus.ABSENT
+            : SundaySchoolServantAttendanceStatus.PRESENT,
+        },
+      ]
+
+      for (const mark of servantMarks) {
+        await prisma.sundaySchoolServantAttendance.upsert({
+          where: {
+            sessionId_servantId: {
+              sessionId: session.id,
+              servantId: mark.servantId,
+            },
+          },
+          update: { status: mark.status, recordedBy: elementaryCoordinator.id },
+          create: {
+            sessionId: session.id,
+            servantId: mark.servantId,
+            status: mark.status,
+            recordedBy: elementaryCoordinator.id,
+          },
+        })
+      }
+    }
+  }
+
+  console.log(`Sunday School sample data created: ${children.length} children, 2 servants, and weekly attendance`)
 }
 
 main()

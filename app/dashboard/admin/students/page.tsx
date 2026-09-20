@@ -12,8 +12,13 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { isAdmin } from '@/lib/roles'
 import type { AcademicYear } from '@/lib/types'
 import { formatToastTimestamp } from '@/lib/utils'
+import {
+  sortStudentTableRows,
+  type SortDirection,
+  type StudentTableSortKey,
+} from '@/lib/student-table-sort'
 import { toast } from 'sonner'
-import { ChevronUp, ChevronDown, ChevronRight, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, GraduationCap, UserX } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronRight, ArrowUpDown, X, Trash2, UserPlus, Pencil, CheckCircle, AlertTriangle, GraduationCap, UserX } from 'lucide-react'
 import { StudentDetailsModal } from '@/components/student-details-modal'
 import { BulkStudentImport } from '@/components/bulk-student-import'
 import { YearEndReviewPanel } from '@/components/year-end-review-panel'
@@ -146,6 +151,47 @@ interface StudentDetails {
   allLessons: Lesson[]
 }
 
+function SortableTableHeader({
+  column,
+  label,
+  activeColumn,
+  direction,
+  onSort,
+}: {
+  column: StudentTableSortKey
+  label: string
+  activeColumn: StudentTableSortKey | null
+  direction: SortDirection
+  onSort: (column: StudentTableSortKey) => void
+}) {
+  const isActive = activeColumn === column
+  const ariaSort = isActive
+    ? direction === 'asc' ? 'ascending' : 'descending'
+    : 'none'
+
+  return (
+    <th className="p-0 text-left font-semibold" aria-sort={ariaSort}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className="flex w-full items-center gap-1.5 whitespace-nowrap p-3 text-left hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-maroon-500 dark:hover:bg-gray-900"
+        title={`Sort by ${label}`}
+      >
+        <span>{label}</span>
+        {isActive ? (
+          direction === 'asc' ? (
+            <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+        )}
+      </button>
+    </th>
+  )
+}
+
 function StudentsManagementContent() {
   const { session, status } = useAdminGuard(isAdmin)
   const router = useRouter()
@@ -166,6 +212,8 @@ function StudentsManagementContent() {
   const [studentDetails, setStudentDetails] = useState<StudentDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [, setAcademicYearId] = useState<string | null>(null)
+  const [sortColumn, setSortColumn] = useState<StudentTableSortKey | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   useEffect(() => {
     if (session?.user) {
@@ -462,11 +510,25 @@ function StudentsManagementContent() {
     })
   }
 
+  const handleSort = (column: StudentTableSortKey) => {
+    if (sortColumn === column) {
+      setSortDirection((current) => current === 'asc' ? 'desc' : 'asc')
+      return
+    }
+
+    setSortColumn(column)
+    setSortDirection('asc')
+  }
+
   if (loading || status === 'loading') {
     return <PageLoading />
   }
 
-  const filteredStudents = getFilteredStudents()
+  const filtered = getFilteredStudents()
+  const filteredStudents = sortColumn
+    ? sortStudentTableRows(filtered, analytics, sortColumn, sortDirection)
+    : filtered
+  const hasActiveSort = sortColumn !== null
   const activeCount = students.filter(s => s.enrollments?.[0]?.status === 'ACTIVE').length
   const graduatedCount = students.filter(s => s.enrollments?.[0]?.status === 'GRADUATED').length
   const year1Count = students.filter(s => s.enrollments?.[0]?.yearLevel === 'YEAR_1' && s.enrollments?.[0]?.status === 'ACTIVE').length
@@ -555,7 +617,7 @@ function StudentsManagementContent() {
           <CardHeader>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <CardTitle>Students ({filteredStudents.length})</CardTitle>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
                 {session?.user?.role === 'SUPER_ADMIN' && (
                   <BulkStudentImport onSuccess={fetchStudents} />
                 )}
@@ -584,6 +646,28 @@ function StudentsManagementContent() {
                   <option value="GRADUATED">Graduated</option>
                   <option value="WITHDRAWN">Withdrawn</option>
                 </select>
+                <div
+                  className={`overflow-hidden transition-[max-width,opacity] duration-300 ease-out motion-reduce:transition-none ${
+                    hasActiveSort
+                      ? 'max-w-32 opacity-100'
+                      : 'pointer-events-none max-w-0 opacity-0'
+                  }`}
+                  aria-hidden={!hasActiveSort}
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setSortColumn(null)
+                      setSortDirection('asc')
+                    }}
+                    tabIndex={hasActiveSort ? 0 : -1}
+                    className="w-28 gap-1.5"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                    Clear sort
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -677,9 +761,9 @@ function StudentsManagementContent() {
 
           <CardContent>
             {/* Desktop View */}
-            <div className="hidden lg:block overflow-x-auto">
+            <div className="hidden lg:block max-h-[calc(100vh-12rem)] overflow-auto rounded-md">
               <table className="w-full">
-                <thead className="border-b">
+                <thead className="sticky top-0 z-20 border-b bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950">
                   <tr>
                     <th className="text-left p-3">
                       <input
@@ -689,13 +773,13 @@ function StudentsManagementContent() {
                         className="rounded"
                       />
                     </th>
-                    <th className="text-left p-3 font-semibold">Name</th>
-                    <th className="text-left p-3 font-semibold">Year</th>
-                    <th className="text-left p-3 font-semibold">Year 1 Attendance</th>
-                    <th className="text-left p-3 font-semibold">Year 2 Attendance</th>
-                    <th className="text-left p-3 font-semibold">Exam Avg</th>
-                    <th className="text-left p-3 font-semibold">Eligibility</th>
-                    <th className="text-left p-3 font-semibold">Status</th>
+                    <SortableTableHeader column="name" label="Name" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
+                    <SortableTableHeader column="year" label="Year" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
+                    <SortableTableHeader column="year1Attendance" label="Year 1 Attendance" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
+                    <SortableTableHeader column="year2Attendance" label="Year 2 Attendance" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
+                    <SortableTableHeader column="examAverage" label="Exam Avg" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
+                    <SortableTableHeader column="eligibility" label="Eligibility" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
+                    <SortableTableHeader column="status" label="Status" activeColumn={sortColumn} direction={sortDirection} onSort={handleSort} />
                     <th className="text-left p-3 font-semibold">Actions</th>
                   </tr>
                 </thead>

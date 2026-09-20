@@ -7,9 +7,31 @@ import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
 function AlertDialog({
+  open,
+  defaultOpen,
+  onOpenChange,
+  children,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false)
+  const isOpen = open ?? uncontrolledOpen
+  const visibleChildren = React.useRef<React.ReactNode>(children)
+
+  if (isOpen) visibleChildren.current = children
+
+  return (
+    <AlertDialogPrimitive.Root
+      data-slot="alert-dialog"
+      open={isOpen}
+      onOpenChange={nextOpen => {
+        if (open === undefined) setUncontrolledOpen(nextOpen)
+        onOpenChange?.(nextOpen)
+      }}
+      {...props}
+    >
+      {isOpen ? children : visibleChildren.current}
+    </AlertDialogPrimitive.Root>
+  )
 }
 
 function AlertDialogTrigger({

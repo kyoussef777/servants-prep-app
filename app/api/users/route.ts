@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { UserRole } from "@prisma/client"
+import { RoleGrantSource, RoleTag, UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
-import { isAdmin, canManageUsers } from "@/lib/roles"
+import { isAdmin, canManageUsers, canServantPrepManageRole, SERVANT_PREP_MANAGEABLE_ROLES } from "@/lib/roles"
+import { legacyRoleForTags, ROLE_TAG_VALUES, roleTagForLegacyRole } from "@/lib/role-tags"
 
 // GET /api/users - List all users (Admin only, or MENTOR role can view students)
 // Query params:
@@ -50,10 +51,16 @@ export async function GET(request: Request) {
     }
 
     if (user.role === UserRole.SERVANT_PREP) {
-      // SERVANT_PREP can see STUDENT, MENTOR, and other SERVANT_PREP users (for mentor assignment)
+      // SERVANT_PREP can see the roles it manages, plus other SERVANT_PREP
+      // users (for mentor assignment). A role filter can only narrow that
+      // set — it can never be used to look at admins or priests.
+      const visibleRoles = [...SERVANT_PREP_MANAGEABLE_ROLES, UserRole.SERVANT_PREP]
+      if (roleFilter && !visibleRoles.includes(roleFilter as UserRole)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
       whereClause = {
         ...whereClause,
-        role: roleFilter ? (roleFilter as UserRole) : { in: [UserRole.STUDENT, UserRole.MENTOR, UserRole.SERVANT_PREP] }
+        role: roleFilter ? (roleFilter as UserRole) : { in: visibleRoles }
       }
     } else if (user.role === UserRole.MENTOR) {
       // Filter to only students where this mentor is assigned
@@ -84,6 +91,11 @@ export async function GET(request: Request) {
         phone: true,
         profileImageUrl: true,
         role: true,
+        roleAssignments: {
+          where: { revokedAt: null },
+          select: { tag: true },
+          orderBy: { grantedAt: 'asc' }
+        },
         isDisabled: true,
         createdAt: true,
         updatedAt: true,
@@ -105,7 +117,10 @@ export async function GET(request: Request) {
         },
         _count: {
           select: {
-            mentoredStudents: true
+            mentoredStudents: true,
+            sundaySchoolServing: {
+              where: { academicYear: { isActive: true } }
+            }
           }
         }
       },
@@ -173,10 +188,31 @@ export async function POST(request: Request) {
       )
     }
 
-    // SERVANT_PREP can only create STUDENT and MENTOR users
-    if (currentUser.role === UserRole.SERVANT_PREP && role !== UserRole.STUDENT && role !== UserRole.MENTOR) {
+    const requestedTags = Array.isArray(body.roleTags) ? body.roleTags.map(String) : null
+    if (requestedTags?.some((tag: string) => !ROLE_TAG_VALUES.has(tag as RoleTag))) {
+      return NextResponse.json({ error: "One or more access tags are invalid" }, { status: 400 })
+    }
+    if (requestedTags && currentUser.role !== UserRole.SUPER_ADMIN) {
+      return NextResponse.json({ error: "Only Super Admins can assign access tags" }, { status: 403 })
+    }
+
+    const defaultTag = roleTagForLegacyRole(role as UserRole)
+    const desiredRoleTags = Array.from(new Set(
+      requestedTags
+        ? requestedTags as RoleTag[]
+        : defaultTag
+          ? [defaultTag]
+          : []
+    ))
+
+    if (currentUser.role === UserRole.SUPER_ADMIN && desiredRoleTags.length === 0) {
+      return NextResponse.json({ error: "Select at least one access tag" }, { status: 400 })
+    }
+
+    // SERVANT_PREP can only create Student, Mentor, and Sunday School Servant users
+    if (currentUser.role === UserRole.SERVANT_PREP && !canServantPrepManageRole(role)) {
       return NextResponse.json(
-        { error: "Servants Prep can only create Student and Mentor users" },
+        { error: "Servants Prep can only create Student, Mentor, and Sunday School Servant users" },
         { status: 403 }
       )
     }
@@ -197,13 +233,24 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(password, 10)
 
     // Create user
+    const compatibilityRole = legacyRoleForTags(desiredRoleTags, role as UserRole)
     const newUser = await prisma.user.create({
       data: {
         email,
         name,
         phone: phone || null,
         password: hashedPassword,
-        role,
+        role: compatibilityRole,
+        roleAssignments: desiredRoleTags.length > 0 ? {
+          create: desiredRoleTags.map((tag) => ({
+            tag,
+            source: currentUser.role === UserRole.SUPER_ADMIN
+              ? RoleGrantSource.SUPER_ADMIN
+              : RoleGrantSource.SYSTEM,
+            grantedById: currentUser.id,
+            note: 'Granted when account was created',
+          }))
+        } : undefined,
       },
       select: {
         id: true,
@@ -211,6 +258,10 @@ export async function POST(request: Request) {
         name: true,
         phone: true,
         role: true,
+        roleAssignments: {
+          where: { revokedAt: null },
+          select: { tag: true },
+        },
         createdAt: true,
       }
     })

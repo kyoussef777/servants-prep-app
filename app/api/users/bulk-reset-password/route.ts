@@ -80,7 +80,8 @@ export async function POST(request: Request) {
       },
       data: {
         password: hashedPassword,
-        mustChangePassword: true
+        mustChangePassword: true,
+        authVersion: { increment: 1 },
       }
     })
 

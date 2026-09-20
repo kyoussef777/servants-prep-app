@@ -5,26 +5,40 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/navbar";
 import { CommandPalette } from "@/components/command-palette";
-import { DevImpersonation } from "@/components/dev-impersonation";
+import { ViewAsMode } from "@/components/view-as-mode";
 import { ProfilePhotoReminder } from "@/components/profile-photo-reminder";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationProvider } from "@/components/notifications/notification-provider";
 import { PushNotificationPrompt } from "@/components/notifications/push-prompt";
+import { SiteFooter } from "@/components/site-footer";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { NavigationTransition } from "@/components/navigation-transition";
 
 export const metadata: Metadata = {
-  title: "Servants Preparation Program",
-  description: "Coptic Church Servants 2-Year Preparation Program Management",
+  title: "St. Mark Ministry Portal",
+  description: "Shared portal for St. Mark Servants Prep and Sunday School ministries",
   manifest: "/manifest.json",
   icons: {
-    icon: '/sp-logo.avif',
-    apple: '/sp-logo.avif',
+    icon: [
+      {
+        url: '/sunday-school-favicon-32.png',
+        sizes: '32x32',
+        type: 'image/png',
+      },
+      {
+        url: '/sunday-school-favicon.png',
+        sizes: '512x512',
+        type: 'image/png',
+      },
+    ],
+    shortcut: '/sunday-school-favicon-32.png',
+    apple: '/sunday-school-apple-touch-icon.png',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Servants Prep",
+    title: "St. Mark Portal",
   },
 };
 
@@ -40,20 +54,22 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} flex min-h-screen flex-col antialiased`}
         suppressHydrationWarning
       >
         <Providers>
-          {/* App chrome; `contents` keeps the navbar sticky, print:hidden keeps it off printouts */}
+          <NavigationTransition />
+          {/* App chrome; `contents` preserves the flex layout while print:hidden keeps it off printouts. */}
           <div className="contents print:hidden">
             <NotificationProvider />
-            <DevImpersonation />
+            <ViewAsMode />
             <Navbar />
             <CommandPalette />
             <ProfilePhotoReminder />
           </div>
-          {children}
+          <div id="app-content" className="flex-1">{children}</div>
           <div className="contents print:hidden">
+            <SiteFooter />
             <PushNotificationPrompt />
             <Toaster />
           </div>

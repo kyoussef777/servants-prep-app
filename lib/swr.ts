@@ -76,8 +76,129 @@ export function useRegistrationSettings(options?: SWRConfiguration) {
   })
 }
 
+// Servant application hooks
+export function useServantApplications(statusFilter?: string, options?: SWRConfiguration) {
+  const url = statusFilter
+    ? `/api/servant-applications?status=${statusFilter}`
+    : '/api/servant-applications'
+  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+// Parent portal hooks
+export function useParentChildren(options?: SWRConfiguration) {
+  return useSWR('/api/parent/children', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useChildRegistrationRequests(statusFilter?: string, options?: SWRConfiguration) {
+  const url = statusFilter
+    ? `/api/sunday-school/child-registrations?status=${statusFilter}`
+    : '/api/sunday-school/child-registrations'
+  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
 export function useClassAverages(options?: SWRConfiguration) {
   return useSWR('/api/dashboard/class-averages', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+// Sunday School mode hooks (the Sunday School class itself)
+export function useSundaySchoolDashboard(
+  academicYearId?: string,
+  classId?: string,
+  audience: 'children' | 'servants' = 'children',
+  options?: SWRConfiguration
+) {
+  const params = new URLSearchParams()
+  if (academicYearId) params.set('academicYearId', academicYearId)
+  if (classId) params.set('classId', classId)
+  if (audience !== 'children') params.set('audience', audience)
+  const query = params.toString()
+  const url = `/api/sunday-school/dashboard${query ? `?${query}` : ''}`
+  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolServantAttendance(
+  classId?: string,
+  date?: string,
+  options?: SWRConfiguration
+) {
+  const params = new URLSearchParams()
+  if (classId) params.set('classId', classId)
+  if (date) params.set('date', date)
+  return useSWR(
+    classId && date ? `/api/sunday-school/servant-attendance?${params.toString()}` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
+}
+
+export function useSundaySchoolAgeGroups(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/age-groups', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolClasses(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/classes', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolFamilies(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/families', fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolClass(classId?: string, options?: SWRConfiguration) {
+  return useSWR(
+    classId ? `/api/sunday-school/classes/${classId}` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
+}
+
+export function useSundaySchoolLessons(
+  filters?: { from?: string; to?: string; classId?: string; scope?: 'year' },
+  options?: SWRConfiguration
+) {
+  const params = new URLSearchParams()
+  if (filters?.from) params.set('from', filters.from)
+  if (filters?.to) params.set('to', filters.to)
+  if (filters?.classId) params.set('classId', filters.classId)
+  if (filters?.scope) params.set('scope', filters.scope)
+  const query = params.toString()
+  return useSWR(`/api/sunday-school/lessons${query ? `?${query}` : ''}`, fetcher, {
+    ...defaultSWRConfig,
+    ...options,
+  })
+}
+
+export function useSundaySchoolChildren(classId?: string, options?: SWRConfiguration) {
+  const url = classId
+    ? `/api/sunday-school/children?classId=${classId}`
+    : '/api/sunday-school/children'
+  return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+export function useSundaySchoolVisitations(options?: SWRConfiguration) {
+  return useSWR('/api/sunday-school/visitations', fetcher, {
+    ...defaultSWRConfig,
+    ...options,
+  })
+}
+
+export function useSundaySchoolFeedback(
+  status = 'ACTIVE',
+  sort = 'TOP',
+  options?: SWRConfiguration
+) {
+  const params = new URLSearchParams({ status, sort })
+  return useSWR(`/api/sunday-school/feedback?${params.toString()}`, fetcher, {
+    ...defaultSWRConfig,
+    ...options,
+  })
+}
+
+export function useSundaySchoolSessionAttendance(sessionId?: string, options?: SWRConfiguration) {
+  return useSWR(
+    sessionId ? `/api/sunday-school/sessions/${sessionId}/attendance` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
 }
 
 export function useMenteeAnalytics(studentIds?: string[], options?: SWRConfiguration) {
@@ -85,4 +206,18 @@ export function useMenteeAnalytics(studentIds?: string[], options?: SWRConfigura
     ? `/api/students/analytics/batch?studentIds=${studentIds.join(',')}`
     : null
   return useSWR(url, fetcher, { ...defaultSWRConfig, ...options })
+}
+
+
+export function useSundaySchoolOrganization() {
+  return useSWR<import('@/lib/sunday-school-organization').SundaySchoolOrganization>(
+    '/api/sunday-school/organization', fetcher, defaultSWRConfig,
+  )
+}
+
+
+export function usePriestOverseers(enabled: boolean) {
+  return useSWR<Array<import('@/lib/sunday-school-organization').OrganizationPerson & { isDisabled: boolean }>>(
+    enabled ? '/api/users?role=PRIEST' : null, fetcher, defaultSWRConfig,
+  )
 }

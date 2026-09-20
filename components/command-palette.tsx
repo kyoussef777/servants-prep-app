@@ -17,9 +17,10 @@ import {
   FileText,
   Settings,
   FolderOpen,
+  School,
   X,
 } from 'lucide-react'
-import { isAdmin, canManageUsers, canManageEnrollments } from '@/lib/roles'
+import { isAdmin, canManageAllUsers, canManageEnrollments, canAdministerSundaySchool, canViewRegistrations } from '@/lib/roles'
 import type { UserRole } from '@prisma/client'
 
 interface SearchUser {
@@ -42,11 +43,33 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>
 }
 
-function getNavItemsForRole(role: UserRole): NavItem[] {
+function getNavItemsForRole(
+  role: UserRole,
+  hasSundaySchool: boolean,
+  inSundaySchoolMode: boolean
+): NavItem[] {
+  if (inSundaySchoolMode && hasSundaySchool) {
+    const items: NavItem[] = [
+      { label: 'Sunday School Dashboard', href: '/dashboard/servants', icon: LayoutDashboard },
+      { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
+      { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
+      { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
+      { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
+    ]
+
+    if (canAdministerSundaySchool(role)) {
+      items.push({ label: 'Users', href: '/dashboard/servants/users', icon: Users })
+    }
+
+    items.push({ label: 'My Account', href: '/dashboard/servants/account', icon: Settings })
+    return items
+  }
+
   if (role === 'STUDENT') {
     return [
       { label: 'My Progress', href: '/dashboard/student', icon: LayoutDashboard },
       { label: 'My Lessons', href: '/dashboard/student/lessons', icon: BookOpen },
+      { label: 'Class Lessons', href: '/dashboard/student/class-lessons', icon: School },
       { label: 'Files', href: '/dashboard/files', icon: FolderOpen },
       { label: 'Settings', href: '/settings', icon: Settings },
     ]
@@ -58,6 +81,17 @@ function getNavItemsForRole(role: UserRole): NavItem[] {
       { label: 'My Mentees', href: '/dashboard/mentor/my-mentees', icon: Users },
       { label: 'Files', href: '/dashboard/files', icon: FolderOpen },
       { label: 'Settings', href: '/settings', icon: Settings },
+    ]
+  }
+
+  if (role === 'SERVANT') {
+    return [
+      { label: 'Sunday School Dashboard', href: '/dashboard/servants', icon: LayoutDashboard },
+      { label: 'Sunday School Lessons', href: '/dashboard/servants/lessons', icon: BookOpen },
+      { label: 'Take Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck },
+      { label: 'Roster', href: '/dashboard/servants/roster', icon: Users },
+      { label: 'Classes', href: '/dashboard/servants/classes', icon: BookOpen },
+      { label: 'My Account', href: '/dashboard/servants/account', icon: Settings },
     ]
   }
 
@@ -75,9 +109,15 @@ function getNavItemsForRole(role: UserRole): NavItem[] {
   if (canManageEnrollments(role)) {
     items.push({ label: 'Roster', href: '/dashboard/admin/enrollments', icon: Users })
   }
-  if (canManageUsers(role)) {
+  if (canManageAllUsers(role)) {
     items.push({ label: 'Users', href: '/dashboard/admin/users', icon: Users })
+  }
+  if (canViewRegistrations(role)) {
     items.push({ label: 'Registrations', href: '/dashboard/admin/registrations', icon: FileText })
+  }
+  if (hasSundaySchool) {
+    items.push({ label: 'Sunday School', href: '/dashboard/servants', icon: School })
+    items.push({ label: 'Sunday School Attendance', href: '/dashboard/servants/attendance', icon: ClipboardCheck })
   }
   items.push({ label: 'Settings', href: '/dashboard/admin/settings', icon: Settings })
   return items
@@ -190,7 +230,11 @@ export function CommandPalette() {
 
   if (!session?.user) return null
 
-  const navItems = getNavItemsForRole(session.user.role)
+  const navItems = getNavItemsForRole(
+    session.user.role,
+    session.user.sundaySchool?.hasAccess ?? false,
+    pathname.startsWith('/dashboard/servants')
+  )
   const role = session.user.role
   const canSearchStudents = isAdmin(role) || role === 'MENTOR'
   const studentHref = (id: string) =>
@@ -204,6 +248,7 @@ export function CommandPalette() {
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
+          data-slot="dialog-overlay"
           className={cn(
             'fixed inset-0 z-50 bg-black/40 backdrop-blur-sm',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
@@ -211,6 +256,7 @@ export function CommandPalette() {
           )}
         />
         <DialogPrimitive.Content
+          data-slot="top-dialog-content"
           className={cn(
             'fixed left-1/2 z-50 w-full -translate-x-1/2 px-3 sm:px-4',
             // Mobile: near top, almost full width. Desktop: 15% from top, capped width.

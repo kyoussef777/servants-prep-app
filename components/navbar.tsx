@@ -1,15 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getRoleDisplayName, canManageUsers, canManageEnrollments, canViewRegistrations } from '@/lib/roles'
+import {
+  getRoleDisplayName,
+  canManageAllUsers,
+  canManageEnrollments,
+  canViewRegistrations,
+  isAdmin,
+  canAdministerSundaySchool,
+  canReviewServantApplications,
+} from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
@@ -21,10 +29,16 @@ interface NavLink {
 export function Navbar() {
   const { data: session } = useSession()
   const pathname = usePathname()
-  const { theme, setTheme } = useTheme()
+  const router = useRouter()
+  const { resolvedTheme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [switchingModes, setSwitchingModes] = useState(false)
 
-  if (!session?.user || pathname === '/login' || pathname === '/change-password') {
+  if (
+    !session?.user ||
+    pathname === '/login' ||
+    pathname === '/change-password'
+  ) {
     return null
   }
 
@@ -40,11 +54,88 @@ export function Navbar() {
 
     // For sub-routes, check if pathname starts with path + '/'
     // but exclude the base dashboard path to prevent it from always being active
-    if (path === '/dashboard/admin' || path === '/dashboard/mentor' || path === '/dashboard/student') {
+    if (
+      path === '/dashboard/admin' ||
+      path === '/dashboard/mentor' ||
+      path === '/dashboard/student' ||
+      path === '/dashboard/servants'
+    ) {
       return pathname === path
     }
 
     return pathname.startsWith(path + '/')
+  }
+
+  // The app has two modes: the Servants Prep program and Sunday School.
+  // Which one is showing is derived from the path — no extra state.
+  const inSundaySchoolMode = pathname.startsWith('/dashboard/servants')
+  // Sunday School access comes from assignments, not a role, so this reads the
+  // standing the session carries. Someone with a foot in both modes — a prep
+  // leader or mentor who also serves — gets the switcher; a SERVANT has only
+  // one mode.
+  const hasSundaySchool = session.user.sundaySchool?.hasAccess ?? false
+  const prepModeDestination =
+    session.user.role === 'MENTOR' ? '/dashboard/mentor' : '/dashboard/admin'
+  const canSwitchModes =
+    hasSundaySchool && (isAdmin(session.user.role) || session.user.role === 'MENTOR')
+  const modeDestination = inSundaySchoolMode
+    ? prepModeDestination
+    : '/dashboard/servants'
+  const dashboardDestination = inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'
+  const accountDestination = inSundaySchoolMode ? '/dashboard/servants/account' : '/settings'
+
+  const handleModeSwitch = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    if (switchingModes) return
+
+    setMobileMenuOpen(false)
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (prefersReducedMotion) {
+      router.push(modeDestination)
+      return
+    }
+
+    setSwitchingModes(true)
+    document.documentElement.dataset.modeTransition = inSundaySchoolMode
+      ? 'to-servants-prep'
+      : 'to-sunday-school'
+
+    const waitForModeRoute = () =>
+      new Promise<void>((resolve) => {
+        const startedAt = performance.now()
+
+        const waitForRoute = () => {
+          if (window.location.pathname === modeDestination || performance.now() - startedAt > 2000) {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+            return
+          }
+
+          requestAnimationFrame(waitForRoute)
+        }
+
+        waitForRoute()
+      })
+
+    const cleanUpTransition = () => {
+      delete document.documentElement.dataset.modeTransition
+      document.documentElement.classList.remove('mode-transition-fallback-out')
+      document.documentElement.classList.remove('mode-transition-fallback-in')
+      setSwitchingModes(false)
+    }
+
+    document.documentElement.classList.add('mode-transition-fallback-out')
+
+    window.setTimeout(() => {
+      router.push(modeDestination)
+
+      void waitForModeRoute().then(() => {
+        document.documentElement.classList.remove('mode-transition-fallback-out')
+        document.documentElement.classList.add('mode-transition-fallback-in')
+        window.setTimeout(cleanUpTransition, 220)
+      })
+    }, 160)
   }
 
   // Navigation links based on role
@@ -56,6 +147,7 @@ export function Navbar() {
       const links: NavLink[] = [
         { href: '/dashboard/student', label: 'My Progress' },
         { href: '/dashboard/student/lessons', label: 'My Lessons' },
+        { href: '/dashboard/student/class-lessons', label: 'Class Lessons' },
         { href: '/dashboard/files', label: 'Files' },
       ]
       if (session.user.isAsyncStudent) {
@@ -65,7 +157,7 @@ export function Navbar() {
       return { primary: links, more: [] }
     }
 
-    if (role === 'MENTOR') {
+    if (role === 'MENTOR' && !inSundaySchoolMode) {
       return {
         primary: [
           { href: '/dashboard/mentor', label: 'Dashboard' },
@@ -73,6 +165,62 @@ export function Navbar() {
           { href: '/dashboard/files', label: 'Files' },
         ],
         more: []
+      }
+    }
+
+    if (role === 'SERVANT') {
+      const servantMore: NavLink[] = [
+        { href: '/dashboard/servants/visitations', label: 'Visitations' },
+        { href: '/dashboard/servants/classes', label: 'Classes' },
+        { href: '/dashboard/servants/feedback', label: 'Feedback' },
+      ]
+      if (session.user.sundaySchool?.isCoordinator) {
+        servantMore.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
+      }
+      return {
+        primary: [
+          { href: '/dashboard/servants', label: 'Dashboard' },
+          { href: '/dashboard/servants/lessons', label: 'Lessons' },
+          { href: '/dashboard/servants/attendance', label: 'Attendance' },
+          { href: '/dashboard/servants/roster', label: 'Roster' },
+        ],
+        more: servantMore,
+      }
+    }
+
+    // Anyone browsing Sunday School mode gets that mode's links; the switcher
+    // next to the logo takes those with both back to the prep program.
+    if (inSundaySchoolMode && hasSundaySchool) {
+      const links: NavLink[] = [
+        { href: '/dashboard/servants', label: 'Dashboard' },
+        { href: '/dashboard/servants/lessons', label: 'Lessons' },
+        { href: '/dashboard/servants/attendance', label: 'Attendance' },
+        { href: '/dashboard/servants/roster', label: 'Roster' },
+      ]
+      const more: NavLink[] = [
+        { href: '/dashboard/servants/visitations', label: 'Visitations' },
+        { href: '/dashboard/servants/classes', label: 'Classes' },
+        { href: '/dashboard/servants/feedback', label: 'Feedback' },
+      ]
+
+      if (session.user.sundaySchool?.isCoordinator) {
+        more.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
+      }
+
+      if (canReviewServantApplications(role)) {
+        more.push({
+          href: '/dashboard/servants/servant-applications',
+          label: 'Servant applications',
+        })
+      }
+
+      if (canAdministerSundaySchool(role)) {
+        more.push({ href: '/dashboard/servants/users', label: 'Users' })
+      }
+
+      return {
+        primary: links,
+        more,
       }
     }
 
@@ -98,7 +246,7 @@ export function Navbar() {
     if (canManageEnrollments(role)) {
       more.push({ href: '/dashboard/admin/enrollments', label: 'Roster' })
     }
-    if (canManageUsers(role)) {
+    if (canManageAllUsers(role)) {
       more.push({ href: '/dashboard/admin/users', label: 'Users' })
     }
     if (canViewRegistrations(role)) {
@@ -115,24 +263,60 @@ export function Navbar() {
   return (
     <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex h-16 justify-between">
           {/* Left side - Logo/Title */}
-          <div className="flex items-center gap-8">
-            <Link href="/dashboard" className="flex items-center gap-3">
-              <Image
-                src="/sp-logo.png"
-                alt="Servants Prep Logo"
-                width={40}
-                height={40}
-                className="w-10 h-10 rounded-md bg-black p-1"
-              />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                Servants Prep
-              </span>
-            </Link>
+          <div className="flex min-w-0 items-center gap-8">
+            <div
+              className={`flex items-center gap-3 ${canSwitchModes ? 'sm:w-[268px] sm:justify-between' : ''}`}
+            >
+              <Link
+                href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
+                className="flex shrink-0 items-center gap-3"
+              >
+                <span className="flex h-10 w-12 shrink-0 items-center justify-center">
+                  <Image
+                    src={inSundaySchoolMode ? '/sunday-school-favicon.png' : '/sp-logo.png'}
+                    alt={inSundaySchoolMode ? 'St. Mark Coptic Orthodox Church Logo' : 'Servants Prep Logo'}
+                    width={inSundaySchoolMode ? 48 : 40}
+                    height={40}
+                    className={inSundaySchoolMode
+                      ? 'h-11 w-11 object-contain'
+                      : 'h-10 w-10 rounded-md bg-black p-1'}
+                  />
+                </span>
+                <span className="whitespace-nowrap text-xl font-bold text-gray-900 dark:text-white">
+                  {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
+                </span>
+              </Link>
+
+              {/* One-click mode toggle. Its fixed-width brand group keeps the
+                  navigation from shifting when the mode name and logo change. */}
+              {canSwitchModes && (
+                <Link
+                  href={modeDestination}
+                  onClick={handleModeSwitch}
+                  data-mode-switch
+                  aria-label={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
+                  aria-disabled={switchingModes}
+                  title={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
+                  className={`relative hidden h-7 w-[58px] shrink-0 grid-cols-2 items-center rounded-full border border-gray-300 bg-gray-100 p-0.5 text-[9px] font-bold text-gray-500 transition-colors hover:border-maroon-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2 sm:grid dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 ${switchingModes ? 'pointer-events-none' : ''}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-y-0.5 left-0.5 w-[26px] rounded-full bg-maroon-700 shadow-sm transition-transform duration-200 ease-out ${inSundaySchoolMode ? 'translate-x-[26px]' : 'translate-x-0'}`}
+                  />
+                  <span className={`relative z-10 text-center ${inSundaySchoolMode ? '' : 'text-white'}`}>
+                    SP
+                  </span>
+                  <span className={`relative z-10 text-center ${inSundaySchoolMode ? 'text-white' : ''}`}>
+                    SS
+                  </span>
+                </Link>
+              )}
+            </div>
 
             {/* Navigation Links */}
-            <div className="hidden lg:flex items-center gap-1">
+            <div className="hidden w-[440px] shrink-0 items-center gap-1 xl:flex">
               {primaryLinks.map(link => (
                 <Link
                   key={link.href}
@@ -195,13 +379,13 @@ export function Navbar() {
           </div>
 
           {/* Right side - User menu */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {/* Search / command palette trigger - desktop (search-bar style) */}
             <button
               type="button"
               aria-label="Open command palette"
               onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-              className="hidden md:inline-flex items-center gap-2 w-56 lg:w-64 rounded-lg border bg-gray-50 dark:bg-gray-800/60 dark:border-gray-700 px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 transition-all"
+              className="hidden w-56 items-center gap-2 rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500 transition-all hover:border-gray-300 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 md:inline-flex lg:w-48 xl:w-56 2xl:w-64 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800"
             >
               <Search className="h-4 w-4 shrink-0" />
               <span className="flex-1 text-left truncate">Search students, lessons…</span>
@@ -224,7 +408,7 @@ export function Navbar() {
             {/* Mobile menu button */}
             <Button
               variant="ghost"
-              className="lg:hidden"
+              className="xl:hidden"
               size="icon"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
@@ -235,7 +419,7 @@ export function Navbar() {
               )}
             </Button>
 
-            <div className="hidden md:flex flex-col items-end">
+            <div className="hidden min-w-max shrink-0 flex-col items-end whitespace-nowrap md:flex">
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {session.user.name}
               </span>
@@ -267,32 +451,50 @@ export function Navbar() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="cursor-pointer">
+                  <Link href={dashboardDestination} className="cursor-pointer">
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings" className="cursor-pointer">
+                  <Link href={accountDestination} className="cursor-pointer">
                     My Account
                   </Link>
                 </DropdownMenuItem>
-                {(session.user.role === 'SUPER_ADMIN' || session.user.role === 'PRIEST' || session.user.role === 'SERVANT_PREP') && (
+                {!inSundaySchoolMode && (session.user.role === 'SUPER_ADMIN' || session.user.role === 'PRIEST' || session.user.role === 'SERVANT_PREP') && (
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard/admin/settings" className="cursor-pointer">
                       Settings
                     </Link>
                   </DropdownMenuItem>
                 )}
+                {!inSundaySchoolMode && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/change-password" className="cursor-pointer">
+                      Change Password
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
-                  <Link href="/change-password" className="cursor-pointer">
-                    Change Password
+                  <Link
+                    href={inSundaySchoolMode ? '/dashboard/servants/privacy' : '/privacy'}
+                    className="cursor-pointer"
+                  >
+                    Privacy Policy
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={inSundaySchoolMode ? '/dashboard/servants/terms' : '/terms'}
+                    className="cursor-pointer"
+                  >
+                    Terms of Service
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="cursor-pointer flex items-center gap-2"
-                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
                 >
-                  {theme === 'dark' ? (
+                  {resolvedTheme === 'dark' ? (
                     <>
                       <Sun className="h-4 w-4" />
                       Light Mode
@@ -318,8 +520,19 @@ export function Navbar() {
 
         {/* Mobile menu - flat list of all links */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t dark:border-gray-800">
+          <div className="border-t dark:border-gray-800 xl:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1">
+              {canSwitchModes && (
+                <Link
+                  href={modeDestination}
+                  onClick={handleModeSwitch}
+                  data-mode-switch
+                  aria-disabled={switchingModes}
+                  className="block px-3 py-2 mb-1 rounded-md text-base font-medium border text-gray-700 dark:text-gray-300 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Switch to {inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}
+                </Link>
+              )}
               {allLinks.map(link => (
                 <Link
                   key={link.href}
