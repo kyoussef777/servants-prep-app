@@ -9,7 +9,15 @@ import { useTheme } from 'next-themes'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getRoleDisplayName, canManageAllUsers, canManageEnrollments, canViewRegistrations, isAdmin, canAdministerSundaySchool } from '@/lib/roles'
+import {
+  getRoleDisplayName,
+  canManageAllUsers,
+  canManageEnrollments,
+  canViewRegistrations,
+  isAdmin,
+  canAdministerSundaySchool,
+  canReviewServantApplications,
+} from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 
@@ -197,6 +205,13 @@ export function Navbar() {
 
       if (session.user.sundaySchool?.isCoordinator) {
         more.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
+      }
+
+      if (canReviewServantApplications(role)) {
+        more.push({
+          href: '/dashboard/servants/servant-applications',
+          label: 'Servant applications',
+        })
       }
 
       if (canAdministerSundaySchool(role)) {

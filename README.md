@@ -23,8 +23,8 @@ program, and vice versa.
 ## Features
 
 ### Servants Prep
-- **Six roles** with distinct permissions: Super Admin, Priest, Servants Prep
-  Leader, Mentor, Student, Sunday School Servant
+- **Role-based access** for Super Admins, Priests, Servants Prep Leaders,
+  Mentors, and Students
 - **Academic years** with enrollment management, including late-start students
 - **Curriculum** — weekly lessons with resources, ordering, and exam days
 - **Attendance** — Present / Late / Absent / Excused, with expected absences and
@@ -45,6 +45,10 @@ program, and vice versa.
 - **Children** rosters with guardian contact, visible only to that class's
   servants and to admins
 - **Weekly attendance** per child, with per-class rates
+- **Parent onboarding** with self-service accounts and approval-based child
+  registration
+- **Servant onboarding** with a public sign-up form and a Super Admin-only
+  review queue under Sunday School's **More** menu
 
 ### Shared experience and branding
 - **Compact SP / SS mode switcher** for eligible users, with an animated
@@ -144,9 +148,29 @@ changes a database. Run schema updates as an explicit deployment step.
 | Mentor | Own mentees, read-only | Only if personally assigned | None |
 | Student | Own data, read-only | None | None |
 | Sunday School Servant | None | Only their assignments | None |
+| Parent | None | Only actively linked children | None |
 
 Sunday School authority comes from an **assignment**, not a role — which is how
 one person can serve both sides. See [`docs/permissions.md`](docs/permissions.md).
+
+## Account onboarding
+
+The login page is the shared entry point for both ministries:
+
+- **Parents** create their own account with an email and password, then submit
+  each child for coordinator approval and class placement.
+- **Sunday School servants** submit their name, email, phone number, and the
+  grade they currently serve. Only a Super Admin can review the application.
+  Approval creates the account with a temporary password; the servant changes
+  it at first login and is assigned to a class separately.
+- **Servants Prep students** use the existing invite-code registration flow.
+  A Super Admin or Servants Prep Leader reviews the registration before an
+  account and enrollment are created.
+- **Google sign-in** is available only for an existing, enabled account; it
+  does not create a new account.
+
+Privileged accounts are provisioned by an administrator rather than through a
+public sign-up form. The portal maintains one account per email address.
 
 ## Graduation requirements
 

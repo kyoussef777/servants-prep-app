@@ -11,9 +11,14 @@ import { notifyNewServantApplication } from '@/lib/notifications'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { email, fullName, phone, availability, motivation } = body
+    const { email, fullName, phone, currentGrade } = body
+    const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : ''
+    const normalizedName = typeof fullName === 'string' ? fullName.trim() : ''
+    const normalizedPhone = typeof phone === 'string' ? phone.trim() : ''
+    const normalizedCurrentGrade =
+      typeof currentGrade === 'string' ? currentGrade.trim() : ''
 
-    if (!email || !fullName || !phone) {
+    if (!normalizedEmail || !normalizedName || !normalizedPhone || !normalizedCurrentGrade) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -21,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
@@ -31,7 +36,7 @@ export async function POST(req: NextRequest) {
     const application = await prisma.$transaction(async (tx) => {
       const existingApplication = await tx.servantApplication.findFirst({
         where: {
-          email: email.toLowerCase().trim(),
+          email: normalizedEmail,
           status: {
             in: [RegistrationStatus.PENDING, RegistrationStatus.APPROVED],
           },
@@ -45,7 +50,7 @@ export async function POST(req: NextRequest) {
       }
 
       const existingUser = await tx.user.findUnique({
-        where: { email: email.toLowerCase().trim() },
+        where: { email: normalizedEmail },
       })
 
       if (existingUser) {
@@ -55,17 +60,17 @@ export async function POST(req: NextRequest) {
       return tx.servantApplication.create({
         data: {
           status: RegistrationStatus.PENDING,
-          email: email.toLowerCase().trim(),
-          fullName,
-          phone,
-          availability: availability || null,
-          motivation: motivation || null,
+          email: normalizedEmail,
+          fullName: normalizedName,
+          phone: normalizedPhone,
+          // Compatibility column retained until the later contract migration.
+          motivation: normalizedCurrentGrade,
         },
       })
     })
 
     notifyNewServantApplication({
-      applicantName: fullName,
+      applicantName: normalizedName,
       applicationId: application.id,
     }).catch(() => {})
 

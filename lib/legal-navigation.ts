@@ -1,6 +1,7 @@
 export const LEGAL_RETURN_PATH_KEY = 'legal-return-path'
 
 const RETURN_PAGE_LABELS: Array<[path: string, label: string]> = [
+  ['/dashboard/servants/servant-applications', 'Servant Applications'],
   ['/dashboard/servants/child-registrations', 'Child Registrations'],
   ['/dashboard/servants/servant-attendance', 'Servant Attendance'],
   ['/dashboard/servants/age-groups', 'Age Groups'],

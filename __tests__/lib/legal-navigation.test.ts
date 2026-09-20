@@ -32,6 +32,9 @@ describe('legal navigation', () => {
   })
 
   it('names the page the user will return to', () => {
+    expect(
+      getLegalReturnLabel('/dashboard/servants/servant-applications', true)
+    ).toBe('Servant Applications')
     expect(getLegalReturnLabel('/dashboard/servants/users?role=SERVANT', true)).toBe('Users')
     expect(getLegalReturnLabel('/dashboard/servants/classes/class-123', true)).toBe('Classes')
     expect(getLegalReturnLabel('/dashboard/admin/curriculum', false)).toBe('Curriculum')

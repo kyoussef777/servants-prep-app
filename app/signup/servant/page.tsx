@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 
@@ -14,8 +13,7 @@ interface FormData {
   fullName: string
   email: string
   phone: string
-  availability: string
-  motivation: string
+  currentGrade: string
 }
 
 export default function ServantSignupPage() {
@@ -25,8 +23,7 @@ export default function ServantSignupPage() {
     fullName: '',
     email: '',
     phone: '',
-    availability: '',
-    motivation: '',
+    currentGrade: '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,8 +38,7 @@ export default function ServantSignupPage() {
           fullName: formData.fullName,
           email: formData.email,
           phone: formData.phone,
-          availability: formData.availability || undefined,
-          motivation: formData.motivation || undefined,
+          currentGrade: formData.currentGrade,
         }),
       })
 
@@ -78,7 +74,7 @@ export default function ServantSignupPage() {
               <p className="font-semibold text-green-900 mb-2">What happens next?</p>
               <ul className="list-disc list-inside space-y-1 text-green-800">
                 <li>An administrator will review your application</li>
-                <li>If approved, you&apos;ll receive login credentials by email</li>
+                <li>If approved, a Super Admin will provide your temporary login credentials</li>
                 <li>You&apos;ll then be assigned to a class once staffing is finalized</li>
               </ul>
             </div>
@@ -92,9 +88,9 @@ export default function ServantSignupPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
       <Card className="w-full max-w-lg border-2 border-maroon-600 shadow-lg">
         <CardHeader className="text-center space-y-4 pt-8 pb-6">
-          <CardTitle className="text-2xl sm:text-3xl">Serve in Sunday School</CardTitle>
+          <CardTitle className="text-2xl sm:text-3xl">Sunday School Servant Sign-Up</CardTitle>
           <CardDescription className="text-base mt-2">
-            Apply to become a Sunday School servant
+            Submit your information to request servant access. Applications require approval.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 px-6 pb-8">
@@ -129,21 +125,13 @@ export default function ServantSignupPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="availability">Availability</Label>
+              <Label htmlFor="currentGrade">What grade do you currently serve? *</Label>
               <Input
-                id="availability"
-                placeholder="e.g. Sundays only, flexible"
-                value={formData.availability}
-                onChange={(e) => setFormData({ ...formData, availability: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="motivation">Why do you want to serve?</Label>
-              <Textarea
-                id="motivation"
-                rows={4}
-                value={formData.motivation}
-                onChange={(e) => setFormData({ ...formData, motivation: e.target.value })}
+                id="currentGrade"
+                placeholder="e.g. 3rd grade"
+                required
+                value={formData.currentGrade}
+                onChange={(e) => setFormData({ ...formData, currentGrade: e.target.value })}
               />
             </div>
             <Button
@@ -158,7 +146,7 @@ export default function ServantSignupPage() {
                   Submitting...
                 </>
               ) : (
-                'Submit Application'
+                'Submit for Approval'
               )}
             </Button>
           </form>

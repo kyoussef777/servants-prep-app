@@ -28,10 +28,9 @@ interface ServantApplication {
   email: string
   fullName: string
   phone: string
-  availability: string | null
-  motivation: string | null
+  currentGrade: string | null
   createdAt: string
-  reviewer: { name: string; email: string } | null
+  reviewer: { name: string } | null
   reviewNote: string | null
   reviewedAt: string | null
 }
@@ -63,15 +62,22 @@ function statusBadge(status: RegistrationStatus) {
 }
 
 export default function ServantApplicationsPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
+  const { data: applications, mutate } = useServantApplications()
+  const [selected, setSelected] = useState<ServantApplication | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-maroon-600" />
+      </div>
+    )
+  }
 
   if (!session?.user || !canReviewServantApplications(session.user.role)) {
     redirect('/dashboard')
   }
-
-  const { data: applications, mutate } = useServantApplications()
-  const [selected, setSelected] = useState<ServantApplication | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -235,16 +241,11 @@ function ApplicationDetailDialog({
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div><span className="text-gray-600">Email:</span> {application.email}</div>
             <div><span className="text-gray-600">Phone:</span> {application.phone}</div>
-            {application.availability && (
-              <div className="col-span-2"><span className="text-gray-600">Availability:</span> {application.availability}</div>
-            )}
           </div>
-          {application.motivation && (
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Why they want to serve:</p>
-              <p className="text-sm">{application.motivation}</p>
-            </div>
-          )}
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Current grade served:</p>
+            <p className="text-sm">{application.currentGrade || 'Not provided'}</p>
+          </div>
 
           {canReview && (
             <div className="border-t pt-4 space-y-2">

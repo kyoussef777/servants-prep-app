@@ -1297,8 +1297,8 @@ model ServantApplication {
   email        String
   fullName     String
   phone        String
-  availability String? @db.Text
-  motivation   String? @db.Text
+  availability String? @db.Text // Legacy compatibility column; no longer collected.
+  motivation   String? @db.Text // Stores current grade until the contract migration.
 
   reviewedBy    String?
   reviewedAt    DateTime?

@@ -106,6 +106,7 @@ client, and used identically on both sides.
 | `canManageInviteCodes` | `SUPER_ADMIN`, `SERVANT_PREP` | Registration invite codes |
 | `canReviewRegistrations` | `SUPER_ADMIN`, `SERVANT_PREP` | Approving registrations |
 | `canViewRegistrations` | admin roles | Reading registration submissions |
+| `canReviewServantApplications` | `SUPER_ADMIN` | Reviewing Sunday School servant sign-ups |
 | `canManageSundaySchool` | `SUPER_ADMIN`, `SERVANT_PREP` | **Prep-side only** — the async serving-verification flow (codes, logs). Not Sunday School mode. |
 
 ### User management

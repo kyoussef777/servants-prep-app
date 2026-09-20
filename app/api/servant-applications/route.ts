@@ -25,14 +25,27 @@ export async function GET(request: Request) {
 
     const applications = await prisma.servantApplication.findMany({
       where,
-      include: {
-        reviewer: { select: { id: true, name: true, email: true } },
-        createdUser: { select: { id: true, name: true, email: true } },
+      select: {
+        id: true,
+        status: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        motivation: true,
+        createdAt: true,
+        reviewedAt: true,
+        reviewNote: true,
+        reviewer: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(applications)
+    return NextResponse.json(
+      applications.map(({ motivation, ...application }) => ({
+        ...application,
+        currentGrade: motivation,
+      }))
+    )
   } catch (error: unknown) {
     return handleApiError(error)
   }

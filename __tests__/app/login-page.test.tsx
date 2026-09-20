@@ -79,5 +79,9 @@ describe('LoginPage', () => {
       '/sunday-school-favicon.png'
     )
     expect(screen.getByText(/sign in once to access the ministries/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Sign up as a Sunday School servant' })).toHaveAttribute(
+      'href',
+      '/signup/servant'
+    )
   })
 })

@@ -449,7 +449,7 @@ export async function notifyNewServantApplication({
     type: NotificationType.SERVANT_APPLICATION_RECEIVED,
     title: 'New Servant Application',
     body: `${applicantName} has applied to serve in Sunday School.`,
-    url: '/dashboard/admin/servant-applications',
+    url: '/dashboard/servants/servant-applications',
     metadata: { applicationId, applicantName },
   })
 }

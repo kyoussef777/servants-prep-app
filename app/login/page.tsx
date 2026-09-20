@@ -222,7 +222,7 @@ function LoginForm() {
             </p>
             <p>
               <Link href="/signup/servant" className="text-white underline hover:text-gray-200">
-                Apply to serve in Sunday School
+                Sign up as a Sunday School servant
               </Link>
             </p>
           </div>
