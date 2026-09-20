@@ -99,11 +99,6 @@ function ServantAttendanceContent() {
     ])))
   }, [attendance])
 
-  const markAll = (statusValue: SundaySchoolServantAttendanceStatus) => {
-    if (!attendance) return
-    setMarks(Object.fromEntries(attendance.roster.map(entry => [entry.userId, statusValue])))
-  }
-
   const presentCount = useMemo(
     () => Object.values(marks).filter(
       mark => mark === SundaySchoolServantAttendanceStatus.PRESENT
@@ -209,7 +204,7 @@ function ServantAttendanceContent() {
             )}
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
+              <CardHeader>
                 <CardTitle>
                   {selectedClass?.name ?? 'Servants'}
                   {attendance && (
@@ -218,24 +213,6 @@ function ServantAttendanceContent() {
                     </span>
                   )}
                 </CardTitle>
-                {attendance && attendance.roster.length > 0 && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => markAll(SundaySchoolServantAttendanceStatus.PRESENT)}
-                    >
-                      All present
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => markAll(SundaySchoolServantAttendanceStatus.ABSENT)}
-                    >
-                      All absent
-                    </Button>
-                  </div>
-                )}
               </CardHeader>
               <CardContent>
                 {attendanceLoading ? (

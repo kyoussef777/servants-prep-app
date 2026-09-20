@@ -183,11 +183,6 @@ function SundaySchoolAttendanceContent() {
     }
   }
 
-  const markAll = (value: AttendanceStatus) => {
-    if (!attendance) return
-    setMarks(Object.fromEntries(attendance.roster.map(entry => [entry.id, value])))
-  }
-
   const presentCount = useMemo(
     () => Object.values(marks).filter(s => s === AttendanceStatus.PRESENT || s === AttendanceStatus.LATE).length,
     [marks]
@@ -262,7 +257,7 @@ function SundaySchoolAttendanceContent() {
             )}
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardHeader>
                 <CardTitle>
                   {selectedClass?.name ?? 'Roster'}
                   {attendance && (
@@ -271,16 +266,6 @@ function SundaySchoolAttendanceContent() {
                     </span>
                   )}
                 </CardTitle>
-                {canEdit && attendance && attendance.roster.length > 0 && (
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => markAll(AttendanceStatus.PRESENT)}>
-                      All present
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => markAll(AttendanceStatus.ABSENT)}>
-                      All absent
-                    </Button>
-                  </div>
-                )}
               </CardHeader>
               <CardContent>
                 {loadingSession ? (
