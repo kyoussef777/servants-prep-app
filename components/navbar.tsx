@@ -263,28 +263,28 @@ export function Navbar() {
   return (
     <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 justify-between">
+        <div className="flex h-16 items-center justify-between gap-2">
           {/* Left side - Logo/Title */}
-          <div className="flex min-w-0 items-center gap-8">
+          <div className="flex min-w-0 flex-1 items-center gap-8 overflow-hidden">
             <div
-              className={`flex items-center gap-3 ${canSwitchModes ? 'sm:w-[268px] sm:justify-between' : ''}`}
+              className={`flex min-w-0 items-center gap-2 sm:gap-3 ${canSwitchModes ? 'sm:w-[268px] sm:justify-between' : ''}`}
             >
               <Link
                 href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
-                className="flex shrink-0 items-center gap-3"
+                className="flex min-w-0 items-center gap-2 sm:shrink-0 sm:gap-3"
               >
-                <span className="flex h-10 w-12 shrink-0 items-center justify-center">
+                <span className="flex h-9 w-10 shrink-0 items-center justify-center sm:h-10 sm:w-12">
                   <Image
                     src={inSundaySchoolMode ? '/sunday-school-favicon.png' : '/sp-logo.png'}
                     alt={inSundaySchoolMode ? 'St. Mark Coptic Orthodox Church Logo' : 'Servants Prep Logo'}
                     width={inSundaySchoolMode ? 48 : 40}
                     height={40}
                     className={inSundaySchoolMode
-                      ? 'h-11 w-11 object-contain'
-                      : 'h-10 w-10 rounded-md bg-black p-1'}
+                      ? 'h-9 w-9 object-contain sm:h-11 sm:w-11'
+                      : 'h-9 w-9 rounded-md bg-black p-1 sm:h-10 sm:w-10'}
                   />
                 </span>
-                <span className="whitespace-nowrap text-xl font-bold text-gray-900 dark:text-white">
+                <span className="truncate whitespace-nowrap text-lg font-bold text-gray-900 sm:text-xl dark:text-white">
                   {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
                 </span>
               </Link>
@@ -379,7 +379,7 @@ export function Navbar() {
           </div>
 
           {/* Right side - User menu */}
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-3">
             {/* Search / command palette trigger - desktop (search-bar style) */}
             <button
               type="button"
