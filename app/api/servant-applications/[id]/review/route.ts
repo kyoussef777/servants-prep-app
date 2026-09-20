@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { canReviewServantApplications } from '@/lib/roles'
-import { RegistrationStatus, UserRole } from '@prisma/client'
+import { RegistrationStatus, RoleGrantSource, RoleTag, UserRole } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { generateTempPassword } from '@/lib/registration-utils'
 import { notifyServantApplicationReviewed } from '@/lib/notifications'
@@ -68,6 +68,14 @@ export async function POST(
             phone: application.phone,
             mustChangePassword: true,
             isDisabled: false,
+            roleAssignments: {
+              create: {
+                tag: RoleTag.SUNDAY_SCHOOL_SERVANT,
+                source: RoleGrantSource.SUNDAY_SCHOOL_ACCOUNT,
+                grantedById: user.id,
+                note: 'Granted when servant application was approved',
+              },
+            },
           },
         })
 

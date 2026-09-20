@@ -455,7 +455,8 @@ export async function notifyNewServantApplication({
 }
 
 /**
- * Notify an applicant when their servant application is approved/rejected
+ * Create an in-app notification when a servant application is approved/rejected.
+ * This does not send email or deliver login credentials.
  */
 export async function notifyServantApplicationReviewed({
   userId,

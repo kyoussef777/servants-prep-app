@@ -182,6 +182,14 @@ describe('servant applications API', () => {
         password: 'hashed-password',
         role: 'SERVANT',
         mustChangePassword: true,
+        roleAssignments: {
+          create: {
+            tag: 'SUNDAY_SCHOOL_SERVANT',
+            source: 'SUNDAY_SCHOOL_ACCOUNT',
+            grantedById: 'admin-1',
+            note: 'Granted when servant application was approved',
+          },
+        },
       }),
     })
     expect(mocks.updateApplication).toHaveBeenCalledWith(expect.objectContaining({

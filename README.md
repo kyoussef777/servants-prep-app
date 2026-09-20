@@ -161,8 +161,10 @@ The login page is the shared entry point for both ministries:
   each child for coordinator approval and class placement.
 - **Sunday School servants** submit their name, email, phone number, and the
   grade they currently serve. Only a Super Admin can review the application.
-  Approval creates the account with a temporary password; the servant changes
-  it at first login and is assigned to a class separately.
+  Approval creates the account with a temporary password and the **Sunday
+  School Servant** access tag. The Super Admin shares the password directly;
+  the portal does not email credentials. The servant changes it at first login
+  and is assigned to a class separately.
 - **Servants Prep students** use the existing invite-code registration flow.
   A Super Admin or Servants Prep Leader reviews the registration before an
   account and enrollment are created.

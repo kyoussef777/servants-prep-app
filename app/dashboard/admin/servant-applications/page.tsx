@@ -186,7 +186,7 @@ function ApplicationDetailDialog({
 
       const data = await res.json()
       toast.success('Application approved!', {
-        description: `Temp password: ${data.tempPassword}`,
+        description: `Temporary password to share with the applicant: ${data.tempPassword}`,
         duration: 10000,
       })
       onUpdate()
