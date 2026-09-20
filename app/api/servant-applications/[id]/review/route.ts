@@ -4,8 +4,9 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { canReviewServantApplications } from '@/lib/roles'
 import { RegistrationStatus, RoleGrantSource, RoleTag, UserRole } from '@prisma/client'
 import bcrypt from 'bcryptjs'
-import { generateTempPassword } from '@/lib/registration-utils'
 import { notifyServantApplicationReviewed } from '@/lib/notifications'
+
+const SERVANT_TEMP_PASSWORD = 'Welcome123!'
 
 /**
  * POST /api/servant-applications/[id]/review
@@ -56,7 +57,7 @@ export async function POST(
           throw new Error('A user with this email already exists')
         }
 
-        const tempPassword = generateTempPassword()
+        const tempPassword = SERVANT_TEMP_PASSWORD
         const hashedPassword = await bcrypt.hash(tempPassword, 10)
 
         const newUser = await tx.user.create({

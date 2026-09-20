@@ -14,16 +14,12 @@ const mocks = vi.hoisted(() => ({
   notifyNewApplication: vi.fn(),
   notifyReviewedApplication: vi.fn(),
   hash: vi.fn(),
-  generateTempPassword: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/notifications', () => ({
   notifyNewServantApplication: mocks.notifyNewApplication,
   notifyServantApplicationReviewed: mocks.notifyReviewedApplication,
-}))
-vi.mock('@/lib/registration-utils', () => ({
-  generateTempPassword: mocks.generateTempPassword,
 }))
 vi.mock('bcryptjs', () => ({
   default: { hash: mocks.hash },
@@ -71,7 +67,6 @@ describe('servant applications API', () => {
     mocks.notifyNewApplication.mockResolvedValue(undefined)
     mocks.notifyReviewedApplication.mockResolvedValue(undefined)
     mocks.hash.mockResolvedValue('hashed-password')
-    mocks.generateTempPassword.mockReturnValue('Temporary1!')
     mocks.transaction.mockImplementation(async callback => callback({
       servantApplication: {
         findFirst: mocks.findFirst,
@@ -200,7 +195,8 @@ describe('servant applications API', () => {
         createdUserId: 'servant-1',
       }),
     }))
-    expect(result.tempPassword).toBe('Temporary1!')
+    expect(mocks.hash).toHaveBeenCalledWith('Welcome123!', 10)
+    expect(result.tempPassword).toBe('Welcome123!')
     expect(mocks.notifyReviewedApplication).toHaveBeenCalledWith({
       userId: 'servant-1',
       status: 'APPROVED',
