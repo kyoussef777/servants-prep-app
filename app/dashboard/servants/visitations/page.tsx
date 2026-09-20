@@ -173,9 +173,15 @@ export default function SundaySchoolVisitationsPage() {
         throw new Error(body.error || 'Failed to save the confidential note')
       }
 
-      setPriestNotes(current => [body as SundaySchoolPriestNote, ...current])
+      if (isPriest) {
+        setPriestNotes(current => [body as SundaySchoolPriestNote, ...current])
+      }
       setConfidentialNote('')
-      toast.success('Confidential priest note saved')
+      toast.success(
+        isPriest
+          ? 'Confidential priest note saved'
+          : 'Private note sent to the priests'
+      )
     } catch (saveError: unknown) {
       toast.error(
         saveError instanceof Error ? saveError.message : 'Failed to save the confidential note'
@@ -456,23 +462,26 @@ export default function SundaySchoolVisitationsPage() {
                 )}
               </div>
 
-              {isPriest && (
+              {(isPriest || selectedClass?.canEdit) && (
                 <div className="space-y-4 rounded-lg border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-900 dark:bg-amber-950/20">
                   <div className="flex items-start gap-3">
                     <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400" />
                     <div>
                       <h3 className="font-medium text-amber-950 dark:text-amber-100">
-                        Priest-only notes
+                        Private notes to priests
                       </h3>
                       <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
-                        Confidential. These notes are available only to users with an active Priest
-                        access tag and never appear in the shared visitation history.
+                        {isPriest
+                          ? 'Confidential. These notes are available only to users with an active Priest access tag and never appear in the shared visitation history.'
+                          : 'Send confidential or personal context directly to the priests. Other servants cannot read it, and you will not be able to view it after submitting.'}
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="priest-confidential-note">New confidential note</Label>
+                    <Label htmlFor="priest-confidential-note">
+                      {isPriest ? 'New confidential note' : 'Confidential note for priest review'}
+                    </Label>
                     <Textarea
                       id="priest-confidential-note"
                       value={confidentialNote}
@@ -489,40 +498,46 @@ export default function SundaySchoolVisitationsPage() {
                         onClick={handlePriestNoteSave}
                         disabled={savingPriestNote || !confidentialNote.trim()}
                       >
-                        {savingPriestNote ? 'Saving…' : 'Add confidential note'}
+                        {savingPriestNote
+                          ? 'Sending…'
+                          : isPriest
+                            ? 'Add confidential note'
+                            : 'Send privately to priests'}
                       </Button>
                     </div>
                   </div>
 
-                  <div className="space-y-3 border-t border-amber-200 pt-4 dark:border-amber-900">
-                    <h4 className="text-sm font-medium">Confidential history</h4>
-                    {loadingPriestNotes ? (
-                      <p className="text-sm text-amber-800 dark:text-amber-300">
-                        Loading confidential notes…
-                      </p>
-                    ) : priestNotes.length === 0 ? (
-                      <p className="text-sm text-amber-800 dark:text-amber-300">
-                        No priest-only notes have been added for this child.
-                      </p>
-                    ) : (
-                      priestNotes.map(priestNote => (
-                        <div
-                          key={priestNote.id}
-                          className="rounded-md border border-amber-200 bg-white/70 p-3 dark:border-amber-900 dark:bg-gray-950/50"
-                        >
-                          <p className="whitespace-pre-wrap text-sm">{priestNote.content}</p>
-                          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            {priestNote.author.name} ·{' '}
-                            {formatDateUTC(priestNote.createdAt, {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                  {isPriest && (
+                    <div className="space-y-3 border-t border-amber-200 pt-4 dark:border-amber-900">
+                      <h4 className="text-sm font-medium">Confidential history</h4>
+                      {loadingPriestNotes ? (
+                        <p className="text-sm text-amber-800 dark:text-amber-300">
+                          Loading confidential notes…
+                        </p>
+                      ) : priestNotes.length === 0 ? (
+                        <p className="text-sm text-amber-800 dark:text-amber-300">
+                          No priest-only notes have been added for this child.
+                        </p>
+                      ) : (
+                        priestNotes.map(priestNote => (
+                          <div
+                            key={priestNote.id}
+                            className="rounded-md border border-amber-200 bg-white/70 p-3 dark:border-amber-900 dark:bg-gray-950/50"
+                          >
+                            <p className="whitespace-pre-wrap text-sm">{priestNote.content}</p>
+                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                              {priestNote.author.name} ·{' '}
+                              {formatDateUTC(priestNote.createdAt, {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 import { getAuthorizationContext } from '@/lib/authorization'
 import { handleApiError } from '@/lib/api-utils'
 import { requireAuth } from '@/lib/auth-helpers'
+import { notifyPriestNoteCreated } from '@/lib/notifications'
 import { prisma } from '@/lib/prisma'
+import { canServeClass, getSundaySchoolAccess } from '@/lib/sunday-school-access'
 
 const MAX_NOTE_LENGTH = 5_000
 
@@ -24,7 +26,8 @@ async function hasActivePriestTag(userId: string) {
 }
 
 // This route is intentionally separate from the general visitation endpoint.
-// Non-priests cannot query, infer, create, or update confidential note content.
+// Only priests can query confidential note content. Class servants may submit
+// a new note for priest review, but the API never returns prior notes to them.
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
@@ -57,12 +60,14 @@ export async function GET(request: Request) {
   }
 }
 
-// Adding a confidential note is a narrow, audited exception to the normal
-// PRIEST read-only policy. It does not grant permission to alter ministry data.
+// Submitting a confidential note is a narrow, audited write available to an
+// active priest or someone already allowed to record this child's visitation.
+// Submission never grants access to read the confidential history.
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
-    if (!(await hasActivePriestTag(user.id))) {
+    const authorization = await getAuthorizationContext(user.id)
+    if (authorization.disabled) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -90,10 +95,23 @@ export async function POST(request: Request) {
 
     const child = await prisma.sundaySchoolChild.findUnique({
       where: { id: childId },
-      select: { id: true },
+      select: {
+        id: true,
+        classId: true,
+        class: { select: { academicYearId: true } },
+      },
     })
     if (!child) {
       return NextResponse.json({ error: 'Child not found' }, { status: 404 })
+    }
+
+    const isPriest = authorization.roleTags.has(RoleTag.PRIEST)
+    const classAccess =
+      !isPriest && child.classId && child.class
+        ? await getSundaySchoolAccess(user, child.class.academicYearId)
+        : null
+    if (!isPriest && (!child.classId || !classAccess || !canServeClass(classAccess, child.classId))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const note = await prisma.$transaction(async tx => {
@@ -118,6 +136,16 @@ export async function POST(request: Request) {
       })
 
       return created
+    })
+
+    await notifyPriestNoteCreated({
+      noteId: note.id,
+      childId,
+      submittedById: user.id,
+    }).catch((error: unknown) => {
+      // The note is already committed, so a notification outage must not make
+      // the user retry and accidentally create a duplicate confidential note.
+      console.error('Failed to alert priests about a confidential note', error)
     })
 
     return NextResponse.json(note, { status: 201 })

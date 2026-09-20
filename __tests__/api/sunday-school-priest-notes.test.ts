@@ -9,11 +9,21 @@ const mocks = vi.hoisted(() => ({
   createNote: vi.fn(),
   createAudit: vi.fn(),
   transaction: vi.fn(),
+  getSundaySchoolAccess: vi.fn(),
+  canServeClass: vi.fn(),
+  notifyPriestNoteCreated: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/authorization', () => ({
   getAuthorizationContext: mocks.getAuthorizationContext,
+}))
+vi.mock('@/lib/sunday-school-access', () => ({
+  getSundaySchoolAccess: mocks.getSundaySchoolAccess,
+  canServeClass: mocks.canServeClass,
+}))
+vi.mock('@/lib/notifications', () => ({
+  notifyPriestNoteCreated: mocks.notifyPriestNoteCreated,
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -35,8 +45,15 @@ describe('Sunday School priest-only notes API', () => {
     vi.clearAllMocks()
     mocks.requireAuth.mockResolvedValue({ id: 'priest-1', role: 'PRIEST' })
     mocks.getAuthorizationContext.mockResolvedValue(priestAuthorization)
-    mocks.findChild.mockResolvedValue({ id: 'child-1' })
+    mocks.findChild.mockResolvedValue({
+      id: 'child-1',
+      classId: 'class-1',
+      class: { academicYearId: 'year-1' },
+    })
     mocks.findNotes.mockResolvedValue([])
+    mocks.getSundaySchoolAccess.mockResolvedValue({ servantClassIds: new Set(['class-1']) })
+    mocks.canServeClass.mockReturnValue(true)
+    mocks.notifyPriestNoteCreated.mockResolvedValue(undefined)
     mocks.createNote.mockResolvedValue({
       id: 'note-1',
       childId: 'child-1',
@@ -150,5 +167,72 @@ describe('Sunday School priest-only notes API', () => {
     expect(JSON.stringify(mocks.createAudit.mock.calls)).not.toContain(
       'Confidential pastoral context'
     )
+    expect(mocks.notifyPriestNoteCreated).toHaveBeenCalledWith({
+      noteId: 'note-1',
+      childId: 'child-1',
+      submittedById: 'priest-1',
+    })
+  })
+
+  it('lets an assigned visitation servant submit a note without granting read access', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'servant-1', role: 'SERVANT' })
+    mocks.getAuthorizationContext.mockResolvedValue({
+      disabled: false,
+      roleTags: new Set([RoleTag.SUNDAY_SCHOOL_SERVANT]),
+    })
+
+    const getResponse = await GET(
+      new Request('http://localhost/api/sunday-school/priest-notes?childId=child-1')
+    )
+    expect(getResponse.status).toBe(403)
+
+    const postResponse = await POST(new Request(
+      'http://localhost/api/sunday-school/priest-notes',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          childId: 'child-1',
+          content: 'Please ask the priest to follow up privately.',
+        }),
+      }
+    ))
+
+    expect(postResponse.status).toBe(201)
+    expect(mocks.getSundaySchoolAccess).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'servant-1' }),
+      'year-1'
+    )
+    expect(mocks.canServeClass).toHaveBeenCalledWith(
+      expect.anything(),
+      'class-1'
+    )
+    expect(mocks.notifyPriestNoteCreated).toHaveBeenCalledWith({
+      noteId: 'note-1',
+      childId: 'child-1',
+      submittedById: 'servant-1',
+    })
+  })
+
+  it('refuses confidential submissions outside the user\'s visitation scope', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'servant-2', role: 'SERVANT' })
+    mocks.getAuthorizationContext.mockResolvedValue({
+      disabled: false,
+      roleTags: new Set([RoleTag.SUNDAY_SCHOOL_SERVANT]),
+    })
+    mocks.canServeClass.mockReturnValue(false)
+
+    const response = await POST(new Request(
+      'http://localhost/api/sunday-school/priest-notes',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childId: 'child-1', content: 'Private follow-up' }),
+      }
+    ))
+
+    expect(response.status).toBe(403)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(mocks.notifyPriestNoteCreated).not.toHaveBeenCalled()
   })
 })

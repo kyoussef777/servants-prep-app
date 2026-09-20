@@ -1,6 +1,6 @@
 import webpush from 'web-push'
 import { prisma } from './prisma'
-import { NotificationType, Prisma, SundaySchoolLevel, YearLevel } from '@prisma/client'
+import { NotificationType, Prisma, RoleTag, SundaySchoolLevel, YearLevel } from '@prisma/client'
 import { getChildRegistrationReviewerIds } from './sunday-school-access'
 
 // Configure VAPID keys for web push
@@ -530,6 +530,45 @@ export async function notifyChildRegistrationReviewed({
         : `Your request to register ${childName} has been reviewed. Please contact a coordinator for details.`,
     url: '/dashboard/parent',
     metadata: { childName, className },
+  })
+}
+
+/**
+ * Notify every active priest, except the author, that a confidential Sunday
+ * School visitation note is ready for review. The notification deliberately
+ * excludes the child's name and the note content because push previews can be
+ * visible on a locked device.
+ */
+export async function notifyPriestNoteCreated({
+  noteId,
+  childId,
+  submittedById,
+}: {
+  noteId: string
+  childId: string
+  submittedById: string
+}) {
+  const priests = await prisma.user.findMany({
+    where: {
+      id: { not: submittedById },
+      isDisabled: false,
+      roleAssignments: {
+        some: {
+          tag: RoleTag.PRIEST,
+          revokedAt: null,
+        },
+      },
+    },
+    select: { id: true },
+  })
+
+  await createNotifications({
+    userIds: priests.map((priest) => priest.id),
+    type: NotificationType.PRIEST_NOTE_CREATED,
+    title: 'New confidential visitation note',
+    body: 'A confidential Sunday School visitation note is ready for review.',
+    url: '/dashboard/servants/visitations',
+    metadata: { noteId, childId },
   })
 }
 

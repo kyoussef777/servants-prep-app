@@ -18,6 +18,7 @@ import {
   Megaphone,
   ShieldAlert,
   FileText,
+  LockKeyhole,
   Star,
 } from 'lucide-react'
 import { formatDistanceToNow } from '@/lib/format-date'
@@ -65,6 +66,8 @@ function getNotificationMeta(type: string): { icon: React.ElementType; color: st
       return { icon: Megaphone, color: 'text-orange-600 bg-orange-100 dark:bg-orange-900/40' }
     case 'CONDUCT_REMOVAL':
       return { icon: ShieldAlert, color: 'text-red-600 bg-red-100 dark:bg-red-900/40' }
+    case 'PRIEST_NOTE_CREATED':
+      return { icon: LockKeyhole, color: 'text-amber-700 bg-amber-100 dark:bg-amber-900/40' }
     default:
       return { icon: Bell, color: 'text-gray-500 bg-gray-100 dark:bg-gray-800' }
   }
