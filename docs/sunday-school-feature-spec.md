@@ -316,6 +316,22 @@ Constraints:
 - Attendance and visitation reference the enrollment and placement so a later
   move cannot rewrite historical class context.
 
+### Visitation notes and priest confidentiality
+
+- A new visitation may include an optional shared note and an optional private
+  note to priests.
+- `SundaySchoolPriestNote` stores `visitationId`, `authorId`, `content`, and
+  timestamps. The required visitation foreign key provides the child, class,
+  date, and historical context; the note does not duplicate `childId`.
+- The visitation and optional private note are created in one transaction.
+- The author may read only private notes they submitted. Users with an active
+  `PRIEST` tag may read all private notes. `SUPER_ADMIN` alone does not grant
+  access.
+- Private content is excluded from shared visitation responses, audit metadata,
+  and notification previews.
+- Creating a private note alerts all other active Priest-tagged users with a
+  generic in-app notification and optional push alert.
+
 ### `SundaySchoolServantAssignment`
 
 Fields:

@@ -1,8 +1,9 @@
-import { RoleTag, SundaySchoolVisitationStatus } from "@prisma/client"
+import { AuditEventResult, RoleTag, SundaySchoolVisitationStatus } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { getAuthorizationContext } from "@/lib/authorization"
 import { handleApiError } from "@/lib/api-utils"
 import { requireAuth } from "@/lib/auth-helpers"
+import { notifyPriestNoteCreated } from "@/lib/notifications"
 import { prisma } from "@/lib/prisma"
 import {
   canServeClass,
@@ -92,12 +93,12 @@ export async function GET(request: Request) {
 }
 
 // POST /api/sunday-school/visitations - Add one visitation record for a child.
-// Body: { childId, status, visitedAt?, notes? }
+// Body: { childId, status, visitedAt?, notes?, privateNote? }
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
     const body = await request.json()
-    const { childId, status, visitedAt, notes } = body
+    const { childId, status, visitedAt, notes, privateNote } = body
 
     if (!childId) {
       return NextResponse.json({ error: "Child is required" }, { status: 400 })
@@ -109,6 +110,13 @@ export async function POST(request: Request) {
     const noteText = typeof notes === "string" ? notes.trim() : ""
     if (noteText.length > 5000) {
       return NextResponse.json({ error: "Notes must be 5,000 characters or fewer" }, { status: 400 })
+    }
+    const privateNoteText = typeof privateNote === "string" ? privateNote.trim() : ""
+    if (privateNoteText.length > 5000) {
+      return NextResponse.json(
+        { error: "Private notes must be 5,000 characters or fewer" },
+        { status: 400 }
+      )
     }
 
     const child = await prisma.sundaySchoolChild.findUnique({
@@ -126,9 +134,10 @@ export async function POST(request: Request) {
     if (!child.classId || !child.class) {
       return NextResponse.json({ error: "This child is not assigned to a class" }, { status: 400 })
     }
+    const classId = child.classId
 
     const access = await getSundaySchoolAccess(user, child.class.academicYearId)
-    if (!canServeClass(access, child.classId)) {
+    if (!canServeClass(access, classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -143,29 +152,68 @@ export async function POST(request: Request) {
       }
     }
 
-    const visitation = await prisma.sundaySchoolVisitation.create({
-      data: {
-        childId: child.id,
-        classId: child.classId,
-        status,
-        visitedAt: visitDate,
-        notes: noteText || null,
-        recordedBy: user.id,
-      },
-      select: {
-        id: true,
-        status: true,
-        visitedAt: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-        recorder: {
-          select: { id: true, name: true },
+    const result = await prisma.$transaction(async tx => {
+      const visitation = await tx.sundaySchoolVisitation.create({
+        data: {
+          childId: child.id,
+          classId,
+          status,
+          visitedAt: visitDate,
+          notes: noteText || null,
+          recordedBy: user.id,
         },
-      },
+        select: {
+          id: true,
+          status: true,
+          visitedAt: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          recorder: {
+            select: { id: true, name: true },
+          },
+        },
+      })
+
+      if (!privateNoteText) {
+        return { visitation, priestNoteId: null }
+      }
+
+      const priestNote = await tx.sundaySchoolPriestNote.create({
+        data: {
+          visitationId: visitation.id,
+          authorId: user.id,
+          content: privateNoteText,
+        },
+        select: { id: true },
+      })
+
+      await tx.auditEvent.create({
+        data: {
+          actorUserId: user.id,
+          action: "sunday_school.priest_note.create",
+          entityType: "SundaySchoolPriestNote",
+          entityId: priestNote.id,
+          result: AuditEventResult.SUCCESS,
+          metadata: { visitationId: visitation.id, childId: child.id },
+        },
+      })
+
+      return { visitation, priestNoteId: priestNote.id }
     })
 
-    return NextResponse.json(visitation, { status: 201 })
+    if (result.priestNoteId) {
+      await notifyPriestNoteCreated({
+        noteId: result.priestNoteId,
+        visitationId: result.visitation.id,
+        childId: child.id,
+        submittedById: user.id,
+      }).catch((error: unknown) => {
+        console.error("Failed to alert priests about a confidential note", error)
+      })
+    }
+
+    return NextResponse.json(result.visitation, { status: 201 })
   } catch (error: unknown) {
     return handleApiError(error)
   }

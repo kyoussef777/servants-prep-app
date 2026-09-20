@@ -58,7 +58,6 @@ export default function SundaySchoolVisitationsPage() {
   const [priestNotes, setPriestNotes] = useState<SundaySchoolPriestNote[]>([])
   const [confidentialNote, setConfidentialNote] = useState('')
   const [loadingPriestNotes, setLoadingPriestNotes] = useState(false)
-  const [savingPriestNote, setSavingPriestNote] = useState(false)
   const isPriest = response?.standing.isPriest ?? false
 
   useEffect(() => {
@@ -136,6 +135,7 @@ export default function SundaySchoolVisitationsPage() {
           visitedAt:
             visitationStatus === SundaySchoolVisitationStatus.DONE ? visitedAt : null,
           notes,
+          privateNote: confidentialNote,
         }),
       })
       const body = await res.json()
@@ -143,49 +143,20 @@ export default function SundaySchoolVisitationsPage() {
         throw new Error(body.error || 'Failed to save the visitation')
       }
 
+      const savedPrivateNote = confidentialNote.trim().length > 0
       await mutate()
+      if (savedPrivateNote) {
+        await loadPriestNotes(selectedChild.id)
+      }
       setNotes('')
-      toast.success('Visitation saved')
+      setConfidentialNote('')
+      toast.success(savedPrivateNote ? 'Visitation and private note saved' : 'Visitation saved')
     } catch (saveError: unknown) {
       toast.error(
         saveError instanceof Error ? saveError.message : 'Failed to save the visitation'
       )
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handlePriestNoteSave = async () => {
-    if (!selectedChild || !confidentialNote.trim()) return
-
-    setSavingPriestNote(true)
-    try {
-      const res = await fetch('/api/sunday-school/priest-notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          childId: selectedChild.id,
-          content: confidentialNote,
-        }),
-      })
-      const body = await res.json()
-      if (!res.ok) {
-        throw new Error(body.error || 'Failed to save the confidential note')
-      }
-
-      setPriestNotes(current => [body as SundaySchoolPriestNote, ...current])
-      setConfidentialNote('')
-      toast.success(
-        isPriest
-          ? 'Confidential priest note saved'
-          : 'Private note sent to the priests'
-      )
-    } catch (saveError: unknown) {
-      toast.error(
-        saveError instanceof Error ? saveError.message : 'Failed to save the confidential note'
-      )
-    } finally {
-      setSavingPriestNote(false)
     }
   }
 
@@ -198,7 +169,7 @@ export default function SundaySchoolVisitationsPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <PageHeader
           title="Visitations"
-          description="Track pastoral visits and follow-up notes for every child in your Sunday School classes."
+          description="Track visitations and follow-up notes for every child in your Sunday School classes."
         />
 
         {response?.standing.readOnly && (
@@ -402,11 +373,36 @@ export default function SundaySchoolVisitationsPage() {
                       id="visitation-notes"
                       value={notes}
                       onChange={event => setNotes(event.target.value)}
-                      placeholder="Add pastoral notes or next steps for this visitation…"
+                      placeholder="Add notes or next steps for this visitation…"
                       rows={4}
                       maxLength={5000}
                     />
                     <p className="text-right text-xs text-gray-500">{notes.length}/5,000</p>
+                  </div>
+                  <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50/70 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                    <div className="flex items-start gap-2">
+                      <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+                      <div>
+                        <Label htmlFor="visitation-private-note">
+                          Private note to priests <span className="font-normal">(optional)</span>
+                        </Label>
+                        <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                          Attached to this visitation. Only you and users with an active Priest
+                          access tag can read it.
+                        </p>
+                      </div>
+                    </div>
+                    <Textarea
+                      id="visitation-private-note"
+                      value={confidentialNote}
+                      onChange={event => setConfidentialNote(event.target.value)}
+                      placeholder="Add confidential note…"
+                      rows={3}
+                      maxLength={5000}
+                    />
+                    <p className="text-right text-xs text-amber-800 dark:text-amber-300">
+                      {confidentialNote.length}/5,000
+                    </p>
                   </div>
                   <div className="flex justify-end">
                     <Button onClick={handleSave} disabled={saving}>
@@ -471,41 +467,12 @@ export default function SundaySchoolVisitationsPage() {
                       <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
                         {isPriest
                           ? 'Confidential. These notes are available only to users with an active Priest access tag and never appear in the shared visitation history.'
-                          : 'Send confidential or personal context directly to the priests. Only you and users with an active Priest access tag can read notes you submit.'}
+                          : 'Private notes saved with your visitation entries are visible only to you and users with an active Priest access tag.'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="priest-confidential-note">
-                      {isPriest ? 'New confidential note' : 'Confidential note for priest review'}
-                    </Label>
-                    <Textarea
-                      id="priest-confidential-note"
-                      value={confidentialNote}
-                      onChange={event => setConfidentialNote(event.target.value)}
-                      placeholder="Add confidential note…"
-                      rows={4}
-                      maxLength={5000}
-                    />
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs text-amber-800 dark:text-amber-300">
-                        {confidentialNote.length}/5,000
-                      </p>
-                      <Button
-                        onClick={handlePriestNoteSave}
-                        disabled={savingPriestNote || !confidentialNote.trim()}
-                      >
-                        {savingPriestNote
-                          ? 'Sending…'
-                          : isPriest
-                            ? 'Add confidential note'
-                            : 'Send privately to priests'}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 border-t border-amber-200 pt-4 dark:border-amber-900">
+                  <div className="space-y-3">
                     <h4 className="text-sm font-medium">
                       {isPriest ? 'Confidential history' : 'Your private notes'}
                     </h4>
@@ -533,6 +500,17 @@ export default function SundaySchoolVisitationsPage() {
                               day: 'numeric',
                               year: 'numeric',
                             })}
+                          </p>
+                          <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                            Related visitation:{' '}
+                            {priestNote.visitation.status === SundaySchoolVisitationStatus.DONE
+                              ? 'Done'
+                              : 'Not done'}{' '}
+                            ·{' '}
+                            {formatDateUTC(
+                              priestNote.visitation.visitedAt ?? priestNote.visitation.createdAt,
+                              { month: 'short', day: 'numeric', year: 'numeric' }
+                            )}
                           </p>
                         </div>
                       ))

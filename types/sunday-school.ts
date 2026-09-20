@@ -149,10 +149,16 @@ export interface SundaySchoolVisitationRecord {
 
 export interface SundaySchoolPriestNote {
   id: string
-  childId: string
+  visitationId: string
   content: string
   createdAt: string
   updatedAt: string
+  visitation: {
+    id: string
+    status: SundaySchoolVisitationStatus
+    visitedAt: string | null
+    createdAt: string
+  }
   author: { id: string; name: string }
 }
 

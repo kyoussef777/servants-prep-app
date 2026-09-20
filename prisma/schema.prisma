@@ -949,7 +949,6 @@ model SundaySchoolChild {
   user                User?                         @relation("SundaySchoolChildAccount", fields: [userId], references: [id], onDelete: SetNull)
   attendance          SundaySchoolChildAttendance[]
   visitations         SundaySchoolVisitation[]
-  priestNotes         SundaySchoolPriestNote[]
   guardians           SundaySchoolChildGuardian[]   @relation("ChildGuardians")
   registrationRequest ChildRegistrationRequest?     @relation("ChildRegistrationCreatedChild")
   enrollments         SundaySchoolEnrollment[]
@@ -1157,11 +1156,12 @@ model SundaySchoolVisitation {
   createdAt    DateTime                     @default(now())
   updatedAt    DateTime                     @updatedAt
 
-  class      SundaySchoolClass           @relation(fields: [classId], references: [id], onDelete: Cascade)
-  child      SundaySchoolChild           @relation(fields: [childId], references: [id], onDelete: Cascade)
-  enrollment SundaySchoolEnrollment?     @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
-  placement  SundaySchoolClassPlacement? @relation(fields: [placementId], references: [id], onDelete: Restrict)
-  recorder   User?                       @relation("RecordedSundaySchoolVisitations", fields: [recordedBy], references: [id], onDelete: SetNull)
+  class       SundaySchoolClass           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  child       SundaySchoolChild           @relation(fields: [childId], references: [id], onDelete: Cascade)
+  enrollment  SundaySchoolEnrollment?     @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+  placement   SundaySchoolClassPlacement? @relation(fields: [placementId], references: [id], onDelete: Restrict)
+  recorder    User?                       @relation("RecordedSundaySchoolVisitations", fields: [recordedBy], references: [id], onDelete: SetNull)
+  priestNotes SundaySchoolPriestNote[]
 
   @@index([classId, createdAt])
   @@index([childId, createdAt])
@@ -1172,19 +1172,19 @@ model SundaySchoolVisitation {
 
 // Confidential pastoral notes are deliberately separate from visitation
 // notes so they can never be included accidentally by the general visitation
-// API. Only users with an active PRIEST role tag may access these records.
+// API. Only the author and users with an active PRIEST role tag may read them.
 model SundaySchoolPriestNote {
-  id        String   @id @default(cuid())
-  childId   String
-  authorId  String
-  content   String   @db.Text
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  id           String   @id @default(cuid())
+  visitationId String
+  authorId     String
+  content      String   @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
 
-  child  SundaySchoolChild @relation(fields: [childId], references: [id], onDelete: Restrict)
-  author User              @relation("SundaySchoolPriestNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  visitation SundaySchoolVisitation @relation(fields: [visitationId], references: [id], onDelete: Restrict)
+  author     User                   @relation("SundaySchoolPriestNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
 
-  @@index([childId, createdAt])
+  @@index([visitationId, createdAt])
   @@index([authorId, createdAt])
 }
 

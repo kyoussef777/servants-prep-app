@@ -541,10 +541,12 @@ export async function notifyChildRegistrationReviewed({
  */
 export async function notifyPriestNoteCreated({
   noteId,
+  visitationId,
   childId,
   submittedById,
 }: {
   noteId: string
+  visitationId: string
   childId: string
   submittedById: string
 }) {
@@ -568,7 +570,7 @@ export async function notifyPriestNoteCreated({
     title: 'New confidential visitation note',
     body: 'A confidential Sunday School visitation note is ready for review.',
     url: '/dashboard/servants/visitations',
-    metadata: { noteId, childId },
+    metadata: { noteId, visitationId, childId },
   })
 }
 

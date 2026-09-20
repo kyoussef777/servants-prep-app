@@ -44,6 +44,7 @@ describe('priest-note notifications', () => {
   it('alerts every other active Priest-tagged user without exposing confidential content', async () => {
     await notifyPriestNoteCreated({
       noteId: 'note-1',
+      visitationId: 'visitation-1',
       childId: 'child-1',
       submittedById: 'priest-1',
     })
@@ -66,7 +67,11 @@ describe('priest-note notifications', () => {
         title: 'New confidential visitation note',
         body: 'A confidential Sunday School visitation note is ready for review.',
         url: '/dashboard/servants/visitations',
-        metadata: { noteId: 'note-1', childId: 'child-1' },
+        metadata: {
+          noteId: 'note-1',
+          visitationId: 'visitation-1',
+          childId: 'child-1',
+        },
       })
       expect(JSON.stringify(input.data)).not.toContain('pastoral context')
     }

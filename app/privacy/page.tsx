@@ -127,10 +127,10 @@ export function PrivacyPageContent() {
               relationships. Super administrators operate the portal; clergy may receive broad read-only access;
               coordinators and servants receive the scope needed for assigned classes or programs; mentors receive
               access to assigned mentees; students receive access to their own records; and guardians receive
-              access to linked children. Confidential pastoral notes attached to Sunday School visitations are
-              available only to the person who submitted the note and users with active Priest access; they are
-              not included in the general visitation history. Administrative access alone does not grant access
-              to those notes. Authorized people must use information only for their church duties.
+              access to linked children. Each confidential pastoral note is attached to a specific Sunday School
+              visitation and is available only to the person who submitted it and users with active Priest access;
+              it is not included in the general visitation history. Administrative access alone does not grant
+              access to those notes. Authorized people must use information only for their church duties.
             </p>
           ),
         },
