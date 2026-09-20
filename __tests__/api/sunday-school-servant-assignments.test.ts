@@ -82,6 +82,7 @@ describe('Sunday School servant assignments', () => {
       id: 'mentor-1',
       role: UserRole.MENTOR,
       isDisabled: false,
+      roleAssignments: [],
     })
     mocks.existingAssignment.mockResolvedValue(null)
     mocks.grantRoleTag.mockResolvedValue({ count: 1 })
@@ -130,5 +131,33 @@ describe('Sunday School servant assignments', () => {
     expect(mocks.createAssignment).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ authority: SundaySchoolAuthority.COORDINATOR }),
     }))
+  })
+
+  it('allows a super admin with an active Sunday School Servant tag', async () => {
+    mocks.user.mockResolvedValue({
+      id: 'mentor-1',
+      role: UserRole.SUPER_ADMIN,
+      isDisabled: false,
+      roleAssignments: [{ tag: RoleTag.SUNDAY_SCHOOL_SERVANT }],
+    })
+
+    const response = await POST(assignmentRequest())
+
+    expect(response.status).toBe(201)
+    expect(mocks.createAssignment).toHaveBeenCalledOnce()
+  })
+
+  it('rejects an untagged super admin as a class assignee', async () => {
+    mocks.user.mockResolvedValue({
+      id: 'mentor-1',
+      role: UserRole.SUPER_ADMIN,
+      isDisabled: false,
+      roleAssignments: [],
+    })
+
+    const response = await POST(assignmentRequest())
+
+    expect(response.status).toBe(400)
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 })

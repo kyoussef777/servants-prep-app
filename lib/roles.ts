@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client"
+import { RoleTag, UserRole } from "@prisma/client"
 
 // Role hierarchy and permissions
 
@@ -181,17 +181,27 @@ export const isSundaySchoolReadOnly = (role: UserRole) => {
   return role === UserRole.PRIEST
 }
 
-// The roles that may be given a Sunday School assignment. MENTOR and
-// SERVANT_PREP are here because someone can serve in both programs — as an
-// individual, by assignment, not by virtue of their primary account role.
+// The legacy roles that may be given a Sunday School assignment without an
+// existing Sunday School tag. MENTOR and SERVANT_PREP are here because someone
+// can serve in both programs — as an individual, by assignment, not by virtue
+// of their primary account role.
 export const SUNDAY_SCHOOL_ASSIGNABLE_ROLES: UserRole[] = [
   UserRole.SERVANT,
   UserRole.MENTOR,
   UserRole.SERVANT_PREP,
 ]
 
-export const canBeAssignedToSundaySchool = (role: UserRole) => {
-  return SUNDAY_SCHOOL_ASSIGNABLE_ROLES.includes(role)
+export const canBeAssignedToSundaySchool = (
+  role: UserRole,
+  roleTags: Iterable<RoleTag> = []
+) => {
+  if (SUNDAY_SCHOOL_ASSIGNABLE_ROLES.includes(role)) return true
+
+  // A super admin may also personally serve in a class, but only when their
+  // multi-role identity explicitly includes Sunday School service. Priests
+  // remain read-only even if they carry the participation tag.
+  return role === UserRole.SUPER_ADMIN &&
+    new Set(roleTags).has(RoleTag.SUNDAY_SCHOOL_SERVANT)
 }
 
 // Display names for roles

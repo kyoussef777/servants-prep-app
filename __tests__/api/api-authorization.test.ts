@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { UserRole } from '@prisma/client'
+import { RoleTag, UserRole } from '@prisma/client'
 import {
   isAdmin,
   canManageUsers,
@@ -219,11 +219,18 @@ describe('API Authorization Patterns', () => {
         expect(canBeAssignedToSundaySchool(UserRole.SERVANT)).toBe(true)
         expect(canBeAssignedToSundaySchool(UserRole.MENTOR)).toBe(true)
         expect(canBeAssignedToSundaySchool(UserRole.SERVANT_PREP)).toBe(true)
+        expect(canBeAssignedToSundaySchool(
+          UserRole.SUPER_ADMIN,
+          [RoleTag.SUNDAY_SCHOOL_SERVANT]
+        )).toBe(true)
       })
 
-      it('rejects students, priests and admins', () => {
+      it('rejects students, priests and untagged admins', () => {
         expect(canBeAssignedToSundaySchool(UserRole.STUDENT)).toBe(false)
-        expect(canBeAssignedToSundaySchool(UserRole.PRIEST)).toBe(false)
+        expect(canBeAssignedToSundaySchool(
+          UserRole.PRIEST,
+          [RoleTag.SUNDAY_SCHOOL_SERVANT]
+        )).toBe(false)
         expect(canBeAssignedToSundaySchool(UserRole.SUPER_ADMIN)).toBe(false)
       })
     })

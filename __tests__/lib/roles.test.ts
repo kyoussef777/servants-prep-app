@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { RoleTag } from '@prisma/client'
 import {
   isAdmin,
   isSuperAdmin,
@@ -434,10 +435,20 @@ describe('Sunday School mode permissions', () => {
       expect(canBeAssignedToSundaySchool(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
     })
 
-    it('should exclude everyone else', () => {
-      expect(canBeAssignedToSundaySchool(UserRole.STUDENT as UserRoleType)).toBe(false)
-      expect(canBeAssignedToSundaySchool(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('should allow a tagged SUPER_ADMIN but not an untagged one', () => {
+      expect(canBeAssignedToSundaySchool(
+        UserRole.SUPER_ADMIN as UserRoleType,
+        [RoleTag.SUNDAY_SCHOOL_SERVANT]
+      )).toBe(true)
       expect(canBeAssignedToSundaySchool(UserRole.SUPER_ADMIN as UserRoleType)).toBe(false)
+    })
+
+    it('should exclude everyone else, including a tagged PRIEST', () => {
+      expect(canBeAssignedToSundaySchool(UserRole.STUDENT as UserRoleType)).toBe(false)
+      expect(canBeAssignedToSundaySchool(
+        UserRole.PRIEST as UserRoleType,
+        [RoleTag.SUNDAY_SCHOOL_SERVANT]
+      )).toBe(false)
     })
   })
 

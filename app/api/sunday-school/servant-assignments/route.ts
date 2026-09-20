@@ -198,7 +198,15 @@ export async function POST(request: Request) {
 
     const assignee = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true, isDisabled: true },
+      select: {
+        id: true,
+        role: true,
+        isDisabled: true,
+        roleAssignments: {
+          where: { revokedAt: null },
+          select: { tag: true },
+        },
+      },
     })
     if (!assignee) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -206,11 +214,14 @@ export async function POST(request: Request) {
     if (assignee.isDisabled) {
       return NextResponse.json({ error: "Disabled users cannot be assigned" }, { status: 400 })
     }
-    if (!canBeAssignedToSundaySchool(assignee.role)) {
+    if (!canBeAssignedToSundaySchool(
+      assignee.role,
+      assignee.roleAssignments.map((assignment) => assignment.tag)
+    )) {
       return NextResponse.json(
         {
           error:
-            "Only Sunday School Servant, Mentor, and Servants Prep Leader accounts can be assigned",
+            "Only Sunday School Servant, Mentor, Servants Prep Leader, or tagged Super Admin accounts can be assigned",
         },
         { status: 400 }
       )
