@@ -80,6 +80,10 @@ describe('Sunday School feedback page', () => {
     expect(screen.getByText(/report bugs/i)).toBeInTheDocument()
     expect(screen.getByText('3 upvotes and 1 downvotes')).toHaveClass('sr-only')
     expect(screen.getByLabelText('Net score 2')).toBeInTheDocument()
+    expect(screen.getByLabelText('Voting for Add lesson reminders')).toHaveClass(
+      'flex-row',
+      'sm:flex-col'
+    )
   })
 
   it('submits a new idea and refreshes the board', async () => {

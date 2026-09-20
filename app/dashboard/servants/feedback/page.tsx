@@ -116,7 +116,7 @@ function FeedbackVoteRail({ idea, disabled, onVote }: FeedbackVoteRailProps) {
 
   return (
     <div
-      className="flex h-fit shrink-0 flex-col items-center rounded-full border border-gray-200 bg-gray-50 p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+      className="flex h-fit w-fit shrink-0 flex-row items-center rounded-full border border-gray-200 bg-gray-50 p-1 shadow-sm sm:flex-col dark:border-gray-700 dark:bg-gray-900"
       aria-label={`Voting for ${idea.title}`}
     >
       <button
@@ -347,7 +347,7 @@ export default function SundaySchoolFeedbackPage() {
           <div className="space-y-4">
             {response.ideas.map(idea => (
               <Card key={idea.id} className="overflow-hidden transition-colors hover:border-gray-300 dark:hover:border-gray-700">
-                <CardContent className="grid grid-cols-[auto_minmax(0,1fr)] gap-4 pt-6 sm:gap-5">
+                <CardContent className="flex flex-col-reverse gap-4 pt-6 sm:flex-row sm:gap-5">
                   <FeedbackVoteRail
                     idea={idea}
                     disabled={!idea.canVote || votingIdeaId === idea.id}
