@@ -5,7 +5,6 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
   Bell,
-  BellRing,
   Check,
   CheckCheck,
   X,
@@ -186,14 +185,25 @@ export function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative rounded-md p-2 hover:bg-accent transition-colors"
+        className={`group relative rounded-md p-2 transition-[color,background-color,transform] duration-200 ease-out hover:bg-accent motion-reduce:transition-none ${
+          isOpen ? 'scale-105 bg-accent text-primary' : ''
+        }`}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        aria-expanded={isOpen}
+        aria-controls="notifications-panel"
+        aria-haspopup="dialog"
       >
-        {unreadCount > 0 ? (
-          <BellRing className="h-5 w-5" />
-        ) : (
-          <Bell className="h-5 w-5" />
-        )}
+        <Bell
+          data-testid="notification-bell-icon"
+          strokeWidth={isOpen ? 2.25 : 2}
+          className={`h-5 w-5 transform-gpu transition-[transform,fill,color] duration-200 ease-out motion-reduce:transition-none ${
+            isOpen
+              ? '-rotate-12 scale-110 fill-current text-primary'
+              : unreadCount > 0
+                ? 'motion-safe:group-hover:rotate-12'
+                : ''
+          }`}
+        />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground ring-2 ring-background animate-bounce">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -205,18 +215,20 @@ export function NotificationBell() {
         <>
           {/* Mobile backdrop */}
           <div
-            className="fixed inset-0 bg-black/40 z-40 sm:hidden"
+            className="fixed inset-0 z-40 bg-black/40 animate-in fade-in-0 duration-200 motion-reduce:animate-none sm:hidden"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Panel — bottom sheet on mobile, dropdown on desktop */}
-          <div className="
+          <div id="notifications-panel" role="dialog" aria-label="Notifications" className="
             fixed bottom-0 left-0 right-0 z-50
             sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96
             rounded-t-2xl sm:rounded-lg
             border bg-popover text-popover-foreground shadow-xl
             flex flex-col
             max-h-[85vh] sm:max-h-[520px]
+            animate-in fade-in-0 slide-in-from-bottom-4 duration-200 motion-reduce:animate-none
+            sm:slide-in-from-top-2 sm:zoom-in-95
           ">
             {/* Drag handle (mobile only) */}
             <div className="flex justify-center pt-2.5 pb-1 sm:hidden flex-shrink-0">
