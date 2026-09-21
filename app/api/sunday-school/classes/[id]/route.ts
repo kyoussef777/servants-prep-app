@@ -91,7 +91,7 @@ export async function PATCH(
 
     const existing = await prisma.sundaySchoolClass.findUnique({
       where: { id },
-      select: { id: true, academicYearId: true },
+      select: { id: true, academicYearId: true, name: true },
     })
     if (!existing) {
       return NextResponse.json({ error: "Class not found" }, { status: 404 })
@@ -111,7 +111,24 @@ export async function PATCH(
       if (!String(name).trim()) {
         return NextResponse.json({ error: "Class name cannot be empty" }, { status: 400 })
       }
-      updateData.name = String(name).trim()
+      const trimmedName = String(name).trim()
+      if (trimmedName !== existing.name) {
+        const duplicate = await prisma.sundaySchoolClass.findFirst({
+          where: {
+            academicYearId: existing.academicYearId,
+            name: trimmedName,
+            id: { not: id },
+          },
+          select: { id: true },
+        })
+        if (duplicate) {
+          return NextResponse.json(
+            { error: "A class with this name already exists for that academic year" },
+            { status: 409 }
+          )
+        }
+      }
+      updateData.name = trimmedName
     }
     if (level !== undefined) {
       if (!isValidLevel(level)) {

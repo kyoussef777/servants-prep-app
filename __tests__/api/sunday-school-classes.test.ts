@@ -4,6 +4,9 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   access: vi.fn(),
   findClass: vi.fn(),
+  findFirstClass: vi.fn(),
+  updateClass: vi.fn(),
+  transaction: vi.fn(),
   canViewClass: vi.fn(),
   canCoordinateClass: vi.fn(),
   canServeClass: vi.fn(),
@@ -22,11 +25,15 @@ vi.mock('@/lib/sunday-school-access', () => ({
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    sundaySchoolClass: { findUnique: mocks.findClass },
+    sundaySchoolClass: {
+      findUnique: mocks.findClass,
+      findFirst: mocks.findFirstClass,
+    },
+    $transaction: mocks.transaction,
   },
 }))
 
-import { GET } from '@/app/api/sunday-school/classes/[id]/route'
+import { GET, PATCH } from '@/app/api/sunday-school/classes/[id]/route'
 
 describe('Sunday School class detail API', () => {
   beforeEach(() => {
@@ -38,9 +45,21 @@ describe('Sunday School class detail API', () => {
     mocks.canServeClass.mockReturnValue(true)
     mocks.canTakeServantAttendance.mockReturnValue(true)
     mocks.canDeleteClass.mockReturnValue(false)
+    mocks.findFirstClass.mockResolvedValue(null)
+    mocks.updateClass.mockResolvedValue({
+      id: 'class-1',
+      name: 'Middle School Boys',
+      level: 'GRADE_6',
+      academicYearId: 'year-1',
+      assignments: [],
+      _count: { children: 0, sessions: 0 },
+    })
+    mocks.transaction.mockImplementation(async callback => callback({
+      sundaySchoolClass: { update: mocks.updateClass },
+    }))
     mocks.findClass.mockResolvedValue({
       id: 'class-1',
-      name: 'Grade 3 Boys',
+      name: 'Middle School',
       level: 'GRADE_3',
       academicYearId: 'year-1',
       assignments: [],
@@ -63,5 +82,39 @@ describe('Sunday School class detail API', () => {
         assignments: expect.objectContaining({ where: { endedAt: null } }),
       }),
     }))
+  })
+
+  it('trims and updates a class name for a coordinator', async () => {
+    const response = await PATCH(
+      new Request('http://localhost/api/sunday-school/classes/class-1', {
+        method: 'PATCH',
+        body: JSON.stringify({ name: '  Middle School Boys  ' }),
+      }),
+      { params: Promise.resolve({ id: 'class-1' }) }
+    )
+
+    expect(response.status).toBe(200)
+    expect(mocks.updateClass).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'class-1' },
+      data: { name: 'Middle School Boys' },
+    }))
+  })
+
+  it('returns a clear conflict when another class already uses the name', async () => {
+    mocks.findFirstClass.mockResolvedValue({ id: 'class-2' })
+
+    const response = await PATCH(
+      new Request('http://localhost/api/sunday-school/classes/class-1', {
+        method: 'PATCH',
+        body: JSON.stringify({ name: 'Existing Class' }),
+      }),
+      { params: Promise.resolve({ id: 'class-1' }) }
+    )
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: 'A class with this name already exists for that academic year',
+    })
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 })
