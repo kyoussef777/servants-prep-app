@@ -37,6 +37,7 @@ describe('legal navigation', () => {
     ).toBe('Servant Applications')
     expect(getLegalReturnLabel('/dashboard/servants/users?role=SERVANT', true)).toBe('Users')
     expect(getLegalReturnLabel('/dashboard/servants/classes/class-123', true)).toBe('Classes')
+    expect(getLegalReturnLabel('/dashboard/servants/activity', true)).toBe('Activity')
     expect(getLegalReturnLabel('/dashboard/admin/curriculum', false)).toBe('Curriculum')
     expect(getLegalReturnLabel('/settings', false)).toBe('My Account')
     expect(getLegalReturnLabel(null, true)).toBe('Sunday School')
