@@ -91,7 +91,14 @@ export async function PATCH(
 
     const existing = await prisma.sundaySchoolClass.findUnique({
       where: { id },
-      select: { id: true, academicYearId: true, name: true },
+      select: {
+        id: true,
+        academicYearId: true,
+        sundaySchoolYearId: true,
+        level: true,
+        name: true,
+        sectionName: true,
+      },
     })
     if (!existing) {
       return NextResponse.json({ error: "Class not found" }, { status: 404 })
@@ -126,6 +133,28 @@ export async function PATCH(
             { error: "A class with this name already exists for that academic year" },
             { status: 409 }
           )
+        }
+
+        // Additional classes use their original name as their section key.
+        // Keep that generated key aligned when the class is renamed, while
+        // preserving explicit section names and the first "General" section.
+        if (existing.sectionName === existing.name) {
+          const duplicateSection = await prisma.sundaySchoolClass.findFirst({
+            where: {
+              sundaySchoolYearId: existing.sundaySchoolYearId,
+              level: isValidLevel(level) ? level : existing.level,
+              sectionName: trimmedName,
+              id: { not: id },
+            },
+            select: { id: true },
+          })
+          if (duplicateSection) {
+            return NextResponse.json(
+              { error: "A class with this section already exists for that grade" },
+              { status: 409 }
+            )
+          }
+          updateData.sectionName = trimmedName
         }
       }
       updateData.name = trimmedName

@@ -131,18 +131,41 @@ export async function POST(request: Request) {
     }
 
     const trimmedName = String(name).trim()
-    const sectionName = String(body.sectionName ?? "General").trim() || "General"
+    const requestedSectionName = String(body.sectionName ?? "").trim()
 
-    const existing = await prisma.sundaySchoolClass.findFirst({
+    const duplicateName = await prisma.sundaySchoolClass.findFirst({
+      where: { academicYearId, name: trimmedName },
+      select: { id: true },
+    })
+    if (duplicateName) {
+      return NextResponse.json(
+        { error: "A class with this name already exists for that academic year" },
+        { status: 409 }
+      )
+    }
+
+    // The first class in a grade is its General section. Additional classes
+    // use their class name as the section key, so one grade can have multiple
+    // classes without all of them colliding on the hidden General default.
+    const existingClassAtLevel = requestedSectionName
+      ? null
+      : await prisma.sundaySchoolClass.findFirst({
+          where: { sundaySchoolYearId, level },
+          select: { id: true },
+        })
+    const sectionName = requestedSectionName || (existingClassAtLevel ? trimmedName : "General")
+
+    const duplicateSection = await prisma.sundaySchoolClass.findFirst({
       where: {
         sundaySchoolYearId,
         level,
         sectionName,
       },
+      select: { id: true },
     })
-    if (existing) {
+    if (duplicateSection) {
       return NextResponse.json(
-        { error: "A class with this name already exists for that academic year" },
+        { error: "A class with this section already exists for that grade" },
         { status: 409 }
       )
     }
