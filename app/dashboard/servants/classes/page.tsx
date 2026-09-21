@@ -24,7 +24,7 @@ import { useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
 import { compareClassNames, getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
 import type { SundaySchoolClass, SundaySchoolDashboard } from '@/types/sunday-school'
 import { SundaySchoolLevel } from '@prisma/client'
-import { Plus, Users } from 'lucide-react'
+import { Pencil, Plus, Users } from 'lucide-react'
 
 export default function SundaySchoolClassesPage() {
   const { status } = useSundaySchoolGuard()
@@ -35,6 +35,9 @@ export default function SundaySchoolClassesPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [editingClass, setEditingClass] = useState<SundaySchoolClass | null>(null)
+  const [editName, setEditName] = useState('')
+  const [renaming, setRenaming] = useState(false)
   const [form, setForm] = useState<{ name: string; level: SundaySchoolLevel | '' }>({
     name: '',
     level: '',
@@ -70,6 +73,37 @@ export default function SundaySchoolClassesPage() {
       toast.error(error instanceof Error ? error.message : 'Failed to create the class')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const openRenameDialog = (classItem: SundaySchoolClass) => {
+    setEditingClass(classItem)
+    setEditName(classItem.name)
+  }
+
+  const handleRename = async () => {
+    if (!editingClass) return
+
+    setRenaming(true)
+    try {
+      const res = await fetch(`/api/sunday-school/classes/${editingClass.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editName.trim() }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to rename the class')
+      }
+
+      toast.success('Class name updated', { description: new Date().toLocaleString() })
+      setEditingClass(null)
+      setEditName('')
+      mutate()
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to rename the class')
+    } finally {
+      setRenaming(false)
     }
   }
 
@@ -131,12 +165,25 @@ export default function SundaySchoolClassesPage() {
                         {cls.assignments.length} {cls.assignments.length === 1 ? 'servant' : 'servants'}
                       </p>
                     </div>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/dashboard/servants/classes/${cls.id}`}>
-                        <Users className="h-4 w-4 mr-1" />
-                        Open
-                      </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {cls.canCoordinate && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`Edit ${cls.name} name`}
+                          onClick={() => openRenameDialog(cls)}
+                        >
+                          <Pencil className="h-4 w-4 mr-1" />
+                          Edit name
+                        </Button>
+                      )}
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/dashboard/servants/classes/${cls.id}`}>
+                          <Users className="h-4 w-4 mr-1" />
+                          Open
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -188,6 +235,65 @@ export default function SundaySchoolClassesPage() {
               {saving ? 'Creating…' : 'Create class'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editingClass !== null}
+        onOpenChange={open => {
+          if (!open && !renaming) {
+            setEditingClass(null)
+            setEditName('')
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit class name</DialogTitle>
+            <DialogDescription>
+              Update the name shown throughout Sunday School for this class.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={event => {
+              event.preventDefault()
+              void handleRename()
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="edit-class-name">Class name</Label>
+              <Input
+                id="edit-class-name"
+                value={editName}
+                autoFocus
+                onChange={event => setEditName(event.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={renaming}
+                onClick={() => {
+                  setEditingClass(null)
+                  setEditName('')
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  renaming ||
+                  !editName.trim() ||
+                  editName.trim() === editingClass?.name
+                }
+              >
+                {renaming ? 'Saving…' : 'Save name'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
