@@ -22,20 +22,40 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const ageGroups = await prisma.sundaySchoolAgeGroup.findMany({
-      include: {
-              overseer: { select: { id: true, name: true, profileImageUrl: true } },
-              assignments: {
-                where: { ageGroupId: { not: null }, endedAt: null },
-          include: { user: { select: { id: true, name: true, email: true } } },
+    const [ageGroups, activeAcademicYear] = await Promise.all([
+      prisma.sundaySchoolAgeGroup.findMany({
+        include: {
+          overseer: { select: { id: true, name: true, profileImageUrl: true } },
         },
-      },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    })
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      }),
+      prisma.academicYear.findFirst({
+        where: { isActive: true },
+        select: { id: true },
+      }),
+    ])
+
+    // Load assignments directly by ageGroupId instead of through the Prisma
+    // composite relation. Legacy age groups have sundaySchoolYearId = NULL,
+    // and SQL cannot join NULL composite-key parts even though ageGroupId is
+    // valid. Duplicate detection and the organization chart already use this
+    // direct active-year lookup.
+    const assignments = activeAcademicYear && ageGroups.length > 0
+      ? await prisma.sundaySchoolServantAssignment.findMany({
+          where: {
+            academicYearId: activeAcademicYear.id,
+            ageGroupId: { in: ageGroups.map(group => group.id) },
+            endedAt: null,
+          },
+          include: { user: { select: { id: true, name: true, email: true } } },
+          orderBy: { createdAt: "asc" },
+        })
+      : []
 
     return NextResponse.json(
       ageGroups.map(group => ({
         ...group,
+        assignments: assignments.filter(assignment => assignment.ageGroupId === group.id),
         canCoordinate: access.isAdmin || access.coordinatorAgeGroupIds.has(group.id),
       }))
     )

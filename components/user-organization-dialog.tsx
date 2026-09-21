@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useSundaySchoolOrganization } from '@/lib/swr'
-import { organizationBranches, type OrganizationPerson } from '@/lib/sunday-school-organization'
+import { organizationBands, type OrganizationPerson } from '@/lib/sunday-school-organization'
 import { cn } from '@/lib/utils'
 
 function PersonCard({ person, label, selectedId, onSelect }: {
@@ -46,7 +46,11 @@ export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPe
   const { data, error, isLoading, mutate } = useSundaySchoolOrganization()
   const [history, setHistory] = useState<OrganizationPerson[]>([user])
   const selected = history[history.length - 1]
-  const branches = data ? organizationBranches(data, selected.id) : []
+  const bands = data ? organizationBands(data, selected.id) : []
+  const overseers = [...new Map(
+    bands.flatMap(band => band.overseer ? [[band.overseer.id, band.overseer] as const] : [])
+  ).values()]
+  const classCount = bands.reduce((total, band) => total + band.classes.length, 0)
   const isPriest = data?.priests.some(person => person.id === selected.id)
   const selectPerson = (person: OrganizationPerson) => {
     if (person.id !== selected.id) setHistory(previous => [...previous, person])
@@ -78,7 +82,7 @@ export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPe
             <div role="alert" className="space-y-3 py-12 text-center"><p>Unable to load the organization chart.</p><Button variant="outline" onClick={() => void mutate()}>Try again</Button></div>
           ) : !data?.academicYear ? (
             <p className="py-12 text-center text-muted-foreground">No active academic year. The organization chart will appear once a year is activated.</p>
-          ) : branches.length === 0 ? (
+          ) : bands.length === 0 ? (
             <div className="flex flex-col items-center gap-4 py-10 text-center">
               <PersonCard person={selected} label={isPriest ? "No groups assigned" : "No active assignment"} selectedId={selected.id} onSelect={selectPerson} />
               <p className="max-w-md text-sm text-muted-foreground">This person has no assignment to an active Sunday School class or age group for {data.academicYear.name}. Disabled accounts are not included in the active organization.</p>
@@ -86,30 +90,54 @@ export function UserOrganizationDialog({ user, onClose }: { user: OrganizationPe
           ) : (
             <>
               <p className="text-center text-xs text-muted-foreground">Priest overseer → Age-group coordinators → Class coordinators → Servants</p>
-              {branches.length > 0 ? (
-                <>
-                  <Connector />
-                  <div className="flex items-center justify-center gap-2 pb-4 text-xs text-muted-foreground"><Users className="h-4 w-4" />{branches.length} {branches.length === 1 ? 'team' : 'teams'} · Select a person to explore</div>
-                  <div className={cn('grid gap-5', branches.length > 1 && 'lg:grid-cols-2')}>
-                    {branches.map(branch => (
-                      <section key={branch.id} aria-label={`${branch.name} reporting chain`} className="min-w-0 rounded-2xl border bg-background/60 p-4">
-                        <div className="mb-4 text-center"><h3 className="font-semibold">{branch.name}</h3>{branch.ageGroupName && branch.ageGroupName !== branch.name && <p className="text-xs text-muted-foreground">{branch.ageGroupName}</p>}</div>
-                        <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Priest overseer</h4>
-                        {cards(branch.overseer ? [branch.overseer] : [], 'Priest overseer', 'No priest overseer assigned')}
+              <Connector />
+              <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Priest overseer</h4>
+              {cards(overseers, 'Priest overseer', 'No priest overseer assigned')}
+              <Connector />
+              <div className="flex items-center justify-center gap-2 pb-2 text-xs text-muted-foreground">
+                <Users className="h-4 w-4" />
+                {bands.length} {bands.length === 1 ? 'age group' : 'age groups'} · {classCount} {classCount === 1 ? 'class' : 'classes'} · Select a person to explore
+              </div>
+
+              <div className="space-y-10">
+                {bands.map(band => (
+                  <section key={band.id} aria-label={`${band.name} reporting chain`} className="min-w-0 border-t border-indigo-100 pt-6 first:border-t-0 dark:border-indigo-950">
+                    <div className="mb-3 text-center">
+                      <h3 className="text-base font-semibold">{band.name}</h3>
+                      <p className="text-xs text-muted-foreground">Age group</p>
+                    </div>
+                    <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Age-group coordinators</h4>
+                    {cards(band.bandCoordinators, 'Age-group coordinator', band.name === 'No age group' ? 'No age group configured' : 'No age-group coordinator assigned')}
+
+                    {band.classes.length > 0 && (
+                      <>
                         <Connector />
-                        <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Age-group coordinators</h4>
-                        {cards(branch.bandCoordinators, 'Age-group coordinator', branch.ageGroupName ? 'No age-group coordinator assigned' : 'No age group configured')}
-                        <Connector />
-                        <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Class coordinators</h4>
-                        {cards(branch.classCoordinators, 'Class coordinator', 'No class coordinator assigned')}
-                        <Connector />
-                        <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Servants</h4>
-                        {cards(branch.servants, 'Servant', 'No servants assigned')}
-                      </section>
-                    ))}
-                  </div>
-                </>
-              ) : <p className="py-8 text-center text-sm text-muted-foreground">No active Sunday School teams yet.</p>}
+                        <div className="overflow-x-auto pb-3">
+                          <div className="relative mx-auto flex w-max min-w-full justify-center pt-6">
+                            {band.classes.length > 1 && (
+                              <div aria-hidden="true" className="absolute left-36 right-36 top-0 h-px bg-indigo-300 dark:bg-indigo-700" />
+                            )}
+                            {band.classes.map(team => (
+                              <div key={team.id} className="relative w-72 shrink-0 px-3">
+                                <div aria-hidden="true" className="absolute left-1/2 top-[-1.5rem] h-6 w-px bg-indigo-300 dark:bg-indigo-700" />
+                                <div className="mb-4 text-center">
+                                  <h3 className="font-semibold">{team.name}</h3>
+                                  <p className="text-xs text-muted-foreground">Class</p>
+                                </div>
+                                <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Class coordinators</h4>
+                                {cards(team.classCoordinators, 'Class coordinator', 'No class coordinator assigned')}
+                                <Connector />
+                                <h4 className="mb-2 text-center text-xs font-medium text-muted-foreground">Servants</h4>
+                                {cards(team.servants, 'Servant', 'No servants assigned')}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </section>
+                ))}
+              </div>
             </>
           )}
         </div>

@@ -58,7 +58,7 @@ describe('Sunday School organization API', () => {
 })
 
 
-import { POST } from '@/app/api/sunday-school/age-groups/route'
+import { GET as GET_AGE_GROUPS, POST } from '@/app/api/sunday-school/age-groups/route'
 import { PATCH } from '@/app/api/sunday-school/age-groups/[id]/route'
 const context = { params: Promise.resolve({ id: 'elementary' }) }
 const request = (overseerId: unknown) => new Request('http://localhost/api/sunday-school/age-groups/elementary', { method: 'PATCH', body: JSON.stringify({ name: 'Elementary', levels: ['GRADE_1'], overseerId }) })
@@ -98,5 +98,54 @@ describe('priest overseer assignments', () => {
   it.each([12, {}, ''])('rejects invalid overseer values', async value => {
     expect((await PATCH(request(value), context)).status).toBe(400)
     expect((await POST(request(value))).status).toBe(400)
+  })
+})
+
+describe('age group coordinator listing', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mocks.auth.mockResolvedValue({ id: 'admin', role: 'SUPER_ADMIN' })
+    mocks.access.mockResolvedValue({
+      isAdmin: true,
+      canRead: true,
+      coordinatorAgeGroupIds: new Set(),
+    })
+    mocks.year.mockResolvedValue({ id: 'active-year' })
+    mocks.groups.mockResolvedValue([{
+      id: 'middle-school',
+      name: 'Middle School',
+      sundaySchoolYearId: null,
+      levels: ['GRADE_6'],
+      assignments: [],
+    }])
+    mocks.assignments.mockResolvedValue([{
+      id: 'assignment-1',
+      userId: 'coordinator-1',
+      academicYearId: 'active-year',
+      sundaySchoolYearId: null,
+      ageGroupId: 'middle-school',
+      classId: null,
+      authority: 'COORDINATOR',
+      user: { id: 'coordinator-1', name: 'Mina Coordinator', email: 'mina@example.com' },
+    }])
+  })
+
+  it('returns active coordinators for legacy age groups without a Sunday School year', async () => {
+    const response = await GET_AGE_GROUPS()
+    const groups = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mocks.assignments).toHaveBeenCalledWith({
+      where: {
+        academicYearId: 'active-year',
+        ageGroupId: { in: ['middle-school'] },
+        endedAt: null,
+      },
+      include: { user: { select: { id: true, name: true, email: true } } },
+      orderBy: { createdAt: 'asc' },
+    })
+    expect(groups[0].assignments).toEqual([
+      expect.objectContaining({ id: 'assignment-1', ageGroupId: 'middle-school' }),
+    ])
   })
 })
