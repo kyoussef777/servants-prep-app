@@ -150,6 +150,28 @@ describe('Sunday School servant assignments', () => {
     }))
   })
 
+  it('removes the coordinator role while keeping the person as a class servant', async () => {
+    mocks.existingAssignment.mockResolvedValue({
+      id: 'old-assignment',
+      authority: SundaySchoolAuthority.COORDINATOR,
+    })
+
+    const response = await POST(assignmentRequest(SundaySchoolAuthority.SERVANT))
+
+    expect(response.status).toBe(200)
+    expect(mocks.updateAssignment).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'old-assignment' },
+      data: expect.objectContaining({ endReason: 'Authority changed' }),
+    }))
+    expect(mocks.createAssignment).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        userId: 'mentor-1',
+        classId: 'class-1',
+        authority: SundaySchoolAuthority.SERVANT,
+      }),
+    }))
+  })
+
   it('allows a super admin with an active Sunday School Servant tag', async () => {
     mocks.user.mockResolvedValue({
       id: 'mentor-1',

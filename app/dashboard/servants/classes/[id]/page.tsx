@@ -65,6 +65,7 @@ export default function SundaySchoolClassDetailPage() {
   const [selectedServantId, setSelectedServantId] = useState('')
   const [asCoordinator, setAsCoordinator] = useState(false)
   const [assigning, setAssigning] = useState(false)
+  const [changingRoleId, setChangingRoleId] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -128,6 +129,41 @@ export default function SundaySchoolClassDetailPage() {
       mutate()
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to remove the servant')
+    }
+  }
+
+  const handleChangeRole = async (
+    assignment: SundaySchoolAssignmentRow,
+    authority: SundaySchoolAuthority
+  ) => {
+    if (!classId) return
+
+    setChangingRoleId(assignment.id)
+    try {
+      const res = await fetch('/api/sunday-school/servant-assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: assignment.userId,
+          classId,
+          authority,
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        throw new Error(body.error || 'Failed to change the servant role')
+      }
+
+      toast.success(
+        authority === SundaySchoolAuthority.COORDINATOR
+          ? `${assignment.user.name} is now a coordinator`
+          : `Coordinator role removed from ${assignment.user.name}`
+      )
+      await mutate()
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to change the servant role')
+    } finally {
+      setChangingRoleId(null)
     }
   }
 
@@ -285,13 +321,33 @@ export default function SundaySchoolClassDetailPage() {
                         <Badge className="bg-maroon-600">Coordinator</Badge>
                       )}
                       {canCoordinate && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleUnassign(assignment.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={changingRoleId === assignment.id}
+                            onClick={() => handleChangeRole(
+                              assignment,
+                              assignment.authority === SundaySchoolAuthority.COORDINATOR
+                                ? SundaySchoolAuthority.SERVANT
+                                : SundaySchoolAuthority.COORDINATOR
+                            )}
+                          >
+                            {changingRoleId === assignment.id
+                              ? 'Saving…'
+                              : assignment.authority === SundaySchoolAuthority.COORDINATOR
+                                ? 'Make servant'
+                                : 'Make coordinator'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Remove ${assignment.user.name} from class`}
+                            onClick={() => handleUnassign(assignment.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
