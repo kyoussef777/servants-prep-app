@@ -1,4 +1,5 @@
 import type { AttendanceStatus, SundaySchoolServantAttendanceStatus } from '@prisma/client'
+import type { SundaySchoolMeetingDay } from './sunday-school-class'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -16,53 +17,71 @@ export interface SundaySchoolAttendanceTrendPoint {
 
 /** The first Sunday strictly after September 11 in the given Gregorian year. */
 export function getFirstSundayAfterSeptember11(year: number): Date {
+  return getFirstMeetingDayAfterSeptember11(year, 0)
+}
+
+/** The first class meeting day strictly after September 11. */
+export function getFirstMeetingDayAfterSeptember11(
+  year: number,
+  meetingDay: SundaySchoolMeetingDay
+): Date {
   const firstPossibleDay = new Date(Date.UTC(year, 8, 12))
-  const daysUntilSunday = (7 - firstPossibleDay.getUTCDay()) % 7
-  return new Date(firstPossibleDay.getTime() + daysUntilSunday * DAY_MS)
+  const daysUntilMeeting = (meetingDay - firstPossibleDay.getUTCDay() + 7) % 7
+  return new Date(firstPossibleDay.getTime() + daysUntilMeeting * DAY_MS)
 }
 
 /** The most recent Sunday on or before a UTC calendar day. */
 export function getMostRecentSundayUTC(date: Date): Date {
+  return getMostRecentMeetingDayUTC(date, 0)
+}
+
+export function getMostRecentMeetingDayUTC(
+  date: Date,
+  meetingDay: SundaySchoolMeetingDay
+): Date {
+  const daysSinceMeeting = (date.getUTCDay() - meetingDay + 7) % 7
   return new Date(
     Date.UTC(
       date.getUTCFullYear(),
       date.getUTCMonth(),
-      date.getUTCDate() - date.getUTCDay()
+      date.getUTCDate() - daysSinceMeeting
     )
   )
 }
 
 /**
- * Sunday School reporting follows the class year: first Sunday after
- * September 11 through the last Sunday before the next rollover.
+ * Reporting follows the class calendar: the first meeting after September 11
+ * through the last weekly meeting before the next rollover.
  */
 export function getSundaySchoolReportingRange(
   academicYearStart: Date,
   isActive: boolean,
-  today: Date = new Date()
+  today: Date = new Date(),
+  meetingDay: SundaySchoolMeetingDay = 0
 ): { start: Date; end: Date } {
   const startYear = academicYearStart.getUTCFullYear()
-  const start = getFirstSundayAfterSeptember11(startYear)
-  const nextStart = getFirstSundayAfterSeptember11(startYear + 1)
-  const lastSundayInYear = new Date(nextStart.getTime() - 7 * DAY_MS)
+  const start = getFirstMeetingDayAfterSeptember11(startYear, meetingDay)
+  const nextStart = getFirstMeetingDayAfterSeptember11(startYear + 1, meetingDay)
+  const lastMeetingInYear = new Date(nextStart.getTime() - 7 * DAY_MS)
 
-  if (!isActive) return { start, end: lastSundayInYear }
+  if (!isActive) return { start, end: lastMeetingInYear }
 
-  const mostRecentSunday = getMostRecentSundayUTC(today)
+  const mostRecentMeeting = getMostRecentMeetingDayUTC(today, meetingDay)
   return {
     start,
-    end: mostRecentSunday < lastSundayInYear ? mostRecentSunday : lastSundayInYear,
+    end: mostRecentMeeting < lastMeetingInYear ? mostRecentMeeting : lastMeetingInYear,
   }
 }
 
 /**
- * Aggregate every visible class on each Sunday. No saved roster means unknown,
- * so that week is represented by nulls and Recharts renders a real gap.
+ * Aggregate every visible class for each scheduled week. No saved roster means
+ * unknown, so that week is represented by nulls and Recharts renders a gap.
  */
 export function buildSundaySchoolAttendanceTrend(
   sessions: SundaySchoolAttendanceSessionInput[],
   start: Date,
-  end: Date
+  end: Date,
+  meetingDay: SundaySchoolMeetingDay = 0
 ): SundaySchoolAttendanceTrendPoint[] {
   if (end < start) return []
 
@@ -71,7 +90,13 @@ export function buildSundaySchoolAttendanceTrend(
   for (const session of sessions) {
     if (session.attendance.length === 0) continue
 
-    const date = session.date.toISOString().slice(0, 10)
+    const normalizedSession = new Date(session.date)
+    const daysForward = (meetingDay - normalizedSession.getUTCDay() + 7) % 7
+    const daysBackward = (normalizedSession.getUTCDay() - meetingDay + 7) % 7
+    normalizedSession.setUTCDate(
+      normalizedSession.getUTCDate() + (daysForward < daysBackward ? daysForward : -daysBackward)
+    )
+    const date = normalizedSession.toISOString().slice(0, 10)
     const totals = totalsByDate.get(date) ?? { attended: 0, roster: 0 }
     totals.roster += session.attendance.length
     totals.attended += session.attendance.filter(
@@ -81,8 +106,8 @@ export function buildSundaySchoolAttendanceTrend(
   }
 
   const points: SundaySchoolAttendanceTrendPoint[] = []
-  for (let sunday = start; sunday <= end; sunday = new Date(sunday.getTime() + 7 * DAY_MS)) {
-    const date = sunday.toISOString().slice(0, 10)
+  for (let meeting = start; meeting <= end; meeting = new Date(meeting.getTime() + 7 * DAY_MS)) {
+    const date = meeting.toISOString().slice(0, 10)
     const totals = totalsByDate.get(date)
 
     points.push({

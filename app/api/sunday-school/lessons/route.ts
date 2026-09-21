@@ -10,7 +10,7 @@ import {
   visibleClassFilter,
 } from "@/lib/sunday-school-access"
 import {
-  getUpcomingSundays,
+  SUNDAY_SCHOOL_LESSON_WINDOW_WEEKS,
   getWeeklyLessonStatus,
 } from "@/lib/sunday-school-lessons"
 import { normalizeSessionDate } from "@/lib/sunday-school-class"
@@ -29,12 +29,16 @@ export async function GET(request: Request) {
     const user = await requireAuth()
     const { searchParams } = new URL(request.url)
     const fullYear = searchParams.get("scope") === "year"
-    const upcoming = getUpcomingSundays()
+    const upcomingStart = normalizeSessionDate(new Date())
+    const upcomingEnd = new Date(upcomingStart)
+    upcomingEnd.setUTCDate(
+      upcomingEnd.getUTCDate() + SUNDAY_SCHOOL_LESSON_WINDOW_WEEKS * 7 - 1
+    )
     let from: Date
     let to: Date
     try {
-      from = parseDate(searchParams.get("from"), upcoming[0])
-      to = parseDate(searchParams.get("to"), upcoming[upcoming.length - 1])
+      from = parseDate(searchParams.get("from"), upcomingStart)
+      to = parseDate(searchParams.get("to"), upcomingEnd)
     } catch {
       return NextResponse.json({ error: "Enter valid from and to dates" }, { status: 400 })
     }

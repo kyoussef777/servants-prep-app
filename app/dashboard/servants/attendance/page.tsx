@@ -18,6 +18,7 @@ import { useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
 import {
   getChildFullName,
   getLevelDisplayName,
+  getMostRecentClassMeetingDate,
   getMostRecentSunday,
   getTodayDateInputValue,
   toDateInputValue,
@@ -50,6 +51,7 @@ function SundaySchoolAttendanceContent() {
 
   // The server decides per class whether this person may record attendance
   const selectedClass = classes.find(c => c.id === selectedClassId)
+  const selectedClassLevel = selectedClass?.level
   const canEdit = selectedClass?.canServe ?? false
   const {
     data: trendData,
@@ -70,6 +72,11 @@ function SundaySchoolAttendanceContent() {
     const match = fromQuery && classes.some(c => c.id === fromQuery) ? fromQuery : classes[0].id
     setSelectedClassId(match)
   }, [classes, searchParams, selectedClassId])
+
+  useEffect(() => {
+    if (!selectedClassLevel) return
+    setSessionDate(toDateInputValue(getMostRecentClassMeetingDate(selectedClassLevel)))
+  }, [selectedClassId, selectedClassLevel])
 
   // Load the roster for the selected class + date. Read-only: the session row
   // is only created on save, so browsing dates never leaves empty sessions

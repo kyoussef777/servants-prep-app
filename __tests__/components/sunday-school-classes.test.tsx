@@ -78,4 +78,16 @@ describe('Sunday School classes', () => {
       expect.objectContaining({ description: expect.any(String) })
     )
   })
+
+  it('offers College and Grad when creating a class', async () => {
+    const user = userEvent.setup()
+
+    render(<SundaySchoolClassesPage />)
+
+    await user.click(screen.getByRole('button', { name: 'New class' }))
+    const levelSelect = screen.getByRole('combobox', { name: 'Grade level' })
+
+    expect(levelSelect).toHaveTextContent('College')
+    expect(levelSelect).toHaveTextContent('Grad')
+  })
 })

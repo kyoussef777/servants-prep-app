@@ -11,7 +11,11 @@ import { PageHeader } from '@/components/admin/page-header'
 import { SundaySchoolAttendanceChart } from '@/components/sunday-school-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolDashboard } from '@/lib/swr'
-import { getLevelDisplayName } from '@/lib/sunday-school-class'
+import {
+  compareAgeGroupsByLevel,
+  compareClassesByLevelAndName,
+  getLevelDisplayName,
+} from '@/lib/sunday-school-class'
 import type {
   SundaySchoolAttendanceAudience,
   SundaySchoolClassSummary,
@@ -48,7 +52,13 @@ export default function SundaySchoolDashboardPage() {
       buckets.get(key)!.classes.push(cls)
     }
 
-    const order = (dashboard?.ageGroups ?? []).map(g => g.id)
+    for (const bucket of buckets.values()) {
+      bucket.classes.sort(compareClassesByLevelAndName)
+    }
+
+    const order = [...(dashboard?.ageGroups ?? [])]
+      .sort(compareAgeGroupsByLevel)
+      .map(group => group.id)
     return Array.from(buckets.entries()).sort((a, b) => {
       const ai = order.indexOf(a[0])
       const bi = order.indexOf(b[0])

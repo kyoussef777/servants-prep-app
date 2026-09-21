@@ -35,6 +35,7 @@ export function SundaySchoolRecentAttendanceChart({
   throughDate,
   isLoading = false,
 }: SundaySchoolRecentAttendanceChartProps) {
+  const meetingDay = trend?.meetingDayLabel ?? 'week'
   const recentPoints = useMemo(
     () => (trend?.points ?? [])
       .filter(point => point.date <= throughDate)
@@ -61,7 +62,7 @@ export function SundaySchoolRecentAttendanceChart({
             )}
           </div>
           <CardDescription>
-            The last eight Sundays for {className} through the selected week.
+            The last eight {meetingDay === 'week' ? 'weeks' : `${meetingDay}s`} for {className} through the selected week.
           </CardDescription>
         </div>
         <Button asChild variant="outline" size="sm" className="shrink-0">
@@ -182,7 +183,7 @@ export function SundaySchoolRecentAttendanceChart({
               </ResponsiveContainer>
             </div>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Amber markers indicate Sundays when attendance was not recorded.
+              Amber markers indicate {meetingDay === 'week' ? 'weeks' : `${meetingDay}s`} when attendance was not recorded.
             </p>
           </>
         )}

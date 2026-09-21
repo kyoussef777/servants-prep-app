@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   ensureSundaySchoolWeeklyLessons,
+  getMeetingDatesInRange,
   getSundaysInRange,
   getUpcomingSundays,
   getWeeklyLessonStatus,
@@ -34,6 +35,21 @@ describe('weekly Sunday School lessons', () => {
     expect(dates.every(date => date.getUTCDay() === 0)).toBe(true)
   })
 
+  it('enumerates Saturdays for the Elementary calendar', () => {
+    const dates = getMeetingDatesInRange(
+      new Date('2026-09-01T00:00:00Z'),
+      new Date('2026-09-27T23:59:59Z'),
+      6
+    )
+
+    expect(dates.map(date => date.toISOString())).toEqual([
+      '2026-09-05T00:00:00.000Z',
+      '2026-09-12T00:00:00.000Z',
+      '2026-09-19T00:00:00.000Z',
+      '2026-09-26T00:00:00.000Z',
+    ])
+  })
+
   it('derives the three preparation states', () => {
     expect(getWeeklyLessonStatus(null, 2)).toBe('UNASSIGNED')
     expect(getWeeklyLessonStatus('owner-1', 0)).toBe('NEEDS_LINKS')
@@ -59,6 +75,7 @@ describe('weekly Sunday School lessons', () => {
     const findMany = vi.fn().mockResolvedValue([
       {
         id: 'class-1',
+        level: 'GRADE_6',
         academicYear: {
           startDate: new Date('2026-09-01T00:00:00Z'),
           endDate: new Date('2026-09-27T23:59:59Z'),
@@ -92,5 +109,40 @@ describe('weekly Sunday School lessons', () => {
       where: expect.objectContaining({ isActive: true, academicYear: { isActive: true } }),
     }))
     expect(Array.from(seen)).toHaveLength(4)
+  })
+
+  it('generates Saturday lessons for Elementary and Sunday lessons for older classes', async () => {
+    const createMany = vi.fn().mockResolvedValue({ count: 8 })
+    const db = {
+      sundaySchoolClass: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'elementary',
+            level: 'GRADE_3',
+            academicYear: {
+              startDate: new Date('2026-09-01T00:00:00Z'),
+              endDate: new Date('2026-09-27T23:59:59Z'),
+            },
+          },
+          {
+            id: 'middle',
+            level: 'GRADE_6',
+            academicYear: {
+              startDate: new Date('2026-09-01T00:00:00Z'),
+              endDate: new Date('2026-09-27T23:59:59Z'),
+            },
+          },
+        ]),
+      },
+      sundaySchoolWeeklyLesson: { createMany },
+    }
+
+    await ensureSundaySchoolWeeklyLessons({ db: db as never })
+
+    const rows = createMany.mock.calls[0][0].data as Array<{ classId: string; sundayDate: Date }>
+    expect(rows.filter(row => row.classId === 'elementary').every(row => row.sundayDate.getUTCDay() === 6))
+      .toBe(true)
+    expect(rows.filter(row => row.classId === 'middle').every(row => row.sundayDate.getUTCDay() === 0))
+      .toBe(true)
   })
 })

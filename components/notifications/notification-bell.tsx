@@ -185,8 +185,8 @@ export function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`group relative rounded-md p-2 transition-[color,background-color,transform] duration-200 ease-out hover:bg-accent motion-reduce:transition-none ${
-          isOpen ? 'scale-105 bg-accent text-primary' : ''
+        className={`relative rounded-md p-2 transition-colors duration-150 hover:bg-accent motion-reduce:transition-none ${
+          isOpen ? 'bg-accent text-primary' : ''
         }`}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         aria-expanded={isOpen}
@@ -195,13 +195,9 @@ export function NotificationBell() {
       >
         <Bell
           data-testid="notification-bell-icon"
-          strokeWidth={isOpen ? 2.25 : 2}
-          className={`h-5 w-5 transform-gpu transition-[transform,fill,color] duration-200 ease-out motion-reduce:transition-none ${
-            isOpen
-              ? '-rotate-12 scale-110 fill-current text-primary'
-              : unreadCount > 0
-                ? 'motion-safe:group-hover:rotate-12'
-                : ''
+          strokeWidth={2}
+          className={`h-5 w-5 transition-[fill,color] duration-150 motion-reduce:transition-none ${
+            isOpen ? 'fill-current text-primary' : ''
           }`}
         />
         {unreadCount > 0 && (

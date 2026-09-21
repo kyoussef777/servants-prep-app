@@ -1,5 +1,10 @@
 import { prisma } from "./prisma"
-import { normalizeSessionDate } from "./sunday-school-class"
+import type { SundaySchoolLevel } from "@prisma/client"
+import {
+  getClassMeetingDay,
+  normalizeSessionDate,
+  type SundaySchoolMeetingDay,
+} from "./sunday-school-class"
 
 export const SUNDAY_SCHOOL_LESSON_WINDOW_WEEKS = 8
 
@@ -23,10 +28,12 @@ type LessonDatabase = {
       }
       select: {
         id: true
+        level: true
         academicYear: { select: { startDate: true; endDate: true } }
       }
     }): Promise<Array<{
       id: string
+      level: SundaySchoolLevel
       academicYear: { startDate: Date; endDate: Date }
     }>>
   }
@@ -42,9 +49,17 @@ export function getUpcomingSundays(
   from: Date = new Date(),
   count = SUNDAY_SCHOOL_LESSON_WINDOW_WEEKS
 ): Date[] {
+  return getUpcomingMeetingDates(from, 0, count)
+}
+
+export function getUpcomingMeetingDates(
+  from: Date = new Date(),
+  meetingDay: SundaySchoolMeetingDay = 0,
+  count = SUNDAY_SCHOOL_LESSON_WINDOW_WEEKS
+): Date[] {
   const start = normalizeSessionDate(from)
-  const daysUntilSunday = (7 - start.getUTCDay()) % 7
-  start.setUTCDate(start.getUTCDate() + daysUntilSunday)
+  const daysUntilMeeting = (meetingDay - start.getUTCDay() + 7) % 7
+  start.setUTCDate(start.getUTCDate() + daysUntilMeeting)
 
   return Array.from({ length: count }, (_, index) => {
     const date = new Date(start)
@@ -54,13 +69,21 @@ export function getUpcomingSundays(
 }
 
 export function getSundaysInRange(startDate: Date, endDate: Date): Date[] {
+  return getMeetingDatesInRange(startDate, endDate, 0)
+}
+
+export function getMeetingDatesInRange(
+  startDate: Date,
+  endDate: Date,
+  meetingDay: SundaySchoolMeetingDay
+): Date[] {
   const end = normalizeSessionDate(endDate)
-  const firstSunday = getUpcomingSundays(startDate, 1)[0]
-  const sundays: Date[] = []
-  for (const date = new Date(firstSunday); date <= end; date.setUTCDate(date.getUTCDate() + 7)) {
-    sundays.push(new Date(date))
+  const firstMeeting = getUpcomingMeetingDates(startDate, meetingDay, 1)[0]
+  const dates: Date[] = []
+  for (const date = new Date(firstMeeting); date <= end; date.setUTCDate(date.getUTCDate() + 7)) {
+    dates.push(new Date(date))
   }
-  return sundays
+  return dates
 }
 
 export function getWeeklyLessonStatus(
@@ -122,6 +145,7 @@ export async function ensureSundaySchoolWeeklyLessons({
     },
     select: {
       id: true,
+      level: true,
       academicYear: { select: { startDate: true, endDate: true } },
     },
   })
@@ -129,7 +153,7 @@ export async function ensureSundaySchoolWeeklyLessons({
   const rows = classes.flatMap((cls) => {
     const yearStart = normalizeSessionDate(cls.academicYear.startDate)
     const yearEnd = normalizeSessionDate(cls.academicYear.endDate)
-    return getSundaysInRange(yearStart, yearEnd)
+    return getMeetingDatesInRange(yearStart, yearEnd, getClassMeetingDay(cls.level))
       .map((sundayDate) => ({ classId: cls.id, sundayDate }))
   })
 

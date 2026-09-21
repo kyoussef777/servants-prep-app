@@ -26,7 +26,7 @@ before editing it.
 | Prep-side (serving verification) | Sunday School mode (this document) |
 |---|---|
 | `SundaySchoolAssignment` | `SundaySchoolServantAssignment` |
-| `SundaySchoolGrade` (Pre-K … `GRADE_6_PLUS`) | `SundaySchoolLevel` (Pre-K … `GRADE_12`) |
+| `SundaySchoolGrade` (Pre-K … `GRADE_6_PLUS`) | `SundaySchoolLevel` (Pre-K … `GRAD`) |
 | `SundaySchoolCode`, `SundaySchoolLog` | `SundaySchoolSession`, `SundaySchoolChildAttendance`, `SundaySchoolWeeklyLesson` |
 | Routes: `assignments/`, `codes/`, `logs/`, `progress/` | Routes: `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `lessons/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` |
 | `lib/sunday-school-utils.ts` | `lib/sunday-school-class.ts`, `lib/sunday-school-access.ts` |
@@ -91,7 +91,8 @@ Guardian and household contact belongs to minors and is returned only by the
 child and family routes, only to people with Sunday School class visibility.
 
 **Weekly lessons are not attendance sessions.** The generator maintains every
-Sunday in the active academic year for every active class. A Monday 10:00 UTC
+scheduled meeting in the active academic year for every active class. Elementary
+levels meet on Saturday; all older levels meet on Sunday. A Monday 10:00 UTC
 Vercel cron invokes the protected generator,
 and class creation/reactivation invokes the same idempotent helper. Lesson rows
 can represent future preparation; `SundaySchoolSession` continues to reject
@@ -131,10 +132,10 @@ for the weeks before they joined. The formula itself is the app-wide
 plain rate with none of the graduation framing.
 
 **The dashboard trend uses each saved session as its historical roster
-snapshot.** Every mark saved for that Sunday counts toward the roster curve;
-`PRESENT` and `LATE` count toward the attended curve. Sundays with no saved
+snapshot.** Every mark saved for that class meeting counts toward the roster curve;
+`PRESENT` and `LATE` count toward the attended curve. Meetings with no saved
 marks stay as gaps so missing data is never presented as zero attendance. The
-reporting year begins on the first Sunday strictly after September 11. Super
+reporting year begins on the first scheduled meeting strictly after September 11. Super
 admins and priests can filter the child trend to any class. The Servants chart
 is available only to super admins and coordinators and contains only the
 classes they coordinate; priests and ordinary servants cannot request it.
