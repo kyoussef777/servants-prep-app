@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { canReviewServantApplications } from '@/lib/roles'
+import { compareServantApplicationPriority } from '@/lib/servant-applications'
 import { useServantApplications } from '@/lib/swr'
 import { CheckCircle, Clock, Eye, Loader2, XCircle } from 'lucide-react'
 import { RegistrationStatus } from '@prisma/client'
@@ -79,6 +80,10 @@ export default function ServantApplicationsPage() {
     redirect('/dashboard')
   }
 
+  const sortedApplications = [
+    ...((applications as ServantApplication[] | undefined) ?? []),
+  ].sort(compareServantApplicationPriority)
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -105,14 +110,14 @@ export default function ServantApplicationsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {!applications || applications.length === 0 ? (
+                  {sortedApplications.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-gray-500">
                         No applications yet
                       </TableCell>
                     </TableRow>
                   ) : (
-                    applications.map((application: ServantApplication) => (
+                    sortedApplications.map(application => (
                       <TableRow key={application.id}>
                         <TableCell className="font-medium">{application.fullName}</TableCell>
                         <TableCell>{application.email}</TableCell>
