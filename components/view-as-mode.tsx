@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import type { RoleTag, UserRole } from '@prisma/client'
 import { replaceBrowserLocation } from '@/lib/browser-navigation'
 import { defaultDashboardPath } from '@/lib/dashboard-navigation'
+import { consumeViewAsReturnPath, rememberViewAsReturnPath } from '@/lib/view-as-navigation'
 
 export { defaultDashboardPath } from '@/lib/dashboard-navigation'
 
@@ -113,11 +114,13 @@ export function ViewAsMode() {
   const pick = async (userId: string) => {
     setBusy(true)
     try {
+      const switchingViewedUser = !!viewingAs
       const updated = await update({ impersonate: userId })
       if (!updated?.impersonating || updated.user?.id !== userId) {
         toast.error('View as could not be started. Confirm your Super Admin access and try again.')
         return
       }
+      if (!switchingViewedUser) rememberViewAsReturnPath()
       setOpen(false)
       setQuery('')
       reloadForEffectiveIdentity()
@@ -137,7 +140,9 @@ export function ViewAsMode() {
       // Navigate with the browser rather than the client router. This both
       // clears data cached for the viewed user and prevents Next.js from
       // restoring the target user's old route during the identity change.
-      replaceBrowserLocation(defaultDashboardPath(updated.user.role))
+      replaceBrowserLocation(
+        consumeViewAsReturnPath(defaultDashboardPath(updated.user.role))
+      )
     } finally {
       setBusy(false)
     }
