@@ -126,3 +126,9 @@ export function findAgeGroupForLevel<T extends { levels: SundaySchoolLevel[] }>(
 ): T | undefined {
   return ageGroups.find(group => group.levels.includes(level))
 }
+
+
+/** Natural alphabetical order for names that may contain section numbers. */
+export function compareClassNames(left: string, right: string): number {
+  return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' })
+}

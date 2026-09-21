@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  LEVEL_ORDER,
+  compareClassNames,
+    LEVEL_ORDER,
   getChildFullName,
   getLevelDisplayName,
   getMostRecentSunday,
@@ -106,5 +107,18 @@ describe('Sunday School class helpers', () => {
     it('joins first and last name', () => {
       expect(getChildFullName({ firstName: 'Mina', lastName: 'Girgis' })).toBe('Mina Girgis')
     })
+  })
+})
+
+describe('compareClassNames', () => {
+  it('sorts class names alphabetically with numbers in human order', () => {
+    const names = ['Grade 10 Boys', 'Grade 2 Boys', 'Alpha', 'grade 1 boys']
+
+    expect(names.sort(compareClassNames)).toEqual([
+      'Alpha',
+      'grade 1 boys',
+      'Grade 2 Boys',
+      'Grade 10 Boys',
+    ])
   })
 })

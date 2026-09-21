@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
-import { getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
+import { compareClassNames, getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
 import type { SundaySchoolClass, SundaySchoolDashboard } from '@/types/sunday-school'
 import { SundaySchoolLevel } from '@prisma/client'
 import { Plus, Users } from 'lucide-react'
@@ -77,7 +77,9 @@ export default function SundaySchoolClassesPage() {
     return <PageLoading />
   }
 
-  const classes = (data as SundaySchoolClass[] | undefined) ?? []
+  const classes = [...((data as SundaySchoolClass[] | undefined) ?? [])].sort((left, right) =>
+    compareClassNames(left.name, right.name)
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
