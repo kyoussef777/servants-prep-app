@@ -217,6 +217,9 @@ export function Navbar() {
       if (canAdministerSundaySchool(role)) {
         more.push({ href: '/dashboard/servants/users', label: 'Users' })
       }
+      if (canManageAllUsers(role)) {
+        more.push({ href: '/dashboard/admin/activity', label: 'Activity' })
+      }
 
       return {
         primary: links,
@@ -248,6 +251,7 @@ export function Navbar() {
     }
     if (canManageAllUsers(role)) {
       more.push({ href: '/dashboard/admin/users', label: 'Users' })
+      more.push({ href: '/dashboard/admin/activity', label: 'Activity' })
     }
     if (canViewRegistrations(role)) {
       more.push({ href: '/dashboard/admin/registrations', label: 'Registrations' })
