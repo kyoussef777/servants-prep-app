@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import {
+  auditActionSummary,
+  auditEntityLabel,
+  auditMetadataEntries,
+  auditReasonLabel,
+  auditTargetLabel,
+} from '@/lib/audit-display'
 
 type AuditResult = 'SUCCESS' | 'DENIED' | 'FAILED'
 
@@ -17,6 +24,7 @@ interface AuditEventRow {
   metadata: unknown
   createdAt: string
   actor: { id: string; name: string | null; email: string } | null
+  target: { id: string; name: string | null; email: string } | null
 }
 
 interface AuditResponse {
@@ -24,16 +32,13 @@ interface AuditResponse {
   page: number
   total: number
   totalPages: number
+  retention: { days: number; maxEvents: number }
 }
 
 const RESULT_STYLE: Record<AuditResult, string> = {
   SUCCESS: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200',
   DENIED: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200',
   FAILED: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200',
-}
-
-function actionLabel(action: string) {
-  return action.toLowerCase().split('_').map((part) => part[0]?.toUpperCase() + part.slice(1)).join(' ')
 }
 
 export default function ActivityPage() {
@@ -105,51 +110,83 @@ export default function ActivityPage() {
           {loading ? (
             <p className="py-8 text-center text-muted-foreground">Loading activity…</p>
           ) : data?.events.length ? (
-            <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3">When</th>
-                    <th className="px-4 py-3">User</th>
-                    <th className="px-4 py-3">Activity</th>
-                    <th className="px-4 py-3">Record</th>
-                    <th className="px-4 py-3">Result</th>
-                    <th className="px-4 py-3">Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {data.events.map((event) => (
-                    <tr key={event.id} className="align-top">
-                      <td className="whitespace-nowrap px-4 py-3">{new Date(event.createdAt).toLocaleString()}</td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{event.actor?.name ?? 'System'}</div>
-                        {event.actor?.email && <div className="text-xs text-muted-foreground">{event.actor.email}</div>}
-                      </td>
-                      <td className="px-4 py-3 font-medium">{actionLabel(event.action)}</td>
-                      <td className="px-4 py-3">
-                        <div>{event.entityType}</div>
-                        {event.entityId && <div className="max-w-48 truncate text-xs text-muted-foreground">{event.entityId}</div>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${RESULT_STYLE[event.result]}`}>
-                          {event.result}
-                        </span>
-                      </td>
-                      <td className="max-w-sm px-4 py-3 text-xs text-muted-foreground">
-                        {event.reason ?? (event.metadata ? JSON.stringify(event.metadata) : '—')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {data.events.map(event => {
+                const reason = auditReasonLabel(event.reason)
+                const metadata = auditMetadataEntries(event.metadata)
+                const hasTechnicalDetails = Boolean(event.entityId) || metadata.length > 0
+
+                return (
+                  <article key={event.id} className="rounded-lg border bg-card p-4 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="font-semibold text-foreground">{auditActionSummary(event)}</h2>
+                          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${RESULT_STYLE[event.result]}`}>
+                            {event.result === 'SUCCESS' ? 'Successful' : event.result === 'DENIED' ? 'Denied' : 'Failed'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">{event.actor?.name ?? 'System'}</span>
+                          {event.actor?.email ? ` · ${event.actor.email}` : ''}
+                        </p>
+                      </div>
+                      <time className="shrink-0 text-sm text-muted-foreground" dateTime={event.createdAt}>
+                        {new Date(event.createdAt).toLocaleString()}
+                      </time>
+                    </div>
+
+                    <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                      <div className="rounded-md bg-muted/50 px-3 py-2">
+                        <span className="text-muted-foreground">Affected record: </span>
+                        <span className="font-medium">{auditTargetLabel(event)}</span>
+                        <span className="text-muted-foreground"> · {auditEntityLabel(event.entityType)}</span>
+                      </div>
+                      {reason && (
+                        <div className="rounded-md bg-muted/50 px-3 py-2">
+                          <span className="text-muted-foreground">Explanation: </span>
+                          <span>{reason}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {hasTechnicalDetails && (
+                      <details className="mt-3 text-sm">
+                        <summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">
+                          Additional details
+                        </summary>
+                        <dl className="mt-2 grid gap-x-6 gap-y-2 rounded-md border bg-muted/20 p-3 sm:grid-cols-2">
+                          {event.entityId && (
+                            <div className="min-w-0">
+                              <dt className="text-xs font-medium text-muted-foreground">Record ID</dt>
+                              <dd className="break-all text-xs">{event.entityId}</dd>
+                            </div>
+                          )}
+                          {metadata.map(entry => (
+                            <div key={entry.label} className="min-w-0">
+                              <dt className="text-xs font-medium text-muted-foreground">{entry.label}</dt>
+                              <dd className="break-words text-xs">{entry.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </details>
+                    )}
+                  </article>
+                )
+              })}
             </div>
           ) : (
             <p className="py-8 text-center text-muted-foreground">No activity matches these filters.</p>
           )}
 
           {data && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">{data.total} recorded event{data.total === 1 ? '' : 's'}</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{data.total} recorded event{data.total === 1 ? '' : 's'}</p>
+                <p className="text-xs text-muted-foreground">
+                  Activity is kept for up to {data.retention.days} days, with a maximum of {data.retention.maxEvents.toLocaleString()} events.
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</Button>
                 <span className="text-sm">Page {data.page} of {data.totalPages}</span>
