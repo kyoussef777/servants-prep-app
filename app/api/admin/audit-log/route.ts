@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
 import { getAuthorizationContext } from '@/lib/authorization'
 import { sanitizeAuditMetadata } from '@/lib/audit'
+import { getAuditRetentionPolicy } from '@/lib/audit-retention'
 import { handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 
@@ -30,6 +31,20 @@ export async function GET(request: Request) {
       ? resultParam as AuditEventResult
       : undefined
 
+    const matchingTargetUsers = search
+      ? await prisma.user.findMany({
+          where: {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+            ],
+          },
+          select: { id: true },
+          take: 100,
+        })
+      : []
+    const matchingTargetUserIds = matchingTargetUsers.map(target => target.id)
+
     const where: Prisma.AuditEventWhereInput = {
       ...(result ? { result } : {}),
       ...(search
@@ -41,6 +56,9 @@ export async function GET(request: Request) {
               { reason: { contains: search, mode: 'insensitive' } },
               { actor: { name: { contains: search, mode: 'insensitive' } } },
               { actor: { email: { contains: search, mode: 'insensitive' } } },
+              ...(matchingTargetUserIds.length > 0
+                ? [{ entityType: 'User', entityId: { in: matchingTargetUserIds } }]
+                : []),
             ],
           }
         : {}),
@@ -59,15 +77,33 @@ export async function GET(request: Request) {
       prisma.auditEvent.count({ where }),
     ])
 
+    const targetUserIds = Array.from(new Set(
+      events.flatMap(event =>
+        event.entityType === 'User' && event.entityId ? [event.entityId] : []
+      )
+    ))
+    const targetUsers = targetUserIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: targetUserIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : []
+    const targetsById = new Map(targetUsers.map(target => [target.id, target]))
+
     return NextResponse.json({
       events: events.map((event) => ({
         ...event,
         metadata: event.metadata === null ? null : sanitizeAuditMetadata(event.metadata),
+        target:
+          event.entityType === 'User' && event.entityId
+            ? targetsById.get(event.entityId) ?? null
+            : null,
       })),
       page,
       pageSize,
       total,
       totalPages: Math.max(Math.ceil(total / pageSize), 1),
+      retention: getAuditRetentionPolicy(),
     })
   } catch (error) {
     return handleApiError(error)
