@@ -91,11 +91,10 @@ export async function getSundaySchoolAccess(
         authority: true,
         classId: true,
         ageGroupId: true,
-        ageGroup: { select: { id: true, levels: true, isActive: true } },
       },
     })
 
-    const coordinatedBands: { id: string; levels: SundaySchoolLevel[] }[] = []
+    const assignedAgeGroupIds = new Set<string>()
 
     for (const assignment of assignments) {
       const isCoordinator = assignment.authority === SundaySchoolAuthority.COORDINATOR
@@ -109,18 +108,27 @@ export async function getSundaySchoolAccess(
         continue
       }
 
-      if (assignment.ageGroup && assignment.ageGroup.isActive) {
-        // A servant-authority assignment on a whole band is not a thing we
-        // offer, but treat it as coordination of nothing rather than silently
-        // granting more than the row says.
-        if (!isCoordinator) continue
-
-        coordinatorAgeGroupIds.add(assignment.ageGroup.id)
-        for (const level of assignment.ageGroup.levels) {
-          coordinatorLevels.add(level)
-        }
-        coordinatedBands.push({ id: assignment.ageGroup.id, levels: assignment.ageGroup.levels })
+      // Resolve bands by ageGroupId below rather than through the composite
+      // Prisma relation. Legacy age groups have sundaySchoolYearId = NULL, so
+      // SQL cannot join the otherwise-valid assignment through that relation.
+      if (isCoordinator && assignment.ageGroupId) {
+        assignedAgeGroupIds.add(assignment.ageGroupId)
       }
+    }
+
+    const coordinatedBands = assignedAgeGroupIds.size > 0
+      ? await prisma.sundaySchoolAgeGroup.findMany({
+          where: {
+            id: { in: Array.from(assignedAgeGroupIds) },
+            isActive: true,
+          },
+          select: { id: true, levels: true },
+        })
+      : []
+
+    for (const band of coordinatedBands) {
+      coordinatorAgeGroupIds.add(band.id)
+      for (const level of band.levels) coordinatorLevels.add(level)
     }
 
     // Expand each coordinated band into the classes it owns this year
@@ -292,24 +300,30 @@ export async function getChildRegistrationReviewerIds(
       select: { id: true },
     }))?.id
 
-  const [admins, coordinatorAssignments] = await Promise.all([
+  const [admins, ageGroups] = await Promise.all([
     prisma.user.findMany({
       where: { role: UserRole.SUPER_ADMIN, isDisabled: false },
       select: { id: true },
     }),
     yearId
-      ? prisma.sundaySchoolServantAssignment.findMany({
-          where: {
-            academicYearId: yearId,
-            authority: SundaySchoolAuthority.COORDINATOR,
-            ageGroupId: { not: null },
-            endedAt: null,
-            ageGroup: { levels: { has: level } },
-          },
-          select: { userId: true },
+      ? prisma.sundaySchoolAgeGroup.findMany({
+          where: { isActive: true, levels: { has: level } },
+          select: { id: true },
         })
       : Promise.resolve([]),
   ])
+
+  const coordinatorAssignments = yearId && ageGroups.length > 0
+    ? await prisma.sundaySchoolServantAssignment.findMany({
+        where: {
+          academicYearId: yearId,
+          authority: SundaySchoolAuthority.COORDINATOR,
+          ageGroupId: { in: ageGroups.map(ageGroup => ageGroup.id) },
+          endedAt: null,
+        },
+        select: { userId: true },
+      })
+    : []
 
   return Array.from(
     new Set([...admins.map((a) => a.id), ...coordinatorAssignments.map((a) => a.userId)])

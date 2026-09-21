@@ -5,6 +5,7 @@ const prismaMocks = vi.hoisted(() => ({
   activeYear: vi.fn(),
   participantGrant: vi.fn(),
   servantAssignments: vi.fn(),
+  ageGroups: vi.fn(),
   classes: vi.fn(),
   admins: vi.fn(),
 }))
@@ -14,6 +15,7 @@ vi.mock('@/lib/prisma', () => ({
     academicYear: { findFirst: prismaMocks.activeYear },
     userRoleAssignment: { findFirst: prismaMocks.participantGrant },
     sundaySchoolServantAssignment: { findMany: prismaMocks.servantAssignments },
+    sundaySchoolAgeGroup: { findMany: prismaMocks.ageGroups },
     sundaySchoolClass: { findMany: prismaMocks.classes },
     user: { findMany: prismaMocks.admins },
   },
@@ -95,6 +97,7 @@ describe('Sunday School access resolution', () => {
     prismaMocks.activeYear.mockReset().mockResolvedValue({ id: 'active-year' })
     prismaMocks.participantGrant.mockReset().mockResolvedValue(null)
     prismaMocks.servantAssignments.mockReset().mockResolvedValue([])
+    prismaMocks.ageGroups.mockReset().mockResolvedValue([])
     prismaMocks.classes.mockReset().mockResolvedValue([])
     prismaMocks.admins.mockReset().mockResolvedValue([])
   })
@@ -139,15 +142,54 @@ describe('Sunday School access resolution', () => {
   })
 
   it('notifies only active age-group coordinators about registrations', async () => {
+    prismaMocks.ageGroups.mockResolvedValue([{ id: 'elementary' }])
     await getChildRegistrationReviewerIds('GRADE_2', 'active-year')
 
+    expect(prismaMocks.ageGroups).toHaveBeenCalledWith({
+      where: { isActive: true, levels: { has: 'GRADE_2' } },
+      select: { id: true },
+    })
     expect(prismaMocks.servantAssignments).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         academicYearId: 'active-year',
         authority: 'COORDINATOR',
+        ageGroupId: { in: ['elementary'] },
         endedAt: null,
       }),
     }))
+  })
+
+  it('expands a legacy age-group assignment into its active classes without a relation join', async () => {
+    prismaMocks.servantAssignments.mockResolvedValue([{
+      authority: 'COORDINATOR',
+      classId: null,
+      ageGroupId: 'middle-school',
+    }])
+    prismaMocks.ageGroups.mockResolvedValue([{
+      id: 'middle-school',
+      levels: ['GRADE_6', 'GRADE_7', 'GRADE_8'],
+    }])
+    prismaMocks.classes.mockResolvedValue([{ id: 'sixth-grade' }, { id: 'seventh-grade' }])
+
+    const access = await getSundaySchoolAccess({
+      id: 'middle-school-coordinator',
+      role: UserRole.SERVANT,
+    })
+
+    expect(prismaMocks.ageGroups).toHaveBeenCalledWith({
+      where: { id: { in: ['middle-school'] }, isActive: true },
+      select: { id: true, levels: true },
+    })
+    expect(prismaMocks.classes).toHaveBeenCalledWith({
+      where: {
+        academicYearId: 'active-year',
+        level: { in: ['GRADE_6', 'GRADE_7', 'GRADE_8'] },
+      },
+      select: { id: true },
+    })
+    expect(access.coordinatorAgeGroupIds).toEqual(new Set(['middle-school']))
+    expect(access.coordinatorClassIds).toEqual(new Set(['sixth-grade', 'seventh-grade']))
+    expect(access.visibleClassIds).toEqual(new Set(['sixth-grade', 'seventh-grade']))
   })
 })
 
