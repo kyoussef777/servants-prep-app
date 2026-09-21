@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { organizationBranches, type SundaySchoolOrganization, type OrganizationAssignment } from '@/lib/sunday-school-organization'
+import { organizationBands, organizationBranches, type SundaySchoolOrganization, type OrganizationAssignment } from '@/lib/sunday-school-organization'
 
 const person = (id: string) => ({ id, name: id, profileImageUrl: null })
 const assignment = (id: string, authority: OrganizationAssignment['authority'], classId: string | null, ageGroupId: string | null = null): OrganizationAssignment => ({ user: person(id), authority, classId, ageGroupId })
@@ -21,6 +21,22 @@ const data: SundaySchoolOrganization = {
 }
 
 describe('Sunday School organization', () => {
+  it('groups classes beneath one age-group coordinator instead of repeating the chain', () => {
+    const bands = organizationBands(data, 'priest')
+
+    expect(bands).toHaveLength(1)
+    expect(bands[0].overseer?.id).toBe('priest')
+    expect(bands[0].bandCoordinators.map(person => person.id)).toEqual(['band-lead'])
+    expect(bands[0].classes.map(team => team.id)).toEqual(['first', 'second'])
+  })
+  it('keeps an individual servant focused on their own class', () => {
+    const bands = organizationBands(data, 'servant')
+
+    expect(bands).toHaveLength(1)
+    expect(bands[0].classes.map(team => team.id)).toEqual(['first'])
+    expect(bands[0].overseer?.id).toBe('priest')
+    expect(bands[0].bandCoordinators.map(person => person.id)).toEqual(['band-lead'])
+  })
   it('connects a servant only to their class and its coordinators', () => {
     const branches = organizationBranches(data, 'servant')
     expect(branches.map(b => b.id)).toEqual(['first'])
