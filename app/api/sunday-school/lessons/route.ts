@@ -99,6 +99,7 @@ export async function GET(request: Request) {
             assignments: {
               where: {
                 classId: { not: null },
+                endedAt: null,
                 user: {
                   isDisabled: false,
                   role: { in: [UserRole.SERVANT, UserRole.SERVANT_PREP] },

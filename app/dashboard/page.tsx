@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { defaultDashboardPath } from '@/lib/dashboard-navigation'
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
@@ -18,28 +19,7 @@ export default function DashboardPage() {
         return
       }
 
-      // Redirect based on role
-      switch (session?.user?.role) {
-        case 'STUDENT':
-          router.push('/dashboard/student')
-          break
-        case 'MENTOR':
-          router.push('/dashboard/mentor')
-          break
-        case 'SERVANT':
-          router.push('/dashboard/servants')
-          break
-        case 'PARENT':
-          router.push('/dashboard/parent')
-          break
-        case 'SERVANT_PREP':
-        case 'PRIEST':
-        case 'SUPER_ADMIN':
-          router.push('/dashboard/admin')
-          break
-        default:
-          router.push('/login')
-      }
+      router.replace(defaultDashboardPath(session?.user?.role))
     }
   }, [status, session, router])
 

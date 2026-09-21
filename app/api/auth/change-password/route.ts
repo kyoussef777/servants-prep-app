@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import bcrypt from "bcryptjs"
+import { AuditEventResult } from "@prisma/client"
+import { recordAuditEvent } from "@/lib/audit"
 
 // POST /api/auth/change-password - Change user's own password
 export async function POST(request: Request) {
@@ -42,6 +44,14 @@ export async function POST(request: Request) {
     const isValid = await bcrypt.compare(currentPassword, dbUser.password)
 
     if (!isValid) {
+      await recordAuditEvent({
+        actorUserId: user.id,
+        action: 'AUTH_PASSWORD_CHANGE',
+        entityType: 'User',
+        entityId: user.id,
+        result: AuditEventResult.DENIED,
+        reason: 'CURRENT_PASSWORD_INCORRECT',
+      })
       return NextResponse.json(
         { error: "Current password is incorrect" },
         { status: 401 }
@@ -57,8 +67,15 @@ export async function POST(request: Request) {
       data: {
         password: hashedPassword,
         mustChangePassword: false,
-        authVersion: { increment: 1 },
       }
+    })
+
+    await recordAuditEvent({
+      actorUserId: user.id,
+      action: 'AUTH_PASSWORD_CHANGE',
+      entityType: 'User',
+      entityId: user.id,
+      result: AuditEventResult.SUCCESS,
     })
 
     return NextResponse.json({ message: "Password updated successfully" })

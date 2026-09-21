@@ -8,6 +8,7 @@ import { AuditEventResult, RoleTag, SundaySchoolAuthority, UserRole, type Prisma
 import type { JWT } from "next-auth/jwt"
 import { checkLoginRateLimit, resetLoginRateLimit } from "./rate-limit"
 import { seesAllSundaySchoolClasses } from "./roles"
+import { recordAuditEvent } from "./audit"
 
 async function getUserSessionData(user: { id: string; role: UserRole }) {
   let isAsyncStudent = false
@@ -43,7 +44,7 @@ async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
       select: { id: true },
     }),
     prisma.sundaySchoolServantAssignment.findMany({
-      where: { userId: user.id, academicYear: { isActive: true } },
+      where: { userId: user.id, academicYear: { isActive: true }, endedAt: null },
       select: { authority: true }
     }),
   ])
@@ -223,6 +224,14 @@ export const authOptions: NextAuthOptions = {
 
         // Check if user is disabled
         if (user.isDisabled) {
+          await recordAuditEvent({
+            actorUserId: user.id,
+            action: 'AUTH_LOGIN',
+            entityType: 'User',
+            entityId: user.id,
+            result: AuditEventResult.DENIED,
+            reason: 'ACCOUNT_DISABLED',
+          })
           throw new Error("Invalid credentials")
         }
 
@@ -232,6 +241,14 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isCorrectPassword) {
+          await recordAuditEvent({
+            actorUserId: user.id,
+            action: 'AUTH_LOGIN',
+            entityType: 'User',
+            entityId: user.id,
+            result: AuditEventResult.DENIED,
+            reason: 'INVALID_CREDENTIALS',
+          })
           throw new Error("Invalid credentials")
         }
 
@@ -239,6 +256,15 @@ export const authOptions: NextAuthOptions = {
         resetLoginRateLimit(credentials.email)
 
         const { isAsyncStudent, sundaySchool } = await getUserSessionData(user)
+
+        await recordAuditEvent({
+          actorUserId: user.id,
+          action: 'AUTH_LOGIN',
+          entityType: 'User',
+          entityId: user.id,
+          result: AuditEventResult.SUCCESS,
+          metadata: { provider: 'credentials' },
+        })
 
         return {
           id: user.id,
@@ -265,8 +291,28 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!existingUser || existingUser.isDisabled) {
+          if (existingUser) {
+            await recordAuditEvent({
+              actorUserId: existingUser.id,
+              action: 'AUTH_LOGIN',
+              entityType: 'User',
+              entityId: existingUser.id,
+              result: AuditEventResult.DENIED,
+              reason: 'ACCOUNT_DISABLED',
+              metadata: { provider: 'google' },
+            })
+          }
           return "/login?error=GoogleSignInFailed"
         }
+
+        await recordAuditEvent({
+          actorUserId: existingUser.id,
+          action: 'AUTH_LOGIN',
+          entityType: 'User',
+          entityId: existingUser.id,
+          result: AuditEventResult.SUCCESS,
+          metadata: { provider: 'google' },
+        })
 
         return true
       }
@@ -308,7 +354,19 @@ export const authOptions: NextAuthOptions = {
       // Handle session update (e.g., after password change, profile pic, name)
       if (trigger === 'update' && session) {
         if (session.mustChangePassword !== undefined) {
-          token.mustChangePassword = session.mustChangePassword
+          // Never trust the client to clear the password-change gate. Re-read
+          // the current value after the password API has committed it.
+          const dbUser = token.id ? await loadAuthUser(token.id) : null
+          if (
+            !dbUser ||
+            dbUser.isDisabled ||
+            (token.authVersion !== undefined && token.authVersion !== dbUser.authVersion)
+          ) {
+            token.invalidated = true
+          } else {
+            token.mustChangePassword = dbUser.mustChangePassword
+            token.validatedAt = Date.now()
+          }
         }
         if (session.profileImageUrl !== undefined) {
           token.profileImageUrl = session.profileImageUrl

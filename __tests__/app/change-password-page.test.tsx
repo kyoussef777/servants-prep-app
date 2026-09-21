@@ -1,0 +1,54 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  replace: vi.fn(),
+  refresh: vi.fn(),
+  update: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
+}))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh, back: vi.fn() }),
+}))
+
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: { user: { role: 'SERVANT', mustChangePassword: true } },
+    update: mocks.update,
+  }),
+  signOut: vi.fn(),
+}))
+
+vi.mock('sonner', () => ({
+  toast: { success: mocks.toastSuccess, error: mocks.toastError },
+}))
+
+import ChangePasswordPage from '@/app/change-password/page'
+
+describe('ChangePasswordPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.update.mockResolvedValue({ user: { role: 'SERVANT', mustChangePassword: false } })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ message: 'Password updated successfully' }),
+    }))
+  })
+
+  it('refreshes the session and immediately sends a Sunday School servant to their dashboard', async () => {
+    render(<ChangePasswordPage />)
+
+    fireEvent.change(screen.getByLabelText('Current Password'), { target: { value: 'Welcome123!' } })
+    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'NewPassword123!' } })
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), { target: { value: 'NewPassword123!' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Change Password' }))
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledWith({ mustChangePassword: false })
+      expect(mocks.replace).toHaveBeenCalledWith('/dashboard/servants')
+      expect(mocks.refresh).toHaveBeenCalled()
+    })
+  })
+})

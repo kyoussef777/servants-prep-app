@@ -19,6 +19,7 @@ import { SundaySchoolLevel } from "@prisma/client"
 const classInclude = {
   academicYear: { select: { id: true, name: true } },
   assignments: {
+    where: { endedAt: null },
     include: {
       user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
     },

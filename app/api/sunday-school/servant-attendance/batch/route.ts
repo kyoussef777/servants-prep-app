@@ -84,6 +84,7 @@ export async function POST(request: Request) {
         classId,
         academicYearId: sundaySchoolClass.academicYearId,
         userId: { in: servantIds },
+        endedAt: null,
         user: { isDisabled: false },
       },
       select: { userId: true },

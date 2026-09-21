@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { defaultDashboardPath } from '@/lib/dashboard-navigation'
 
 export default function ChangePasswordPage() {
   const { data: session, update } = useSession()
@@ -72,15 +73,15 @@ export default function ChangePasswordPage() {
 
       // Update the session to reflect mustChangePassword = false
       // This keeps the user logged in without requiring re-authentication
-      await update({ mustChangePassword: false })
+      const updatedSession = await update({ mustChangePassword: false })
 
       toast.success('Password changed successfully!')
 
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        router.push('/dashboard')
-        router.refresh()
-      }, 1000)
+      const destination = defaultDashboardPath(
+        updatedSession?.user?.role ?? session?.user?.role
+      )
+      router.replace(destination)
+      router.refresh()
     } catch (error: unknown) {
       if (error instanceof Error) {
         toast.error(error.message)

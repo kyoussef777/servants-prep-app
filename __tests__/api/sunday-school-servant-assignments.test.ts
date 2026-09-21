@@ -65,6 +65,18 @@ function assignmentRequest(
   })
 }
 
+function ageGroupAssignmentRequest() {
+  return new Request('http://localhost/api/sunday-school/servant-assignments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: 'mentor-1',
+      ageGroupId: 'middle-school',
+      authority: SundaySchoolAuthority.COORDINATOR,
+    }),
+  })
+}
+
 describe('Sunday School servant assignments', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -75,6 +87,11 @@ describe('Sunday School servant assignments', () => {
     mocks.class.mockResolvedValue({
       id: 'class-1',
       academicYearId: 'academic-year',
+      sundaySchoolYearId: 'sunday-school-year',
+      status: 'ACTIVE',
+    })
+    mocks.ageGroup.mockResolvedValue({
+      id: 'middle-school',
       sundaySchoolYearId: 'sunday-school-year',
       status: 'ACTIVE',
     })
@@ -133,6 +150,28 @@ describe('Sunday School servant assignments', () => {
     }))
   })
 
+  it('removes the coordinator role while keeping the person as a class servant', async () => {
+    mocks.existingAssignment.mockResolvedValue({
+      id: 'old-assignment',
+      authority: SundaySchoolAuthority.COORDINATOR,
+    })
+
+    const response = await POST(assignmentRequest(SundaySchoolAuthority.SERVANT))
+
+    expect(response.status).toBe(200)
+    expect(mocks.updateAssignment).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'old-assignment' },
+      data: expect.objectContaining({ endReason: 'Authority changed' }),
+    }))
+    expect(mocks.createAssignment).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        userId: 'mentor-1',
+        classId: 'class-1',
+        authority: SundaySchoolAuthority.SERVANT,
+      }),
+    }))
+  })
+
   it('allows a super admin with an active Sunday School Servant tag', async () => {
     mocks.user.mockResolvedValue({
       id: 'mentor-1',
@@ -145,6 +184,25 @@ describe('Sunday School servant assignments', () => {
 
     expect(response.status).toBe(201)
     expect(mocks.createAssignment).toHaveBeenCalledOnce()
+  })
+
+  it('assigns a coordinator to a legacy age group without a Sunday School year', async () => {
+    mocks.ageGroup.mockResolvedValue({
+      id: 'middle-school',
+      sundaySchoolYearId: null,
+      status: 'ACTIVE',
+    })
+
+    const response = await POST(ageGroupAssignmentRequest())
+
+    expect(response.status).toBe(201)
+    expect(mocks.createAssignment).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        ageGroupId: 'middle-school',
+        sundaySchoolYearId: null,
+        authority: SundaySchoolAuthority.COORDINATOR,
+      }),
+    }))
   })
 
   it('rejects an untagged super admin as a class assignee', async () => {

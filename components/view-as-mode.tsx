@@ -9,6 +9,9 @@ import { Eye, EyeOff, Search, ShieldCheck, User as UserIcon, X } from 'lucide-re
 import { toast } from 'sonner'
 import type { RoleTag, UserRole } from '@prisma/client'
 import { replaceBrowserLocation } from '@/lib/browser-navigation'
+import { defaultDashboardPath } from '@/lib/dashboard-navigation'
+
+export { defaultDashboardPath } from '@/lib/dashboard-navigation'
 
 interface UserRow {
   id: string
@@ -36,23 +39,6 @@ const TAG_LABEL: Record<RoleTag, string> = {
   SUNDAY_SCHOOL_SERVANT: 'SS Servant',
   SUNDAY_SCHOOL_STUDENT: 'SS Student',
   PARENT: 'Parent',
-}
-
-export function defaultDashboardPath(role: UserRole): string {
-  switch (role) {
-    case 'STUDENT':
-      return '/dashboard/student'
-    case 'MENTOR':
-      return '/dashboard/mentor'
-    case 'SERVANT':
-      return '/dashboard/servants'
-    case 'PARENT':
-      return '/dashboard/parent'
-    case 'SERVANT_PREP':
-    case 'PRIEST':
-    case 'SUPER_ADMIN':
-      return '/dashboard/admin'
-  }
 }
 
 export function ViewAsMode() {

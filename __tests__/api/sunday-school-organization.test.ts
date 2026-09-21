@@ -38,7 +38,11 @@ describe('Sunday School organization API', () => {
     const response = await GET()
     expect(response.status).toBe(200)
     expect(mocks.assignments).toHaveBeenCalledWith({
-      where: { academicYearId: 'active-year', user: { isDisabled: false } },
+      where: {
+        academicYearId: 'active-year',
+        endedAt: null,
+        user: { isDisabled: false },
+      },
       select: { authority: true, classId: true, ageGroupId: true, user: { select: { id: true, name: true, profileImageUrl: true } } },
     })
     expect(mocks.classes).toHaveBeenCalledWith(expect.objectContaining({ where: { academicYearId: 'active-year', isActive: true } }))

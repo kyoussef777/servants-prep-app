@@ -37,7 +37,11 @@ export async function GET() {
         select: { id: true, name: true, levels: true, overseerId: true }, orderBy: { sortOrder: 'asc' },
       }),
       prisma.sundaySchoolServantAssignment.findMany({
-        where: { academicYearId: academicYear.id, user: { isDisabled: false } },
+        where: {
+          academicYearId: academicYear.id,
+          endedAt: null,
+          user: { isDisabled: false },
+        },
         select: {
           authority: true, classId: true, ageGroupId: true,
           user: { select: personSelect },

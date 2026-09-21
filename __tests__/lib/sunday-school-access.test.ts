@@ -6,6 +6,7 @@ const prismaMocks = vi.hoisted(() => ({
   participantGrant: vi.fn(),
   servantAssignments: vi.fn(),
   classes: vi.fn(),
+  admins: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -14,6 +15,7 @@ vi.mock('@/lib/prisma', () => ({
     userRoleAssignment: { findFirst: prismaMocks.participantGrant },
     sundaySchoolServantAssignment: { findMany: prismaMocks.servantAssignments },
     sundaySchoolClass: { findMany: prismaMocks.classes },
+    user: { findMany: prismaMocks.admins },
   },
 }))
 
@@ -30,6 +32,7 @@ import {
   canViewClass,
   canViewServantAttendanceReport,
   getSundaySchoolAccess,
+  getChildRegistrationReviewerIds,
   visibleClassFilter,
   type SundaySchoolAccess,
 } from '@/lib/sunday-school-access'
@@ -93,6 +96,7 @@ describe('Sunday School access resolution', () => {
     prismaMocks.participantGrant.mockReset().mockResolvedValue(null)
     prismaMocks.servantAssignments.mockReset().mockResolvedValue([])
     prismaMocks.classes.mockReset().mockResolvedValue([])
+    prismaMocks.admins.mockReset().mockResolvedValue([])
   })
 
   it('lets a tagged servant enter the mode without granting any class scope', async () => {
@@ -111,6 +115,13 @@ describe('Sunday School access resolution', () => {
       },
       select: { id: true },
     })
+    expect(prismaMocks.servantAssignments).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        userId: 'mentor-and-servant',
+        academicYearId: 'active-year',
+        endedAt: null,
+      },
+    }))
     expect(access.canRead).toBe(true)
     expect(access.visibleClassIds).toEqual(new Set())
     expect(canViewClass(access, CLASS_A)).toBe(false)
@@ -125,6 +136,18 @@ describe('Sunday School access resolution', () => {
 
     expect(access.canRead).toBe(false)
     expect(access.visibleClassIds).toEqual(new Set())
+  })
+
+  it('notifies only active age-group coordinators about registrations', async () => {
+    await getChildRegistrationReviewerIds('GRADE_2', 'active-year')
+
+    expect(prismaMocks.servantAssignments).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        academicYearId: 'active-year',
+        authority: 'COORDINATOR',
+        endedAt: null,
+      }),
+    }))
   })
 })
 

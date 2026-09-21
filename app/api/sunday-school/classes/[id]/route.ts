@@ -29,6 +29,7 @@ export async function GET(
       include: {
         academicYear: { select: { id: true, name: true } },
         assignments: {
+          where: { endedAt: null },
           include: {
             user: {
               select: { id: true, name: true, email: true, phone: true, profileImageUrl: true },
@@ -139,6 +140,7 @@ export async function PATCH(
         include: {
           academicYear: { select: { id: true, name: true } },
           assignments: {
+            where: { endedAt: null },
             include: { user: { select: { id: true, name: true, email: true, profileImageUrl: true } } },
           },
           _count: { select: { children: true, sessions: true } },
