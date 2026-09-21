@@ -218,7 +218,7 @@ export function Navbar() {
         more.push({ href: '/dashboard/servants/users', label: 'Users' })
       }
       if (canManageAllUsers(role)) {
-        more.push({ href: '/dashboard/admin/activity', label: 'Activity' })
+        more.push({ href: '/dashboard/servants/activity', label: 'Activity' })
       }
 
       return {

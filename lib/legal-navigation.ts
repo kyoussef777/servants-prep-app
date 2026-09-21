@@ -5,6 +5,7 @@ const RETURN_PAGE_LABELS: Array<[path: string, label: string]> = [
   ['/dashboard/servants/child-registrations', 'Child Registrations'],
   ['/dashboard/servants/servant-attendance', 'Servant Attendance'],
   ['/dashboard/servants/age-groups', 'Age Groups'],
+  ['/dashboard/servants/activity', 'Activity'],
   ['/dashboard/servants/visitations', 'Visitations'],
   ['/dashboard/servants/attendance', 'Attendance'],
   ['/dashboard/servants/children', 'Children'],
