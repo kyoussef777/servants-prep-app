@@ -43,7 +43,7 @@ async function getSundaySchoolStanding(user: { id: string; role: UserRole }) {
       select: { id: true },
     }),
     prisma.sundaySchoolServantAssignment.findMany({
-      where: { userId: user.id, academicYear: { isActive: true } },
+      where: { userId: user.id, academicYear: { isActive: true }, endedAt: null },
       select: { authority: true }
     }),
   ])

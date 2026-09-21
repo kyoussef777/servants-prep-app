@@ -64,6 +64,7 @@ export async function PATCH(
             userId: ownerId,
             classId: lesson.classId,
             academicYearId: lesson.class.academicYearId,
+            endedAt: null,
             user: {
               isDisabled: false,
               role: { in: [UserRole.SERVANT, UserRole.SERVANT_PREP] },

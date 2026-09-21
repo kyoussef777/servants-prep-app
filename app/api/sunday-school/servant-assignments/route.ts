@@ -161,12 +161,6 @@ export async function POST(request: Request) {
       if (target.status !== "ACTIVE") {
         return NextResponse.json({ error: "Archived classes cannot receive assignments" }, { status: 400 })
       }
-      if (!target.sundaySchoolYearId) {
-        return NextResponse.json(
-          { error: "The class is not linked to a Sunday School year" },
-          { status: 409 }
-        )
-      }
       if (!canCoordinateClass(access, classId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
@@ -181,12 +175,6 @@ export async function POST(request: Request) {
       }
       if (target.status !== "ACTIVE") {
         return NextResponse.json({ error: "Archived age groups cannot receive assignments" }, { status: 400 })
-      }
-      if (!target.sundaySchoolYearId) {
-        return NextResponse.json(
-          { error: "The age group is not linked to a Sunday School year" },
-          { status: 409 }
-        )
       }
       // Only a super admin appoints an age-group coordinator; a band
       // coordinator cannot appoint their own peers.

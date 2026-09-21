@@ -71,6 +71,7 @@ export async function GET(request: Request) {
         },
         include: {
           assignments: {
+            where: { endedAt: null },
             include: { user: { select: { id: true, name: true, profileImageUrl: true } } },
           },
           _count: { select: { children: true } },

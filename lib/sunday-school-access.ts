@@ -86,7 +86,7 @@ export async function getSundaySchoolAccess(
 
   if (yearId) {
     const assignments = await prisma.sundaySchoolServantAssignment.findMany({
-      where: { userId: user.id, academicYearId: yearId },
+      where: { userId: user.id, academicYearId: yearId, endedAt: null },
       select: {
         authority: true,
         classId: true,
@@ -303,6 +303,7 @@ export async function getChildRegistrationReviewerIds(
             academicYearId: yearId,
             authority: SundaySchoolAuthority.COORDINATOR,
             ageGroupId: { not: null },
+            endedAt: null,
             ageGroup: { levels: { has: level } },
           },
           select: { userId: true },

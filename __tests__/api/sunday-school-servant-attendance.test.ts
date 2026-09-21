@@ -111,6 +111,9 @@ describe('Sunday School servant attendance API', () => {
     expect(response.status).toBe(200)
     expect(body.roster).toHaveLength(1)
     expect(body.roster[0].userId).toBe('servant-1')
+    expect(mocks.assignmentFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ endedAt: null }),
+    }))
   })
 
   it('allows a super admin to load any class roster', async () => {
@@ -189,6 +192,9 @@ describe('Sunday School servant attendance API', () => {
 
     expect(response.status).toBe(200)
     expect(body).toMatchObject({ success: true, created: 0, updated: 1 })
+    expect(mocks.assignmentFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ endedAt: null }),
+    }))
     expect(mocks.attendanceUpsert).toHaveBeenCalledWith(expect.objectContaining({
       update: {
         status: SundaySchoolServantAttendanceStatus.ABSENT,

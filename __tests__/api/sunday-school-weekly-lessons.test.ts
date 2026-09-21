@@ -163,7 +163,12 @@ describe('weekly lesson API permissions and saves', () => {
     const response = await PATCH(patchRequest({ ownerId: 'owner-2' }), routeContext)
     expect(response.status).toBe(200)
     expect(mocks.assignmentFindFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ userId: 'owner-2', classId: 'class-1', academicYearId: 'year-1' }),
+      where: expect.objectContaining({
+        userId: 'owner-2',
+        classId: 'class-1',
+        academicYearId: 'year-1',
+        endedAt: null,
+      }),
     }))
     expect(mocks.lessonUpdate).toHaveBeenCalledWith(expect.objectContaining({
       data: { ownerId: 'owner-2', assignedById: 'servant-1' },

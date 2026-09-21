@@ -51,6 +51,7 @@ export async function GET(request: Request) {
         where: {
           classId,
           academicYearId: sundaySchoolClass.academicYearId,
+          endedAt: null,
           user: { isDisabled: false },
         },
         select: {
