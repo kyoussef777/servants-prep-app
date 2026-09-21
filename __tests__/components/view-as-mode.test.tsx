@@ -43,6 +43,7 @@ describe('ViewAsMode', () => {
     mocks.update.mockReset()
     mocks.refresh.mockReset()
     mocks.replaceBrowserLocation.mockReset()
+    window.sessionStorage.clear()
     window.history.replaceState(window.history.state, '', '/')
   })
 
@@ -56,7 +57,28 @@ describe('ViewAsMode', () => {
     expect(defaultDashboardPath(UserRole.PARENT)).toBe('/dashboard/parent')
   })
 
-  it('returns to the restored super admin dashboard after stopping View as', async () => {
+  it('returns to the page where View as was started', async () => {
+    mocks.update.mockResolvedValue({
+      user: { id: 'admin', role: UserRole.SUPER_ADMIN },
+      impersonating: null,
+    })
+    window.sessionStorage.setItem(
+      'view-as-return-path',
+      '/dashboard/servants/classes?year=current#middle-school'
+    )
+
+    render(<ViewAsMode />)
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledWith({ impersonate: null })
+      expect(mocks.replaceBrowserLocation).toHaveBeenCalledWith(
+        '/dashboard/servants/classes?year=current#middle-school'
+      )
+    })
+  })
+
+  it('falls back to the restored account dashboard when no return page was saved', async () => {
     mocks.update.mockResolvedValue({
       user: { id: 'admin', role: UserRole.SUPER_ADMIN },
       impersonating: null,
@@ -66,7 +88,6 @@ describe('ViewAsMode', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
 
     await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledWith({ impersonate: null })
       expect(mocks.replaceBrowserLocation).toHaveBeenCalledWith('/dashboard/admin')
     })
   })
