@@ -26,7 +26,7 @@ export async function GET() {
       include: {
               overseer: { select: { id: true, name: true, profileImageUrl: true } },
               assignments: {
-          where: { ageGroupId: { not: null } },
+                where: { ageGroupId: { not: null }, endedAt: null },
           include: { user: { select: { id: true, name: true, email: true } } },
         },
       },
