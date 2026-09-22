@@ -4,13 +4,6 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { legacyRoleForTags, ROLE_TAG_VALUES } from '@/lib/role-tags'
 
-const STAFF_CAPABLE_TAGS = new Set<RoleTag>([
-  RoleTag.SUPER_ADMIN,
-  RoleTag.PRIEST,
-  RoleTag.SERVANTS_PREP_SERVANT,
-  RoleTag.SUNDAY_SCHOOL_SERVANT,
-])
-
 function dependencyError(message: string) {
   return NextResponse.json({ error: message }, { status: 409 })
 }
@@ -117,13 +110,6 @@ export async function PUT(
     if (removedTags.has(RoleTag.SUNDAY_SCHOOL_SERVANT) && target.sundaySchoolServing.length > 0) {
       return dependencyError('End active Sunday School assignments before removing the Sunday School Servant tag')
     }
-    if (
-      target.mentorAssignments.length > 0 &&
-      !desiredTags.some((tag) => STAFF_CAPABLE_TAGS.has(tag))
-    ) {
-      return dependencyError('This user has an active mentee and must keep at least one staff-capable tag')
-    }
-
     if (removedTags.has(RoleTag.SUPER_ADMIN)) {
       const otherSuperAdmins = await prisma.userRoleAssignment.count({
         where: {
