@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 
-const DEFAULT_RETENTION_DAYS = 365
+const DEFAULT_RETENTION_DAYS = 30
+const MAX_RETENTION_DAYS = 30
 const DEFAULT_MAX_EVENTS = 50_000
 
 function boundedInteger(
@@ -16,7 +17,14 @@ function boundedInteger(
 
 export function getAuditRetentionPolicy() {
   return {
-    days: boundedInteger(process.env.AUDIT_RETENTION_DAYS, DEFAULT_RETENTION_DAYS, 30, 3650),
+    // Activity data is intentionally short-lived. Cap an older deployment
+    // setting as well as the default so records can never remain over a month.
+    days: boundedInteger(
+      process.env.AUDIT_RETENTION_DAYS,
+      DEFAULT_RETENTION_DAYS,
+      1,
+      MAX_RETENTION_DAYS
+    ),
     maxEvents: boundedInteger(process.env.AUDIT_MAX_EVENTS, DEFAULT_MAX_EVENTS, 1000, 1_000_000),
   }
 }
