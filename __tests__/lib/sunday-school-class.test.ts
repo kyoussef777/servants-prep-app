@@ -18,11 +18,11 @@ import {
 
 describe('Sunday School class helpers', () => {
   describe('LEVEL_ORDER', () => {
-    it('runs Pre-K through Grad', () => {
-      expect(LEVEL_ORDER).toHaveLength(16)
+    it('runs Pre-K through one combined College & Grad level', () => {
+      expect(LEVEL_ORDER).toHaveLength(15)
       expect(LEVEL_ORDER[0]).toBe('PRE_K')
       expect(LEVEL_ORDER[1]).toBe('KINDERGARTEN')
-      expect(LEVEL_ORDER.slice(-3)).toEqual(['GRADE_12', 'COLLEGE', 'GRAD'])
+      expect(LEVEL_ORDER.slice(-2)).toEqual(['GRADE_12', 'COLLEGE_GRAD'])
     })
 
     it('has a display name for every level', () => {
@@ -36,14 +36,15 @@ describe('Sunday School class helpers', () => {
     it('accepts real levels', () => {
       expect(isValidLevel('GRADE_7')).toBe(true)
       expect(isValidLevel('PRE_K')).toBe(true)
-      expect(isValidLevel('COLLEGE')).toBe(true)
-      expect(isValidLevel('GRAD')).toBe(true)
+      expect(isValidLevel('COLLEGE_GRAD')).toBe(true)
     })
 
     it('rejects anything else', () => {
       // GRADE_6_PLUS belongs to the prep-side SundaySchoolGrade enum
       expect(isValidLevel('GRADE_6_PLUS')).toBe(false)
       expect(isValidLevel('GRADE_13')).toBe(false)
+      expect(isValidLevel('COLLEGE')).toBe(false)
+      expect(isValidLevel('GRAD')).toBe(false)
       expect(isValidLevel('')).toBe(false)
       expect(isValidLevel(null)).toBe(false)
       expect(isValidLevel(3)).toBe(false)
@@ -153,8 +154,7 @@ describe('Sunday School grade ordering', () => {
       { level: SundaySchoolLevel.GRADE_12, name: '12th Grade' },
       { level: SundaySchoolLevel.GRADE_9, name: '9th Grade' },
       { level: SundaySchoolLevel.GRADE_11, name: '11th Grade' },
-      { level: SundaySchoolLevel.GRAD, name: 'Grad' },
-      { level: SundaySchoolLevel.COLLEGE, name: 'College' },
+      { level: SundaySchoolLevel.COLLEGE_GRAD, name: 'College & Grad' },
     ]
 
     expect(classes.sort(compareClassesByLevelAndName).map(item => item.name)).toEqual([
@@ -162,8 +162,7 @@ describe('Sunday School grade ordering', () => {
       '10th Grade',
       '11th Grade',
       '12th Grade',
-      'College',
-      'Grad',
+      'College & Grad',
     ])
   })
 
