@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession, signIn, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 import { defaultDashboardPath } from '@/lib/dashboard-navigation'
 
 export default function ChangePasswordPage() {
-  const { data: session, update } = useSession()
+  const { data: session } = useSession()
   const router = useRouter()
   const [formData, setFormData] = useState({
     currentPassword: '',
@@ -71,15 +71,34 @@ export default function ChangePasswordPage() {
         throw new Error(data.error || 'Failed to change password')
       }
 
-      // Update the session to reflect mustChangePassword = false
-      // This keeps the user logged in without requiring re-authentication
-      const updatedSession = await update({ mustChangePassword: false })
+      // Replace the temporary-password JWT with a freshly authenticated one.
+      // Updating the existing session in place can leave the password-change
+      // claim in a stale browser cookie long enough for the first dashboard
+      // requests to be rejected. This also preserves standalone MENTOR users:
+      // their destination comes from the canonical role returned by the API,
+      // not from ministry role tags they intentionally do not have.
+      const email = session?.user?.email
+      if (!email) {
+        await signOut({ callbackUrl: '/login?passwordChanged=true' })
+        return
+      }
+
+      const signInResult = await signIn('credentials', {
+        email,
+        password: formData.newPassword,
+        redirect: false,
+      })
+
+      if (!signInResult?.ok || signInResult.error) {
+        await signOut({ callbackUrl: '/login?passwordChanged=true' })
+        return
+      }
 
       toast.success('Password changed successfully!')
 
-      const destination = defaultDashboardPath(
-        updatedSession?.user?.role ?? session?.user?.role
-      )
+      const destination = typeof data.destination === 'string'
+        ? data.destination
+        : defaultDashboardPath(session?.user?.role)
       router.replace(destination)
       router.refresh()
     } catch (error: unknown) {

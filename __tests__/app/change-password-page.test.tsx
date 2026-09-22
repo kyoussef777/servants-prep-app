@@ -4,9 +4,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   refresh: vi.fn(),
-  update: vi.fn(),
+  signIn: vi.fn(),
+  signOut: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+  session: {
+    user: {
+      email: 'mentor@example.com',
+      role: 'MENTOR',
+      mustChangePassword: true,
+    },
+  },
 }))
 
 vi.mock('next/navigation', () => ({
@@ -15,10 +23,10 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next-auth/react', () => ({
   useSession: () => ({
-    data: { user: { role: 'SERVANT', mustChangePassword: true } },
-    update: mocks.update,
+    data: mocks.session,
   }),
-  signOut: vi.fn(),
+  signIn: mocks.signIn,
+  signOut: mocks.signOut,
 }))
 
 vi.mock('sonner', () => ({
@@ -30,14 +38,17 @@ import ChangePasswordPage from '@/app/change-password/page'
 describe('ChangePasswordPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.update.mockResolvedValue({ user: { role: 'SERVANT', mustChangePassword: false } })
+    mocks.signIn.mockResolvedValue({ ok: true, error: null })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ message: 'Password updated successfully' }),
+      json: async () => ({
+        message: 'Password updated successfully',
+        destination: '/dashboard/mentor',
+      }),
     }))
   })
 
-  it('refreshes the session and immediately sends a Sunday School servant to their dashboard', async () => {
+  it('creates a fresh session and sends a standalone mentor to the mentor dashboard', async () => {
     render(<ChangePasswordPage />)
 
     fireEvent.change(screen.getByLabelText('Current Password'), { target: { value: 'Welcome123!' } })
@@ -46,8 +57,12 @@ describe('ChangePasswordPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Change Password' }))
 
     await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledWith({ mustChangePassword: false })
-      expect(mocks.replace).toHaveBeenCalledWith('/dashboard/servants')
+      expect(mocks.signIn).toHaveBeenCalledWith('credentials', {
+        email: 'mentor@example.com',
+        password: 'NewPassword123!',
+        redirect: false,
+      })
+      expect(mocks.replace).toHaveBeenCalledWith('/dashboard/mentor')
       expect(mocks.refresh).toHaveBeenCalled()
     })
   })

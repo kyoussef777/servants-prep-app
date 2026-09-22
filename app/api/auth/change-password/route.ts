@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import bcrypt from "bcryptjs"
 import { AuditEventResult } from "@prisma/client"
 import { recordAuditEvent } from "@/lib/audit"
+import { defaultDashboardPath } from "@/lib/dashboard-navigation"
 
 // POST /api/auth/change-password - Change user's own password
 export async function POST(request: Request) {
@@ -78,7 +79,10 @@ export async function POST(request: Request) {
       result: AuditEventResult.SUCCESS,
     })
 
-    return NextResponse.json({ message: "Password updated successfully" })
+    return NextResponse.json({
+      message: "Password updated successfully",
+      destination: defaultDashboardPath(user.role),
+    })
   } catch (error: unknown) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to update password" },
