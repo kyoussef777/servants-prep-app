@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest'
+import { SundaySchoolLevel } from '@prisma/client'
 import {
+  compareAgeGroupsByLevel,
   compareClassNames,
-    LEVEL_ORDER,
+  compareClassesByLevelAndName,
+  LEVEL_ORDER,
+  getClassMeetingDayName,
   getChildFullName,
   getLevelDisplayName,
+  getMostRecentClassMeetingDate,
   getMostRecentSunday,
   getTodayDateInputValue,
   isValidLevel,
@@ -13,11 +18,11 @@ import {
 
 describe('Sunday School class helpers', () => {
   describe('LEVEL_ORDER', () => {
-    it('runs Pre-K through 12th grade', () => {
-      expect(LEVEL_ORDER).toHaveLength(14)
+    it('runs Pre-K through Grad', () => {
+      expect(LEVEL_ORDER).toHaveLength(16)
       expect(LEVEL_ORDER[0]).toBe('PRE_K')
       expect(LEVEL_ORDER[1]).toBe('KINDERGARTEN')
-      expect(LEVEL_ORDER[LEVEL_ORDER.length - 1]).toBe('GRADE_12')
+      expect(LEVEL_ORDER.slice(-3)).toEqual(['GRADE_12', 'COLLEGE', 'GRAD'])
     })
 
     it('has a display name for every level', () => {
@@ -31,6 +36,8 @@ describe('Sunday School class helpers', () => {
     it('accepts real levels', () => {
       expect(isValidLevel('GRADE_7')).toBe(true)
       expect(isValidLevel('PRE_K')).toBe(true)
+      expect(isValidLevel('COLLEGE')).toBe(true)
+      expect(isValidLevel('GRAD')).toBe(true)
     })
 
     it('rejects anything else', () => {
@@ -90,6 +97,22 @@ describe('Sunday School class helpers', () => {
     })
   })
 
+  describe('class meeting day', () => {
+    it('uses Saturday for Elementary and Sunday for older classes', () => {
+      expect(getClassMeetingDayName(SundaySchoolLevel.GRADE_5)).toBe('Saturday')
+      expect(getClassMeetingDayName(SundaySchoolLevel.GRADE_6)).toBe('Sunday')
+    })
+
+    it('finds the correct most recent meeting date for each class', () => {
+      const monday = new Date(2026, 8, 21, 12)
+
+      expect(toDateInputValue(getMostRecentClassMeetingDate(SundaySchoolLevel.GRADE_3, monday)))
+        .toBe('2026-09-19')
+      expect(toDateInputValue(getMostRecentClassMeetingDate(SundaySchoolLevel.GRADE_8, monday)))
+        .toBe('2026-09-20')
+    })
+  })
+
   describe('getTodayDateInputValue', () => {
     it('formats the local calendar day, not the UTC one', () => {
       // Late evening local time — the UTC date may already be tomorrow, but
@@ -119,6 +142,42 @@ describe('compareClassNames', () => {
       'grade 1 boys',
       'Grade 2 Boys',
       'Grade 10 Boys',
+    ])
+  })
+})
+
+describe('Sunday School grade ordering', () => {
+  it('sorts classes by grade before using their names', () => {
+    const classes = [
+      { level: SundaySchoolLevel.GRADE_10, name: '10th Grade' },
+      { level: SundaySchoolLevel.GRADE_12, name: '12th Grade' },
+      { level: SundaySchoolLevel.GRADE_9, name: '9th Grade' },
+      { level: SundaySchoolLevel.GRADE_11, name: '11th Grade' },
+      { level: SundaySchoolLevel.GRAD, name: 'Grad' },
+      { level: SundaySchoolLevel.COLLEGE, name: 'College' },
+    ]
+
+    expect(classes.sort(compareClassesByLevelAndName).map(item => item.name)).toEqual([
+      '9th Grade',
+      '10th Grade',
+      '11th Grade',
+      '12th Grade',
+      'College',
+      'Grad',
+    ])
+  })
+
+  it('sorts age groups by the first grade they contain', () => {
+    const groups = [
+      { name: 'High School', levels: [SundaySchoolLevel.GRADE_9] },
+      { name: 'Elementary', levels: [SundaySchoolLevel.GRADE_1] },
+      { name: 'Middle School', levels: [SundaySchoolLevel.GRADE_6] },
+    ]
+
+    expect(groups.sort(compareAgeGroupsByLevel).map(group => group.name)).toEqual([
+      'Elementary',
+      'Middle School',
+      'High School',
     ])
   })
 })

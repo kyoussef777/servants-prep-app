@@ -30,6 +30,18 @@ describe('Sunday School dashboard attendance trend', () => {
     expect(range.end.toISOString()).toBe('2026-08-30T00:00:00.000Z')
   })
 
+  it('uses Saturdays for an Elementary reporting calendar', () => {
+    const range = getSundaySchoolReportingRange(
+      new Date('2025-09-01T00:00:00.000Z'),
+      true,
+      new Date('2026-09-03T15:00:00.000Z'),
+      6
+    )
+
+    expect(range.start.toISOString()).toBe('2025-09-13T00:00:00.000Z')
+    expect(range.end.toISOString()).toBe('2026-08-29T00:00:00.000Z')
+  })
+
   it('aggregates visible classes and leaves an unrecorded Sunday as a gap', () => {
     const points = buildSundaySchoolAttendanceTrend(
       [
@@ -92,6 +104,21 @@ describe('Sunday School dashboard attendance trend', () => {
     )
 
     expect(buildSundaySchoolAttendanceTrend([], range.start, range.end)).toEqual([])
+  })
+
+  it('plots Elementary attendance on Saturdays', () => {
+    const points = buildSundaySchoolAttendanceTrend(
+      [{
+        date: new Date('2025-09-13T00:00:00.000Z'),
+        attendance: [{ status: AttendanceStatus.PRESENT }],
+      }],
+      new Date('2025-09-13T00:00:00.000Z'),
+      new Date('2025-09-20T00:00:00.000Z'),
+      6
+    )
+
+    expect(points.map(point => point.date)).toEqual(['2025-09-13', '2025-09-20'])
+    expect(points[0].attendanceRate).toBe(100)
   })
 
   it('builds binary servant totals and preserves weeks with no servant marks as gaps', () => {

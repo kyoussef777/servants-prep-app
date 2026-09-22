@@ -23,9 +23,11 @@ export const LEVEL_DISPLAY_NAMES: Record<SundaySchoolLevel, string> = {
   GRADE_10: '10th Grade',
   GRADE_11: '11th Grade',
   GRADE_12: '12th Grade',
+  COLLEGE: 'College',
+  GRAD: 'Grad',
 }
 
-// Ordered Pre-K → 12th, for dropdowns and sorting class lists
+// Ordered Pre-K → Grad, for dropdowns and sorting class lists
 export const LEVEL_ORDER: SundaySchoolLevel[] = [
   'PRE_K',
   'KINDERGARTEN',
@@ -41,7 +43,23 @@ export const LEVEL_ORDER: SundaySchoolLevel[] = [
   'GRADE_10',
   'GRADE_11',
   'GRADE_12',
+  'COLLEGE',
+  'GRAD',
 ]
+
+const LEVEL_ORDER_INDEX = new Map(LEVEL_ORDER.map((level, index) => [level, index]))
+
+const ELEMENTARY_LEVELS = new Set<SundaySchoolLevel>([
+  'PRE_K',
+  'KINDERGARTEN',
+  'GRADE_1',
+  'GRADE_2',
+  'GRADE_3',
+  'GRADE_4',
+  'GRADE_5',
+])
+
+export type SundaySchoolMeetingDay = 0 | 6
 
 export function getLevelDisplayName(level: SundaySchoolLevel): string {
   return LEVEL_DISPLAY_NAMES[level]
@@ -49,6 +67,15 @@ export function getLevelDisplayName(level: SundaySchoolLevel): string {
 
 export function isValidLevel(value: unknown): value is SundaySchoolLevel {
   return typeof value === 'string' && (LEVEL_ORDER as string[]).includes(value)
+}
+
+/** Elementary meets Saturday; every other Sunday School level meets Sunday. */
+export function getClassMeetingDay(level: SundaySchoolLevel): SundaySchoolMeetingDay {
+  return ELEMENTARY_LEVELS.has(level) ? 6 : 0
+}
+
+export function getClassMeetingDayName(level: SundaySchoolLevel): 'Saturday' | 'Sunday' {
+  return getClassMeetingDay(level) === 6 ? 'Saturday' : 'Sunday'
 }
 
 /**
@@ -76,10 +103,26 @@ export function normalizeSessionDate(date: Date | string): Date {
  * calendar day, but returned as midnight UTC like every stored session date.
  */
 export function getMostRecentSunday(date: Date = new Date()): Date {
+  return getMostRecentMeetingDay(0, date)
+}
+
+/** The most recent requested weekday on or before the viewer's local day. */
+export function getMostRecentMeetingDay(
+  meetingDay: SundaySchoolMeetingDay,
+  date: Date = new Date()
+): Date {
   const local = new Date(date)
+  const daysSinceMeeting = (local.getDay() - meetingDay + 7) % 7
   return new Date(
-    Date.UTC(local.getFullYear(), local.getMonth(), local.getDate() - local.getDay())
+    Date.UTC(local.getFullYear(), local.getMonth(), local.getDate() - daysSinceMeeting)
   )
+}
+
+export function getMostRecentClassMeetingDate(
+  level: SundaySchoolLevel,
+  date: Date = new Date()
+): Date {
+  return getMostRecentMeetingDay(getClassMeetingDay(level), date)
 }
 
 /** "YYYY-MM-DD" for a stored (midnight UTC) session date. */
@@ -131,4 +174,28 @@ export function findAgeGroupForLevel<T extends { levels: SundaySchoolLevel[] }>(
 /** Natural alphabetical order for names that may contain section numbers. */
 export function compareClassNames(left: string, right: string): number {
   return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' })
+}
+
+/** Grade order first (Pre-K → Grad), then natural class-name order. */
+export function compareClassesByLevelAndName(
+  left: { level: SundaySchoolLevel; name: string },
+  right: { level: SundaySchoolLevel; name: string }
+): number {
+  const levelDifference =
+    (LEVEL_ORDER_INDEX.get(left.level) ?? Number.MAX_SAFE_INTEGER) -
+    (LEVEL_ORDER_INDEX.get(right.level) ?? Number.MAX_SAFE_INTEGER)
+
+  return levelDifference || compareClassNames(left.name, right.name)
+}
+
+/** Age groups follow the first grade they contain; empty groups come last. */
+export function compareAgeGroupsByLevel(
+  left: { levels: SundaySchoolLevel[]; name: string },
+  right: { levels: SundaySchoolLevel[]; name: string }
+): number {
+  const firstLevel = (levels: SundaySchoolLevel[]) =>
+    Math.min(...levels.map(level => LEVEL_ORDER_INDEX.get(level) ?? Number.MAX_SAFE_INTEGER))
+  const levelDifference = firstLevel(left.levels) - firstLevel(right.levels)
+
+  return levelDifference || left.name.localeCompare(right.name)
 }

@@ -1,4 +1,8 @@
 import { SundaySchoolAuthority, SundaySchoolLevel } from '@prisma/client'
+import {
+  compareAgeGroupsByLevel,
+  compareClassesByLevelAndName,
+} from '@/lib/sunday-school-class'
 
 export interface OrganizationPerson {
   id: string
@@ -61,7 +65,7 @@ export function organizationBands(data: SundaySchoolOrganization, userId: string
     assignment => assignment.authority === SundaySchoolAuthority.COORDINATOR
   )
 
-  const bands: OrganizationBand[] = data.ageGroups.map(ageGroup => ({
+  const bands: OrganizationBand[] = [...data.ageGroups].sort(compareAgeGroupsByLevel).map(ageGroup => ({
     id: ageGroup.id,
     name: ageGroup.name,
     overseer: data.priests.find(person => person.id === ageGroup.overseerId) ?? null,
@@ -70,6 +74,7 @@ export function organizationBands(data: SundaySchoolOrganization, userId: string
     ),
     classes: data.classes
       .filter(cls => ageGroup.levels.includes(cls.level))
+      .sort(compareClassesByLevelAndName)
       .map(cls => {
         const direct = data.assignments.filter(assignment => assignment.classId === cls.id)
         return {
@@ -87,7 +92,7 @@ export function organizationBands(data: SundaySchoolOrganization, userId: string
 
   // Keep an ungrouped class independently discoverable without making its
   // people appear related to other classes that also lack an age group.
-  for (const cls of data.classes) {
+  for (const cls of [...data.classes].sort(compareClassesByLevelAndName)) {
     if (data.ageGroups.some(ageGroup => ageGroup.levels.includes(cls.level))) continue
     const direct = data.assignments.filter(assignment => assignment.classId === cls.id)
     bands.push({

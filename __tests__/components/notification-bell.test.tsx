@@ -29,7 +29,7 @@ describe('NotificationBell', () => {
     vi.clearAllMocks()
   })
 
-  it('fills and animates the bell while the notifications panel is selected', async () => {
+  it('fills the selected bell without moving or resizing it', async () => {
     const user = userEvent.setup()
     render(<NotificationBell />)
 
@@ -43,7 +43,9 @@ describe('NotificationBell', () => {
 
     expect(button).toHaveAttribute('aria-expanded', 'true')
     expect(button).toHaveClass('bg-accent', 'text-primary')
-    expect(icon).toHaveClass('fill-current', '-rotate-12', 'scale-110')
+    expect(icon).toHaveClass('fill-current')
+    expect(icon).not.toHaveClass('-rotate-12', 'scale-110')
+    expect(button).not.toHaveClass('scale-105')
     expect(screen.getByRole('dialog', { name: 'Notifications' })).toHaveClass(
       'animate-in',
       'fade-in-0'

@@ -29,6 +29,53 @@ describe('Sunday School organization', () => {
     expect(bands[0].bandCoordinators.map(person => person.id)).toEqual(['band-lead'])
     expect(bands[0].classes.map(team => team.id)).toEqual(['first', 'second'])
   })
+  it('orders age groups and their classes by grade instead of alphabetically', () => {
+    const gradeOrderedData: SundaySchoolOrganization = {
+      ...data,
+      classes: [
+        { id: 'grade-10', name: '10th Grade', level: 'GRADE_10' },
+        { id: 'grade-11', name: '11th Grade', level: 'GRADE_11' },
+        { id: 'grade-12', name: '12th Grade', level: 'GRADE_12' },
+        { id: 'grade-9', name: '9th Grade', level: 'GRADE_9' },
+        { id: 'grade-6', name: '6th Grade', level: 'GRADE_6' },
+        { id: 'grade-1', name: '1st Grade', level: 'GRADE_1' },
+      ],
+      ageGroups: [
+        {
+          id: 'high',
+          name: 'High School',
+          levels: ['GRADE_9', 'GRADE_10', 'GRADE_11', 'GRADE_12'],
+          overseerId: 'priest',
+        },
+        {
+          id: 'elementary',
+          name: 'Elementary',
+          levels: ['GRADE_1'],
+          overseerId: 'priest',
+        },
+        {
+          id: 'middle',
+          name: 'Middle School',
+          levels: ['GRADE_6'],
+          overseerId: 'priest',
+        },
+      ],
+    }
+
+    const bands = organizationBands(gradeOrderedData, 'priest')
+
+    expect(bands.map(band => band.name)).toEqual([
+      'Elementary',
+      'Middle School',
+      'High School',
+    ])
+    expect(bands[2].classes.map(team => team.name)).toEqual([
+      '9th Grade',
+      '10th Grade',
+      '11th Grade',
+      '12th Grade',
+    ])
+  })
   it('keeps an individual servant focused on their own class', () => {
     const bands = organizationBands(data, 'servant')
 

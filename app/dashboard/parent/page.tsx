@@ -166,7 +166,7 @@ export default function ParentDashboardPage() {
                   <div>
                     <p className="font-medium">{lesson.title || lesson.class.name}</p>
                     <p className="text-sm text-gray-600">
-                      {lesson.class.name} · {new Date(lesson.sundayDate).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' })}
+                      {lesson.class.name} · {new Date(lesson.sundayDate).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                     </p>
                   </div>
                   {lesson.resources.length > 0 && <Badge className="bg-green-600">Ready</Badge>}

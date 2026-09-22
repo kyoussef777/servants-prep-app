@@ -79,6 +79,12 @@ export function SundaySchoolAttendanceChart({
   const effectiveClassId = selectedClass?.id ?? ALL_CLASSES
   const attendanceScope = selectedClass?.name ?? 'all visible classes'
   const isServantAudience = audience === 'servants'
+  const meetingDay = trend.meetingDayLabel ?? 'week'
+  const meetingDescription = meetingDay === 'week' ? 'each week' : `each ${meetingDay}`
+  const latestLabel = meetingDay === 'week' ? 'Latest week' : `Latest ${meetingDay}`
+  const recordedLabel = meetingDay === 'week'
+    ? `recorded ${recordedPoints.length === 1 ? 'week' : 'weeks'}`
+    : `recorded ${recordedPoints.length === 1 ? meetingDay : `${meetingDay}s`}`
 
   return (
     <Card>
@@ -89,7 +95,7 @@ export function SundaySchoolAttendanceChart({
             <CardTitle>Weekly Attendance</CardTitle>
           </div>
           <CardDescription>
-            {isServantAudience ? 'Servants' : 'Children'} who attended compared with the roster recorded each Sunday.
+            {isServantAudience ? 'Servants' : 'Children'} who attended compared with the roster recorded {meetingDescription}.
           </CardDescription>
         </div>
         {trend.academicYears.length > 0 && effectiveAcademicYearId && (
@@ -157,14 +163,14 @@ export function SundaySchoolAttendanceChart({
               </span>
               {latest && (
                 <span>
-                  <span className="text-gray-500 dark:text-gray-400">Latest Sunday </span>
+                  <span className="text-gray-500 dark:text-gray-400">{latestLabel} </span>
                   <strong className="tabular-nums">
                     {latest.attendedCount} of {latest.rosterCount}
                   </strong>
                 </span>
               )}
               <span className="text-gray-500 dark:text-gray-400">
-                {recordedPoints.length} recorded {recordedPoints.length === 1 ? 'Sunday' : 'Sundays'}
+                {recordedPoints.length} {recordedLabel}
               </span>
             </div>
             <div
@@ -271,7 +277,7 @@ export function SundaySchoolAttendanceChart({
               </ResponsiveContainer>
             </div>
             <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-              Amber markers indicate Sundays when attendance was not recorded.
+              Amber markers indicate {meetingDay === 'week' ? 'weeks' : `${meetingDay}s`} when attendance was not recorded.
             </p>
           </>
         ) : (

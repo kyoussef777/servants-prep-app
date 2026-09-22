@@ -22,6 +22,7 @@ import {
 } from '@/lib/swr'
 import {
   getLevelDisplayName,
+  getMostRecentClassMeetingDate,
   getMostRecentSunday,
   getTodayDateInputValue,
   toDateInputValue,
@@ -78,6 +79,12 @@ function ServantAttendanceContent() {
   )
   const attendance = attendanceData as SundaySchoolServantAttendanceResponse | undefined
   const selectedClass = classes.find(cls => cls.id === selectedClassId)
+  const selectedClassLevel = selectedClass?.level
+
+  useEffect(() => {
+    if (!selectedClassLevel) return
+    setSessionDate(toDateInputValue(getMostRecentClassMeetingDate(selectedClassLevel)))
+  }, [selectedClassId, selectedClassLevel])
 
   const {
     data: trendData,

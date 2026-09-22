@@ -21,7 +21,7 @@ one deployment, one database, and one login:
    — the 2-year Servants Preparation Program: student attendance, exams,
    curriculum, mentors, and graduation requirements.
 2. **Sunday School** (`/dashboard/servants`) — the Sunday School ministry
-   itself: classes by grade (Pre-K–12) grouped into age-group bands, the
+   itself: classes by level (Pre-K–Grad) grouped into age-group bands, the
    children in them, and weekly child attendance.
 
 **The two modes are deliberately independent.** No Sunday School model
@@ -127,7 +127,7 @@ The same trap exists in the schema and the enums:
 |---|---|
 | `SundaySchoolAssignment` (a student's 6-week serving stint) | `SundaySchoolServantAssignment` (who serves/coordinates what) |
 | `/api/sunday-school/assignments` | `/api/sunday-school/servant-assignments` |
-| `SundaySchoolGrade` (Pre-K … `GRADE_6_PLUS`) | `SundaySchoolLevel` (Pre-K … `GRADE_12`) |
+| `SundaySchoolGrade` (Pre-K … `GRADE_6_PLUS`) | `SundaySchoolLevel` (Pre-K … `GRAD`) |
 | `canManageSundaySchool()` in `lib/roles.ts` | `getSundaySchoolAccess()` in `lib/sunday-school-access.ts` |
 
 ## Authorization — read this before writing any route
@@ -251,7 +251,7 @@ database; keep new logic in that shape where you can.
 - `AttendanceStatus`: PRESENT, LATE, ABSENT, EXCUSED
 - `LessonStatus`: SCHEDULED, CANCELLED, NO_CLASS, COMPLETED
 - `ExamSectionType`: 8 sections (BIBLE_STUDIES, DOGMA, …)
-- `SundaySchoolLevel`: PRE_K, KINDERGARTEN, GRADE_1 … GRADE_12
+- `SundaySchoolLevel`: PRE_K, KINDERGARTEN, GRADE_1 … GRADE_12, COLLEGE, GRAD
 - `SundaySchoolAuthority`: SERVANT, COORDINATOR
 - `SundaySchoolGrade`: prep-side only, Pre-K … GRADE_6_PLUS
 

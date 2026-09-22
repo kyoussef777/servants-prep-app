@@ -10,7 +10,13 @@ import {
   visibleClassFilter,
 } from "@/lib/sunday-school-access"
 import { calculateAttendanceStats } from "@/lib/attendance"
-import { findAgeGroupForLevel, getMostRecentSunday } from "@/lib/sunday-school-class"
+import {
+  findAgeGroupForLevel,
+  getClassMeetingDay,
+  getClassMeetingDayName,
+  getMostRecentClassMeetingDate,
+  getMostRecentSunday,
+} from "@/lib/sunday-school-class"
 import {
   buildSundaySchoolAttendanceTrend,
   getSundaySchoolReportingRange,
@@ -116,6 +122,7 @@ export async function GET(request: Request) {
     let attendanceTrendEnd: Date | null = null
     let attendanceTrendClasses: Array<{ id: string; name: string }> = []
     let selectedTrendClassId: string | null = null
+    let attendanceTrendMeetingDayLabel = "week"
     let canSelectTrendClass = false
     let canViewServantAttendance = false
 
@@ -140,7 +147,7 @@ export async function GET(request: Request) {
               academicYearId: selectedAcademicYear.id,
               ...(allowedTrendClassIds ? { id: { in: allowedTrendClassIds } } : {}),
             },
-            select: { id: true, name: true },
+            select: { id: true, name: true, level: true },
             orderBy: { name: "asc" },
           })
         : []
@@ -155,22 +162,36 @@ export async function GET(request: Request) {
         trendClasses.some(cls => cls.id === requestedClassId)
           ? requestedClassId
           : null
+      const selectedTrendClass = selectedTrendClassId
+        ? trendClasses.find(cls => cls.id === selectedTrendClassId) ?? null
+        : null
+      const trendMeetingDay = selectedTrendClass
+        ? getClassMeetingDay(selectedTrendClass.level)
+        : 0
+      attendanceTrendMeetingDayLabel = selectedTrendClass
+        ? getClassMeetingDayName(selectedTrendClass.level)
+        : "week"
       const trendClassIds = selectedTrendClassId
         ? [selectedTrendClassId]
         : trendClasses.map(cls => cls.id)
       const range = getSundaySchoolReportingRange(
         selectedAcademicYear.startDate,
-        selectedAcademicYear.isActive
+        selectedAcademicYear.isActive,
+        new Date(),
+        trendMeetingDay
       )
       attendanceTrendStart = range.start
       attendanceTrendEnd = range.end
+      const queryStart = selectedTrendClass
+        ? range.start
+        : new Date(range.start.getTime() - 24 * 60 * 60 * 1000)
 
       const trendSessions = trendClassIds.length
         ? requestedAudience === "servants"
           ? (await prisma.sundaySchoolSession.findMany({
               where: {
                 classId: { in: trendClassIds },
-                date: { gte: range.start, lte: range.end },
+                date: { gte: queryStart, lte: range.end },
               },
               select: {
                 date: true,
@@ -184,7 +205,7 @@ export async function GET(request: Request) {
           : await prisma.sundaySchoolSession.findMany({
               where: {
                 classId: { in: trendClassIds },
-                date: { gte: range.start, lte: range.end },
+                date: { gte: queryStart, lte: range.end },
               },
               select: {
                 date: true,
@@ -197,7 +218,8 @@ export async function GET(request: Request) {
       attendanceTrendPoints = buildSundaySchoolAttendanceTrend(
         trendSessions,
         range.start,
-        range.end
+        range.end,
+        trendMeetingDay
       )
     }
 
@@ -216,6 +238,7 @@ export async function GET(request: Request) {
 
       const latestSession = cls.sessions[0] ?? null
       const band = findAgeGroupForLevel(cls.level, ageGroups)
+      const currentClassWeek = getMostRecentClassMeetingDate(cls.level)
 
       return {
         id: cls.id,
@@ -227,7 +250,7 @@ export async function GET(request: Request) {
         attendancePercentage: stats.percentage,
         latestSession,
         attendanceTakenThisWeek: latestSession
-          ? new Date(latestSession.date).getTime() >= thisSunday.getTime()
+          ? new Date(latestSession.date).getTime() >= currentClassWeek.getTime()
           : false,
         canServe: canServeClass(access, cls.id),
         canCoordinate: canCoordinateClass(access, cls.id),
@@ -269,6 +292,7 @@ export async function GET(request: Request) {
         selectedClassId: selectedTrendClassId,
         canSelectClass: canSelectTrendClass,
         canViewServantAttendance,
+        meetingDayLabel: attendanceTrendMeetingDayLabel,
         startDate: attendanceTrendStart?.toISOString() ?? null,
         endDate: attendanceTrendEnd?.toISOString() ?? null,
       },

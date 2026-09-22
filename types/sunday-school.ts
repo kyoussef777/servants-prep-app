@@ -332,6 +332,7 @@ export interface SundaySchoolDashboard {
     selectedClassId: string | null
     canSelectClass: boolean
     canViewServantAttendance: boolean
+    meetingDayLabel: 'Saturday' | 'Sunday' | 'week'
     startDate: string | null
     endDate: string | null
   }

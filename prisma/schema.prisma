@@ -199,6 +199,8 @@ enum SundaySchoolLevel {
   GRADE_10
   GRADE_11
   GRADE_12
+  COLLEGE
+  GRAD
 }
 
 // Servant vs. coordinator, at whatever scope the assignment names
