@@ -38,8 +38,10 @@ describe('change password API', () => {
 
   it('clears the password-change requirement without invalidating the active session', async () => {
     const response = await POST(request({ currentPassword: 'Welcome123!', newPassword: 'NewPassword123!' }))
+    const body = await response.json()
 
     expect(response.status).toBe(200)
+    expect(body.destination).toBe('/dashboard/servants')
     expect(mocks.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: { password: 'new-hash', mustChangePassword: false },
@@ -49,6 +51,18 @@ describe('change password API', () => {
       action: 'AUTH_PASSWORD_CHANGE',
       result: 'SUCCESS',
     }))
+  })
+
+  it('returns the mentor dashboard for a standalone legacy mentor', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'mentor-1', role: 'MENTOR' })
+    mocks.findUnique.mockResolvedValue({ id: 'mentor-1', password: 'old-hash' })
+
+    const response = await POST(request({ currentPassword: 'Welcome123!', newPassword: 'NewPassword123!' }))
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      destination: '/dashboard/mentor',
+    })
   })
 
   it('does not change the password when the current password is wrong', async () => {
