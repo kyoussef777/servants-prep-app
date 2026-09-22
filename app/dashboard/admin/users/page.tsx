@@ -193,7 +193,12 @@ export default function UsersPage() {
         throw new Error(data.error || 'Failed to update user')
       }
 
-      if (isSuperAdmin) {
+      const currentRoleTags = editingUser.roleAssignments?.map((assignment) => assignment.tag) ?? []
+      const roleTagsChanged =
+        currentRoleTags.length !== formData.roleTags.length ||
+        currentRoleTags.some((tag) => !formData.roleTags.includes(tag))
+
+      if (isSuperAdmin && roleTagsChanged) {
         const roleResponse = await fetch(`/api/admin/users/${editingUser.id}/roles`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
