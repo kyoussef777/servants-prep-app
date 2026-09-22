@@ -79,7 +79,7 @@ describe('Sunday School classes', () => {
     )
   })
 
-  it('offers College and Grad when creating a class', async () => {
+  it('offers one combined College & Grad level when creating a class', async () => {
     const user = userEvent.setup()
 
     render(<SundaySchoolClassesPage />)
@@ -87,7 +87,9 @@ describe('Sunday School classes', () => {
     await user.click(screen.getByRole('button', { name: 'New class' }))
     const levelSelect = screen.getByRole('combobox', { name: 'Grade level' })
 
-    expect(levelSelect).toHaveTextContent('College')
-    expect(levelSelect).toHaveTextContent('Grad')
+    expect(levelSelect).toHaveTextContent('College & Grad')
+    expect(screen.getAllByRole('option', { name: 'College & Grad' })).toHaveLength(1)
+    expect(screen.queryByRole('option', { name: 'College' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Grad' })).not.toBeInTheDocument()
   })
 })

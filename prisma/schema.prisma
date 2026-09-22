@@ -199,8 +199,11 @@ enum SundaySchoolLevel {
   GRADE_10
   GRADE_11
   GRADE_12
+  // Legacy values retained so older databases can be migrated safely. New
+  // records use the single combined COLLEGE_GRAD level.
   COLLEGE
   GRAD
+  COLLEGE_GRAD
 }
 
 // Servant vs. coordinator, at whatever scope the assignment names

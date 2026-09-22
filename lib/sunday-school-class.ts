@@ -23,11 +23,14 @@ export const LEVEL_DISPLAY_NAMES: Record<SundaySchoolLevel, string> = {
   GRADE_10: '10th Grade',
   GRADE_11: '11th Grade',
   GRADE_12: '12th Grade',
-  COLLEGE: 'College',
-  GRAD: 'Grad',
+  COLLEGE: 'College & Grad',
+  GRAD: 'College & Grad',
+  COLLEGE_GRAD: 'College & Grad',
 }
 
-// Ordered Pre-K → Grad, for dropdowns and sorting class lists
+// Ordered Pre-K → College & Grad, for dropdowns and sorting class lists.
+// COLLEGE and GRAD are legacy database values and are intentionally omitted
+// so people can only create or assign the combined grade level.
 export const LEVEL_ORDER: SundaySchoolLevel[] = [
   'PRE_K',
   'KINDERGARTEN',
@@ -43,8 +46,7 @@ export const LEVEL_ORDER: SundaySchoolLevel[] = [
   'GRADE_10',
   'GRADE_11',
   'GRADE_12',
-  'COLLEGE',
-  'GRAD',
+  'COLLEGE_GRAD',
 ]
 
 const LEVEL_ORDER_INDEX = new Map(LEVEL_ORDER.map((level, index) => [level, index]))
@@ -176,7 +178,7 @@ export function compareClassNames(left: string, right: string): number {
   return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' })
 }
 
-/** Grade order first (Pre-K → Grad), then natural class-name order. */
+/** Grade order first (Pre-K → College & Grad), then natural class-name order. */
 export function compareClassesByLevelAndName(
   left: { level: SundaySchoolLevel; name: string },
   right: { level: SundaySchoolLevel; name: string }

@@ -1,0 +1,1 @@
+ALTER TYPE "SundaySchoolLevel" ADD VALUE 'COLLEGE_GRAD';
