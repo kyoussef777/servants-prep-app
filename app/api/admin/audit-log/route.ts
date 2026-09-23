@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
 import { getAuthorizationContext } from '@/lib/authorization'
 import { sanitizeAuditMetadata } from '@/lib/audit'
-import { getAuditRetentionPolicy } from '@/lib/audit-retention'
+import {
+  getAuditRetentionCutoff,
+  getAuditRetentionPolicy,
+  pruneAuditEvents,
+} from '@/lib/audit-retention'
 import { handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
 
@@ -31,6 +35,11 @@ export async function GET(request: Request) {
       ? resultParam as AuditEventResult
       : undefined
 
+    // Delete expired rows before reading, while also applying the same cutoff
+    // to the query so an event older than two hours can never appear here.
+    await pruneAuditEvents()
+    const retentionCutoff = getAuditRetentionCutoff()
+
     const matchingTargetUsers = search
       ? await prisma.user.findMany({
           where: {
@@ -46,6 +55,7 @@ export async function GET(request: Request) {
     const matchingTargetUserIds = matchingTargetUsers.map(target => target.id)
 
     const where: Prisma.AuditEventWhereInput = {
+      createdAt: { gte: retentionCutoff },
       ...(result ? { result } : {}),
       ...(search
         ? {

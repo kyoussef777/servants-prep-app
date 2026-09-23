@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 
-const DEFAULT_RETENTION_DAYS = 30
-const MAX_RETENTION_DAYS = 30
+const RETENTION_HOURS = 2
 const DEFAULT_MAX_EVENTS = 50_000
 
 function boundedInteger(
@@ -17,28 +16,27 @@ function boundedInteger(
 
 export function getAuditRetentionPolicy() {
   return {
-    // Activity data is intentionally short-lived. Cap an older deployment
-    // setting as well as the default so records can never remain over a month.
-    days: boundedInteger(
-      process.env.AUDIT_RETENTION_DAYS,
-      DEFAULT_RETENTION_DAYS,
-      1,
-      MAX_RETENTION_DAYS
-    ),
+    // Activity is deliberately ephemeral. This is not configurable so an old
+    // deployment setting cannot retain records beyond the two-hour limit.
+    hours: RETENTION_HOURS,
     maxEvents: boundedInteger(process.env.AUDIT_MAX_EVENTS, DEFAULT_MAX_EVENTS, 1000, 1_000_000),
   }
 }
 
+export function getAuditRetentionCutoff(now = new Date()): Date {
+  return new Date(now.getTime() - RETENTION_HOURS * 60 * 60 * 1000)
+}
+
 export async function pruneAuditEvents(options?: {
   now?: Date
-  days?: number
+  hours?: number
   maxEvents?: number
 }) {
   const policy = getAuditRetentionPolicy()
   const now = options?.now ?? new Date()
-  const days = options?.days ?? policy.days
+  const hours = options?.hours ?? policy.hours
   const maxEvents = options?.maxEvents ?? policy.maxEvents
-  const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
+  const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000)
 
   const expired = await prisma.auditEvent.deleteMany({
     where: { createdAt: { lt: cutoff } },
@@ -73,7 +71,7 @@ export async function pruneAuditEvents(options?: {
     expiredCount: expired.count,
     overflowCount,
     deletedCount: expired.count + overflowCount,
-    days,
+    hours,
     maxEvents,
   }
 }
