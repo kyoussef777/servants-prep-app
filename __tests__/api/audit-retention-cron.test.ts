@@ -10,11 +10,11 @@ describe('audit retention cron route', () => {
     vi.clearAllMocks()
     process.env.CRON_SECRET = 'test-secret'
     mocks.prune.mockResolvedValue({
-      cutoff: '2025-09-21T00:00:00.000Z',
+      cutoff: '2026-09-23T10:00:00.000Z',
       expiredCount: 4,
       overflowCount: 0,
       deletedCount: 4,
-      days: 365,
+      hours: 2,
       maxEvents: 50_000,
     })
   })

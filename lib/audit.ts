@@ -1,4 +1,5 @@
 import { AuditEventResult, type Prisma } from '@prisma/client'
+import { pruneAuditEvents } from '@/lib/audit-retention'
 import { prisma } from '@/lib/prisma'
 
 const SENSITIVE_KEY = /password|token|secret|authorization|cookie/i
@@ -29,6 +30,15 @@ export async function recordAuditEvent(input: {
   } catch (error) {
     // Audit availability must never block the action being audited.
     console.error('Failed to write audit event', error)
+    return
+  }
+
+  try {
+    // New activity is another opportunity to enforce the short retention
+    // window instead of waiting for the scheduled cleanup.
+    await pruneAuditEvents()
+  } catch (error) {
+    console.error('Failed to prune expired audit events', error)
   }
 }
 

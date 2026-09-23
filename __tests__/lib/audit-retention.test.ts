@@ -14,7 +14,11 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-import { getAuditRetentionPolicy, pruneAuditEvents } from '@/lib/audit-retention'
+import {
+  getAuditRetentionCutoff,
+  getAuditRetentionPolicy,
+  pruneAuditEvents,
+} from '@/lib/audit-retention'
 
 describe('audit retention', () => {
   beforeEach(() => {
@@ -24,25 +28,27 @@ describe('audit retention', () => {
     mocks.findFirst.mockResolvedValue(null)
   })
 
-  it('keeps activity for no more than 30 days', () => {
-    expect(getAuditRetentionPolicy().days).toBe(30)
-
+  it('keeps activity for no more than two hours', () => {
     vi.stubEnv('AUDIT_RETENTION_DAYS', '365')
 
-    expect(getAuditRetentionPolicy().days).toBe(30)
+    expect(getAuditRetentionPolicy().hours).toBe(2)
+    expect(getAuditRetentionPolicy()).not.toHaveProperty('days')
+    expect(getAuditRetentionCutoff(new Date('2026-09-23T12:00:00Z'))).toEqual(
+      new Date('2026-09-23T10:00:00Z')
+    )
   })
 
   it('removes events older than the retention window', async () => {
     mocks.deleteMany.mockResolvedValueOnce({ count: 12 })
 
     const result = await pruneAuditEvents({
-      now: new Date('2026-09-21T00:00:00Z'),
-      days: 30,
+      now: new Date('2026-09-23T12:00:00Z'),
+      hours: 2,
       maxEvents: 50_000,
     })
 
     expect(mocks.deleteMany).toHaveBeenCalledWith({
-      where: { createdAt: { lt: new Date('2026-08-22T00:00:00Z') } },
+      where: { createdAt: { lt: new Date('2026-09-23T10:00:00Z') } },
     })
     expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({ skip: 50_000 }))
     expect(result.deletedCount).toBe(12)
@@ -57,7 +63,7 @@ describe('audit retention', () => {
 
     const result = await pruneAuditEvents({
       now: new Date('2026-09-21T00:00:00Z'),
-      days: 30,
+      hours: 2,
       maxEvents: 50_000,
     })
 

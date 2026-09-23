@@ -32,7 +32,7 @@ interface AuditResponse {
   page: number
   total: number
   totalPages: number
-  retention: { days: number; maxEvents: number }
+  retention: { hours: number; maxEvents: number }
 }
 
 const RESULT_STYLE: Record<AuditResult, string> = {
@@ -184,7 +184,7 @@ export default function ActivityPage() {
               <div>
                 <p className="text-sm text-muted-foreground">{data.total} recorded event{data.total === 1 ? '' : 's'}</p>
                 <p className="text-xs text-muted-foreground">
-                  Activity is kept for up to {data.retention.days} days, with a maximum of {data.retention.maxEvents.toLocaleString()} events.
+                  Activity is kept for up to {data.retention.hours} hours, with a maximum of {data.retention.maxEvents.toLocaleString()} events.
                 </p>
               </div>
               <div className="flex items-center gap-2">

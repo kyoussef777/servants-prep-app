@@ -7,10 +7,16 @@ const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   count: vi.fn(),
   findUsers: vi.fn(),
+  pruneAuditEvents: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/authorization', () => ({ getAuthorizationContext: mocks.getAuthorizationContext }))
+vi.mock('@/lib/audit-retention', () => ({
+  getAuditRetentionCutoff: () => new Date('2026-09-23T10:00:00Z'),
+  getAuditRetentionPolicy: () => ({ hours: 2, maxEvents: 50_000 }),
+  pruneAuditEvents: mocks.pruneAuditEvents,
+}))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     auditEvent: { findMany: mocks.findMany, count: mocks.count },
@@ -31,6 +37,7 @@ describe('admin audit log API', () => {
     mocks.findMany.mockResolvedValue([])
     mocks.count.mockResolvedValue(0)
     mocks.findUsers.mockResolvedValue([])
+    mocks.pruneAuditEvents.mockResolvedValue({ deletedCount: 0 })
   })
 
   it('requires a current Super Admin grant', async () => {
@@ -90,8 +97,24 @@ describe('admin audit log API', () => {
       email: 'liza@example.com',
     })
     expect(body.retention).toEqual(expect.objectContaining({
-      days: expect.any(Number),
+      hours: 2,
       maxEvents: expect.any(Number),
     }))
+  })
+
+  it('deletes expired activity and limits queries to the last two hours', async () => {
+    await GET(new Request('http://localhost/api/admin/audit-log'))
+
+    expect(mocks.pruneAuditEvents).toHaveBeenCalledOnce()
+    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        createdAt: { gte: new Date('2026-09-23T10:00:00Z') },
+      }),
+    }))
+    expect(mocks.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        createdAt: { gte: new Date('2026-09-23T10:00:00Z') },
+      }),
+    })
   })
 })
