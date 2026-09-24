@@ -49,6 +49,11 @@ describe('Navbar with long names', () => {
     const user = userEvent.setup()
     render(<Navbar />)
 
+    expect(screen.getByRole('link', { name: 'Student attendance' })).toHaveAttribute(
+      'href',
+      '/dashboard/servants/attendance'
+    )
+
     await user.click(screen.getByRole('button', { name: /more/i }))
 
     expect(await screen.findByRole('menuitem', { name: 'Servant attendance' })).toHaveAttribute(
