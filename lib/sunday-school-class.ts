@@ -16,6 +16,7 @@ export const LEVEL_DISPLAY_NAMES: Record<SundaySchoolLevel, string> = {
   GRADE_3: '3rd Grade',
   GRADE_4: '4th Grade',
   GRADE_5: '5th Grade',
+  SPECIAL_NEEDS: 'Special Needs',
   GRADE_6: '6th Grade',
   GRADE_7: '7th Grade',
   GRADE_8: '8th Grade',
@@ -39,6 +40,7 @@ export const LEVEL_ORDER: SundaySchoolLevel[] = [
   'GRADE_3',
   'GRADE_4',
   'GRADE_5',
+  'SPECIAL_NEEDS',
   'GRADE_6',
   'GRADE_7',
   'GRADE_8',
@@ -59,6 +61,7 @@ const ELEMENTARY_LEVELS = new Set<SundaySchoolLevel>([
   'GRADE_3',
   'GRADE_4',
   'GRADE_5',
+  'SPECIAL_NEEDS',
 ])
 
 export type SundaySchoolMeetingDay = 0 | 6

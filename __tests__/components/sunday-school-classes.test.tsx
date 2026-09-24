@@ -107,6 +107,26 @@ describe('Sunday School classes', () => {
     expect(screen.queryByRole('option', { name: 'Grad' })).not.toBeInTheDocument()
   })
 
+  it('offers Special Needs as an Elementary class level', async () => {
+    const user = userEvent.setup()
+    mocks.dashboardData = {
+      standing: { isAdmin: false },
+      ageGroups: [
+        {
+          id: 'elementary',
+          name: 'Elementary School',
+          levels: [SundaySchoolLevel.GRADE_5, SundaySchoolLevel.SPECIAL_NEEDS],
+          canCoordinate: true,
+        },
+      ],
+    }
+
+    render(<SundaySchoolClassesPage />)
+
+    await user.click(screen.getByRole('button', { name: 'New class' }))
+    expect(screen.getByRole('option', { name: 'Special Needs' })).toBeInTheDocument()
+  })
+
   it('groups classes by age group and orders classes by grade within each group', () => {
     mocks.classes = [
       {
