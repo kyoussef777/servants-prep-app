@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Copy,
+  CopyableValue,
   Icon,
   ConnectionBadge,
   RowLink,
@@ -33,9 +34,9 @@ export default function Account() {
               android="account_circle"
               size={48}
             />
-            <View>
+            <View style={{ flex: 1 }}>
               <Copy kind="heading">{user?.name ?? "Ministry account"}</Copy>
-              <Copy kind="caption">{user?.email}</Copy>
+              {user?.email && <CopyableValue label="Email" value={user.email} kind="caption" />}
             </View>
           </View>
         </Card>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import type { SundaySchoolChild, SundaySchoolFamily } from "@stmark/contracts";
 import { LEVEL_ORDER, getLevelDisplayName } from "@stmark/domain";
-import { Button, Card, Copy, readableDate } from "@/components/ui";
+import { Button, Card, Copy, CopyableValue, readableDate } from "@/components/ui";
 import { Choice, Field, Page, confirmAction, useAction } from "@/components/forms";
 import { endpoint, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
@@ -26,8 +26,17 @@ export default function Child() {
         <Copy>{child.isActive ? "Active" : "Inactive"}</Copy>{child.birthDate && <Copy>Born {child.birthDate.slice(0, 10)}</Copy>}
         {child.notes && <Copy>{child.notes}</Copy>}{child.user && <Copy>Linked account: {child.user.email}</Copy>}</Card>
       <Card><Copy kind="heading">Family & guardian</Copy>
-        {[child.guardianName, child.guardianPhone, child.guardianEmail].filter(Boolean).map((value, i) => <Copy key={i}>{value}</Copy>)}
-        {child.family ? <><Copy>{child.family.name ?? "Family"}</Copy>{[child.family.homeAddress, child.family.motherName, child.family.motherPhone, child.family.motherEmail, child.family.fatherName, child.family.fatherPhone, child.family.fatherEmail].filter(Boolean).map((value, i) => <Copy key={i}>{value}</Copy>)}
+        {child.guardianName && <Copy>{child.guardianName}</Copy>}
+        {child.guardianPhone && <CopyableValue label="Guardian phone" value={child.guardianPhone} />}
+        {child.guardianEmail && <CopyableValue label="Guardian email" value={child.guardianEmail} />}
+        {child.family ? <><Copy>{child.family.name ?? "Family"}</Copy>
+          {child.family.homeAddress && <CopyableValue label="Home address" value={child.family.homeAddress} />}
+          {child.family.motherName && <Copy>{child.family.motherName}</Copy>}
+          {child.family.motherPhone && <CopyableValue label="Mother’s phone" value={child.family.motherPhone} />}
+          {child.family.motherEmail && <CopyableValue label="Mother’s email" value={child.family.motherEmail} />}
+          {child.family.fatherName && <Copy>{child.family.fatherName}</Copy>}
+          {child.family.fatherPhone && <CopyableValue label="Father’s phone" value={child.family.fatherPhone} />}
+          {child.family.fatherEmail && <CopyableValue label="Father’s email" value={child.family.fatherEmail} />}
           <Copy kind="caption">Siblings</Copy>{child.family.children.filter(c => c.id !== id).map(c => <Copy key={c.id}>{c.firstName} {c.lastName} · {c.class?.name ?? "Unassigned"}</Copy>)}</> : <Copy kind="caption">No linked household.</Copy>}
       </Card>
       {canEdit && <Button label="Edit child & family" onPress={() => setEditing(true)} />}

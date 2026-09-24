@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, LayoutAnimation, Pressable, View } from "react-native";
-import { Button, Card, Copy, Icon, styles } from "@/components/ui";
+import { Button, Card, Copy, CopyableValue, Icon, styles } from "@/components/ui";
 import {
   Choice,
   Field,
@@ -174,28 +174,8 @@ function ApplicationCard({
       </View>
 
       <View style={{ gap: 7, marginLeft: 54 }}>
-        <View style={[styles.row, { gap: 8 }]}>
-          <Icon
-            ios="envelope"
-            android="mail"
-            size={15}
-            color={colors.muted}
-          />
-          <Copy kind="caption" style={{ flex: 1 }}>
-            {application.email}
-          </Copy>
-        </View>
-        {application.phone && (
-          <View style={[styles.row, { gap: 8 }]}>
-            <Icon
-              ios="phone"
-              android="phone"
-              size={15}
-              color={colors.muted}
-            />
-            <Copy kind="caption">{application.phone}</Copy>
-          </View>
-        )}
+        <CopyableValue label="Email" value={application.email} kind="caption" />
+        {application.phone && <CopyableValue label="Phone" value={application.phone} kind="caption" />}
       </View>
 
       {application.reviewNote && !expanded && (
