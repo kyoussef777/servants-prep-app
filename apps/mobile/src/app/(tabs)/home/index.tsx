@@ -110,8 +110,8 @@ export default function Home() {
             </View>
             <Copy kind="heading" color={colors.onHero}>
               {pending.length
-                ? "Every child belongs."
-                : "Thank you for showing up."}
+                ? "Attendance is ready."
+                : "Attendance is complete."}
             </Copy>
             <Copy color="#FCE7EB">
               {pending.length
