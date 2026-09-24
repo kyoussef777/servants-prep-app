@@ -49,7 +49,10 @@ export default function TabLayout() {
         <NativeTabs.Trigger.Label>Lessons</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="ministry">
-        <NativeTabs.Trigger.Icon sf="square.grid.2x2" md="dashboard" />
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }}
+          md="dashboard"
+        />
         <NativeTabs.Trigger.Label>Ministry</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="account">
