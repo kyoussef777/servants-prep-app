@@ -204,10 +204,10 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/sunday-school/classes/[id] - Archive a class, or hard-delete an
-// unused class when the caller is a SUPER_ADMIN.
+// DELETE /api/sunday-school/classes/[id] - Permanently delete a class.
 // SUPER_ADMIN or the coordinator of the class's age group. Coordinating the
-// class itself is not enough. Historical facts are never cascade-deleted.
+// class itself is not enough. Children are preserved and become unassigned;
+// class-specific history is removed with the class.
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -222,17 +222,6 @@ export async function DELETE(
         id: true,
         level: true,
         academicYearId: true,
-        _count: {
-          select: {
-            children: true,
-            placements: true,
-            sessions: true,
-            weeklyLessons: true,
-            assignments: true,
-            visitations: true,
-            rosterImports: true,
-          },
-        },
       },
     })
     if (!existing) {
@@ -244,22 +233,39 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const hasHistory = Object.values(existing._count).some((count) => count > 0)
+    await prisma.$transaction(async (tx) => {
+      // Priest notes restrict deletion of their visitation, so remove them
+      // explicitly before the class's visitation history.
+      await tx.sundaySchoolPriestNote.deleteMany({
+        where: { visitation: { classId: id } },
+      })
 
-    if (access.isAdmin && !hasHistory) {
-      await prisma.sundaySchoolClass.delete({ where: { id } })
-      return NextResponse.json({ success: true, action: "deleted" })
-    }
+      await tx.sundaySchoolVisitation.deleteMany({ where: { classId: id } })
 
-    await prisma.sundaySchoolClass.update({
-      where: { id },
-      data: {
-        status: "ARCHIVED",
-        isActive: false,
-      },
+      // Sessions own child and servant attendance and cascade-delete it. Any
+      // remaining attendance or visitation rows linked to one of this class's
+      // historical placements are detached before those placements are
+      // removed, guarding against legacy cross-class data.
+      await tx.sundaySchoolSession.deleteMany({ where: { classId: id } })
+      await tx.sundaySchoolChildAttendance.updateMany({
+        where: { placement: { classId: id } },
+        data: { placementId: null },
+      })
+      await tx.sundaySchoolVisitation.updateMany({
+        where: { placement: { classId: id } },
+        data: { placementId: null },
+      })
+
+      await tx.sundaySchoolClassPlacement.deleteMany({ where: { classId: id } })
+      await tx.sundaySchoolServantAssignment.deleteMany({ where: { classId: id } })
+      await tx.sundaySchoolRosterImport.deleteMany({ where: { classId: id } })
+
+      // Children and pending registration requests use SET NULL foreign keys;
+      // weekly lessons cascade. The class row itself is therefore truly gone.
+      await tx.sundaySchoolClass.delete({ where: { id } })
     })
 
-    return NextResponse.json({ success: true, action: "archived" })
+    return NextResponse.json({ success: true, action: "deleted" })
   } catch (error: unknown) {
     return handleApiError(error)
   }

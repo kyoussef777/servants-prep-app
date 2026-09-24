@@ -5,6 +5,7 @@ import { handleApiError } from '@/lib/api-utils'
 import { isValidLevel } from '@/lib/sunday-school-class'
 import { notifyChildRegistrationSubmitted } from '@/lib/notifications'
 import { RegistrationStatus, UserRole } from '@prisma/client'
+import { normalizeOptionalEmail } from '@/lib/email'
 
 // POST /api/parent/children/register
 // Auth: PARENT only. Creates a pending ChildRegistrationRequest — the real
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
         intendedLevel,
         guardianName: guardianName || user.name,
         guardianPhone: guardianPhone || '',
-        guardianEmail: guardianEmail || user.email,
+        guardianEmail: normalizeOptionalEmail(guardianEmail || user.email),
         notes: notes || null,
       },
     })

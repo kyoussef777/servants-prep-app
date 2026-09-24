@@ -15,6 +15,7 @@ import {
   sundaySchoolFamilyInclude,
 } from "@/lib/sunday-school-family"
 import { SundaySchoolLevel } from "@prisma/client"
+import { normalizeOptionalEmail } from "@/lib/email"
 
 // Sunday School mode: the children enrolled in the Sunday School classes.
 //
@@ -186,7 +187,7 @@ export async function POST(request: Request) {
           birthDate: parsedBirthDate,
           guardianName: guardianName?.trim() || null,
           guardianPhone: guardianPhone?.trim() || null,
-          guardianEmail: guardianEmail?.trim() || null,
+          guardianEmail: normalizeOptionalEmail(guardianEmail),
           notes: notes?.trim() || null,
         },
         include: {

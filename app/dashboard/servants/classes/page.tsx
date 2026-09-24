@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -21,10 +21,18 @@ import {
 } from '@/components/ui/dialog'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
-import { compareClassNames, getLevelDisplayName, LEVEL_ORDER } from '@/lib/sunday-school-class'
+import {
+  compareAgeGroupsByLevel,
+  compareClassesByLevelAndName,
+  findAgeGroupForLevel,
+  getLevelDisplayName,
+  LEVEL_ORDER,
+} from '@/lib/sunday-school-class'
 import type { SundaySchoolClass, SundaySchoolDashboard } from '@/types/sunday-school'
 import { SundaySchoolLevel } from '@prisma/client'
 import { Pencil, Plus, Users } from 'lucide-react'
+
+const UNBANDED = '__unbanded__'
 
 export default function SundaySchoolClassesPage() {
   const { status } = useSundaySchoolGuard()
@@ -111,8 +119,30 @@ export default function SundaySchoolClassesPage() {
     return <PageLoading />
   }
 
-  const classes = [...((data as SundaySchoolClass[] | undefined) ?? [])].sort((left, right) =>
-    compareClassNames(left.name, right.name)
+  const classes = (data as SundaySchoolClass[] | undefined) ?? []
+  const ageGroups = [...(dashboard?.ageGroups ?? [])].sort(compareAgeGroupsByLevel)
+  const groupedClasses = new Map<string, { name: string; classes: SundaySchoolClass[] }>()
+
+  for (const cls of classes) {
+    const ageGroup = findAgeGroupForLevel(cls.level, ageGroups)
+    const key = ageGroup?.id ?? UNBANDED
+    if (!groupedClasses.has(key)) {
+      groupedClasses.set(key, {
+        name: ageGroup?.name ?? 'Other classes',
+        classes: [],
+      })
+    }
+    groupedClasses.get(key)!.classes.push(cls)
+  }
+
+  for (const group of groupedClasses.values()) {
+    group.classes.sort(compareClassesByLevelAndName)
+  }
+
+  const ageGroupOrder = new Map(ageGroups.map((group, index) => [group.id, index]))
+  const classGroups = Array.from(groupedClasses.entries()).sort(([leftId], [rightId]) =>
+    (ageGroupOrder.get(leftId) ?? Number.MAX_SAFE_INTEGER) -
+    (ageGroupOrder.get(rightId) ?? Number.MAX_SAFE_INTEGER)
   )
 
   return (
@@ -131,9 +161,9 @@ export default function SundaySchoolClassesPage() {
           }
         />
 
-        <Card>
-          <CardContent className="pt-6">
-            {classes.length === 0 ? (
+        {classes.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
               <EmptyState
                 message={
                   canManage
@@ -141,55 +171,64 @@ export default function SundaySchoolClassesPage() {
                     : 'You are not assigned to any Sunday School class yet.'
                 }
               />
-            ) : (
-              <div className="space-y-3">
-                {classes.map(cls => (
-                  <div
-                    key={cls.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border rounded-lg dark:border-gray-800"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          href={`/dashboard/servants/classes/${cls.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {cls.name}
-                        </Link>
-                        <Badge variant="secondary">{getLevelDisplayName(cls.level)}</Badge>
-                        {cls.canCoordinate && <Badge className="bg-maroon-600">Coordinator</Badge>}
-                        {!cls.isActive && <Badge className="bg-gray-500">Inactive</Badge>}
+            </CardContent>
+          </Card>
+        ) : (
+          classGroups.map(([groupId, group]) => (
+            <Card key={groupId}>
+              <CardHeader>
+                <CardTitle>{group.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {group.classes.map(cls => (
+                    <div
+                      key={cls.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border rounded-lg dark:border-gray-800"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link
+                            href={`/dashboard/servants/classes/${cls.id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {cls.name}
+                          </Link>
+                          <Badge variant="secondary">{getLevelDisplayName(cls.level)}</Badge>
+                          {cls.canCoordinate && <Badge className="bg-maroon-600">Coordinator</Badge>}
+                          {!cls.isActive && <Badge className="bg-gray-500">Inactive</Badge>}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {cls._count?.children ?? 0} children · {cls._count?.sessions ?? 0} sessions ·{' '}
+                          {cls.assignments.length} {cls.assignments.length === 1 ? 'servant' : 'servants'}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {cls._count?.children ?? 0} children · {cls._count?.sessions ?? 0} sessions ·{' '}
-                        {cls.assignments.length} {cls.assignments.length === 1 ? 'servant' : 'servants'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {cls.canCoordinate && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          aria-label={`Edit ${cls.name} name`}
-                          onClick={() => openRenameDialog(cls)}
-                        >
-                          <Pencil className="h-4 w-4 mr-1" />
-                          Edit name
+                      <div className="flex items-center gap-2">
+                        {cls.canCoordinate && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label={`Edit ${cls.name} name`}
+                            onClick={() => openRenameDialog(cls)}
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            Edit name
+                          </Button>
+                        )}
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/dashboard/servants/classes/${cls.id}`}>
+                            <Users className="h-4 w-4 mr-1" />
+                            Open
+                          </Link>
                         </Button>
-                      )}
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/dashboard/servants/classes/${cls.id}`}>
-                          <Users className="h-4 w-4 mr-1" />
-                          Open
-                        </Link>
-                      </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -19,9 +19,10 @@ import {
 describe('Sunday School class helpers', () => {
   describe('LEVEL_ORDER', () => {
     it('runs Pre-K through one combined College & Grad level', () => {
-      expect(LEVEL_ORDER).toHaveLength(15)
+      expect(LEVEL_ORDER).toHaveLength(16)
       expect(LEVEL_ORDER[0]).toBe('PRE_K')
       expect(LEVEL_ORDER[1]).toBe('KINDERGARTEN')
+      expect(LEVEL_ORDER.slice(6, 9)).toEqual(['GRADE_5', 'SPECIAL_NEEDS', 'GRADE_6'])
       expect(LEVEL_ORDER.slice(-2)).toEqual(['GRADE_12', 'COLLEGE_GRAD'])
     })
 
@@ -36,6 +37,7 @@ describe('Sunday School class helpers', () => {
     it('accepts real levels', () => {
       expect(isValidLevel('GRADE_7')).toBe(true)
       expect(isValidLevel('PRE_K')).toBe(true)
+      expect(isValidLevel('SPECIAL_NEEDS')).toBe(true)
       expect(isValidLevel('COLLEGE_GRAD')).toBe(true)
     })
 
@@ -101,6 +103,7 @@ describe('Sunday School class helpers', () => {
   describe('class meeting day', () => {
     it('uses Saturday for Elementary and Sunday for older classes', () => {
       expect(getClassMeetingDayName(SundaySchoolLevel.GRADE_5)).toBe('Saturday')
+      expect(getClassMeetingDayName(SundaySchoolLevel.SPECIAL_NEEDS)).toBe('Saturday')
       expect(getClassMeetingDayName(SundaySchoolLevel.GRADE_6)).toBe('Sunday')
     })
 

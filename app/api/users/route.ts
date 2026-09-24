@@ -5,6 +5,7 @@ import { RoleGrantSource, RoleTag, UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { isAdmin, canManageUsers, canServantPrepManageRole, SERVANT_PREP_MANAGEABLE_ROLES } from "@/lib/roles"
 import { legacyRoleForTags, ROLE_TAG_VALUES, roleTagForLegacyRole } from "@/lib/role-tags"
+import { normalizeEmail } from "@/lib/email"
 
 // GET /api/users - List all users (Admin only, or MENTOR role can view students)
 // Query params:
@@ -115,12 +116,20 @@ export async function GET(request: Request) {
             }
           }
         },
+        sundaySchoolServing: {
+          where: {
+            academicYear: { isActive: true },
+            endedAt: null,
+          },
+          select: {
+            class: { select: { level: true } },
+            ageGroup: { select: { levels: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
         _count: {
           select: {
             mentoredStudents: true,
-            sundaySchoolServing: {
-              where: { academicYear: { isActive: true } }
-            }
           }
         }
       },
@@ -180,8 +189,9 @@ export async function POST(request: Request) {
 
     const body = await request.json()
     const { email, name, phone, password, role } = body
+    const normalizedEmail = normalizeEmail(email)
 
-    if (!email || !name || !password || !role) {
+    if (!normalizedEmail || !name || !password || !role) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -219,7 +229,7 @@ export async function POST(request: Request) {
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { email: normalizedEmail }
     })
 
     if (existingUser) {
@@ -236,7 +246,7 @@ export async function POST(request: Request) {
     const compatibilityRole = legacyRoleForTags(desiredRoleTags, role as UserRole)
     const newUser = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         name,
         phone: phone || null,
         password: hashedPassword,
