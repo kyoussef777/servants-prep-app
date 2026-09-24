@@ -6,8 +6,10 @@ import {
   CalendarDate,
   Card,
   Copy,
+  Icon,
   RowLink,
   Screen,
+  styles,
 } from "@/components/ui";
 import { Choice, ResourceState } from "@/components/forms";
 import { endpoint, query, useResource } from "@/data/resources";
@@ -26,8 +28,10 @@ export default function Lessons() {
   const { colors } = useAppTheme();
   const { classes } = usePortal();
   const { user } = useAuth();
-  const [classId, setClassId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
   const [view, setView] = useState("upcoming");
+  const onlyClass = classes.length === 1 ? classes[0] : undefined;
+  const classId = onlyClass?.id ?? selectedClassId;
   const resource = useResource<SundaySchoolWeeklyLessonsResponse>(
     `${endpoint("lessons")}?${query({ scope: "year", classId })}`,
   );
@@ -62,18 +66,30 @@ export default function Lessons() {
             onChange={setView}
             options={scheduleOptions}
           />
-          <Choice
-            label="Class"
-            value={classId}
-            onChange={setClassId}
-            options={[
-              { value: "", label: "All accessible classes" },
-              ...classes.map((schoolClass) => ({
-                value: schoolClass.id,
-                label: schoolClass.name,
-              })),
-            ]}
-          />
+          {onlyClass ? (
+            <View style={[styles.row, { gap: 8, paddingHorizontal: 4 }]}>
+              <Icon
+                ios="person.2"
+                android="groups"
+                size={16}
+                color={colors.muted}
+              />
+              <Copy kind="caption">Showing {onlyClass.name}</Copy>
+            </View>
+          ) : classes.length > 1 ? (
+            <Choice
+              label="Class"
+              value={selectedClassId}
+              onChange={setSelectedClassId}
+              options={[
+                { value: "", label: "All accessible classes" },
+                ...classes.map((schoolClass) => ({
+                  value: schoolClass.id,
+                  label: schoolClass.name,
+                })),
+              ]}
+            />
+          ) : null}
         </View>
         <Screen
           refreshing={resource.loading || resource.refreshing}
