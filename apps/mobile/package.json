@@ -16,6 +16,7 @@
     "export": "expo export --platform ios --platform android"
   },
   "dependencies": {
+    "@expo/ui": "~57.0.19",
     "@stmark/contracts": "workspace:*",
     "@stmark/domain": "workspace:*",
     "expo": "~57.0.24",

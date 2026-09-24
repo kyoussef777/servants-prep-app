@@ -5,6 +5,7 @@
     "internal": { "distribution": "internal" },
     "beta": {
       "distribution": "internal",
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://servants-prep-app.vercel.app",
         "EXPO_PUBLIC_DATA_LABEL": "Production"

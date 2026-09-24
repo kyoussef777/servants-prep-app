@@ -1,7 +1,9 @@
 import { useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, Switch, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Switch, TextInput, View } from "react-native";
+import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import { Stack } from "expo-router";
-import { Button, Card, Copy, Screen } from "./ui";
+import { Button, Card, Copy, Icon, Screen } from "./ui";
+import { GlassChrome } from "./chrome";
 import { useAppTheme } from "@/theme";
 
 export function Field({ label, value, onChange, multiline = false, disabled = false, secureTextEntry = false, ...rest }: {
@@ -33,21 +35,35 @@ export function Toggle({ label, value, onChange, disabled = false }: { label: st
 export function Choice({ label, value, options, onChange, disabled = false }: {
   label: string; value: string; options: Option[]; onChange: (value: string) => void; disabled?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const { colors } = useAppTheme();
+  const selectedLabel = options.find(option => option.value === value)?.label ?? "Choose…";
+  const unavailable = disabled || options.length === 0;
+  const actions: MenuAction[] = options.map(option => ({
+    id: option.value,
+    title: option.label,
+    state: option.value === value ? "on" : "off",
+  }));
+  const trigger = <View
+    accessibilityRole="button"
+    accessibilityLabel={`${label}: ${selectedLabel}`}
+    accessibilityHint="Opens a menu"
+    accessibilityState={{ disabled: unavailable }}
+    style={{ width: "100%", opacity: unavailable ? 0.45 : 1 }}
+  ><GlassChrome interactive={!unavailable} style={{ borderRadius: 16 }}><View style={{
+    minHeight: 52, paddingHorizontal: 20, paddingVertical: 14, flexDirection: "row",
+    alignItems: "center", justifyContent: "space-between", gap: 12,
+  }}><Copy color={colors.primary} style={{ flex: 1, fontWeight: "600", textAlign: "center" }}>{selectedLabel}</Copy>
+    <Icon ios="chevron.up.chevron.down" android="unfold_more" size={15} color={colors.primary} />
+  </View></GlassChrome></View>;
+
   return <View style={{ gap: 7 }}><Copy kind="caption">{label}</Copy>
-    <Button secondary glass disabled={disabled} label={options.find(o => o.value === value)?.label ?? "Choose…"} onPress={() => { setSearch(""); setOpen(true); }} />
-    <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}><Screen>
-        <Copy kind="heading">{label}</Copy><Button secondary label="Cancel" onPress={() => setOpen(false)} />
-        {options.length > 8 && <Field label="Search options" value={search} onChange={setSearch} />}
-        {options.filter(o => o.label.toLowerCase().includes(search.toLowerCase())).map(o => <Pressable
-          key={o.value} accessibilityRole="radio" accessibilityState={{ checked: o.value === value }}
-          onPress={() => { onChange(o.value); setOpen(false); }} style={{ padding: 15, borderRadius: 12, backgroundColor: colors.surface }}>
-          <Copy>{o.value === value ? "✓ " : ""}{o.label}</Copy></Pressable>)}
-      </Screen></SafeAreaView>
-    </Modal></View>;
+    {unavailable ? trigger : <MenuView
+      title={label}
+      actions={actions}
+      style={{ alignSelf: "stretch" }}
+      onPressAction={({ nativeEvent }) => onChange(nativeEvent.event)}
+    >{trigger}</MenuView>}
+  </View>;
 }
 export function ResourceState({ loading, error, retry, empty }: { loading: boolean; error?: string; retry: () => void; empty?: boolean }) {
   if (loading) return <ActivityIndicator accessibilityLabel="Loading" />;
