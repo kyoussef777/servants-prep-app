@@ -192,6 +192,7 @@ enum SundaySchoolLevel {
   GRADE_3
   GRADE_4
   GRADE_5
+  SPECIAL_NEEDS
   GRADE_6
   GRADE_7
   GRADE_8

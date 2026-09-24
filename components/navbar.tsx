@@ -20,6 +20,7 @@ import {
 } from '@/lib/roles'
 import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
+import { getPersonInitials } from '@/lib/person-name'
 
 interface NavLink {
   href: string
@@ -42,11 +43,8 @@ export function Navbar() {
     return null
   }
 
-  const userInitials = session.user.name
-    ?.split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase() || '??'
+  const userInitials = getPersonInitials(session.user.name)
+  const showIdentityText = (session.user.name?.trim().length ?? 0) <= 24
 
   const isActive = (path: string) => {
     // Exact match for the path
@@ -203,7 +201,7 @@ export function Navbar() {
         { href: '/dashboard/servants/feedback', label: 'Feedback' },
       ]
 
-      if (session.user.sundaySchool?.isCoordinator) {
+      if (session.user.sundaySchool?.isCoordinator || role === 'PRIEST' || role === 'SUPER_ADMIN') {
         more.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
       }
 
@@ -266,12 +264,12 @@ export function Navbar() {
 
   return (
     <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-2">
           {/* Left side - Logo/Title */}
           <div className="flex min-w-0 flex-1 items-center gap-8 overflow-hidden">
             <div
-              className={`flex min-w-0 items-center gap-2 sm:gap-3 ${canSwitchModes ? 'sm:w-[268px] sm:justify-between' : ''}`}
+              className={`flex min-w-0 items-center gap-2 sm:gap-3 ${canSwitchModes ? 'sm:w-[288px] sm:justify-between' : ''}`}
             >
               <Link
                 href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
@@ -423,11 +421,14 @@ export function Navbar() {
               )}
             </Button>
 
-            <div className="hidden min-w-max shrink-0 flex-col items-end whitespace-nowrap md:flex">
-              <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className={showIdentityText ? 'hidden min-w-0 max-w-40 shrink flex-col items-end 2xl:flex' : 'hidden'}>
+              <span
+                className="max-w-full truncate text-sm font-medium text-gray-900 dark:text-white"
+                title={session.user.name ?? undefined}
+              >
                 {session.user.name}
               </span>
-              <span className="text-xs text-gray-600 dark:text-gray-400">
+              <span className="max-w-full truncate text-xs text-gray-600 dark:text-gray-400">
                 {getRoleDisplayName(session.user.role)}
               </span>
             </div>
@@ -439,7 +440,7 @@ export function Navbar() {
                     {session.user.profileImageUrl && (
                       <AvatarImage src={session.user.profileImageUrl} alt={session.user.name || ''} />
                     )}
-                    <AvatarFallback className="bg-maroon-600 text-white">
+                    <AvatarFallback className="bg-maroon-600 text-xs font-semibold tracking-tight text-white">
                       {userInitials}
                     </AvatarFallback>
                   </Avatar>

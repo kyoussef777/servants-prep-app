@@ -59,6 +59,7 @@ export interface SundaySchoolClass extends SundaySchoolClassRef {
   canCoordinate?: boolean;
   canDelete?: boolean;
   canTakeServantAttendance?: boolean;
+  canViewServantAttendance?: boolean;
   weeklyLessons?: SundaySchoolWeeklyLesson[];
 }
 

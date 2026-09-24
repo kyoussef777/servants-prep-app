@@ -84,15 +84,17 @@ export default function Account() {
             onPress={() => router.push("/notifications")}
           />
         </Card>
-        <SectionTitle title="Connected portal" />
-        <Card>
-          <Copy>{dataLabel}</Copy>
-          <Copy kind="caption">{apiOrigin}</Copy>
-          <Copy kind="caption">
-            Classes, lessons, and attendance come from this portal. Saved
-            attendance persists in its database.
-          </Copy>
-        </Card>
+        {user?.role === "SUPER_ADMIN" && <>
+          <SectionTitle title="Connected portal" />
+          <Card>
+            <Copy>{dataLabel}</Copy>
+            <Copy kind="caption">{apiOrigin}</Copy>
+            <Copy kind="caption">
+              Classes, lessons, and attendance come from this portal. Saved
+              attendance persists in its database.
+            </Copy>
+          </Card>
+        </>}
         <Button
           label={loading ? "Refreshing…" : "Refresh ministry data"}
           secondary

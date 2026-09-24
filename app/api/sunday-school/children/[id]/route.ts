@@ -16,6 +16,7 @@ import {
   normalizeSundaySchoolFamilyDetails,
   sundaySchoolFamilyInclude,
 } from "@/lib/sunday-school-family"
+import { normalizeEmail, normalizeOptionalEmail } from "@/lib/email"
 
 // Sunday School mode: a single child on a Sunday School roster.
 
@@ -279,7 +280,7 @@ export async function PATCH(
     }
     if (guardianName !== undefined) updateData.guardianName = guardianName?.trim() || null
     if (guardianPhone !== undefined) updateData.guardianPhone = guardianPhone?.trim() || null
-    if (guardianEmail !== undefined) updateData.guardianEmail = guardianEmail?.trim() || null
+    if (guardianEmail !== undefined) updateData.guardianEmail = normalizeOptionalEmail(guardianEmail)
     if (notes !== undefined) updateData.notes = notes?.trim() || null
     if (isActive !== undefined) updateData.isActive = Boolean(isActive)
     if (linkedUserEmail !== undefined) {
@@ -290,7 +291,7 @@ export async function PATCH(
         )
       }
 
-      const email = String(linkedUserEmail).trim().toLowerCase()
+      const email = normalizeEmail(linkedUserEmail)
       if (!email) {
         updateData.userId = null
       } else {

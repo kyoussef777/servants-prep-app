@@ -1,6 +1,12 @@
 import { View } from "react-native";
 import { router, Stack } from "expo-router";
-import { getClassMeetingDayName, getLevelDisplayName } from "@stmark/domain";
+import {
+  compareAgeGroupsByLevel,
+  compareClassesByLevelAndName,
+  findAgeGroupForLevel,
+  getClassMeetingDayName,
+  getLevelDisplayName,
+} from "@stmark/domain";
 import {
   Button,
   Card,
@@ -28,6 +34,19 @@ export default function Classes() {
     ? attendance[attendanceKey(onlyClass.id, meetingDate(onlyClass))]
     : undefined;
   const onlyClassChildCount = onlyClass?._count?.children ?? 0;
+  const ageGroups = [...(dashboard.data?.ageGroups ?? [])].sort(compareAgeGroupsByLevel);
+  const groupedClasses = new Map<string, { name: string; classes: typeof classes }>();
+  for (const cls of classes) {
+    const ageGroup = findAgeGroupForLevel(cls.level, ageGroups);
+    const key = ageGroup?.id ?? "other";
+    const group = groupedClasses.get(key) ?? { name: ageGroup?.name ?? "Other classes", classes: [] };
+    group.classes.push(cls);
+    groupedClasses.set(key, group);
+  }
+  const ageGroupOrder = new Map(ageGroups.map((group, index) => [group.id, index]));
+  const classGroups = [...groupedClasses.entries()]
+    .sort(([left], [right]) => (ageGroupOrder.get(left) ?? Number.MAX_SAFE_INTEGER) - (ageGroupOrder.get(right) ?? Number.MAX_SAFE_INTEGER))
+    .map(([id, group]) => ({ id, name: group.name, classes: group.classes.sort(compareClassesByLevelAndName) }));
   return (
     <>
       <Stack.Screen options={{ title: onlyClass ? "My class" : "My classes" }} />
@@ -123,7 +142,9 @@ export default function Classes() {
               />
             </Card>
           </>
-        ) : classes.length > 1 ? classes.map((cls) => {
+        ) : classes.length > 1 ? classGroups.map((group) => <View key={group.id} style={{ gap: 12 }}>
+          <Copy kind="heading">{group.name}</Copy>
+          {group.classes.map((cls) => {
           const saved = attendance[attendanceKey(cls.id, meetingDate(cls))];
           const childCount = cls._count?.children ?? 0;
           return (
@@ -191,7 +212,8 @@ export default function Classes() {
               />
             </Card>
           );
-        }) : null}
+          })}
+        </View>) : null}
       </Screen>
     </>
   );

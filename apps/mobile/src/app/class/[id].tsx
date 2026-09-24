@@ -26,7 +26,7 @@ export default function ClassDetail() {
   return <Page title={cls?.name ?? "Class"} {...resource}>
     {cls && <><Copy kind="title">{cls.name}</Copy><Copy>{getLevelDisplayName(cls.level)} · {cls.academicYear?.name} · {cls.isActive ? "Active" : "Archived"}</Copy>
       <Button label={cls.canServe ? "Take child attendance" : "View child attendance"} onPress={() => router.push({ pathname: "/attendance/[classId]", params: { classId: id } })} />
-      {cls.canTakeServantAttendance && <Button secondary label="Servant attendance" onPress={() => router.push({ pathname: "/servant-attendance", params: { classId: id } })} />}
+      {(cls.canViewServantAttendance || cls.canTakeServantAttendance) && <Button secondary label={cls.canTakeServantAttendance ? "Servant attendance" : "View servant attendance"} onPress={() => router.push({ pathname: "/servant-attendance", params: { classId: id } })} />}
       <Card><Copy kind="heading">Class team</Copy>{cls.assignments.length ? cls.assignments.map(a => <Copy key={a.id}>{a.user.name} · {a.authority === "COORDINATOR" ? "Coordinator" : "Servant"}</Copy>) : <Copy>No servants assigned.</Copy>}</Card>
       {cls.canCoordinate && <><Button secondary label="Edit class" onPress={() => setEditing(true)} />
         <Staffing classId={id} academicYearId={cls.academicYearId} assignments={cls.assignments} refresh={refresh} /></>}
@@ -34,8 +34,8 @@ export default function ClassDetail() {
         {cls.children.filter(c => c.isActive).map(c => <RowLink key={c.id} title={`${c.firstName} ${c.lastName}`} onPress={() => router.push({ pathname: "/child/[id]", params: { id: c.id } })} />)}</Card>
       <Card><Copy kind="heading">Attendance history</Copy>{!cls.sessions.length && <Copy>No sessions recorded.</Copy>}
         {cls.sessions.map(s => <RowLink key={s.id} title={readableDate(s.date)} subtitle={`${s._count?.attendance ?? 0} child marks${s.topic ? ` · ${s.topic}` : ""}`} onPress={() => router.push({ pathname: "/attendance/[classId]", params: { classId: id, date: s.date.slice(0, 10) } })} />)}</Card>
-      {cls.canDelete && cls.isActive && <Button secondary label="Archive class" disabled={action.busy} onPress={() => confirmAction("Archive class?", "The class will leave active lists. Historical records remain available.", () => void action.run(async () => {
-        await request(endpoint("classes", id), "PATCH", { isActive: false }); await refresh();
+      {cls.canDelete && <Button secondary label="Delete class" disabled={action.busy} onPress={() => confirmAction(`Delete ${cls.name}?`, `This permanently deletes the class and its class-specific history. ${cls.children.length} ${cls.children.length === 1 ? "child" : "children"} will be preserved and moved to Unassigned. This cannot be undone.`, () => void action.run(async () => {
+        await request(endpoint("classes", id), "DELETE"); await portal.refresh(); router.back();
       }), true)} />}
     </>}
   </Page>;

@@ -51,6 +51,7 @@ interface ClassDetail extends SundaySchoolClass {
   canCoordinate: boolean
   canDelete: boolean
   canTakeServantAttendance: boolean
+  canViewServantAttendance: boolean
 }
 
 export default function SundaySchoolClassDetailPage() {
@@ -250,7 +251,7 @@ export default function SundaySchoolClassDetailPage() {
                   </Link>
                 </Button>
               )}
-              {detail.canTakeServantAttendance && (
+              {detail.canViewServantAttendance && (
                 <Button asChild variant="outline">
                   <Link href={`/dashboard/servants/servant-attendance?classId=${detail.id}`}>
                     Servant attendance
@@ -277,8 +278,9 @@ export default function SundaySchoolClassDetailPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete {detail.name}?</AlertDialogTitle>
               <AlertDialogDescription>
-                This permanently deletes the class, its servant assignments, attendance sessions,
-                and weekly lessons. {detail.children.length}{' '}
+                This permanently deletes the class and its class-specific history, including servant
+                assignments, attendance sessions, weekly lessons, visitations, and roster imports.{' '}
+                {detail.children.length}{' '}
                 {detail.children.length === 1 ? 'child' : 'children'} on the roster will be preserved
                 and moved to Unassigned. This action cannot be undone.
               </AlertDialogDescription>

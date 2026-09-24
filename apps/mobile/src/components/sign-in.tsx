@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { Brand, Button, Card, Copy, Screen } from "@/components/ui";
-import { apiOrigin, dataLabel, useAuth } from "@/data/auth-provider";
+import { apiOrigin, useAuth } from "@/data/auth-provider";
 import { useAppTheme } from "@/theme";
 import { PasswordForm } from "@/components/password-form";
 
@@ -47,7 +47,6 @@ export default function SignIn() {
       <Screen>
         <View style={{ height: 60 }} />
         <Brand />
-        <Copy kind="eyebrow">{dataLabel}</Copy>
         {loading ? (
           <ActivityIndicator
             accessibilityLabel="Connecting"
@@ -150,7 +149,7 @@ export default function SignIn() {
             )}
             <Copy kind="caption">
               Your classes and permissions come from the connected portal.
-              Attendance saves to {dataLabel.toLowerCase()}.
+              Attendance saves there securely.
             </Copy>
           </>
         )}

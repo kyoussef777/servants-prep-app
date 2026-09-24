@@ -11,7 +11,7 @@ describe('Sunday School family details', () => {
       homeAddress: ' 125 St. Mark Way ',
       motherName: ' Mariam Girgis ',
       motherPhone: ' 555-0191 ',
-      fatherEmail: ' nader@example.com ',
+      fatherEmail: ' Nader@Example.COM ',
     })).toEqual({
       name: 'Girgis Family',
       homeAddress: '125 St. Mark Way',

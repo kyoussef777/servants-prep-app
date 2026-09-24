@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { RegistrationStatus } from '@prisma/client'
 import { notifyNewServantApplication } from '@/lib/notifications'
+import { normalizeEmail } from '@/lib/email'
 
 /**
  * POST /api/servant-applications/submit
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { email, fullName, phone, currentGrade } = body
-    const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : ''
+    const normalizedEmail = normalizeEmail(email)
     const normalizedName = typeof fullName === 'string' ? fullName.trim() : ''
     const normalizedPhone = typeof phone === 'string' ? phone.trim() : ''
     const normalizedCurrentGrade =

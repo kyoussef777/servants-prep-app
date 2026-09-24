@@ -287,7 +287,7 @@ async function main() {
     {
       name: 'Elementary',
       sortOrder: 0,
-      levels: ['PRE_K', 'KINDERGARTEN', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5'] as const,
+      levels: ['PRE_K', 'KINDERGARTEN', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'SPECIAL_NEEDS'] as const,
     },
     { name: 'Middle School', sortOrder: 1, levels: ['GRADE_6', 'GRADE_7', 'GRADE_8'] as const },
     {

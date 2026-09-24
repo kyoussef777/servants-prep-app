@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { canManageUsers, canManageAllUsers, canServantPrepManageRole } from "@/lib/roles"
+import { normalizeEmail } from "@/lib/email"
 
 // GET /api/users/[id] - Get a specific user
 export async function GET(
@@ -100,7 +101,7 @@ export async function PATCH(
     const updateData: { email?: string; name?: string; phone?: string | null; profileImageUrl?: string | null; role?: UserRole; password?: string; mustChangePassword?: boolean } = {}
 
     if (email) {
-      const trimmedEmail = String(email).trim().toLowerCase()
+      const trimmedEmail = normalizeEmail(email)
       const isEmailChange = trimmedEmail !== (targetUser.email ?? "").toLowerCase()
       // Self-service email changes require re-confirming the current password.
       // This prevents a hijacked session from rotating the victim's email to

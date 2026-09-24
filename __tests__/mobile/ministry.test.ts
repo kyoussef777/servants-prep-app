@@ -13,9 +13,10 @@ describe("native ministry permissions", () => {
     expect(access.canTakeServantAttendance).toBe(false);
   });
   it("keeps priests read-only even when classes are visible", () => {
-    const access = ministryAccess(dashboard({ isAdmin: false, readOnly: true, coordinatesAnyAgeGroup: false }), [{ canServe: false }] as SundaySchoolClass[]);
+    const access = ministryAccess(dashboard({ isAdmin: false, readOnly: true, coordinatesAnyAgeGroup: false }, [], true), [{ canServe: false, canViewServantAttendance: true }] as SundaySchoolClass[]);
     expect(access.canAddChild).toBe(false); expect(access.createLevels).toEqual([]);
     expect(access.canTakeServantAttendance).toBe(false);
+    expect(access.canViewServantAttendance).toBe(true);
   });
   it("allows ordinary servants to manage children but not create classes", () => {
     const access = ministryAccess(dashboard({ isAdmin: false, readOnly: false, coordinatesAnyAgeGroup: false }), [{ canServe: true }] as SundaySchoolClass[]);

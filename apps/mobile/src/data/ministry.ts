@@ -5,10 +5,16 @@ import { LEVEL_ORDER } from "@stmark/domain";
 export function ministryAccess(dashboard?: SundaySchoolDashboard, classes: SundaySchoolClass[] = []) {
   const admin = dashboard?.standing.isAdmin === true;
   const readOnly = dashboard?.standing.readOnly !== false;
+  const canViewServantAttendance =
+    dashboard?.attendanceTrend.canViewServantAttendance === true ||
+    classes.some(c => c.canViewServantAttendance || c.canTakeServantAttendance);
   return {
     admin, readOnly,
     canAddChild: !readOnly && (admin || classes.some(c => c.canServe)),
-    canTakeServantAttendance: dashboard?.attendanceTrend.canViewServantAttendance === true,
+    canViewServantAttendance,
+    canTakeServantAttendance:
+      (!readOnly && dashboard?.attendanceTrend.canViewServantAttendance === true) ||
+      classes.some(c => c.canTakeServantAttendance),
     createLevels: (readOnly ? [] : admin ? LEVEL_ORDER : dashboard?.ageGroups.filter(g => g.canCoordinate).flatMap(g => g.levels) ?? []) as SundaySchoolLevel[],
   };
 }

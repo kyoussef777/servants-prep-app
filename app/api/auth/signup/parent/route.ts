@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { UserRole } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { checkLoginRateLimit, resetLoginRateLimit } from '@/lib/rate-limit'
+import { normalizeEmail } from '@/lib/email'
 
 /**
  * POST /api/auth/signup/parent
@@ -24,8 +25,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const normalizedEmail = normalizeEmail(email)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
@@ -45,8 +47,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-
-    const normalizedEmail = email.toLowerCase().trim()
 
     const rateLimit = checkLoginRateLimit(normalizedEmail)
     if (!rateLimit.allowed) {

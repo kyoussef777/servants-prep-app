@@ -17,7 +17,7 @@ export default function Ministry() {
       {link("Children & families", "Roster, child profiles, family details, and history", "/roster")}
       {link("Visitations", "Pastoral visits and confidential notes", "/visitations")}
       {link("Attendance reports", "Children’s attendance and ministry trends", "/reports")}
-      {access.canTakeServantAttendance && link("Servant attendance", "Record your team’s weekly attendance", "/servant-attendance")}
+      {access.canViewServantAttendance && link("Servant attendance", access.canTakeServantAttendance ? "Record weekly servant attendance" : "View weekly servant attendance", "/servant-attendance")}
       {access.createLevels.length > 0 && link("Child registrations", "Review and place incoming children", "/registrations")}
       {link("Feedback", "Share ideas and vote on improvements", "/feedback")}
     </Card>

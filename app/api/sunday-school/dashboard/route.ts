@@ -138,7 +138,7 @@ export async function GET(request: Request) {
       }
 
       const allowedTrendClassIds =
-        requestedAudience === "servants" && !trendAccess.isAdmin
+        requestedAudience === "servants" && !trendAccess.isAdmin && !trendAccess.readOnly
           ? Array.from(trendAccess.coordinatorClassIds)
           : visibleClassFilter(trendAccess)
       const trendClasses = trendAccess.canRead

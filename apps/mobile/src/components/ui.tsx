@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SymbolView, type SFSymbol, type AndroidSymbol } from "expo-symbols";
 import { useAppTheme } from "@/theme";
-import { dataLabel } from "@/data/auth-provider";
+import { dataLabel, useAuth } from "@/data/auth-provider";
 import { GlassChrome } from "./chrome";
 
 export function Icon({
@@ -168,6 +168,8 @@ export function Button({
 
 export function ConnectionBadge() {
   const { colors } = useAppTheme();
+  const { user } = useAuth();
+  if (user?.role !== "SUPER_ADMIN") return null;
   return (
     <View
       style={[
