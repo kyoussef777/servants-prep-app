@@ -705,8 +705,8 @@ export default function UsersPage() {
                     <th className="text-left p-2">Name</th>
                     <th className="text-left p-2">Email</th>
                     <th className="text-left p-2">Phone</th>
-                    <th className="text-center p-2 min-w-52">Access tags</th>
-                    <th className="text-center p-2 min-w-52">Sunday School grades</th>
+                    <th className="text-center p-2 w-44">Access tags</th>
+                    <th className="text-center p-2 w-44">Sunday School grades</th>
                     <th className="text-center p-2 w-24">Status</th>
                     <th className="text-center p-2 w-24">Mentees</th>
                     <th className="text-center p-2 w-32">Actions</th>

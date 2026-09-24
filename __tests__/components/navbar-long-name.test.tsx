@@ -34,12 +34,12 @@ vi.mock('@/components/notifications/notification-bell', () => ({
 import { Navbar } from '@/components/navbar'
 
 describe('Navbar with long names', () => {
-  it('keeps the identity compact and uses meaningful avatar initials', () => {
+  it('hides an oversized identity label and uses meaningful avatar initials', () => {
     render(<Navbar />)
 
     const name = screen.getByText('Rev. Fr. Daniel Abdel-Maseih')
-    expect(name).toHaveClass('truncate')
-    expect(name.parentElement).toHaveClass('max-w-40', '2xl:flex')
+    expect(name.parentElement).toHaveClass('hidden')
+    expect(name.parentElement).not.toHaveClass('2xl:flex')
     expect(screen.getByText('DA')).toBeInTheDocument()
     expect(screen.queryByText('RFDA')).not.toBeInTheDocument()
   })
