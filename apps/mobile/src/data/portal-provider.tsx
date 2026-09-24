@@ -20,6 +20,11 @@ import {
 } from "@stmark/domain";
 import { api } from "./auth-provider";
 import { rosterProgress, type AttendanceMarks } from "./attendance-draft";
+import {
+  clearResourceCache,
+  invalidateResourceCache,
+  prefetchResources,
+} from "./resources";
 
 export type PortalNotification = {
   id: string;
@@ -112,6 +117,14 @@ export function PortalProvider({ children }: PropsWithChildren) {
             ]),
         ),
       );
+      void prefetchResources([
+        "/api/sunday-school/dashboard",
+        "/api/sunday-school/dashboard?audience=children",
+        "/api/sunday-school/lessons?scope=year",
+        "/api/sunday-school/children?isActive=true",
+        "/api/sunday-school/visitations",
+        "/api/sunday-school/feedback?status=ALL&sort=TOP",
+      ]);
     } catch (err) {
       if (id !== refreshId.current) return;
       // Do not leave previously visible classes on screen after access changes.
@@ -132,6 +145,7 @@ export function PortalProvider({ children }: PropsWithChildren) {
     void refresh();
     return () => {
       sequence.current++;
+      clearResourceCache();
     };
   }, [refresh]);
 
@@ -207,6 +221,7 @@ export function PortalProvider({ children }: PropsWithChildren) {
         })),
       }),
     );
+    invalidateResourceCache();
     const confirmed = await loadAttendance(classId, date);
     setDrafts((previous) => {
       const next = { ...previous };

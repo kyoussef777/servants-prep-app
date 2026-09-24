@@ -70,10 +70,10 @@ export function ResourceState({ loading, error, retry, empty }: { loading: boole
   if (error) return <Card><Copy>{error}</Copy><Button label="Try again" onPress={retry} /></Card>;
   return empty ? <Card><Copy>No records found.</Copy></Card> : null;
 }
-export function Page({ title, children, loading = false, error, refresh }: {
-  title: string; children: ReactNode; loading?: boolean; error?: string; refresh?: () => void;
+export function Page({ title, children, loading = false, refreshing = false, error, refresh }: {
+  title: string; children: ReactNode; loading?: boolean; refreshing?: boolean; error?: string; refresh?: () => void;
 }) {
-  return <><Stack.Screen options={{ title }} /><Screen refreshing={loading} onRefresh={refresh}>
+  return <><Stack.Screen options={{ title }} /><Screen refreshing={loading || refreshing} onRefresh={refresh}>
     <ResourceState loading={loading} error={error} retry={() => refresh?.()} />{children}
   </Screen></>;
 }
