@@ -68,8 +68,8 @@ export default function SignIn() {
           </Card>
         ) : (
           <>
-            <Copy kind="title">Welcome back.</Copy>
-            <Copy>Sign in with your ministry account.</Copy>
+            <Copy kind="title">Sign in</Copy>
+            <Copy>Use your ministry account.</Copy>
             <Card>
               <Copy kind="caption">Email</Copy>
               <TextInput

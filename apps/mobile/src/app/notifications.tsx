@@ -39,13 +39,9 @@ export default function Notifications() {
       <Screen refreshing={loading} onRefresh={() => void refresh()}>
         <ConnectionBadge />
         <DataStatus />
-        <Copy kind="title">In the loop.</Copy>
-        <Copy color={colors.muted}>
-          A little reminder for your week of service.
-        </Copy>
         {!loading && !error && !notifications.length && (
           <Card>
-            <Copy>You're all caught up.</Copy>
+            <Copy>No notifications.</Copy>
           </Card>
         )}
         {notifications.map((item) => (
@@ -81,9 +77,6 @@ export default function Notifications() {
             </Copy>
           </Card>
         ))}
-        <Copy kind="caption">
-          Device push notifications will be connected in a later milestone.
-        </Copy>
       </Screen>
     </>
   );

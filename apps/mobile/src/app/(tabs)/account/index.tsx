@@ -39,7 +39,7 @@ export default function Account() {
             </View>
           </View>
         </Card>
-        <SectionTitle title="Appearance" subtitle="Make yourself at home." />
+        <SectionTitle title="Appearance" />
         <Button secondary label="Edit profile & security" onPress={() => router.push("/profile")} />
         <Card>
           <View
@@ -79,7 +79,7 @@ export default function Account() {
         <Card>
           <RowLink
             title="Notifications"
-            subtitle="Your ministry updates"
+            subtitle="View notification history"
             icon={<Icon ios="bell" android="notifications" />}
             onPress={() => router.push("/notifications")}
           />

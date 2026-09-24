@@ -12,7 +12,7 @@ export default function Ministry() {
   const access = ministryAccess(resource.data, classes);
   const link = (title: string, subtitle: string, href: Href) => <RowLink key={title} title={title} subtitle={subtitle} onPress={() => router.push(href)} />;
   return <Page title="Ministry" {...resource}>
-    <Copy kind="title">Your Sunday School</Copy>
+    <Copy kind="title">Sunday School management</Copy>
     {resource.data && <><Card>
       {link("Children & families", "Roster, child profiles, family details, and history", "/roster")}
       {link("Visitations", "Pastoral visits and confidential notes", "/visitations")}

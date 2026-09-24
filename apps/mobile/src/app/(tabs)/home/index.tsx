@@ -75,12 +75,9 @@ export default function Home() {
           <ConnectionBadge />
         </View>
         <View style={{ gap: 10 }}>
-          <Copy kind="eyebrow">Welcome to your ministry</Copy>
-          <Copy kind="title">
-            A little preparation.{"\n"}A lasting difference.
-          </Copy>
+          <Copy kind="title">Overview</Copy>
           <Copy color={colors.muted}>
-            Your classes, lessons, and moments of service, all in one place.
+            Classes, attendance, and upcoming lessons.
           </Copy>
         </View>
         <DataStatus />
@@ -115,8 +112,8 @@ export default function Home() {
             </Copy>
             <Copy color="#FCE7EB">
               {pending.length
-                ? `Attendance is waiting for ${pending.length} ${pending.length === 1 ? "class" : "classes"}. Start with ${nextClass.name}.`
-                : "Open your class to review its roster and attendance."}
+                ? `${pending.length} ${pending.length === 1 ? "class needs" : "classes need"} attendance. Next: ${nextClass.name}.`
+                : "Attendance is recorded for all assigned classes."}
             </Copy>
             <Pressable
               accessibilityRole="button"
@@ -163,10 +160,7 @@ export default function Home() {
             <Copy kind="caption">Children enrolled</Copy>
           </Card>
         </View>
-        <SectionTitle
-          title="Prepare for class"
-          subtitle="A meaningful lesson starts with you."
-        />
+        <SectionTitle title="Upcoming lessons" />
         <Card>
           {!loading && !lessons.length && <Copy>No upcoming lessons.</Copy>}
           {lessons.slice(0, 4).map((lesson) => (
@@ -185,13 +179,10 @@ export default function Home() {
           ))}
         </Card>
         <Button
-          label="View my classes"
+          label="Classes"
           secondary
           onPress={() => router.navigate("/(tabs)/classes")}
         />
-        <Copy kind="caption" style={{ textAlign: "center" }}>
-          “Let all that you do be done with love.”{"\n"}1 Corinthians 16:14
-        </Copy>
       </Screen>
     </>
   );

@@ -40,20 +40,10 @@ export default function Classes() {
             <Copy>No assigned classes yet.</Copy>
           </Card>
         )}
-        {!onlyClass && classes.length > 1 && (
-          <View style={{ gap: 8 }}>
-            <Copy kind="title">
-              Small communities.{"\n"}Growing together.
-            </Copy>
-            <Copy color={colors.muted}>
-              The classes connected to your ministry.
-            </Copy>
-          </View>
-        )}
         {onlyClass ? (
           <>
             <View style={{ gap: 8 }}>
-              <Copy kind="eyebrow">Your class</Copy>
+              <Copy kind="eyebrow">Assigned class</Copy>
               <Copy kind="title">{onlyClass.name}</Copy>
               <Copy color={colors.muted}>
                 {getLevelDisplayName(onlyClass.level)} ·{" "}
@@ -132,7 +122,6 @@ export default function Classes() {
                 }
               />
             </Card>
-            <Copy kind="caption">Your current ministry assignment.</Copy>
           </>
         ) : classes.length > 1 ? classes.map((cls) => {
           const saved = attendance[attendanceKey(cls.id, meetingDate(cls))];
@@ -203,11 +192,6 @@ export default function Classes() {
             </Card>
           );
         }) : null}
-        {!onlyClass && classes.length > 1 && (
-          <Copy kind="caption">
-            Class access follows your current ministry assignments.
-          </Copy>
-        )}
       </Screen>
     </>
   );
