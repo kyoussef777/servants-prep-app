@@ -1,3 +1,6 @@
+import type { Prisma } from '@prisma/client'
+import { normalizeOptionalEmail } from './email'
+
 export interface SundaySchoolFamilyDetails {
   name: string | null
   homeAddress: string | null
@@ -43,7 +46,11 @@ export function normalizeSundaySchoolFamilyDetails(
   return Object.fromEntries(
     FAMILY_DETAIL_KEYS.map((key) => [
       key,
-      typeof input[key] === 'string' ? input[key].trim() || null : null,
+      key === 'motherEmail' || key === 'fatherEmail'
+        ? normalizeOptionalEmail(input[key])
+        : typeof input[key] === 'string'
+          ? input[key].trim() || null
+          : null,
     ])
   ) as unknown as SundaySchoolFamilyDetails
 }
@@ -51,4 +58,3 @@ export function normalizeSundaySchoolFamilyDetails(
 export function hasSundaySchoolFamilyDetails(details: SundaySchoolFamilyDetails | null) {
   return Boolean(details && Object.values(details).some(Boolean))
 }
-import type { Prisma } from '@prisma/client'

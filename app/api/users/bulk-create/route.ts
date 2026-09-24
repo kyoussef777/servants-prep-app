@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { backfillAttendanceForStudent } from "@/lib/api-utils"
+import { normalizeEmail } from "@/lib/email"
 
 // POST /api/users/bulk-create - Create multiple students at once (SUPER_ADMIN only)
 export async function POST(request: Request) {
@@ -60,7 +61,9 @@ export async function POST(request: Request) {
       }
 
       // Generate temp email if not provided (with unique timestamp per student)
-      const studentEmail = email || `temp_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}@temp.church.com`
+      const studentEmail = normalizeEmail(
+        email || `temp_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}@temp.church.com`
+      )
 
       studentsToProcess.push({
         name,

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { isInviteCodeValid } from '@/lib/registration-utils'
 import { StudentGrade, RegistrationStatus } from '@prisma/client'
 import { notifyNewRegistration } from '@/lib/notifications'
+import { normalizeEmail } from '@/lib/email'
 
 /**
  * POST /api/registration/submit
@@ -31,11 +32,13 @@ export async function POST(req: NextRequest) {
       mentorPhone,
       mentorEmail,
     } = body
+    const normalizedEmail = normalizeEmail(email)
+    const normalizedMentorEmail = normalizeEmail(mentorEmail)
 
     // Validate required fields
     if (
       !inviteCode ||
-      !email ||
+      !normalizedEmail ||
       !fullName ||
       !dateOfBirth ||
       !phone ||
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
       !profileImageFilename ||
       !mentorName ||
       !mentorPhone ||
-      !mentorEmail
+      !normalizedMentorEmail
     ) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail) || !emailRegex.test(normalizedMentorEmail)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
@@ -119,7 +122,7 @@ export async function POST(req: NextRequest) {
       // Check for duplicate pending/approved submission with same email
       const existingSubmission = await tx.registrationSubmission.findFirst({
         where: {
-          email: email.toLowerCase().trim(),
+          email: normalizedEmail,
           status: {
             in: [RegistrationStatus.PENDING, RegistrationStatus.APPROVED],
           },
@@ -134,7 +137,7 @@ export async function POST(req: NextRequest) {
 
       // Check if a user with this email already exists
       const existingUser = await tx.user.findUnique({
-        where: { email: email.toLowerCase().trim() },
+        where: { email: normalizedEmail },
       })
 
       if (existingUser) {
@@ -146,7 +149,7 @@ export async function POST(req: NextRequest) {
         data: {
           inviteCodeId: code.id,
           status: RegistrationStatus.PENDING,
-          email: email.toLowerCase().trim(),
+          email: normalizedEmail,
           fullName,
           dateOfBirth: new Date(dateOfBirth),
           phone,
@@ -162,7 +165,7 @@ export async function POST(req: NextRequest) {
           profileImageFilename,
           mentorName,
           mentorPhone,
-          mentorEmail,
+          mentorEmail: normalizedMentorEmail,
         },
       })
 

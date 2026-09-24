@@ -9,6 +9,7 @@ import type { JWT } from "next-auth/jwt"
 import { checkLoginRateLimit, resetLoginRateLimit } from "./rate-limit"
 import { seesAllSundaySchoolClasses } from "./roles"
 import { recordAuditEvent } from "./audit"
+import { normalizeEmail } from "./email"
 
 async function getUserSessionData(user: { id: string; role: UserRole }) {
   let isAsyncStudent = false
@@ -205,15 +206,17 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials")
         }
 
+        const normalizedEmail = normalizeEmail(credentials.email)
+
         // Rate limit check
-        const rateLimit = checkLoginRateLimit(credentials.email)
+        const rateLimit = checkLoginRateLimit(normalizedEmail)
         if (!rateLimit.allowed) {
           throw new Error(`Too many login attempts. Please try again in ${rateLimit.retryAfterSeconds} seconds.`)
         }
 
         const user = await prisma.user.findUnique({
           where: {
-            email: credentials.email
+            email: normalizedEmail
           },
           omit: { password: false }
         })
@@ -253,7 +256,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Successful login - reset rate limit
-        resetLoginRateLimit(credentials.email)
+        resetLoginRateLimit(normalizedEmail)
 
         const { isAsyncStudent, sundaySchool } = await getUserSessionData(user)
 
@@ -287,7 +290,7 @@ export const authOptions: NextAuthOptions = {
         if (!user.email) return false
 
         const existingUser = await prisma.user.findUnique({
-          where: { email: user.email }
+          where: { email: normalizeEmail(user.email) }
         })
 
         if (!existingUser || existingUser.isDisabled) {
@@ -335,7 +338,7 @@ export const authOptions: NextAuthOptions = {
       // Google sign-in: look up user from database
       if (account?.provider === "google" && user?.email) {
         const dbUser = await prisma.user.findUnique({
-          where: { email: user.email }
+          where: { email: normalizeEmail(user.email) }
         })
 
         if (dbUser) {
