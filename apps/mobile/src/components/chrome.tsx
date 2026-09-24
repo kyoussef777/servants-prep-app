@@ -19,6 +19,7 @@ export function SectionStack() {
     <Stack
       screenOptions={{
         headerTintColor: colors.primary,
+        headerBackButtonDisplayMode: "minimal",
         contentStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
         headerLargeTitle: Platform.OS === "ios",

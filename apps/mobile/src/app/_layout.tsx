@@ -35,11 +35,12 @@ function Navigation() {
       <Stack
         screenOptions={{
           headerTintColor: colors.primary,
+          headerBackButtonDisplayMode: "minimal",
           contentStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "" }} />
         <Stack.Screen
           name="attendance/[classId]"
           options={{ title: "Take attendance" }}
