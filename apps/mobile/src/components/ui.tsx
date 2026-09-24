@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import {
   Image,
   Pressable,
@@ -111,23 +111,12 @@ export function CopyableValue({
   kind?: "body" | "caption";
 }) {
   const { colors } = useAppTheme();
-  const [copied, setCopied] = useState(false);
-  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-  }, []);
-  const copy = async () => {
-    await Clipboard.setStringAsync(value);
-    setCopied(true);
-    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = setTimeout(() => setCopied(false), 1400);
-  };
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Copy ${label}`}
       accessibilityHint={value}
-      onPress={() => void copy()}
+      onPress={() => void Clipboard.setStringAsync(value)}
       style={({ pressed }) => [
         styles.copyable,
         {
@@ -136,20 +125,9 @@ export function CopyableValue({
         },
       ]}
     >
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ gap: 2 }}>
         <Copy kind="caption">{label}</Copy>
         <Copy kind={kind}>{value}</Copy>
-      </View>
-      <View style={[styles.pill, { backgroundColor: colors.primarySoft }]}>
-        <Icon
-          ios={copied ? "checkmark" : "doc.on.doc"}
-          android={copied ? "check" : "content_copy"}
-          size={14}
-          color={colors.primary}
-        />
-        <Copy kind="caption" color={colors.primary}>
-          {copied ? "Copied" : "Copy"}
-        </Copy>
       </View>
     </Pressable>
   );
@@ -381,9 +359,6 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   copyable: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
     minHeight: 48,
     marginHorizontal: -8,
     paddingHorizontal: 8,
