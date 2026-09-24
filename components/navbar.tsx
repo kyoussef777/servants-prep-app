@@ -44,6 +44,7 @@ export function Navbar() {
   }
 
   const userInitials = getPersonInitials(session.user.name)
+  const showIdentityText = (session.user.name?.trim().length ?? 0) <= 24
 
   const isActive = (path: string) => {
     // Exact match for the path
@@ -263,7 +264,7 @@ export function Navbar() {
 
   return (
     <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50">
-      <div className="mx-auto max-w-[96rem] px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-2">
           {/* Left side - Logo/Title */}
           <div className="flex min-w-0 flex-1 items-center gap-8 overflow-hidden">
@@ -420,7 +421,7 @@ export function Navbar() {
               )}
             </Button>
 
-            <div className="hidden min-w-0 max-w-40 shrink flex-col items-end 2xl:flex">
+            <div className={showIdentityText ? 'hidden min-w-0 max-w-40 shrink flex-col items-end 2xl:flex' : 'hidden'}>
               <span
                 className="max-w-full truncate text-sm font-medium text-gray-900 dark:text-white"
                 title={session.user.name ?? undefined}
