@@ -16,6 +16,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/sunday-school-access', () => ({
   getSundaySchoolAccess: mocks.getSundaySchoolAccess,
+  canViewServantAttendance: (access: {
+    isAdmin: boolean
+    readOnly: boolean
+    coordinatorClassIds: Set<string>
+  }, classId: string) =>
+    access.isAdmin || access.readOnly || access.coordinatorClassIds.has(classId),
   canTakeServantAttendance: (access: {
     isAdmin: boolean
     readOnly: boolean
@@ -130,11 +136,22 @@ describe('Sunday School servant attendance API', () => {
     expect(response.status).toBe(200)
   })
 
-  it.each([
-    ['priest', priestAccess],
-    ['ordinary servant', servantAccess],
-  ])('refuses a %s', async (_label, access) => {
-    mocks.getSundaySchoolAccess.mockResolvedValue(access)
+  it('allows a priest to load the roster in read-only mode', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'priest-1', role: 'PRIEST' })
+    mocks.getSundaySchoolAccess.mockResolvedValue(priestAccess)
+
+    const response = await GET(new Request(
+      'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2025-10-05'
+    ))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.canEdit).toBe(false)
+    expect(body.roster).toHaveLength(1)
+  })
+
+  it('refuses an ordinary servant', async () => {
+    mocks.getSundaySchoolAccess.mockResolvedValue(servantAccess)
 
     const response = await GET(new Request(
       'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2025-10-05'
@@ -142,6 +159,18 @@ describe('Sunday School servant attendance API', () => {
 
     expect(response.status).toBe(403)
     expect(mocks.assignmentFindMany).not.toHaveBeenCalled()
+  })
+
+  it('keeps priest access read-only at the write endpoint', async () => {
+    mocks.requireAuth.mockResolvedValue({ id: 'priest-1', role: 'PRIEST' })
+    mocks.getSundaySchoolAccess.mockResolvedValue(priestAccess)
+
+    const response = await POST(saveRequest([
+      { servantId: 'servant-1', status: SundaySchoolServantAttendanceStatus.PRESENT },
+    ]))
+
+    expect(response.status).toBe(403)
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
   it('rejects future dates and duplicate servants', async () => {

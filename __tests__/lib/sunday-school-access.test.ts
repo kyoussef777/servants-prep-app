@@ -32,6 +32,7 @@ import {
   canServeClass,
   canTakeServantAttendance,
   canViewClass,
+  canViewServantAttendance,
   canViewServantAttendanceReport,
   getSundaySchoolAccess,
   getChildRegistrationReviewerIds,
@@ -213,6 +214,7 @@ describe('Sunday School access predicates', () => {
     it('cannot coordinate it', () => {
       expect(canCoordinateClass(servantOfA, CLASS_A)).toBe(false)
       expect(canTakeServantAttendance(servantOfA, CLASS_A)).toBe(false)
+      expect(canViewServantAttendance(servantOfA, CLASS_A)).toBe(false)
       expect(canViewServantAttendanceReport(servantOfA)).toBe(false)
     })
 
@@ -239,6 +241,7 @@ describe('Sunday School access predicates', () => {
       expect(canServeClass(classCoordinator, CLASS_A)).toBe(true)
       expect(canCoordinateClass(classCoordinator, CLASS_A)).toBe(true)
       expect(canTakeServantAttendance(classCoordinator, CLASS_A)).toBe(true)
+      expect(canViewServantAttendance(classCoordinator, CLASS_A)).toBe(true)
       expect(canViewServantAttendanceReport(classCoordinator)).toBe(true)
       expect(canAssignWeeklyLessonOwner(classCoordinator, CLASS_A)).toBe(true)
       expect(canEditWeeklyLesson(classCoordinator, CLASS_A, null, 'coordinator-1')).toBe(true)
@@ -288,6 +291,7 @@ describe('Sunday School access predicates', () => {
       expect(canServeClass(superAdmin, 'any-class')).toBe(true)
       expect(canCoordinateClass(superAdmin, 'any-class')).toBe(true)
       expect(canTakeServantAttendance(superAdmin, 'any-class')).toBe(true)
+      expect(canViewServantAttendance(superAdmin, 'any-class')).toBe(true)
       expect(canViewServantAttendanceReport(superAdmin)).toBe(true)
       expect(canCreateClassAtLevel(superAdmin, 'PRE_K')).toBe(true)
       expect(canDeleteClass(superAdmin, 'GRADE_12')).toBe(true)
@@ -298,13 +302,14 @@ describe('Sunday School access predicates', () => {
   describe('PRIEST', () => {
     it('sees everything', () => {
       expect(canViewClass(priest, 'any-class')).toBe(true)
+      expect(canViewServantAttendance(priest, 'any-class')).toBe(true)
+      expect(canViewServantAttendanceReport(priest)).toBe(true)
     })
 
     it('writes nothing', () => {
       expect(canServeClass(priest, 'any-class')).toBe(false)
       expect(canCoordinateClass(priest, 'any-class')).toBe(false)
       expect(canTakeServantAttendance(priest, 'any-class')).toBe(false)
-      expect(canViewServantAttendanceReport(priest)).toBe(false)
       expect(canCreateClassAtLevel(priest, 'GRADE_3')).toBe(false)
       expect(canDeleteClass(priest, 'GRADE_3')).toBe(false)
       expect(canCoordinateAgeGroup(priest, HIGH_SCHOOL)).toBe(false)

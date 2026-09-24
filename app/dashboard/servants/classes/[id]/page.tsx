@@ -51,6 +51,7 @@ interface ClassDetail extends SundaySchoolClass {
   canCoordinate: boolean
   canDelete: boolean
   canTakeServantAttendance: boolean
+  canViewServantAttendance: boolean
 }
 
 export default function SundaySchoolClassDetailPage() {
@@ -250,7 +251,7 @@ export default function SundaySchoolClassDetailPage() {
                   </Link>
                 </Button>
               )}
-              {detail.canTakeServantAttendance && (
+              {detail.canViewServantAttendance && (
                 <Button asChild variant="outline">
                   <Link href={`/dashboard/servants/servant-attendance?classId=${detail.id}`}>
                     Servant attendance

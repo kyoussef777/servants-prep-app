@@ -8,6 +8,7 @@ import {
   canServeClass,
   canTakeServantAttendance,
   canViewClass,
+  canViewServantAttendance,
   getSundaySchoolAccess,
 } from "@/lib/sunday-school-access"
 import { isValidLevel } from "@/lib/sunday-school-class"
@@ -71,6 +72,7 @@ export async function GET(
       canCoordinate: canCoordinateClass(access, id),
       canServe: canServeClass(access, id),
       canTakeServantAttendance: canTakeServantAttendance(access, id),
+      canViewServantAttendance: canViewServantAttendance(access, id),
       canDelete: canDeleteClass(access, sundaySchoolClass.level),
     })
   } catch (error: unknown) {

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { UserRole } from '@prisma/client'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -42,5 +43,17 @@ describe('Navbar with long names', () => {
     expect(name.parentElement).not.toHaveClass('2xl:flex')
     expect(screen.getByText('DA')).toBeInTheDocument()
     expect(screen.queryByText('RFDA')).not.toBeInTheDocument()
+  })
+
+  it('offers priests the read-only servant attendance page in Sunday School mode', async () => {
+    const user = userEvent.setup()
+    render(<Navbar />)
+
+    await user.click(screen.getByRole('button', { name: /more/i }))
+
+    expect(await screen.findByRole('menuitem', { name: 'Servant attendance' })).toHaveAttribute(
+      'href',
+      '/dashboard/servants/servant-attendance'
+    )
   })
 })

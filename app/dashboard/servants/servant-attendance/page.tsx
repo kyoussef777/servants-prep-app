@@ -37,12 +37,16 @@ function ServantAttendanceContent() {
   const { session, status } = useSundaySchoolGuard()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const canOpenPage = session?.user?.sundaySchool?.isCoordinator ?? false
+  const canOpenPage = Boolean(
+    session?.user?.sundaySchool?.isCoordinator ||
+    session?.user?.role === 'PRIEST' ||
+    session?.user?.role === 'SUPER_ADMIN'
+  )
 
   const { data: classesData, isLoading: classesLoading } = useSundaySchoolClasses()
   const classes = useMemo(
     () => ((classesData as SundaySchoolClass[] | undefined) ?? []).filter(
-      cls => cls.isActive && cls.canTakeServantAttendance
+      cls => cls.isActive && cls.canViewServantAttendance
     ),
     [classesData]
   )
@@ -78,6 +82,7 @@ function ServantAttendanceContent() {
     canOpenPage ? sessionDate : undefined
   )
   const attendance = attendanceData as SundaySchoolServantAttendanceResponse | undefined
+  const canEdit = attendance?.canEdit ?? false
   const selectedClass = classes.find(cls => cls.id === selectedClassId)
   const selectedClassLevel = selectedClass?.level
 
@@ -100,10 +105,12 @@ function ServantAttendanceContent() {
 
   useEffect(() => {
     if (!attendance) return
-    setMarks(Object.fromEntries(attendance.roster.map(entry => [
-      entry.userId,
-      entry.attendance?.status ?? SundaySchoolServantAttendanceStatus.PRESENT,
-    ])))
+    setMarks(Object.fromEntries(attendance.roster.flatMap(entry => {
+      const status = entry.attendance?.status ?? (attendance.canEdit
+        ? SundaySchoolServantAttendanceStatus.PRESENT
+        : null)
+      return status ? [[entry.userId, status]] : []
+    })))
   }, [attendance])
 
   const presentCount = useMemo(
@@ -114,7 +121,7 @@ function ServantAttendanceContent() {
   )
 
   const handleSave = async () => {
-    if (!attendance || !selectedClassId) return
+    if (!attendance?.canEdit || !selectedClassId) return
 
     setSaving(true)
     try {
@@ -153,9 +160,11 @@ function ServantAttendanceContent() {
       <div className="mx-auto max-w-7xl space-y-6">
         <PageHeader
           title="Servant Attendance"
-          description="Record which servants attended each class week."
+          description={canEdit
+            ? 'Record which servants attended each class week.'
+            : 'View recorded servant attendance across Sunday School classes.'}
           lastSaved={lastSaved}
-          actions={attendance ? (
+          actions={attendance?.canEdit ? (
             <Button onClick={handleSave} disabled={saving || attendance.roster.length === 0}>
               <Save className="mr-1 h-4 w-4" />
               {saving ? 'Saving…' : 'Save'}
@@ -166,7 +175,7 @@ function ServantAttendanceContent() {
         {classes.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
-              <EmptyState message="You do not coordinate any active Sunday School classes." />
+              <EmptyState message="No active Sunday School classes are available." />
             </CardContent>
           </Card>
         ) : (
@@ -239,30 +248,44 @@ function ServantAttendanceContent() {
                               <Badge className="mt-1 bg-maroon-600">Coordinator</Badge>
                             )}
                           </div>
-                          <div className="flex gap-2" role="group" aria-label={`Attendance for ${entry.name}`}>
-                            <Button
-                              size="sm"
-                              variant={current === SundaySchoolServantAttendanceStatus.PRESENT ? 'default' : 'outline'}
-                              onClick={() => setMarks(previous => ({
-                                ...previous,
-                                [entry.userId]: SundaySchoolServantAttendanceStatus.PRESENT,
-                              }))}
-                              aria-pressed={current === SundaySchoolServantAttendanceStatus.PRESENT}
-                            >
-                              Present
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={current === SundaySchoolServantAttendanceStatus.ABSENT ? 'destructive' : 'outline'}
-                              onClick={() => setMarks(previous => ({
-                                ...previous,
-                                [entry.userId]: SundaySchoolServantAttendanceStatus.ABSENT,
-                              }))}
-                              aria-pressed={current === SundaySchoolServantAttendanceStatus.ABSENT}
-                            >
-                              Absent
-                            </Button>
-                          </div>
+                          {canEdit ? (
+                            <div className="flex gap-2" role="group" aria-label={`Attendance for ${entry.name}`}>
+                              <Button
+                                size="sm"
+                                variant={current === SundaySchoolServantAttendanceStatus.PRESENT ? 'default' : 'outline'}
+                                onClick={() => setMarks(previous => ({
+                                  ...previous,
+                                  [entry.userId]: SundaySchoolServantAttendanceStatus.PRESENT,
+                                }))}
+                                aria-pressed={current === SundaySchoolServantAttendanceStatus.PRESENT}
+                              >
+                                Present
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={current === SundaySchoolServantAttendanceStatus.ABSENT ? 'destructive' : 'outline'}
+                                onClick={() => setMarks(previous => ({
+                                  ...previous,
+                                  [entry.userId]: SundaySchoolServantAttendanceStatus.ABSENT,
+                                }))}
+                                aria-pressed={current === SundaySchoolServantAttendanceStatus.ABSENT}
+                              >
+                                Absent
+                              </Button>
+                            </div>
+                          ) : (
+                            <Badge variant={entry.attendance?.status === SundaySchoolServantAttendanceStatus.PRESENT
+                              ? 'default'
+                              : entry.attendance?.status === SundaySchoolServantAttendanceStatus.ABSENT
+                                ? 'destructive'
+                                : 'outline'}>
+                              {entry.attendance?.status === SundaySchoolServantAttendanceStatus.PRESENT
+                                ? 'Present'
+                                : entry.attendance?.status === SundaySchoolServantAttendanceStatus.ABSENT
+                                  ? 'Absent'
+                                  : 'Not recorded'}
+                            </Badge>
+                          )}
                         </div>
                       )
                     })}
