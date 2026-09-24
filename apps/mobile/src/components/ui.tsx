@@ -1,5 +1,6 @@
-import type { PropsWithChildren } from "react";
+import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import {
+  Animated,
   Image,
   Pressable,
   RefreshControl,
@@ -111,12 +112,41 @@ export function CopyableValue({
   kind?: "body" | "caption";
 }) {
   const { colors } = useAppTheme();
+  const [copied, setCopied] = useState(false);
+  const opacity = useRef(new Animated.Value(1)).current;
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    opacity.stopAnimation();
+  }, [opacity]);
+  const transition = (next: boolean) => {
+    opacity.stopAnimation();
+    Animated.timing(opacity, {
+      toValue: 0,
+      duration: 90,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished) return;
+      setCopied(next);
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+  const copy = async () => {
+    await Clipboard.setStringAsync(value);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    transition(true);
+    resetTimer.current = setTimeout(() => transition(false), 1100);
+  };
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Copy ${label}`}
       accessibilityHint={value}
-      onPress={() => void Clipboard.setStringAsync(value)}
+      onPress={() => void copy()}
       style={({ pressed }) => [
         styles.copyable,
         {
@@ -127,7 +157,27 @@ export function CopyableValue({
     >
       <View style={{ gap: 2 }}>
         <Copy kind="caption">{label}</Copy>
-        <Copy kind={kind}>{value}</Copy>
+        <View>
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <Copy kind={kind} style={{ opacity: 0 }}>
+              {value}
+            </Copy>
+          </View>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              { position: "absolute", inset: 0 },
+              { opacity },
+            ]}
+          >
+            <Copy kind={kind} color={copied ? colors.success : undefined}>
+              {copied ? "Copied" : value}
+            </Copy>
+          </Animated.View>
+        </View>
       </View>
     </Pressable>
   );
