@@ -7,6 +7,15 @@ const mocks = vi.hoisted(() => ({
   findFirstClass: vi.fn(),
   createClass: vi.fn(),
   updateClass: vi.fn(),
+  deleteClass: vi.fn(),
+  deletePriestNotes: vi.fn(),
+  deleteVisitations: vi.fn(),
+  updateVisitations: vi.fn(),
+  deleteSessions: vi.fn(),
+  updateChildAttendance: vi.fn(),
+  deletePlacements: vi.fn(),
+  deleteAssignments: vi.fn(),
+  deleteRosterImports: vi.fn(),
   transaction: vi.fn(),
   findAcademicYear: vi.fn(),
   findSundaySchoolYear: vi.fn(),
@@ -39,12 +48,13 @@ vi.mock('@/lib/prisma', () => ({
     sundaySchoolClass: {
       findUnique: mocks.findClass,
       findFirst: mocks.findFirstClass,
+      delete: mocks.deleteClass,
     },
     $transaction: mocks.transaction,
   },
 }))
 
-import { GET, PATCH } from '@/app/api/sunday-school/classes/[id]/route'
+import { DELETE, GET, PATCH } from '@/app/api/sunday-school/classes/[id]/route'
 import { POST } from '@/app/api/sunday-school/classes/route'
 
 describe('Sunday School class detail API', () => {
@@ -79,11 +89,31 @@ describe('Sunday School class detail API', () => {
       assignments: [],
       _count: { children: 0, sessions: 0 },
     })
+    mocks.deleteClass.mockResolvedValue({ id: 'class-1' })
+    mocks.deletePriestNotes.mockResolvedValue({ count: 0 })
+    mocks.deleteVisitations.mockResolvedValue({ count: 0 })
+    mocks.updateVisitations.mockResolvedValue({ count: 0 })
+    mocks.deleteSessions.mockResolvedValue({ count: 0 })
+    mocks.updateChildAttendance.mockResolvedValue({ count: 0 })
+    mocks.deletePlacements.mockResolvedValue({ count: 0 })
+    mocks.deleteAssignments.mockResolvedValue({ count: 0 })
+    mocks.deleteRosterImports.mockResolvedValue({ count: 0 })
     mocks.transaction.mockImplementation(async callback => callback({
       sundaySchoolClass: {
         create: mocks.createClass,
         update: mocks.updateClass,
+        delete: mocks.deleteClass,
       },
+      sundaySchoolPriestNote: { deleteMany: mocks.deletePriestNotes },
+      sundaySchoolVisitation: {
+        deleteMany: mocks.deleteVisitations,
+        updateMany: mocks.updateVisitations,
+      },
+      sundaySchoolSession: { deleteMany: mocks.deleteSessions },
+      sundaySchoolChildAttendance: { updateMany: mocks.updateChildAttendance },
+      sundaySchoolClassPlacement: { deleteMany: mocks.deletePlacements },
+      sundaySchoolServantAssignment: { deleteMany: mocks.deleteAssignments },
+      sundaySchoolRosterImport: { deleteMany: mocks.deleteRosterImports },
     }))
     mocks.findClass.mockResolvedValue({
       id: 'class-1',
@@ -197,5 +227,42 @@ describe('Sunday School class detail API', () => {
       error: 'A class with this name already exists for that academic year',
     })
     expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('permanently deletes a class and its class-specific history', async () => {
+    mocks.canDeleteClass.mockReturnValue(true)
+
+    const response = await DELETE(
+      new Request('http://localhost/api/sunday-school/classes/class-1', {
+        method: 'DELETE',
+      }),
+      { params: Promise.resolve({ id: 'class-1' }) }
+    )
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ success: true, action: 'deleted' })
+    expect(mocks.deletePriestNotes).toHaveBeenCalledWith({
+      where: { visitation: { classId: 'class-1' } },
+    })
+    expect(mocks.deleteSessions).toHaveBeenCalledWith({ where: { classId: 'class-1' } })
+    expect(mocks.deletePlacements).toHaveBeenCalledWith({ where: { classId: 'class-1' } })
+    expect(mocks.deleteAssignments).toHaveBeenCalledWith({ where: { classId: 'class-1' } })
+    expect(mocks.deleteRosterImports).toHaveBeenCalledWith({ where: { classId: 'class-1' } })
+    expect(mocks.deleteClass).toHaveBeenCalledWith({ where: { id: 'class-1' } })
+  })
+
+  it('does not delete a class without age-group delete authority', async () => {
+    mocks.canDeleteClass.mockReturnValue(false)
+
+    const response = await DELETE(
+      new Request('http://localhost/api/sunday-school/classes/class-1', {
+        method: 'DELETE',
+      }),
+      { params: Promise.resolve({ id: 'class-1' }) }
+    )
+
+    expect(response.status).toBe(403)
+    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(mocks.deleteClass).not.toHaveBeenCalled()
   })
 })
