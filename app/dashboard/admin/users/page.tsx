@@ -580,7 +580,7 @@ export default function UsersPage() {
                 <Input
                   id="search"
                   type="text"
-                  placeholder="Search by name..."
+                  placeholder="Search by name, email, or phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full"
