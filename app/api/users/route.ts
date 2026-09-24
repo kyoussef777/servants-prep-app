@@ -116,12 +116,20 @@ export async function GET(request: Request) {
             }
           }
         },
+        sundaySchoolServing: {
+          where: {
+            academicYear: { isActive: true },
+            endedAt: null,
+          },
+          select: {
+            class: { select: { level: true } },
+            ageGroup: { select: { levels: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
         _count: {
           select: {
             mentoredStudents: true,
-            sundaySchoolServing: {
-              where: { academicYear: { isActive: true } }
-            }
           }
         }
       },

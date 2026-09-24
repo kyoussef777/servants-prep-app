@@ -23,11 +23,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { canManageAllUsers, getRoleDisplayName } from '@/lib/roles'
 import { RoleTag, UserRole } from '@prisma/client'
 import { toast } from 'sonner'
-import { Camera, Check, Trash2, Pencil, X } from 'lucide-react'
+import { Camera, Trash2, Pencil, X } from 'lucide-react'
 import { ImageCropDialog } from '@/components/image-crop-dialog'
 import { PageLoading } from '@/components/ui/page-loading'
 import { UserRoleTagEditor } from '@/components/user-role-tag-editor'
 import { UserRoleTagBadges } from '@/components/user-role-tag-badges'
+import { getLevelDisplayName } from '@/lib/sunday-school-class'
+import {
+  getSundaySchoolAssignmentLevels,
+  type SundaySchoolAssignmentSummary,
+} from '@/lib/sunday-school-user-assignments'
 
 interface User {
   id: string
@@ -37,10 +42,10 @@ interface User {
   profileImageUrl?: string | null
   role: UserRole
   roleAssignments?: { tag: RoleTag }[]
+  sundaySchoolServing?: SundaySchoolAssignmentSummary[]
   isDisabled?: boolean
   _count?: {
     mentoredStudents: number
-    sundaySchoolServing: number
   }
 }
 
@@ -701,6 +706,7 @@ export default function UsersPage() {
                     <th className="text-left p-2">Email</th>
                     <th className="text-left p-2">Phone</th>
                     <th className="text-center p-2 min-w-52">Access tags</th>
+                    <th className="text-center p-2 min-w-52">Sunday School grades</th>
                     <th className="text-center p-2 w-24">Status</th>
                     <th className="text-center p-2 w-24">Mentees</th>
                     <th className="text-center p-2 w-32">Actions</th>
@@ -711,6 +717,7 @@ export default function UsersPage() {
                     const isCurrentUser = user.id === session?.user?.id
                     const canSelect = user.role !== 'SUPER_ADMIN' && !isCurrentUser
                     const isEditing = editingUser?.id === user.id
+                    const sundaySchoolLevels = getSundaySchoolAssignmentLevels(user.sundaySchoolServing)
 
                     return (
                       <React.Fragment key={user.id}>
@@ -759,17 +766,23 @@ export default function UsersPage() {
                           <td className="p-2 text-gray-600">{user.email}</td>
                           <td className="p-2 text-gray-600">{user.phone || '-'}</td>
                           <td className="p-2 text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <UserRoleTagBadges
-                                tags={user.roleAssignments?.map((assignment) => assignment.tag) ?? []}
-                                legacyRole={user.role}
-                              />
-                              {(user._count?.sundaySchoolServing ?? 0) > 0 && (
-                                <Badge variant="outline" className="gap-1 border-blue-300 text-blue-700">
-                                  <Check className="h-3 w-3" /> Assigned to Sunday School
-                                </Badge>
-                              )}
-                            </div>
+                            <UserRoleTagBadges
+                              tags={user.roleAssignments?.map((assignment) => assignment.tag) ?? []}
+                              legacyRole={user.role}
+                            />
+                          </td>
+                          <td className="p-2 text-center">
+                            {sundaySchoolLevels.length > 0 ? (
+                              <div className="flex flex-wrap justify-center gap-1">
+                                {sundaySchoolLevels.map(level => (
+                                  <Badge key={level} variant="outline" className="border-blue-300 text-blue-700">
+                                    {getLevelDisplayName(level)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
                           </td>
                           <td className="p-2 text-center">
                             {user.isDisabled ? (
@@ -807,7 +820,7 @@ export default function UsersPage() {
                         {/* Inline Edit Form - Desktop */}
                         {isEditing && (
                           <tr>
-                            <td colSpan={isSuperAdmin ? 9 : 8} className="p-0">
+                            <td colSpan={isSuperAdmin ? 10 : 9} className="p-0">
                               <div ref={editFormRef} className="bg-blue-50/50 dark:bg-blue-950/10 border-b-2 border-blue-200 dark:border-blue-800 px-4 py-4">
                                 <form onSubmit={handleUpdateUser} className="space-y-3">
                                   {formError && (
@@ -917,6 +930,7 @@ export default function UsersPage() {
                 const isCurrentUser = user.id === session?.user?.id
                 const canSelect = user.role !== 'SUPER_ADMIN' && !isCurrentUser
                 const isEditing = editingUser?.id === user.id
+                const sundaySchoolLevels = getSundaySchoolAssignmentLevels(user.sundaySchoolServing)
 
                 return (
                   <div key={user.id}>
@@ -951,16 +965,16 @@ export default function UsersPage() {
                             tags={user.roleAssignments?.map((assignment) => assignment.tag) ?? []}
                             legacyRole={user.role}
                           />
-                          {(user._count?.sundaySchoolServing ?? 0) > 0 && (
-                            <Badge variant="outline" className="gap-0.5 border-blue-300 px-1 py-0 text-[10px] text-blue-700">
-                              <Check className="h-2.5 w-2.5" /> Assigned
-                            </Badge>
-                          )}
                           {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && user._count?.mentoredStudents ? (
                             <span className="text-[10px] text-gray-500">({user._count.mentoredStudents})</span>
                           ) : null}
                         </div>
                         <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                        {sundaySchoolLevels.length > 0 && (
+                          <div className="mt-0.5 text-[11px] text-blue-700">
+                            Sunday School: {sundaySchoolLevels.map(getLevelDisplayName).join(', ')}
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-1 shrink-0">
                         {isEditing ? (
