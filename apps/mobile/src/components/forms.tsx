@@ -32,8 +32,8 @@ export type Option = { value: string; label: string };
 export function Toggle({ label, value, onChange, disabled = false }: { label: string; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
   return <View style={{ flexDirection: "row", gap: 14, alignItems: "center", justifyContent: "space-between" }}><Copy style={{ flex: 1 }}>{label}</Copy><Switch accessibilityLabel={label} value={value} onValueChange={onChange} disabled={disabled} /></View>;
 }
-export function Choice({ label, value, options, onChange, disabled = false }: {
-  label: string; value: string; options: Option[]; onChange: (value: string) => void; disabled?: boolean;
+export function Choice({ label, value, options, onChange, disabled = false, compact = false }: {
+  label: string; value: string; options: Option[]; onChange: (value: string) => void; disabled?: boolean; compact?: boolean;
 }) {
   const { colors } = useAppTheme();
   const selectedLabel = options.find(option => option.value === value)?.label ?? "Choose…";
@@ -48,7 +48,11 @@ export function Choice({ label, value, options, onChange, disabled = false }: {
     accessibilityLabel={`${label}: ${selectedLabel}`}
     accessibilityHint="Opens a menu"
     accessibilityState={{ disabled: unavailable }}
-    style={{ width: "100%", opacity: unavailable ? 0.45 : 1 }}
+    style={{
+      width: compact ? undefined : "100%",
+      minWidth: compact ? 170 : undefined,
+      opacity: unavailable ? 0.45 : 1,
+    }}
   ><GlassChrome interactive={!unavailable} style={{ borderRadius: 16 }}><View style={{
     minHeight: 52, paddingHorizontal: 20, paddingVertical: 14, flexDirection: "row",
     alignItems: "center", justifyContent: "space-between", gap: 12,
@@ -56,11 +60,11 @@ export function Choice({ label, value, options, onChange, disabled = false }: {
     <Icon ios="chevron.up.chevron.down" android="unfold_more" size={15} color={colors.primary} />
   </View></GlassChrome></View>;
 
-  return <View style={{ gap: 7 }}><Copy kind="caption">{label}</Copy>
+  return <View style={{ gap: 7, alignSelf: compact ? "flex-start" : "stretch" }}><Copy kind="caption">{label}</Copy>
     {unavailable ? trigger : <MenuView
       title={label}
       actions={actions}
-      style={{ alignSelf: "stretch" }}
+      style={{ alignSelf: compact ? "flex-start" : "stretch" }}
       onPressAction={({ nativeEvent }) => onChange(nativeEvent.event)}
     >{trigger}</MenuView>}
   </View>;
