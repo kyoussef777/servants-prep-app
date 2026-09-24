@@ -44,6 +44,12 @@ origin and run `bun run mobile:android`. Physical devices need the computer's
 LAN address and a server listening on that interface. Release builds require
 an explicitly configured HTTPS API origin.
 
+The EAS `beta` and `production` profiles use
+`https://servants-prep-app.vercel.app`. This is the public production web/API
+origin; database credentials remain on the server and are never bundled into
+the app. The `beta` profile creates a directly installable internal build, while
+the `production` profile is reserved for App Store Connect/TestFlight.
+
 The IPv4 option above avoids a localhost mismatch on systems where Node binds
 to `::1` while Expo sends the simulator to `127.0.0.1`.
 
