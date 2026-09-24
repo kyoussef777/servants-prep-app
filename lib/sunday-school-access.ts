@@ -222,10 +222,20 @@ export function canTakeServantAttendance(
   return canCoordinateClass(access, classId)
 }
 
+/** Can view servant attendance for this class without necessarily editing it. */
+export function canViewServantAttendance(
+  access: SundaySchoolAccess,
+  classId: string
+): boolean {
+  if (access.isAdmin) return true
+  if (access.readOnly) return canViewClass(access, classId)
+  return access.coordinatorClassIds.has(classId)
+}
+
 /** Can request servant-attendance reporting for at least one class. */
 export function canViewServantAttendanceReport(access: SundaySchoolAccess): boolean {
   if (access.isAdmin) return true
-  if (access.readOnly) return false
+  if (access.readOnly) return access.canRead
   return access.coordinatorClassIds.size > 0
 }
 

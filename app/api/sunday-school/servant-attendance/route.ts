@@ -2,7 +2,11 @@ import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { prisma } from "@/lib/prisma"
-import { canTakeServantAttendance, getSundaySchoolAccess } from "@/lib/sunday-school-access"
+import {
+  canTakeServantAttendance,
+  canViewServantAttendance,
+  getSundaySchoolAccess,
+} from "@/lib/sunday-school-access"
 import { normalizeSessionDate } from "@/lib/sunday-school-class"
 
 // GET /api/sunday-school/servant-attendance?classId=xxx&date=YYYY-MM-DD
@@ -37,7 +41,7 @@ export async function GET(request: Request) {
     }
 
     const access = await getSundaySchoolAccess(user, sundaySchoolClass.academicYearId)
-    if (!canTakeServantAttendance(access, classId)) {
+    if (!canViewServantAttendance(access, classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -85,7 +89,7 @@ export async function GET(request: Request) {
       class: sundaySchoolClass,
       session,
       roster,
-      canEdit: true,
+      canEdit: canTakeServantAttendance(access, classId),
     })
   } catch (error: unknown) {
     return handleApiError(error)

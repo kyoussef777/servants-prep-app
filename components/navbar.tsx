@@ -201,7 +201,7 @@ export function Navbar() {
         { href: '/dashboard/servants/feedback', label: 'Feedback' },
       ]
 
-      if (session.user.sundaySchool?.isCoordinator) {
+      if (session.user.sundaySchool?.isCoordinator || role === 'PRIEST' || role === 'SUPER_ADMIN') {
         more.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
       }
 

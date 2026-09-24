@@ -5,6 +5,7 @@ import { handleApiError } from "@/lib/api-utils"
 import {
   canCreateClassAtLevel,
   canTakeServantAttendance,
+  canViewServantAttendance,
   getSundaySchoolAccess,
   visibleClassFilter,
 } from "@/lib/sunday-school-access"
@@ -67,6 +68,7 @@ export async function GET(request: Request) {
         ...cls,
         canCoordinate: access.isAdmin || access.coordinatorClassIds.has(cls.id),
         canTakeServantAttendance: canTakeServantAttendance(access, cls.id),
+        canViewServantAttendance: canViewServantAttendance(access, cls.id),
         canServe:
           access.isAdmin ||
           (!access.readOnly &&

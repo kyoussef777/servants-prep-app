@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   canCoordinateClass: vi.fn(),
   canServeClass: vi.fn(),
   canTakeServantAttendance: vi.fn(),
+  canViewServantAttendance: vi.fn(),
   canDeleteClass: vi.fn(),
 }))
 
@@ -35,6 +36,7 @@ vi.mock('@/lib/sunday-school-access', () => ({
   canCoordinateClass: mocks.canCoordinateClass,
   canServeClass: mocks.canServeClass,
   canTakeServantAttendance: mocks.canTakeServantAttendance,
+  canViewServantAttendance: mocks.canViewServantAttendance,
   canDeleteClass: mocks.canDeleteClass,
   canCreateClassAtLevel: mocks.canCreateClassAtLevel,
 }))
@@ -66,6 +68,7 @@ describe('Sunday School class detail API', () => {
     mocks.canCoordinateClass.mockReturnValue(true)
     mocks.canServeClass.mockReturnValue(true)
     mocks.canTakeServantAttendance.mockReturnValue(true)
+    mocks.canViewServantAttendance.mockReturnValue(true)
     mocks.canDeleteClass.mockReturnValue(false)
     mocks.canCreateClassAtLevel.mockReturnValue(true)
     mocks.findFirstClass.mockResolvedValue(null)
