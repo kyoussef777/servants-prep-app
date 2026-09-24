@@ -144,7 +144,11 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: glass ? "transparent" : secondary ? colors.primarySoft : colors.primary,
+          backgroundColor: glass
+            ? "transparent"
+            : secondary
+              ? colors.primarySoft
+              : colors.action,
           opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
         },
       ]}
@@ -152,7 +156,7 @@ export function Button({
       <Text
         style={[
           styles.buttonLabel,
-          { color: glass || secondary ? colors.primary : colors.onHero },
+          { color: glass || secondary ? colors.primary : colors.onAction },
         ]}
       >
         {label}

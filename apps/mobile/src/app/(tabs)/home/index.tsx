@@ -61,7 +61,7 @@ export default function Home() {
                     position: "absolute",
                     top: 8,
                     right: 9,
-                    backgroundColor: colors.primary,
+                    backgroundColor: colors.action,
                   }}
                 />
               )}

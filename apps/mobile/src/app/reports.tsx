@@ -25,7 +25,7 @@ export default function Reports() {
         {!dashboard.attendanceTrend.points.length && <Copy>No meeting dates in this range.</Copy>}
         {dashboard.attendanceTrend.points.map(p => <View key={p.date} style={{ gap: 6 }} accessible accessibilityLabel={`${readableDate(p.date)}: ${p.attendedCount === null ? "Not recorded" : `${p.attendedCount} attended of ${p.rosterCount}`}`}>
           <Copy kind="caption">{readableDate(p.date)} · {p.attendedCount === null ? "Not recorded" : `${p.attendedCount} / ${p.rosterCount} attended`}</Copy>
-          <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.border }}>{p.rosterCount !== null && p.attendedCount !== null && <View style={{ height: 8, borderRadius: 4, width: `${p.rosterCount ? Math.min(100, p.attendedCount / p.rosterCount * 100) : 0}%`, backgroundColor: colors.primary }} />}</View>
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.border }}>{p.rosterCount !== null && p.attendedCount !== null && <View style={{ height: 8, borderRadius: 4, width: `${p.rosterCount ? Math.min(100, p.attendedCount / p.rosterCount * 100) : 0}%`, backgroundColor: colors.action }} />}</View>
         </View>)}
       </Card>
       {dashboard.classes.map(c => <Card key={c.id}><RowLink title={c.name} subtitle={`${c.ageGroup?.name ?? "No age group"} · ${c.childCount} children · ${c.sessionCount} sessions · ${Math.round(c.attendancePercentage)}% attendance`} onPress={() => router.push({ pathname: "/class/[id]", params: { id: c.id } })} /></Card>)}

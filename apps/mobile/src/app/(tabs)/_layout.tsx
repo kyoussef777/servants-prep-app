@@ -23,7 +23,7 @@ export default function TabLayout() {
         isDark ? "systemChromeMaterialDark" : "systemChromeMaterialLight"
       }
       shadowColor={isDark ? "rgba(255, 255, 255, 0.08)" : colors.border}
-      badgeBackgroundColor={colors.primary}
+      badgeBackgroundColor={colors.action}
       indicatorColor={colors.primarySoft}
       rippleColor={colors.primarySoft}
     >
