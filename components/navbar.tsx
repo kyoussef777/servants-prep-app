@@ -192,10 +192,7 @@ export function Navbar() {
       const links: NavLink[] = [
         { href: '/dashboard/servants', label: 'Dashboard' },
         { href: '/dashboard/servants/lessons', label: 'Lessons' },
-        {
-          href: '/dashboard/servants/attendance',
-          label: role === 'PRIEST' ? 'Student attendance' : 'Attendance',
-        },
+        { href: '/dashboard/servants/attendance', label: 'Attendance' },
         { href: '/dashboard/servants/roster', label: 'Roster' },
       ]
       const more: NavLink[] = [
