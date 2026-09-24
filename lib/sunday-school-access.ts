@@ -214,12 +214,12 @@ export function canEditWeeklyLesson(
   return ownerId === userId && canServeClass(access, classId)
 }
 
-/** Can record and report on servant attendance for this class. */
+/** Can record servant attendance for a class they actively serve. */
 export function canTakeServantAttendance(
   access: SundaySchoolAccess,
   classId: string
 ): boolean {
-  return canCoordinateClass(access, classId)
+  return canServeClass(access, classId)
 }
 
 /** Can view servant attendance for this class without necessarily editing it. */
@@ -229,14 +229,14 @@ export function canViewServantAttendance(
 ): boolean {
   if (access.isAdmin) return true
   if (access.readOnly) return canViewClass(access, classId)
-  return access.coordinatorClassIds.has(classId)
+  return canTakeServantAttendance(access, classId)
 }
 
 /** Can request servant-attendance reporting for at least one class. */
 export function canViewServantAttendanceReport(access: SundaySchoolAccess): boolean {
   if (access.isAdmin) return true
   if (access.readOnly) return access.canRead
-  return access.coordinatorClassIds.size > 0
+  return access.servantClassIds.size > 0 || access.coordinatorClassIds.size > 0
 }
 
 /**

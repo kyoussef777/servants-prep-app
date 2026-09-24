@@ -172,7 +172,7 @@ export function Navbar() {
         { href: '/dashboard/servants/classes', label: 'Classes' },
         { href: '/dashboard/servants/feedback', label: 'Feedback' },
       ]
-      if (session.user.sundaySchool?.isCoordinator) {
+      if (hasSundaySchool) {
         servantMore.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
       }
       return {
@@ -192,10 +192,7 @@ export function Navbar() {
       const links: NavLink[] = [
         { href: '/dashboard/servants', label: 'Dashboard' },
         { href: '/dashboard/servants/lessons', label: 'Lessons' },
-        {
-          href: '/dashboard/servants/attendance',
-          label: role === 'PRIEST' ? 'Student attendance' : 'Attendance',
-        },
+        { href: '/dashboard/servants/attendance', label: 'Attendance' },
         { href: '/dashboard/servants/roster', label: 'Roster' },
       ]
       const more: NavLink[] = [
@@ -204,9 +201,7 @@ export function Navbar() {
         { href: '/dashboard/servants/feedback', label: 'Feedback' },
       ]
 
-      if (session.user.sundaySchool?.isCoordinator || role === 'PRIEST' || role === 'SUPER_ADMIN') {
-        more.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
-      }
+      more.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
 
       if (canReviewServantApplications(role)) {
         more.push({

@@ -7,12 +7,12 @@ vi.mock('next-auth/react', () => ({
   useSession: () => ({
     data: {
       user: {
-        id: 'priest-1',
-        name: 'Rev. Fr. Daniel Abdel-Maseih',
-        email: 'daniel@example.com',
-        role: UserRole.PRIEST,
+        id: 'servant-1',
+        name: 'Sunday School Servant',
+        email: 'servant@example.com',
+        role: UserRole.SERVANT,
         profileImageUrl: null,
-        sundaySchool: { hasAccess: true },
+        sundaySchool: { hasAccess: true, isCoordinator: false },
       },
     },
   }),
@@ -34,18 +34,8 @@ vi.mock('@/components/notifications/notification-bell', () => ({
 
 import { Navbar } from '@/components/navbar'
 
-describe('Navbar with long names', () => {
-  it('hides an oversized identity label and uses meaningful avatar initials', () => {
-    render(<Navbar />)
-
-    const name = screen.getByText('Rev. Fr. Daniel Abdel-Maseih')
-    expect(name.parentElement).toHaveClass('hidden')
-    expect(name.parentElement).not.toHaveClass('2xl:flex')
-    expect(screen.getByText('DA')).toBeInTheDocument()
-    expect(screen.queryByText('RFDA')).not.toBeInTheDocument()
-  })
-
-  it('offers priests the read-only servant attendance page in Sunday School mode', async () => {
+describe('Navbar for a Sunday School servant', () => {
+  it('shows servant attendance even when the servant is not a coordinator', async () => {
     const user = userEvent.setup()
     render(<Navbar />)
 

@@ -211,11 +211,11 @@ describe('Sunday School access predicates', () => {
       expect(canServeClass(servantOfA, CLASS_A)).toBe(true)
     })
 
-    it('cannot coordinate it', () => {
+    it('can take servant attendance without coordinating the class', () => {
       expect(canCoordinateClass(servantOfA, CLASS_A)).toBe(false)
-      expect(canTakeServantAttendance(servantOfA, CLASS_A)).toBe(false)
-      expect(canViewServantAttendance(servantOfA, CLASS_A)).toBe(false)
-      expect(canViewServantAttendanceReport(servantOfA)).toBe(false)
+      expect(canTakeServantAttendance(servantOfA, CLASS_A)).toBe(true)
+      expect(canViewServantAttendance(servantOfA, CLASS_A)).toBe(true)
+      expect(canViewServantAttendanceReport(servantOfA)).toBe(true)
     })
 
     it('may edit only lessons they own in that class', () => {
@@ -228,6 +228,8 @@ describe('Sunday School access predicates', () => {
     it('cannot touch another class', () => {
       expect(canViewClass(servantOfA, CLASS_B)).toBe(false)
       expect(canServeClass(servantOfA, CLASS_B)).toBe(false)
+      expect(canTakeServantAttendance(servantOfA, CLASS_B)).toBe(false)
+      expect(canViewServantAttendance(servantOfA, CLASS_B)).toBe(false)
     })
 
     it('cannot create or delete classes', () => {

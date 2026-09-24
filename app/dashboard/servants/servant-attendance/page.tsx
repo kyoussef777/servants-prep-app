@@ -37,11 +37,7 @@ function ServantAttendanceContent() {
   const { session, status } = useSundaySchoolGuard()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const canOpenPage = Boolean(
-    session?.user?.sundaySchool?.isCoordinator ||
-    session?.user?.role === 'PRIEST' ||
-    session?.user?.role === 'SUPER_ADMIN'
-  )
+  const canOpenPage = session?.user?.sundaySchool?.hasAccess ?? false
 
   const { data: classesData, isLoading: classesLoading } = useSundaySchoolClasses()
   const classes = useMemo(
