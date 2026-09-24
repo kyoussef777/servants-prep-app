@@ -11,7 +11,7 @@ import { normalizeEmail } from "@/lib/email"
 // Query params:
 //   ?role=STUDENT - filter by role
 //   ?page=1&limit=50 - pagination (default: all results for backwards compatibility)
-//   ?search=john - search by name
+//   ?search=john - search by name, email, or phone number
 export async function GET(request: Request) {
   try {
     const user = await requireAuth()
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const roleFilter = searchParams.get('role')
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : null
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
-    const search = searchParams.get('search')
+    const search = searchParams.get('search')?.trim()
 
     // MENTOR role can only view their assigned STUDENT mentees
     if (user.role === UserRole.MENTOR) {
@@ -48,7 +48,11 @@ export async function GET(request: Request) {
     }
 
     if (search) {
-      whereClause.name = { contains: search, mode: 'insensitive' }
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ]
     }
 
     if (user.role === UserRole.SERVANT_PREP) {
