@@ -17,7 +17,13 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('swr', () => ({
   default: () => ({
-    data: { notifications: [], unreadCount: 3, nextCursor: null },
+    data: {
+      notifications: [
+        { id: 'n1', type: 'ANNOUNCEMENT', title: 'Hello', body: 'Body', url: null, isRead: false, createdAt: new Date().toISOString() },
+      ],
+      unreadCount: 3,
+      nextCursor: null,
+    },
     mutate: mocks.mutate,
   }),
 }))
@@ -50,5 +56,22 @@ describe('NotificationBell', () => {
       'animate-in',
       'fade-in-0'
     )
+  })
+
+  it('portals the panel out of the navbar and closes on Escape', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<nav className="backdrop-blur-xl"><NotificationBell /></nav>)
+
+    await user.click(screen.getByRole('button', { name: 'Notifications (3 unread)' }))
+
+    const panel = screen.getByRole('dialog', { name: 'Notifications' })
+    // Fixed positioning must resolve against the viewport, not the blurred navbar
+    expect(container.contains(panel)).toBe(false)
+    // Row actions must not be nested inside the row button (invalid HTML)
+    expect(panel.querySelector('button button')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Mark as read' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Notifications' })).toBeNull()
   })
 })

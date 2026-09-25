@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
@@ -76,7 +77,10 @@ export function NotificationBell() {
   const { data: session } = useSession()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+  // Desktop dropdown anchor, measured from the bell when opened
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   const { data, mutate } = useSWR<NotificationsResponse>(
     session?.user ? '/api/notifications?limit=15' : null,
@@ -87,24 +91,38 @@ export function NotificationBell() {
   const unreadCount = data?.unreadCount ?? 0
   const notifications = data?.notifications ?? []
 
-  // Close on click outside (desktop)
+  const toggleOpen = () => {
+    const rect = dropdownRef.current?.getBoundingClientRect()
+    if (!isOpen && rect) {
+      setAnchor({ top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) })
+    }
+    setIsOpen(!isOpen)
+  }
+
+  // Close on click outside or Escape. The panel is portaled, so check both refs.
   useEffect(() => {
+    if (!isOpen) return
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (!dropdownRef.current?.contains(target) && !panelRef.current?.contains(target)) {
         setIsOpen(false)
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // Lock body scroll on mobile when open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setIsOpen(false)
     }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
+  // Lock body scroll only for the mobile bottom sheet
+  useEffect(() => {
+    if (!isOpen || window.innerWidth >= 640) return
+    document.body.style.overflow = 'hidden'
     return () => {
       document.body.style.overflow = ''
     }
@@ -184,7 +202,7 @@ export function NotificationBell() {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className={`relative rounded-md p-2 transition-colors duration-150 hover:bg-accent motion-reduce:transition-none ${
           isOpen ? 'bg-accent text-primary' : ''
         }`}
@@ -207,18 +225,26 @@ export function NotificationBell() {
         )}
       </button>
 
-      {isOpen && (
+      {/* Portaled to <body>: the navbar's blur/translate would otherwise become
+          the containing block for these fixed elements and trap them in the navbar. */}
+      {isOpen && createPortal(
         <>
           {/* Mobile backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-black/40 animate-in fade-in-0 duration-200 motion-reduce:animate-none sm:hidden"
+            className="fixed inset-0 z-[60] bg-black/40 animate-in fade-in-0 duration-200 motion-reduce:animate-none sm:hidden"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Panel — bottom sheet on mobile, dropdown on desktop */}
-          <div id="notifications-panel" role="dialog" aria-label="Notifications" className="
-            fixed bottom-0 left-0 right-0 z-50
-            sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96
+          <div
+            ref={panelRef}
+            id="notifications-panel"
+            role="dialog"
+            aria-label="Notifications"
+            style={{ '--notif-top': `${anchor?.top ?? 88}px`, '--notif-right': `${anchor?.right ?? 16}px` } as React.CSSProperties}
+            className="
+            fixed bottom-0 left-0 right-0 z-[60]
+            sm:bottom-auto sm:left-auto sm:right-[var(--notif-right)] sm:top-[var(--notif-top)] sm:w-96
             rounded-t-2xl sm:rounded-lg
             border bg-popover text-popover-foreground shadow-xl
             flex flex-col
@@ -315,33 +341,29 @@ export function NotificationBell() {
                               {formatDistanceToNow(notification.createdAt)}
                             </span>
                           </div>
-
-                          {!notification.isRead && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                markRead(notification.id)
-                              }}
-                              className="flex-shrink-0 mt-1 rounded p-1 hover:bg-accent transition-colors"
-                              title="Mark as read"
-                            >
-                              <Check className="h-3.5 w-3.5 text-muted-foreground" />
-                            </button>
-                          )}
                         </div>
                       </button>
-                      {/* Dismiss button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          dismissNotification(notification.id)
-                        }}
-                        className="absolute top-2 right-2 rounded p-1 opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
-                        title="Dismiss notification"
-                        aria-label="Dismiss notification"
-                      >
-                        <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                      </button>
+                      {/* Row actions: always visible on touch, on hover/focus on desktop */}
+                      <div className="absolute top-2 right-2 flex flex-col items-center gap-1">
+                        <button
+                          onClick={() => dismissNotification(notification.id)}
+                          className="rounded p-1 hover:bg-accent transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                          title="Dismiss notification"
+                          aria-label="Dismiss notification"
+                        >
+                          <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                        </button>
+                        {!notification.isRead && (
+                          <button
+                            onClick={() => markRead(notification.id)}
+                            className="rounded p-1 hover:bg-accent transition-colors"
+                            title="Mark as read"
+                            aria-label="Mark as read"
+                          >
+                            <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })
@@ -351,7 +373,8 @@ export function NotificationBell() {
             {/* Bottom safe area for mobile */}
             <div className="sm:hidden flex-shrink-0 h-4" />
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   )

@@ -18,7 +18,7 @@ export function PageHeader({ title, description, lastSaved, actions }: PageHeade
         {lastSaved !== undefined && <LastSaved date={lastSaved ?? null} />}
       </div>
       {actions && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {actions}
         </div>
       )}
