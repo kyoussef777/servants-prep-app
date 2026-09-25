@@ -329,7 +329,7 @@ export function Navbar() {
       data-page-position={isAtTop ? 'top' : 'scrolled'}
       className={cn(
         'sticky top-0 z-50 h-20 px-2 pt-2 transition-colors duration-200 sm:h-[88px] sm:px-4 sm:pt-3',
-        isAtTop ? 'bg-[var(--app-canvas)]' : 'bg-transparent'
+        isAtTop ? 'bg-[var(--app-canvas)]' : 'bg-[var(--app-canvas)] lg:bg-transparent'
       )}
     >
       <div

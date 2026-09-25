@@ -62,8 +62,7 @@ describe('Navbar scroll motion', () => {
     await waitFor(() => {
       expect(nav).toHaveAttribute('data-scroll-state', 'compact')
       expect(nav).toHaveAttribute('data-page-position', 'scrolled')
-      expect(nav).toHaveClass('bg-transparent')
-      expect(nav).not.toHaveClass('bg-[var(--app-canvas)]')
+      expect(nav).toHaveClass('bg-[var(--app-canvas)]', 'lg:bg-transparent')
     })
 
     window.scrollY = 60
@@ -71,7 +70,7 @@ describe('Navbar scroll motion', () => {
     await waitFor(() => {
       expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
       expect(nav).toHaveAttribute('data-page-position', 'scrolled')
-      expect(nav).toHaveClass('bg-transparent')
+      expect(nav).toHaveClass('bg-[var(--app-canvas)]', 'lg:bg-transparent')
     })
 
     window.scrollY = 0
@@ -110,6 +109,7 @@ describe('Navbar scroll motion', () => {
 
     await waitFor(() => {
       expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
+      expect(nav).toHaveClass('bg-[var(--app-canvas)]')
     })
   })
 })
