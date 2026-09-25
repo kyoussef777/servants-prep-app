@@ -143,6 +143,7 @@ export function Navbar() {
       active: inSundaySchoolMode,
     },
   ]
+  const serviceRowClassName = 'mx-1 flex h-16 shrink-0 items-center gap-3 rounded-md px-2 py-2'
 
   const handleModeSwitch = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -543,8 +544,9 @@ export function Navbar() {
                         service.active ? (
                           <div
                             key={service.name}
+                            data-service-option
                             aria-current="page"
-                            className="mx-1 flex items-center gap-3 rounded-md bg-accent/60 px-2 py-2"
+                            className={`${serviceRowClassName} bg-accent/60`}
                           >
                             <Image
                               src={service.logo}
@@ -563,7 +565,12 @@ export function Navbar() {
                             </span>
                           </div>
                         ) : (
-                          <DropdownMenuItem key={service.name} asChild>
+                          <DropdownMenuItem
+                            key={service.name}
+                            asChild
+                            data-service-option
+                            className={`${serviceRowClassName} focus:bg-accent/60`}
+                          >
                             <Link
                               href={service.href}
                               onClick={handleModeSwitch}

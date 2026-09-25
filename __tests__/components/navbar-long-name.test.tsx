@@ -77,6 +77,18 @@ describe('Navbar with long names', () => {
     expect(screen.getByAltText('Servants Prep logo')).toBeInTheDocument()
     expect(screen.getByAltText('Sunday School logo')).toBeInTheDocument()
     expect(screen.getByText('Current service')).toBeInTheDocument()
+    const serviceRows = Array.from(document.querySelectorAll('[data-service-option]'))
+    expect(serviceRows).toHaveLength(2)
+    for (const row of serviceRows) {
+      expect(row).toHaveClass('mx-1', 'h-16', 'gap-3', 'px-2', 'py-2')
+      expect(row.querySelector('img')).toHaveClass('h-8', 'w-8')
+    }
+    expect(document.querySelector('[data-service-option][aria-current="page"]')).toHaveClass(
+      'bg-accent/60'
+    )
+    expect(serviceRows.find(row => !row.hasAttribute('aria-current'))).toHaveClass(
+      'focus:bg-accent/60'
+    )
     expect(screen.getByRole('menuitem', { name: 'Switch to Servants Prep' })).toHaveAttribute(
       'href',
       '/dashboard/admin'
