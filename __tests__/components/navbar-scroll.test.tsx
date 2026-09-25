@@ -49,8 +49,11 @@ describe('Navbar scroll motion', () => {
   it('compacts while scrolling down and expands while scrolling up', async () => {
     const { container } = render(<Navbar />)
     const nav = container.querySelector('nav')
+    const floatingPanel = nav?.firstElementChild
 
     expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
+    expect(nav).toHaveClass('bg-gray-50', 'dark:bg-gray-950')
+    expect(floatingPanel).not.toHaveClass('overflow-hidden')
 
     window.scrollY = 120
     fireEvent.scroll(window)
