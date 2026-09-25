@@ -1,7 +1,12 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UserRole } from '@prisma/client'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  pathname: '/dashboard/servants',
+  push: vi.fn(),
+}))
 
 vi.mock('next-auth/react', () => ({
   useSession: () => ({
@@ -20,8 +25,8 @@ vi.mock('next-auth/react', () => ({
 }))
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/dashboard/servants',
-  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => mocks.pathname,
+  useRouter: () => ({ push: mocks.push }),
 }))
 
 vi.mock('next-themes', () => ({
@@ -35,6 +40,11 @@ vi.mock('@/components/notifications/notification-bell', () => ({
 import { Navbar } from '@/components/navbar'
 
 describe('Navbar with long names', () => {
+  beforeEach(() => {
+    mocks.pathname = '/dashboard/servants'
+    mocks.push.mockClear()
+  })
+
   it('hides an oversized identity label and uses meaningful avatar initials', () => {
     render(<Navbar />)
 
@@ -54,6 +64,37 @@ describe('Navbar with long names', () => {
     expect(await screen.findByRole('menuitem', { name: 'Servant attendance' })).toHaveAttribute(
       'href',
       '/dashboard/servants/servant-attendance'
+    )
+  })
+
+  it('puts the logo-based service switcher in the profile menu', async () => {
+    const user = userEvent.setup()
+    render(<Navbar />)
+
+    await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
+
+    expect(screen.getByText('Services')).toBeInTheDocument()
+    expect(screen.getByAltText('Servants Prep logo')).toBeInTheDocument()
+    expect(screen.getByAltText('Sunday School logo')).toBeInTheDocument()
+    expect(screen.getByText('Current service')).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Switch to Servants Prep' })).toHaveAttribute(
+      'href',
+      '/dashboard/admin'
+    )
+  })
+
+  it('offers the same logo switcher from Servants Prep', async () => {
+    mocks.pathname = '/dashboard/admin'
+    const user = userEvent.setup()
+    render(<Navbar />)
+
+    await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
+
+    expect(screen.getByAltText('Servants Prep logo')).toBeInTheDocument()
+    expect(screen.getByAltText('Sunday School logo')).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Switch to Sunday School' })).toHaveAttribute(
+      'href',
+      '/dashboard/servants'
     )
   })
 })
