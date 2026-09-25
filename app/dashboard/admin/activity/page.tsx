@@ -70,8 +70,9 @@ export default function ActivityPage() {
   useEffect(() => { void loadEvents() }, [loadEvents])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-      <Card>
+    <div className="min-h-screen bg-[var(--app-canvas)] p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <Card>
         <CardHeader>
           <CardTitle>Activity log</CardTitle>
           <CardDescription>Security and administrative activity recorded across the website.</CardDescription>
@@ -195,7 +196,8 @@ export default function ActivityPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   )
 }

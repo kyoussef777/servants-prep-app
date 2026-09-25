@@ -54,7 +54,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} flex min-h-screen flex-col antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} flex min-h-screen flex-col bg-[var(--app-canvas)] antialiased`}
         suppressHydrationWarning
       >
         <Providers>
@@ -67,7 +67,7 @@ export default function RootLayout({
             <CommandPalette />
             <ProfilePhotoReminder />
           </div>
-          <div id="app-content" className="flex-1">{children}</div>
+          <div id="app-content" className="flex-1 bg-[var(--app-canvas)]">{children}</div>
           <div className="contents print:hidden">
             <SiteFooter />
             <PushNotificationPrompt />
