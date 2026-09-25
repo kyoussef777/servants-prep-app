@@ -1,9 +1,13 @@
-import type { SundaySchoolLevel } from '@prisma/client'
+import type { SundaySchoolAuthority, SundaySchoolLevel } from '@prisma/client'
 import { LEVEL_ORDER } from './sunday-school-class'
 
 export interface SundaySchoolAssignmentSummary {
-  class: { level: SundaySchoolLevel } | null
-  ageGroup: { levels: SundaySchoolLevel[] } | null
+  id: string
+  authority: SundaySchoolAuthority
+  classId: string | null
+  ageGroupId: string | null
+  class: { id: string; name: string; level: SundaySchoolLevel } | null
+  ageGroup: { id: string; name: string; levels: SundaySchoolLevel[] } | null
 }
 
 const LEVEL_INDEX = new Map(LEVEL_ORDER.map((level, index) => [level, index]))

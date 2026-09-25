@@ -16,5 +16,5 @@ export default function SundaySchoolUsersPage() {
     return <PageLoading />
   }
 
-  return <UsersPage />
+  return <UsersPage sundaySchoolMode />
 }

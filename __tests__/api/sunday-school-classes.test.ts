@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   access: vi.fn(),
   findClass: vi.fn(),
+  findClasses: vi.fn(),
   findFirstClass: vi.fn(),
   createClass: vi.fn(),
   updateClass: vi.fn(),
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   canTakeServantAttendance: vi.fn(),
   canViewServantAttendance: vi.fn(),
   canDeleteClass: vi.fn(),
+  visibleClassFilter: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.auth }))
@@ -39,6 +41,7 @@ vi.mock('@/lib/sunday-school-access', () => ({
   canViewServantAttendance: mocks.canViewServantAttendance,
   canDeleteClass: mocks.canDeleteClass,
   canCreateClassAtLevel: mocks.canCreateClassAtLevel,
+  visibleClassFilter: mocks.visibleClassFilter,
 }))
 vi.mock('@/lib/sunday-school-lessons', () => ({
   ensureSundaySchoolWeeklyLessons: mocks.ensureWeeklyLessons,
@@ -50,6 +53,7 @@ vi.mock('@/lib/prisma', () => ({
     sundaySchoolClass: {
       findUnique: mocks.findClass,
       findFirst: mocks.findFirstClass,
+      findMany: mocks.findClasses,
       delete: mocks.deleteClass,
     },
     $transaction: mocks.transaction,
@@ -57,13 +61,19 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 import { DELETE, GET, PATCH } from '@/app/api/sunday-school/classes/[id]/route'
-import { POST } from '@/app/api/sunday-school/classes/route'
+import { GET as GET_CLASSES, POST } from '@/app/api/sunday-school/classes/route'
 
 describe('Sunday School class detail API', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mocks.auth.mockResolvedValue({ id: 'coordinator-1', role: 'SERVANT' })
-    mocks.access.mockResolvedValue({ canRead: true })
+    mocks.access.mockResolvedValue({
+      canRead: true,
+      isAdmin: true,
+      readOnly: false,
+      servantClassIds: new Set(),
+      coordinatorClassIds: new Set(),
+    })
     mocks.canViewClass.mockReturnValue(true)
     mocks.canCoordinateClass.mockReturnValue(true)
     mocks.canServeClass.mockReturnValue(true)
@@ -71,9 +81,11 @@ describe('Sunday School class detail API', () => {
     mocks.canViewServantAttendance.mockReturnValue(true)
     mocks.canDeleteClass.mockReturnValue(false)
     mocks.canCreateClassAtLevel.mockReturnValue(true)
+    mocks.visibleClassFilter.mockReturnValue(undefined)
+    mocks.findClasses.mockResolvedValue([])
     mocks.findFirstClass.mockResolvedValue(null)
-    mocks.findAcademicYear.mockResolvedValue({ id: 'year-1' })
-    mocks.findSundaySchoolYear.mockResolvedValue({ id: 'sunday-year-1' })
+    mocks.findAcademicYear.mockResolvedValue({ id: 'year-1', name: '2026-2027' })
+    mocks.findSundaySchoolYear.mockResolvedValue({ id: 'sunday-year-1', name: '2026-2027' })
     mocks.createClass.mockResolvedValue({
       id: 'class-2',
       name: 'Third Grade Girls',
@@ -212,6 +224,45 @@ describe('Sunday School class detail API', () => {
         sectionName: 'Third Grade Girls',
       }),
     }))
+  })
+
+  it('defaults the class list to the active academic year', async () => {
+    const response = await GET_CLASSES(
+      new Request('http://localhost/api/sunday-school/classes?isActive=true')
+    )
+
+    expect(response.status).toBe(200)
+    expect(mocks.findAcademicYear).toHaveBeenCalledWith({
+      where: { isActive: true },
+      select: { id: true },
+    })
+    expect(mocks.findClasses).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        academicYearId: 'year-1',
+        isActive: true,
+      },
+    }))
+  })
+
+  it('refuses to create classes when the academic and Sunday School years differ', async () => {
+    mocks.findAcademicYear.mockResolvedValue({ id: 'old-year', name: '2025-2026' })
+
+    const response = await POST(
+      new Request('http://localhost/api/sunday-school/classes', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: '6th Grade',
+          level: 'GRADE_6',
+          academicYearId: 'old-year',
+        }),
+      })
+    )
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: 'The academic year and open Sunday School year must match',
+    })
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
   it('returns a clear conflict when another class already uses the name', async () => {
