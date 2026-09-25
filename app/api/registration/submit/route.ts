@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { isInviteCodeValid } from '@/lib/registration-utils'
 import { StudentGrade, RegistrationStatus } from '@prisma/client'
 import { notifyNewRegistration } from '@/lib/notifications'
-import { normalizeEmail } from '@/lib/email'
+import { normalizeEmail, normalizeOptionalEmail } from '@/lib/email'
 
 /**
  * POST /api/registration/submit
@@ -33,7 +33,12 @@ export async function POST(req: NextRequest) {
       mentorEmail,
     } = body
     const normalizedEmail = normalizeEmail(email)
-    const normalizedMentorEmail = normalizeEmail(mentorEmail)
+    const normalizedMentorEmail = normalizeOptionalEmail(mentorEmail)
+    const normalizedMentorName = typeof mentorName === 'string' ? mentorName.trim() || null : null
+    const normalizedMentorPhone = typeof mentorPhone === 'string' ? mentorPhone.trim() || null : null
+    const normalizedApprovalFormUrl = typeof approvalFormUrl === 'string' ? approvalFormUrl.trim() || null : null
+    const normalizedApprovalFormFilename = typeof approvalFormFilename === 'string' ? approvalFormFilename.trim() || null : null
+    const hasApprovalForm = Boolean(normalizedApprovalFormUrl && normalizedApprovalFormFilename)
 
     // Validate required fields
     if (
@@ -47,13 +52,8 @@ export async function POST(req: NextRequest) {
       currentlyServing === undefined ||
       previouslyAttendedPrep === undefined ||
       !grade ||
-      !approvalFormUrl ||
-      !approvalFormFilename ||
       !profileImageUrl ||
-      !profileImageFilename ||
-      !mentorName ||
-      !mentorPhone ||
-      !normalizedMentorEmail
+      !profileImageFilename
     ) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(normalizedEmail) || !emailRegex.test(normalizedMentorEmail)) {
+    if (!emailRegex.test(normalizedEmail) || (normalizedMentorEmail && !emailRegex.test(normalizedMentorEmail))) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
@@ -159,12 +159,12 @@ export async function POST(req: NextRequest) {
           previouslyAttendedPrep,
           previousPrepLocation: previousPrepLocation || null,
           grade: grade as StudentGrade,
-          approvalFormUrl,
-          approvalFormFilename,
+          approvalFormUrl: hasApprovalForm ? normalizedApprovalFormUrl : null,
+          approvalFormFilename: hasApprovalForm ? normalizedApprovalFormFilename : null,
           profileImageUrl,
           profileImageFilename,
-          mentorName,
-          mentorPhone,
+          mentorName: normalizedMentorName,
+          mentorPhone: normalizedMentorPhone,
           mentorEmail: normalizedMentorEmail,
         },
       })

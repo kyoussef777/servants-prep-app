@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -31,6 +31,7 @@ interface Notification {
   body: string
   url: string | null
   isRead: boolean
+  isPersistent: boolean
   createdAt: string
 }
 
@@ -58,6 +59,8 @@ function getNotificationMeta(type: string): { icon: React.ElementType; color: st
       return { icon: UserCheck, color: 'text-green-600 bg-green-100 dark:bg-green-900/40' }
     case 'REGISTRATION_REJECTED':
       return { icon: ShieldAlert, color: 'text-red-600 bg-red-100 dark:bg-red-900/40' }
+    case 'REGISTRATION_INCOMPLETE':
+      return { icon: ClipboardList, color: 'text-amber-700 bg-amber-100 dark:bg-amber-900/40' }
     case 'ASYNC_NOTE_REVIEWED':
       return { icon: FileText, color: 'text-indigo-600 bg-indigo-100 dark:bg-indigo-900/40' }
     case 'MENTOR_ASSIGNED':
@@ -93,7 +96,10 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
   )
 
   const unreadCount = data?.unreadCount ?? 0
-  const notifications = data?.notifications ?? []
+  const notifications = useMemo(() => data?.notifications ?? [], [data?.notifications])
+  const hasDismissibleUnread = notifications.some(
+    (notification) => !notification.isPersistent && !notification.isRead
+  )
 
   const updateOpen = useCallback((nextOpen: boolean) => {
     setIsOpen(nextOpen)
@@ -160,6 +166,9 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
 
   const dismissNotification = useCallback(
     async (id: string) => {
+      const notification = notifications.find((item) => item.id === id)
+      if (notification?.isPersistent) return
+
       mutate(
         (current) =>
           current
@@ -180,11 +189,22 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
       })
       mutate()
     },
-    [mutate]
+    [mutate, notifications]
   )
 
   const clearAll = useCallback(async () => {
-    mutate({ notifications: [], unreadCount: 0, nextCursor: null }, false)
+    mutate(
+      (current) => {
+        if (!current) return current
+        const persistentNotifications = current.notifications.filter((notification) => notification.isPersistent)
+        return {
+          ...current,
+          notifications: persistentNotifications,
+          unreadCount: persistentNotifications.filter((notification) => !notification.isRead).length,
+        }
+      },
+      false
+    )
     await fetch('/api/notifications', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -195,7 +215,7 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
 
   const handleNotificationClick = useCallback(
     (notification: Notification) => {
-      if (!notification.isRead) {
+      if (!notification.isRead && !notification.isPersistent) {
         markRead(notification.id)
       }
       if (notification.url) {
@@ -277,7 +297,7 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
                 )}
               </div>
               <div className="flex items-center gap-1">
-                {unreadCount > 0 && (
+                {hasDismissibleUnread && (
                   <button
                     onClick={markAllRead}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-accent"
@@ -287,7 +307,7 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
                     <span className="hidden lg:inline">Mark all read</span>
                   </button>
                 )}
-                {notifications.length > 0 && (
+                {notifications.some((notification) => !notification.isPersistent) && (
                   <button
                     onClick={clearAll}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded hover:bg-accent"
@@ -342,6 +362,11 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
                               {!notification.isRead && (
                                 <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
                               )}
+                              {notification.isPersistent && (
+                                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                  Required
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
                               {notification.body}
@@ -353,26 +378,28 @@ export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
                         </div>
                       </button>
                       {/* Row actions: always visible on touch, on hover/focus on desktop */}
-                      <div className="absolute top-2 right-2 flex flex-col items-center gap-1">
-                        <button
-                          onClick={() => dismissNotification(notification.id)}
-                          className="rounded p-1 hover:bg-accent transition-all lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
-                          title="Dismiss notification"
-                          aria-label="Dismiss notification"
-                        >
-                          <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                        </button>
-                        {!notification.isRead && (
+                      {!notification.isPersistent && (
+                        <div className="absolute top-2 right-2 flex flex-col items-center gap-1">
                           <button
-                            onClick={() => markRead(notification.id)}
-                            className="rounded p-1 hover:bg-accent transition-colors"
-                            title="Mark as read"
-                            aria-label="Mark as read"
+                            onClick={() => dismissNotification(notification.id)}
+                            className="rounded p-1 hover:bg-accent transition-all lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+                            title="Dismiss notification"
+                            aria-label="Dismiss notification"
                           >
-                            <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                            <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
                           </button>
-                        )}
-                      </div>
+                          {!notification.isRead && (
+                            <button
+                              onClick={() => markRead(notification.id)}
+                              className="rounded p-1 hover:bg-accent transition-colors"
+                              title="Mark as read"
+                              aria-label="Mark as read"
+                            >
+                              <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })

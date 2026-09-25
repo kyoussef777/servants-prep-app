@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canReviewRegistrations } from '@/lib/roles'
-import { RegistrationStatus, UserRole, YearLevel } from '@prisma/client'
+import { NotificationType, RegistrationStatus, UserRole, YearLevel } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { generateTempPassword } from '@/lib/registration-utils'
 import { notifyRegistrationReviewed } from '@/lib/notifications'
@@ -129,6 +129,30 @@ export async function POST(
             notes: `Registered via invite code on ${new Date().toLocaleDateString()}`,
           },
         })
+
+        const missingRegistrationDetails = [
+          !submission.approvalFormUrl || !submission.approvalFormFilename ? 'approval form' : null,
+          !submission.mentorName || !submission.mentorPhone || !submission.mentorEmail
+            ? 'mentor servant information'
+            : null,
+        ].filter((detail): detail is string => Boolean(detail))
+
+        if (missingRegistrationDetails.length > 0) {
+          await tx.notification.create({
+            data: {
+              userId: newUser.id,
+              type: NotificationType.REGISTRATION_INCOMPLETE,
+              title: 'Complete Your Registration',
+              body: `Please add your ${missingRegistrationDetails.join(' and ')}. This reminder will remain until your registration is complete.`,
+              url: '/dashboard/student/registration',
+              isPersistent: true,
+              metadata: {
+                registrationId: submission.id,
+                missingDetails: missingRegistrationDetails,
+              },
+            },
+          })
+        }
 
         // Backfill attendance records for all past lessons in this academic year
         await backfillAttendanceForStudent(newUser.id, targetAcademicYearId || null, tx)
