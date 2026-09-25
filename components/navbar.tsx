@@ -18,7 +18,7 @@ import {
   canAdministerSundaySchool,
   canReviewServantApplications,
 } from '@/lib/roles'
-import { ArrowRight, Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
+import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { getPersonInitials } from '@/lib/person-name'
 import { cn } from '@/lib/utils'
@@ -41,8 +41,15 @@ export function Navbar() {
   const scrollFrame = useRef<number | null>(null)
 
   useEffect(() => {
+    const mobileViewport = window.matchMedia?.('(max-width: 1023px)')
+    const isMobileViewport = () => mobileViewport?.matches ?? window.innerWidth <= 1023
     lastScrollY.current = window.scrollY
     setIsAtTop(window.scrollY <= 20)
+    if (isMobileViewport()) setIsScrollCompact(false)
+
+    const syncResponsiveState = () => {
+      if (isMobileViewport()) setIsScrollCompact(false)
+    }
 
     const handleScroll = () => {
       if (scrollFrame.current !== null) return
@@ -52,7 +59,7 @@ export function Navbar() {
         const delta = currentScrollY - lastScrollY.current
         setIsAtTop(currentScrollY <= 20)
 
-        if (currentScrollY <= 20) {
+        if (isMobileViewport() || currentScrollY <= 20) {
           setIsScrollCompact(false)
         } else if (delta > 6) {
           setIsScrollCompact(true)
@@ -66,8 +73,10 @@ export function Navbar() {
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
+    mobileViewport?.addEventListener('change', syncResponsiveState)
     return () => {
       window.removeEventListener('scroll', handleScroll)
+      mobileViewport?.removeEventListener('change', syncResponsiveState)
       if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)
     }
   }, [])
@@ -106,8 +115,8 @@ export function Navbar() {
   const inSundaySchoolMode = pathname.startsWith('/dashboard/servants')
   // Sunday School access comes from assignments, not a role, so this reads the
   // standing the session carries. Someone with a foot in both modes — a prep
-  // leader or mentor who also serves — gets the switcher; a SERVANT has only
-  // one mode.
+  // leader or mentor who also serves — gets the service chooser in the profile
+  // menu; a SERVANT has only one mode.
   const hasSundaySchool = session.user.sundaySchool?.hasAccess ?? false
   const prepModeDestination =
     session.user.role === 'MENTOR' ? '/dashboard/mentor' : '/dashboard/admin'
@@ -118,6 +127,22 @@ export function Navbar() {
     : '/dashboard/servants'
   const dashboardDestination = inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'
   const accountDestination = inSundaySchoolMode ? '/dashboard/servants/account' : '/settings'
+  const serviceOptions = [
+    {
+      name: 'Servants Prep',
+      href: prepModeDestination,
+      logo: '/sp-logo.png',
+      logoClassName: 'rounded-md bg-black p-1',
+      active: !inSundaySchoolMode,
+    },
+    {
+      name: 'Sunday School',
+      href: '/dashboard/servants',
+      logo: '/sunday-school-favicon.png',
+      logoClassName: '',
+      active: inSundaySchoolMode,
+    },
+  ]
 
   const handleModeSwitch = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -324,9 +349,7 @@ export function Navbar() {
         >
           {/* Left side - Logo/Title */}
           <div className="flex min-w-0 flex-1 items-center gap-8 overflow-hidden">
-            <div
-              className={`flex min-w-0 items-center gap-2 sm:gap-3 ${canSwitchModes ? 'sm:w-[288px] sm:justify-between' : ''}`}
-            >
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <Link
                 href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
                 className="flex min-w-0 items-center gap-2 sm:shrink-0 sm:gap-3"
@@ -347,30 +370,6 @@ export function Navbar() {
                 </span>
               </Link>
 
-              {/* One-click mode toggle. Its fixed-width brand group keeps the
-                  navigation from shifting when the mode name and logo change. */}
-              {canSwitchModes && (
-                <Link
-                  href={modeDestination}
-                  onClick={handleModeSwitch}
-                  data-mode-switch
-                  aria-label={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
-                  aria-disabled={switchingModes}
-                  title={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
-                  className={`relative hidden h-7 w-[58px] shrink-0 grid-cols-2 items-center rounded-full border border-gray-300 bg-gray-100 p-0.5 text-[9px] font-bold text-gray-500 transition-colors hover:border-maroon-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2 sm:grid dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 ${switchingModes ? 'pointer-events-none' : ''}`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`absolute inset-y-0.5 left-0.5 w-[26px] rounded-full bg-maroon-700 shadow-sm transition-transform duration-200 ease-out ${inSundaySchoolMode ? 'translate-x-[26px]' : 'translate-x-0'}`}
-                  />
-                  <span className={`relative z-10 text-center ${inSundaySchoolMode ? '' : 'text-white'}`}>
-                    SP
-                  </span>
-                  <span className={`relative z-10 text-center ${inSundaySchoolMode ? 'text-white' : ''}`}>
-                    SS
-                  </span>
-                </Link>
-              )}
             </div>
 
             {/* Navigation Links */}
@@ -510,7 +509,11 @@ export function Navbar() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Button
+                  variant="ghost"
+                  className="relative h-10 w-10 rounded-full"
+                  aria-label="Open profile menu"
+                >
                   <Avatar className="h-10 w-10">
                     {session.user.profileImageUrl && (
                       <AvatarImage src={session.user.profileImageUrl} alt={session.user.name || ''} />
@@ -521,7 +524,7 @@ export function Navbar() {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-72">
                 <div className="flex flex-col space-y-1 p-2">
                   <p className="text-sm font-medium">{session.user.name}</p>
                   <p className="text-xs text-muted-foreground">{session.user.email}</p>
@@ -529,6 +532,66 @@ export function Navbar() {
                     {getRoleDisplayName(session.user.role)}
                   </p>
                 </div>
+                {canSwitchModes && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 pb-1 pt-1 text-xs font-medium text-muted-foreground">
+                      Services
+                    </div>
+                    <div className="space-y-1">
+                      {serviceOptions.map((service) =>
+                        service.active ? (
+                          <div
+                            key={service.name}
+                            aria-current="page"
+                            className="mx-1 flex items-center gap-3 rounded-md bg-accent/60 px-2 py-2"
+                          >
+                            <Image
+                              src={service.logo}
+                              alt={`${service.name} logo`}
+                              width={32}
+                              height={32}
+                              className={`h-8 w-8 object-contain ${service.logoClassName}`}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">
+                                {service.name}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                Current service
+                              </span>
+                            </span>
+                          </div>
+                        ) : (
+                          <DropdownMenuItem key={service.name} asChild>
+                            <Link
+                              href={service.href}
+                              onClick={handleModeSwitch}
+                              data-mode-switch
+                              aria-disabled={switchingModes}
+                              aria-label={`Switch to ${service.name}`}
+                              className={switchingModes ? 'pointer-events-none' : 'cursor-pointer'}
+                            >
+                              <Image
+                                src={service.logo}
+                                alt={`${service.name} logo`}
+                                width={32}
+                                height={32}
+                                className={`h-8 w-8 object-contain ${service.logoClassName}`}
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-medium">{service.name}</span>
+                                <span className="block text-xs text-muted-foreground">
+                                  Switch service
+                                </span>
+                              </span>
+                            </Link>
+                          </DropdownMenuItem>
+                        )
+                      )}
+                    </div>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href={dashboardDestination} className="cursor-pointer">
@@ -611,28 +674,6 @@ export function Navbar() {
         >
           <div className="min-h-0 overflow-hidden">
             <div className="mx-1 mb-2 max-h-[calc(100dvh-7rem)] space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-gray-200/70 bg-gray-50/75 px-2 pb-3 pt-2 shadow-inner dark:border-gray-700/70 dark:bg-gray-800/65">
-              {canSwitchModes && (
-                <Link
-                  href={modeDestination}
-                  onClick={handleModeSwitch}
-                  data-mode-switch
-                  aria-disabled={switchingModes}
-                  className="group mb-2 flex items-center gap-3 rounded-lg border border-gray-200/80 bg-white/85 px-3 py-2.5 text-gray-800 shadow-sm transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-maroon-200 hover:bg-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2 dark:border-gray-700/80 dark:bg-gray-900/75 dark:text-gray-100 dark:hover:border-maroon-700 dark:hover:bg-gray-900"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-[11px] font-bold tracking-wide text-maroon-700 ring-1 ring-inset ring-maroon-100 dark:bg-maroon-950 dark:text-maroon-200 dark:ring-maroon-800">
-                    {inSundaySchoolMode ? 'SP' : 'SS'}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">
-                      {inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}
-                    </span>
-                    <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
-                      Switch portal view
-                    </span>
-                  </span>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-maroon-600 dark:text-gray-500 dark:group-hover:text-maroon-300" />
-                </Link>
-              )}
               {allLinks.map(link => (
                 <Link
                   key={link.href}

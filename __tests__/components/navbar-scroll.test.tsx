@@ -36,6 +36,7 @@ import { Navbar } from '@/components/navbar'
 describe('Navbar scroll motion', () => {
   beforeEach(() => {
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 0, writable: true })
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024, writable: true })
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
       window.setTimeout(() => callback(performance.now()), 0)
     )
@@ -81,7 +82,7 @@ describe('Navbar scroll motion', () => {
     })
   })
 
-  it('animates the mobile menu within the floating panel', () => {
+  it('keeps service switching in the profile menu on mobile', () => {
     const { container } = render(<Navbar />)
     const menu = container.querySelector('#mobile-navigation-menu')
     const openButton = container.querySelector('button[aria-label="Open navigation menu"]')
@@ -96,7 +97,19 @@ describe('Navbar scroll motion', () => {
     expect(menu).toHaveAttribute('aria-hidden', 'false')
     expect(menu).toHaveClass('grid-rows-[1fr]', 'opacity-100')
     expect(closeButton).toHaveAttribute('aria-expanded', 'true')
-    expect(menu).toHaveTextContent('Sunday School')
-    expect(menu).toHaveTextContent('Switch portal view')
+    expect(menu).not.toHaveTextContent('Switch portal view')
+  })
+
+  it('keeps the navbar expanded while scrolling on mobile', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390, writable: true })
+    const { container } = render(<Navbar />)
+    const nav = container.querySelector('nav')
+
+    window.scrollY = 120
+    fireEvent.scroll(window)
+
+    await waitFor(() => {
+      expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
+    })
   })
 })
