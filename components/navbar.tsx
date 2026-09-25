@@ -36,11 +36,13 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [switchingModes, setSwitchingModes] = useState(false)
   const [isScrollCompact, setIsScrollCompact] = useState(false)
+  const [isAtTop, setIsAtTop] = useState(true)
   const lastScrollY = useRef(0)
   const scrollFrame = useRef<number | null>(null)
 
   useEffect(() => {
     lastScrollY.current = window.scrollY
+    setIsAtTop(window.scrollY <= 20)
 
     const handleScroll = () => {
       if (scrollFrame.current !== null) return
@@ -48,6 +50,7 @@ export function Navbar() {
       scrollFrame.current = window.requestAnimationFrame(() => {
         const currentScrollY = window.scrollY
         const delta = currentScrollY - lastScrollY.current
+        setIsAtTop(currentScrollY <= 20)
 
         if (currentScrollY <= 20) {
           setIsScrollCompact(false)
@@ -298,7 +301,11 @@ export function Navbar() {
   return (
     <nav
       data-scroll-state={navCondensed ? 'compact' : 'expanded'}
-      className="sticky top-0 z-50 h-20 bg-gray-50 px-2 pt-2 sm:h-[88px] sm:px-4 sm:pt-3 dark:bg-gray-950"
+      data-page-position={isAtTop ? 'top' : 'scrolled'}
+      className={cn(
+        'sticky top-0 z-50 h-20 px-2 pt-2 transition-colors duration-200 sm:h-[88px] sm:px-4 sm:pt-3',
+        isAtTop ? 'bg-gray-50 dark:bg-gray-950' : 'bg-transparent'
+      )}
     >
       <div
         className={cn(
