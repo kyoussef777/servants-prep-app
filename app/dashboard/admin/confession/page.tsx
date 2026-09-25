@@ -14,8 +14,8 @@ export default function ConfessionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen w-full min-w-0 overflow-x-hidden bg-gray-50 p-4 dark:bg-gray-950 md:p-8">
+      <div className="mx-auto w-full min-w-0 max-w-7xl space-y-6">
         <PageHeader title="Confession Tracker" description="Father of confession sign-offs, in 2-month batches" />
         <ConfessionTracker canEdit={canManageData(session.user.role)} />
       </div>
