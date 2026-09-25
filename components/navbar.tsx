@@ -610,7 +610,7 @@ export function Navbar() {
           )}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="mx-1 mb-2 space-y-1 rounded-xl border border-gray-200/70 bg-gray-50/75 px-2 pb-3 pt-2 shadow-inner dark:border-gray-700/70 dark:bg-gray-800/65">
+            <div className="mx-1 mb-2 max-h-[calc(100dvh-7rem)] space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-gray-200/70 bg-gray-50/75 px-2 pb-3 pt-2 shadow-inner dark:border-gray-700/70 dark:bg-gray-800/65">
               {canSwitchModes && (
                 <Link
                   href={modeDestination}
