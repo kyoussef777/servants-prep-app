@@ -303,13 +303,13 @@ export function Navbar() {
       data-scroll-state={navCondensed ? 'compact' : 'expanded'}
       data-page-position={isAtTop ? 'top' : 'scrolled'}
       className={cn(
-        'sticky top-0 z-50 h-20 px-2 pt-2 transition-colors duration-200 sm:h-[88px] sm:px-4 sm:pt-3',
+        'sticky top-0 z-50 w-full min-w-0 h-20 px-2 pt-2 transition-colors duration-200 sm:h-[88px] sm:px-4 sm:pt-3',
         isAtTop ? 'bg-[var(--app-canvas)]' : 'bg-transparent'
       )}
     >
       <div
         className={cn(
-          'mx-auto rounded-2xl border border-gray-200/80 bg-white/90 shadow-lg shadow-gray-900/8 backdrop-blur-xl transition-[max-width,transform,box-shadow,background-color,border-color] duration-300 ease-out motion-reduce:transition-none dark:border-gray-700/80 dark:bg-gray-900/90 dark:shadow-black/30',
+          'mx-auto w-full min-w-0 rounded-2xl border border-gray-200/80 bg-white/90 shadow-lg shadow-gray-900/8 backdrop-blur-xl transition-[max-width,transform,box-shadow,background-color,border-color] duration-300 ease-out motion-reduce:transition-none dark:border-gray-700/80 dark:bg-gray-900/90 dark:shadow-black/30',
           navCondensed
             ? 'max-w-6xl -translate-y-1 shadow-xl shadow-gray-900/12 dark:shadow-black/40'
             : 'max-w-7xl translate-y-0'
