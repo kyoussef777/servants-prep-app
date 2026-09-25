@@ -52,16 +52,33 @@ describe('Navbar scroll motion', () => {
     const floatingPanel = nav?.firstElementChild
 
     expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
+    expect(nav).toHaveAttribute('data-page-position', 'top')
     expect(nav).toHaveClass('bg-gray-50', 'dark:bg-gray-950')
     expect(floatingPanel).not.toHaveClass('overflow-hidden')
 
     window.scrollY = 120
     fireEvent.scroll(window)
-    await waitFor(() => expect(nav).toHaveAttribute('data-scroll-state', 'compact'))
+    await waitFor(() => {
+      expect(nav).toHaveAttribute('data-scroll-state', 'compact')
+      expect(nav).toHaveAttribute('data-page-position', 'scrolled')
+      expect(nav).toHaveClass('bg-transparent')
+      expect(nav).not.toHaveClass('bg-gray-50', 'dark:bg-gray-950')
+    })
 
     window.scrollY = 60
     fireEvent.scroll(window)
-    await waitFor(() => expect(nav).toHaveAttribute('data-scroll-state', 'expanded'))
+    await waitFor(() => {
+      expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
+      expect(nav).toHaveAttribute('data-page-position', 'scrolled')
+      expect(nav).toHaveClass('bg-transparent')
+    })
+
+    window.scrollY = 0
+    fireEvent.scroll(window)
+    await waitFor(() => {
+      expect(nav).toHaveAttribute('data-page-position', 'top')
+      expect(nav).toHaveClass('bg-gray-50', 'dark:bg-gray-950')
+    })
   })
 
   it('animates the mobile menu within the floating panel', () => {
