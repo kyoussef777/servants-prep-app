@@ -81,13 +81,13 @@ export function Navbar() {
 
           if (delta > 0) {
             mobileScrollDistance.current = Math.max(0, mobileScrollDistance.current) + delta
-            if (currentScrollY > 96 && mobileScrollDistance.current >= 28) {
+            if (currentScrollY > 96 && mobileScrollDistance.current >= 40) {
               setIsMobileNavHidden(true)
               mobileScrollDistance.current = 0
             }
           } else if (delta < 0) {
             mobileScrollDistance.current = Math.min(0, mobileScrollDistance.current) + delta
-            if (mobileScrollDistance.current <= -14) {
+            if (mobileScrollDistance.current <= -18) {
               setIsMobileNavHidden(false)
               mobileScrollDistance.current = 0
             }
@@ -372,10 +372,10 @@ export function Navbar() {
       data-page-position={isAtTop ? 'top' : 'scrolled'}
       data-mobile-visibility={mobileNavHidden ? 'hidden' : 'visible'}
       className={cn(
-        'sticky top-0 z-50 h-20 w-full min-w-0 translate-y-0 transform-gpu px-2 pt-2 will-change-[translate] transition-[translate,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none sm:h-[88px] sm:px-4 sm:pt-3',
+        'sticky top-0 z-50 h-20 w-full min-w-0 translate-y-0 transform-gpu px-2 pt-2 opacity-100 will-change-[translate,opacity] transition-[translate,opacity,background-color] motion-reduce:transition-none sm:h-[88px] sm:px-4 sm:pt-3',
         mobileNavHidden
-          ? '-translate-y-[calc(100%+1rem)] pointer-events-none lg:translate-y-0 lg:pointer-events-auto'
-          : 'translate-y-0',
+          ? '-translate-y-[calc(100%+1rem)] pointer-events-none opacity-0 duration-[520ms] ease-[cubic-bezier(0.4,0,0.2,1)] lg:translate-y-0 lg:pointer-events-auto lg:opacity-100'
+          : 'translate-y-0 opacity-100 duration-[650ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
         isAtTop ? 'bg-[var(--app-canvas)]' : 'bg-[var(--app-canvas)] lg:bg-transparent'
       )}
     >
