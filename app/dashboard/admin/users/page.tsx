@@ -1,5 +1,6 @@
 'use client'
 import { UserOrganizationDialog } from '@/components/user-organization-dialog'
+import { SundaySchoolUserClassDialog } from '@/components/sunday-school-user-class-dialog'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
@@ -20,10 +21,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { canBeMentor, canManageAllUsers, getRoleDisplayName } from '@/lib/roles'
+import {
+  canBeAssignedToSundaySchool,
+  canBeMentor,
+  canManageAllUsers,
+  getRoleDisplayName,
+} from '@/lib/roles'
 import { RoleTag, UserRole } from '@prisma/client'
 import { toast } from 'sonner'
-import { Camera, Trash2, Pencil, X } from 'lucide-react'
+import { Camera, Trash2, Pencil, School, X } from 'lucide-react'
 import { ImageCropDialog } from '@/components/image-crop-dialog'
 import { PageLoading } from '@/components/ui/page-loading'
 import { UserRoleTagEditor } from '@/components/user-role-tag-editor'
@@ -49,8 +55,13 @@ interface User {
   }
 }
 
-export default function UsersPage() {
+interface UsersPageProps {
+  sundaySchoolMode?: boolean
+}
+
+export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) {
   const [organizationUser, setOrganizationUser] = useState<User | null>(null)
+  const [classAssignmentUser, setClassAssignmentUser] = useState<User | null>(null)
   const { session, status } = useAdminGuard(canManageAllUsers)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,8 +122,9 @@ export default function UsersPage() {
       const url = `/api/users${params.toString() ? `?${params.toString()}` : ''}`
       const res = await fetch(url)
       if (!res.ok) throw new Error('Failed to fetch users')
-      const data = await res.json()
+      const data = await res.json() as User[]
       setUsers(data)
+      return data
     } catch (error) {
       console.error('Failed to fetch users:', error)
     } finally {
@@ -783,6 +795,21 @@ export default function UsersPage() {
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
+                            {sundaySchoolMode && canBeAssignedToSundaySchool(
+                              user.role,
+                              user.roleAssignments?.map(assignment => assignment.tag) ?? []
+                            ) && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="mt-1 h-7 px-2 text-xs"
+                                onClick={() => setClassAssignmentUser(user)}
+                              >
+                                <School className="mr-1 h-3 w-3" />
+                                Manage classes
+                              </Button>
+                            )}
                           </td>
                           <td className="p-2 text-center">
                             {user.isDisabled ? (
@@ -969,6 +996,21 @@ export default function UsersPage() {
                             <span className="text-[10px] text-gray-500">({user._count.mentoredStudents})</span>
                           ) : null}
                         </div>
+                        {sundaySchoolMode && canBeAssignedToSundaySchool(
+                          user.role,
+                          user.roleAssignments?.map(assignment => assignment.tag) ?? []
+                        ) && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 h-7 px-2 text-xs"
+                            onClick={() => setClassAssignmentUser(user)}
+                          >
+                            <School className="mr-1 h-3 w-3" />
+                            Manage classes
+                          </Button>
+                        )}
                         <div className="text-xs text-gray-500 truncate">{user.email}</div>
                         {sundaySchoolLevels.length > 0 && (
                           <div className="mt-0.5 text-[11px] text-blue-700">
@@ -1092,6 +1134,20 @@ export default function UsersPage() {
       {organizationUser && (
               <UserOrganizationDialog key={organizationUser.id} user={{ ...organizationUser, profileImageUrl: organizationUser.profileImageUrl ?? null }} onClose={() => setOrganizationUser(null)} />
             )}
+      <SundaySchoolUserClassDialog
+        user={classAssignmentUser}
+        open={classAssignmentUser !== null}
+        onOpenChange={open => {
+          if (!open) setClassAssignmentUser(null)
+        }}
+        onAssignmentsChanged={async () => {
+          const refreshedUsers = await fetchUsers(debouncedSearch, roleFilter)
+          if (!classAssignmentUser || !refreshedUsers) return
+          setClassAssignmentUser(
+            refreshedUsers.find(user => user.id === classAssignmentUser.id) ?? null
+          )
+        }}
+      />
             {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>

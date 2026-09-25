@@ -40,13 +40,21 @@ export async function GET(request: Request) {
     const level = searchParams.get("level")
     const isActive = searchParams.get("isActive")
 
-    const access = await getSundaySchoolAccess(user, academicYearId ?? undefined)
+    const activeAcademicYear = academicYearId
+      ? null
+      : await prisma.academicYear.findFirst({
+          where: { isActive: true },
+          select: { id: true },
+        })
+    const resolvedAcademicYearId = academicYearId ?? activeAcademicYear?.id ?? null
+
+    const access = await getSundaySchoolAccess(user, resolvedAcademicYearId ?? undefined)
     if (!access.canRead) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const where: Record<string, unknown> = {}
-    if (academicYearId) where.academicYearId = academicYearId
+    if (resolvedAcademicYearId) where.academicYearId = resolvedAcademicYearId
     if (level) where.level = level as SundaySchoolLevel
     if (isActive !== null && isActive !== undefined) where.isActive = isActive === "true"
 
@@ -99,25 +107,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A valid grade level is required" }, { status: 400 })
     }
 
-    if (!academicYearId) {
-      const activeYear = await prisma.academicYear.findFirst({
-        where: { isActive: true },
-        select: { id: true },
-      })
-      if (!activeYear) {
-        return NextResponse.json(
-          { error: "No active academic year. Create one before adding classes." },
-          { status: 400 }
-        )
-      }
-      academicYearId = activeYear.id
-    }
-
     const targetSundaySchoolYear = await prisma.sundaySchoolYear.findFirst({
       where: sundaySchoolYearId
         ? { id: sundaySchoolYearId, status: "OPEN" }
         : { status: "OPEN" },
-      select: { id: true },
+      select: { id: true, name: true },
     })
     if (!targetSundaySchoolYear) {
       return NextResponse.json(
@@ -126,6 +120,32 @@ export async function POST(request: Request) {
       )
     }
     sundaySchoolYearId = targetSundaySchoolYear.id
+
+    // Keep the legacy academic-year key aligned with the operational Sunday
+    // School year. A mismatch makes the classes page and dashboard select
+    // different records and makes every assignment appear to disappear when
+    // the academic year changes.
+    const targetAcademicYear = await prisma.academicYear.findFirst({
+      where: academicYearId
+        ? { id: academicYearId }
+        : { name: targetSundaySchoolYear.name },
+      select: { id: true, name: true },
+    })
+    if (!targetAcademicYear) {
+      return NextResponse.json(
+        {
+          error: `Create the ${targetSundaySchoolYear.name} academic year before adding Sunday School classes.`,
+        },
+        { status: 409 }
+      )
+    }
+    if (targetAcademicYear.name !== targetSundaySchoolYear.name) {
+      return NextResponse.json(
+        { error: "The academic year and open Sunday School year must match" },
+        { status: 409 }
+      )
+    }
+    academicYearId = targetAcademicYear.id
 
     const access = await getSundaySchoolAccess(user, academicYearId)
     if (!canCreateClassAtLevel(access, level)) {
