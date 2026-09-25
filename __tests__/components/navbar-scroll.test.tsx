@@ -107,6 +107,18 @@ describe('Navbar scroll motion', () => {
     await waitFor(() => {
       expect(nav).toHaveAttribute('data-mobile-visibility', 'visible')
     })
+
+    fireEvent.click(closeButton!)
+
+    expect(menu).toHaveAttribute('aria-hidden', 'true')
+    expect(menu).toHaveClass(
+      'grid-rows-[0fr]',
+      'opacity-0',
+      'invisible',
+      'pointer-events-none',
+      'transition-[grid-template-rows,opacity,visibility]'
+    )
+    expect(menu).not.toHaveClass('delay-300')
   })
 
   it('slides away on mobile scroll-down and returns on scroll-up without resizing', async () => {

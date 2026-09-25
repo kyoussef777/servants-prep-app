@@ -719,10 +719,10 @@ export function Navbar() {
           id="mobile-navigation-menu"
           aria-hidden={!mobileMenuOpen}
           className={cn(
-            'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none xl:hidden',
+            'grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out motion-reduce:transition-none xl:hidden',
             mobileMenuOpen
-              ? 'visible grid-rows-[1fr] opacity-100'
-              : 'invisible grid-rows-[0fr] opacity-0 delay-300'
+              ? 'visible grid-rows-[1fr] opacity-100 pointer-events-auto'
+              : 'invisible grid-rows-[0fr] opacity-0 pointer-events-none'
           )}
         >
           <div className="min-h-0 overflow-hidden">
