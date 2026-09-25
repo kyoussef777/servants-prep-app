@@ -34,10 +34,14 @@ export function Navbar() {
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [switchingModes, setSwitchingModes] = useState(false)
   const [isScrollCompact, setIsScrollCompact] = useState(false)
+  const [isMobileNavHidden, setIsMobileNavHidden] = useState(false)
   const [isAtTop, setIsAtTop] = useState(true)
   const lastScrollY = useRef(0)
+  const mobileScrollDistance = useRef(0)
   const scrollFrame = useRef<number | null>(null)
 
   useEffect(() => {
@@ -45,25 +49,54 @@ export function Navbar() {
     const isMobileViewport = () => mobileViewport?.matches ?? window.innerWidth <= 1023
     lastScrollY.current = window.scrollY
     setIsAtTop(window.scrollY <= 20)
-    if (isMobileViewport()) setIsScrollCompact(false)
+    if (isMobileViewport()) {
+      setIsScrollCompact(false)
+    } else {
+      setIsMobileNavHidden(false)
+    }
 
     const syncResponsiveState = () => {
-      if (isMobileViewport()) setIsScrollCompact(false)
+      mobileScrollDistance.current = 0
+      if (isMobileViewport()) {
+        setIsScrollCompact(false)
+      } else {
+        setIsMobileNavHidden(false)
+      }
     }
 
     const handleScroll = () => {
       if (scrollFrame.current !== null) return
 
       scrollFrame.current = window.requestAnimationFrame(() => {
-        const currentScrollY = window.scrollY
+        const currentScrollY = Math.max(0, window.scrollY)
         const delta = currentScrollY - lastScrollY.current
         setIsAtTop(currentScrollY <= 20)
 
-        if (isMobileViewport() || currentScrollY <= 20) {
+        if (currentScrollY <= 20) {
           setIsScrollCompact(false)
+          setIsMobileNavHidden(false)
+          mobileScrollDistance.current = 0
+        } else if (isMobileViewport()) {
+          setIsScrollCompact(false)
+
+          if (delta > 0) {
+            mobileScrollDistance.current = Math.max(0, mobileScrollDistance.current) + delta
+            if (currentScrollY > 96 && mobileScrollDistance.current >= 28) {
+              setIsMobileNavHidden(true)
+              mobileScrollDistance.current = 0
+            }
+          } else if (delta < 0) {
+            mobileScrollDistance.current = Math.min(0, mobileScrollDistance.current) + delta
+            if (mobileScrollDistance.current <= -14) {
+              setIsMobileNavHidden(false)
+              mobileScrollDistance.current = 0
+            }
+          }
         } else if (delta > 6) {
+          setIsMobileNavHidden(false)
           setIsScrollCompact(true)
         } else if (delta < -6) {
+          setIsMobileNavHidden(false)
           setIsScrollCompact(false)
         }
 
@@ -80,6 +113,14 @@ export function Navbar() {
       if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)
     }
   }, [])
+
+  const navOverlayOpen = mobileMenuOpen || profileMenuOpen || notificationsOpen
+
+  useEffect(() => {
+    if (!navOverlayOpen) return
+    setIsMobileNavHidden(false)
+    mobileScrollDistance.current = 0
+  }, [navOverlayOpen])
 
   if (
     !session?.user ||
@@ -143,6 +184,7 @@ export function Navbar() {
       active: inSundaySchoolMode,
     },
   ]
+  const serviceRowClassName = 'mx-1 flex h-16 shrink-0 items-center gap-3 rounded-md px-2 py-2'
 
   const handleModeSwitch = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -322,14 +364,19 @@ export function Navbar() {
   const allLinks = [...primaryLinks, ...moreLinks]
   const isMoreActive = moreLinks.some(link => isActive(link.href))
   const navCondensed = isScrollCompact && !mobileMenuOpen
+  const mobileNavHidden = isMobileNavHidden && !navOverlayOpen
 
   return (
     <nav
       data-scroll-state={navCondensed ? 'compact' : 'expanded'}
       data-page-position={isAtTop ? 'top' : 'scrolled'}
+      data-mobile-visibility={mobileNavHidden ? 'hidden' : 'visible'}
       className={cn(
-        'sticky top-0 z-50 w-full min-w-0 h-20 px-2 pt-2 transition-colors duration-200 sm:h-[88px] sm:px-4 sm:pt-3',
-        isAtTop ? 'bg-[var(--app-canvas)]' : 'bg-transparent'
+        'sticky top-0 z-50 h-20 w-full min-w-0 translate-y-0 transform-gpu px-2 pt-2 will-change-transform transition-[transform,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none sm:h-[88px] sm:px-4 sm:pt-3',
+        mobileNavHidden
+          ? '-translate-y-[calc(100%+1rem)] pointer-events-none lg:translate-y-0 lg:pointer-events-auto'
+          : 'translate-y-0',
+        isAtTop ? 'bg-[var(--app-canvas)]' : 'bg-[var(--app-canvas)] lg:bg-transparent'
       )}
     >
       <div
@@ -469,7 +516,7 @@ export function Navbar() {
             </button>
 
             {/* Notification bell */}
-            <NotificationBell />
+            <NotificationBell onOpenChange={setNotificationsOpen} />
 
             {/* Mobile menu button */}
             <Button
@@ -507,7 +554,7 @@ export function Navbar() {
               </span>
             </div>
 
-            <DropdownMenu>
+            <DropdownMenu open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -543,8 +590,9 @@ export function Navbar() {
                         service.active ? (
                           <div
                             key={service.name}
+                            data-service-option
                             aria-current="page"
-                            className="mx-1 flex items-center gap-3 rounded-md bg-accent/60 px-2 py-2"
+                            className={`${serviceRowClassName} bg-accent/60`}
                           >
                             <Image
                               src={service.logo}
@@ -563,7 +611,12 @@ export function Navbar() {
                             </span>
                           </div>
                         ) : (
-                          <DropdownMenuItem key={service.name} asChild>
+                          <DropdownMenuItem
+                            key={service.name}
+                            asChild
+                            data-service-option
+                            className={`${serviceRowClassName} focus:bg-accent/60`}
+                          >
                             <Link
                               href={service.href}
                               onClick={handleModeSwitch}
@@ -666,10 +719,10 @@ export function Navbar() {
           id="mobile-navigation-menu"
           aria-hidden={!mobileMenuOpen}
           className={cn(
-            'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none xl:hidden',
+            'grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out motion-reduce:transition-none xl:hidden',
             mobileMenuOpen
-              ? 'visible grid-rows-[1fr] opacity-100'
-              : 'invisible grid-rows-[0fr] opacity-0 delay-300'
+              ? 'visible grid-rows-[1fr] opacity-100 pointer-events-auto'
+              : 'invisible grid-rows-[0fr] opacity-0 pointer-events-none'
           )}
         >
           <div className="min-h-0 overflow-hidden">

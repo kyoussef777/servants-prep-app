@@ -73,7 +73,11 @@ function getNotificationMeta(type: string): { icon: React.ElementType; color: st
   }
 }
 
-export function NotificationBell() {
+interface NotificationBellProps {
+  onOpenChange?: (isOpen: boolean) => void
+}
+
+export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
   const { data: session } = useSession()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
@@ -91,12 +95,17 @@ export function NotificationBell() {
   const unreadCount = data?.unreadCount ?? 0
   const notifications = data?.notifications ?? []
 
+  const updateOpen = useCallback((nextOpen: boolean) => {
+    setIsOpen(nextOpen)
+    onOpenChange?.(nextOpen)
+  }, [onOpenChange])
+
   const toggleOpen = () => {
     const rect = dropdownRef.current?.getBoundingClientRect()
     if (!isOpen && rect) {
       setAnchor({ top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) })
     }
-    setIsOpen(!isOpen)
+    updateOpen(!isOpen)
   }
 
   // Close on click outside or Escape. The panel is portaled, so check both refs.
@@ -105,11 +114,11 @@ export function NotificationBell() {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node
       if (!dropdownRef.current?.contains(target) && !panelRef.current?.contains(target)) {
-        setIsOpen(false)
+        updateOpen(false)
       }
     }
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setIsOpen(false)
+      if (event.key === 'Escape') updateOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     document.addEventListener('keydown', handleKeyDown)
@@ -117,7 +126,7 @@ export function NotificationBell() {
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, updateOpen])
 
   // Lock body scroll only for the mobile bottom sheet
   useEffect(() => {
@@ -192,9 +201,9 @@ export function NotificationBell() {
       if (notification.url) {
         router.push(notification.url)
       }
-      setIsOpen(false)
+      updateOpen(false)
     },
-    [markRead, router]
+    [markRead, router, updateOpen]
   )
 
   if (!session?.user) return null
@@ -232,7 +241,7 @@ export function NotificationBell() {
           {/* Mobile backdrop */}
           <div
             className="fixed inset-0 z-[60] bg-black/40 animate-in fade-in-0 duration-200 motion-reduce:animate-none lg:hidden"
-            onClick={() => setIsOpen(false)}
+            onClick={() => updateOpen(false)}
           />
 
           {/* Panel — bottom sheet on mobile, dropdown on desktop */}
@@ -289,7 +298,7 @@ export function NotificationBell() {
                   </button>
                 )}
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => updateOpen(false)}
                   className="lg:hidden rounded p-1 hover:bg-accent transition-colors ml-1"
                   aria-label="Close notifications"
                 >

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
   push: vi.fn(),
+  onOpenChange: vi.fn(),
 }))
 
 vi.mock('next-auth/react', () => ({
@@ -37,7 +38,7 @@ describe('NotificationBell', () => {
 
   it('fills the selected bell without moving or resizing it', async () => {
     const user = userEvent.setup()
-    render(<NotificationBell />)
+    render(<NotificationBell onOpenChange={mocks.onOpenChange} />)
 
     const button = screen.getByRole('button', { name: 'Notifications (3 unread)' })
     const icon = screen.getByTestId('notification-bell-icon')
@@ -48,6 +49,7 @@ describe('NotificationBell', () => {
     await user.click(button)
 
     expect(button).toHaveAttribute('aria-expanded', 'true')
+    expect(mocks.onOpenChange).toHaveBeenCalledWith(true)
     expect(button).toHaveClass('bg-accent', 'text-primary')
     expect(icon).toHaveClass('fill-current')
     expect(icon).not.toHaveClass('-rotate-12', 'scale-110')

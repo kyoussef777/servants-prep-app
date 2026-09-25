@@ -28,7 +28,9 @@ vi.mock('next-themes', () => ({
 }))
 
 vi.mock('@/components/notifications/notification-bell', () => ({
-  NotificationBell: () => <button type="button">Notifications</button>,
+  NotificationBell: ({ onOpenChange }: { onOpenChange?: (isOpen: boolean) => void }) => (
+    <button type="button" onClick={() => onOpenChange?.(true)}>Notifications</button>
+  ),
 }))
 
 import { Navbar } from '@/components/navbar'
@@ -62,8 +64,7 @@ describe('Navbar scroll motion', () => {
     await waitFor(() => {
       expect(nav).toHaveAttribute('data-scroll-state', 'compact')
       expect(nav).toHaveAttribute('data-page-position', 'scrolled')
-      expect(nav).toHaveClass('bg-transparent')
-      expect(nav).not.toHaveClass('bg-[var(--app-canvas)]')
+      expect(nav).toHaveClass('bg-[var(--app-canvas)]', 'lg:bg-transparent')
     })
 
     window.scrollY = 60
@@ -71,7 +72,7 @@ describe('Navbar scroll motion', () => {
     await waitFor(() => {
       expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
       expect(nav).toHaveAttribute('data-page-position', 'scrolled')
-      expect(nav).toHaveClass('bg-transparent')
+      expect(nav).toHaveClass('bg-[var(--app-canvas)]', 'lg:bg-transparent')
     })
 
     window.scrollY = 0
@@ -82,8 +83,10 @@ describe('Navbar scroll motion', () => {
     })
   })
 
-  it('keeps service switching in the profile menu on mobile', () => {
+  it('keeps an open mobile menu pinned in view', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390, writable: true })
     const { container } = render(<Navbar />)
+    const nav = container.querySelector('nav')
     const menu = container.querySelector('#mobile-navigation-menu')
     const openButton = container.querySelector('button[aria-label="Open navigation menu"]')
 
@@ -98,9 +101,27 @@ describe('Navbar scroll motion', () => {
     expect(menu).toHaveClass('grid-rows-[1fr]', 'opacity-100')
     expect(closeButton).toHaveAttribute('aria-expanded', 'true')
     expect(menu).not.toHaveTextContent('Switch portal view')
+
+    window.scrollY = 120
+    fireEvent.scroll(window)
+    await waitFor(() => {
+      expect(nav).toHaveAttribute('data-mobile-visibility', 'visible')
+    })
+
+    fireEvent.click(closeButton!)
+
+    expect(menu).toHaveAttribute('aria-hidden', 'true')
+    expect(menu).toHaveClass(
+      'grid-rows-[0fr]',
+      'opacity-0',
+      'invisible',
+      'pointer-events-none',
+      'transition-[grid-template-rows,opacity,visibility]'
+    )
+    expect(menu).not.toHaveClass('delay-300')
   })
 
-  it('keeps the navbar expanded while scrolling on mobile', async () => {
+  it('slides away on mobile scroll-down and returns on scroll-up without resizing', async () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390, writable: true })
     const { container } = render(<Navbar />)
     const nav = container.querySelector('nav')
@@ -110,6 +131,18 @@ describe('Navbar scroll motion', () => {
 
     await waitFor(() => {
       expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
+      expect(nav).toHaveAttribute('data-mobile-visibility', 'hidden')
+      expect(nav).toHaveClass('-translate-y-[calc(100%+1rem)]')
+      expect(nav).toHaveClass('bg-[var(--app-canvas)]')
+    })
+
+    window.scrollY = 100
+    fireEvent.scroll(window)
+
+    await waitFor(() => {
+      expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
+      expect(nav).toHaveAttribute('data-mobile-visibility', 'visible')
+      expect(nav).toHaveClass('translate-y-0')
     })
   })
 })
