@@ -122,7 +122,7 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
   if (!enrollments) return <TableSkeleton />
 
   return (
-    <div className="space-y-3 min-w-0">
+    <div className="w-full min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <FilterSelect
           aria-label="Academic year"
@@ -151,12 +151,12 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
         their first period; after that, upload a photo of the slip signed by their father of confession.
       </p>
 
-      <Card className="py-0 gap-0 overflow-hidden">
-        <CardContent className="p-0 overflow-x-auto">
+      <Card className="w-full min-w-0 max-w-full gap-0 overflow-hidden py-0">
+        <CardContent className="w-full min-w-0 max-w-full overflow-x-auto p-0">
           {visibleRows.length === 0 ? (
             <EmptyState message="No students to show" />
           ) : (
-            <table className="w-full text-sm">
+            <table className="min-w-max text-sm">
               <thead className="border-b bg-gray-50 dark:bg-gray-900">
                 <tr>
                   {!enrollment && <th className="text-left p-3 font-semibold sticky left-0 border-r bg-gray-50 dark:bg-gray-900">Student</th>}

@@ -67,7 +67,7 @@ export default function RootLayout({
             <CommandPalette />
             <ProfilePhotoReminder />
           </div>
-          <div id="app-content" className="flex-1 bg-[var(--app-canvas)]">{children}</div>
+          <div id="app-content" className="w-full min-w-0 flex-1 bg-[var(--app-canvas)]">{children}</div>
           <div className="contents print:hidden">
             <SiteFooter />
             <PushNotificationPrompt />
