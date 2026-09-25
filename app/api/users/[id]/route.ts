@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
-import { UserRole } from "@prisma/client"
+import { AuditEventResult, Prisma, UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { canManageUsers, canManageAllUsers, canServantPrepManageRole } from "@/lib/roles"
 import { normalizeEmail } from "@/lib/email"
+import { recordAuditEvent } from "@/lib/audit"
+import { deleteUserWithRelations, UserDeletionConflictError } from "@/lib/user-deletion"
 
 // GET /api/users/[id] - Get a specific user
 export async function GET(
@@ -237,12 +239,31 @@ export async function DELETE(
       )
     }
 
-    await prisma.user.delete({
-      where: { id }
+    await prisma.$transaction(tx => deleteUserWithRelations(tx, id))
+
+    await recordAuditEvent({
+      actorUserId: currentUser.id,
+      action: "user.delete",
+      entityType: "User",
+      entityId: id,
+      result: AuditEventResult.SUCCESS,
+      metadata: {
+        targetName: targetUser.name,
+        targetEmail: targetUser.email,
+      },
     })
 
     return NextResponse.json({ message: "User deleted successfully" })
   } catch (error: unknown) {
+    if (error instanceof UserDeletionConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return NextResponse.json(
+        { error: "This user still has related records and cannot be deleted. Disable the account instead, or remove the related assignments first." },
+        { status: 409 },
+      )
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to delete user" },
       { status: (error instanceof Error && error.message === "Forbidden") ? 403 : 500 }

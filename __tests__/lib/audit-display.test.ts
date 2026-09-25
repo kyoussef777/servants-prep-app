@@ -18,6 +18,18 @@ describe('audit display helpers', () => {
     })).toBe('Started viewing as Liza Hanna')
   })
 
+  it('uses retained metadata to name a deleted user', () => {
+    expect(auditActionSummary({
+      action: 'user.delete',
+      result: 'SUCCESS',
+      reason: null,
+      entityType: 'User',
+      entityId: 'deleted-user',
+      metadata: { targetName: 'Deleted Person', targetEmail: 'deleted@example.com' },
+      target: null,
+    })).toBe('Deleted user account for Deleted Person')
+  })
+
   it('explains coded reasons and formats metadata labels and values', () => {
     expect(auditReasonLabel('INVALID_CREDENTIALS')).toBe(
       'The email or password was incorrect.'

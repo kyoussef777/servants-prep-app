@@ -13,6 +13,7 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { PageHeader } from '@/components/admin/page-header'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { getRoleDisplayName, isAdmin, canViewStudents } from '@/lib/roles'
+import { getPersonInitials } from '@/lib/person-name'
 import { SECTION_DISPLAY_NAMES } from '@/lib/constants'
 import type { MenteeAnalytics } from '@/lib/types'
 import {
@@ -216,8 +217,8 @@ export default function MyMenteesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[var(--app-canvas)] p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <PageHeader
           title={isPriest ? 'All Students' : 'My Mentees'}
@@ -227,13 +228,13 @@ export default function MyMenteesPage() {
           actions={
             <>
               {atRiskMentees.length > 0 && (
-                <Badge className="bg-red-500 text-white px-3 py-1">
+                <Badge className="border border-red-200 bg-red-50 px-3 py-1 text-red-700 shadow-sm dark:border-red-900 dark:bg-red-950/60 dark:text-red-300">
                   <AlertTriangle className="h-4 w-4 mr-1" />
                   {atRiskMentees.length} At Risk
                 </Badge>
               )}
               {onTrackMentees.length > 0 && (
-                <Badge className="bg-green-500 text-white px-3 py-1">
+                <Badge className="border border-green-200 bg-green-50 px-3 py-1 text-green-700 shadow-sm dark:border-green-900 dark:bg-green-950/60 dark:text-green-300">
                   <CheckCircle className="h-4 w-4 mr-1" />
                   {onTrackMentees.length} On Track
                 </Badge>
@@ -244,37 +245,43 @@ export default function MyMenteesPage() {
 
         {/* Summary Stats */}
         {mentees.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="pt-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Card className="gap-0 rounded-2xl border-gray-200/80 bg-white/80 py-0 shadow-sm backdrop-blur-xl dark:border-gray-700/80 dark:bg-gray-900/80">
+              <CardContent className="p-5 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">{isPriest ? 'Total Students' : 'Total Mentees'}</p>
-                    <p className="text-3xl font-bold">{totalMentees}</p>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{isPriest ? 'Total Students' : 'Total Mentees'}</p>
+                    <p className="mt-1 text-3xl font-bold tracking-tight">{totalMentees}</p>
                   </div>
-                  <Users className="h-10 w-10 text-blue-500 opacity-50" />
+                  <div className="rounded-xl bg-maroon-50 p-3 text-maroon-600 ring-1 ring-inset ring-maroon-100 dark:bg-maroon-950/50 dark:text-maroon-300 dark:ring-maroon-900">
+                    <Users className="h-6 w-6" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="pt-6">
+            <Card className="gap-0 rounded-2xl border-gray-200/80 bg-white/80 py-0 shadow-sm backdrop-blur-xl dark:border-gray-700/80 dark:bg-gray-900/80">
+              <CardContent className="p-5 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">On Track</p>
-                    <p className="text-3xl font-bold text-green-600">{onTrackMentees.length}</p>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">On Track</p>
+                    <p className="mt-1 text-3xl font-bold tracking-tight text-green-600 dark:text-green-400">{onTrackMentees.length}</p>
                   </div>
-                  <CheckCircle className="h-10 w-10 text-green-500 opacity-50" />
+                  <div className="rounded-xl bg-green-50 p-3 text-green-600 ring-1 ring-inset ring-green-100 dark:bg-green-950/50 dark:text-green-300 dark:ring-green-900">
+                    <CheckCircle className="h-6 w-6" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="pt-6">
+            <Card className="gap-0 rounded-2xl border-gray-200/80 bg-white/80 py-0 shadow-sm backdrop-blur-xl dark:border-gray-700/80 dark:bg-gray-900/80">
+              <CardContent className="p-5 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">At Risk</p>
-                    <p className="text-3xl font-bold text-red-600">{atRiskMentees.length}</p>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">At Risk</p>
+                    <p className="mt-1 text-3xl font-bold tracking-tight text-red-600 dark:text-red-400">{atRiskMentees.length}</p>
                   </div>
-                  <AlertTriangle className="h-10 w-10 text-red-500 opacity-50" />
+                  <div className="rounded-xl bg-red-50 p-3 text-red-600 ring-1 ring-inset ring-red-100 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-900">
+                    <AlertTriangle className="h-6 w-6" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -283,7 +290,12 @@ export default function MyMenteesPage() {
 
         {/* Mentees List */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Student Details</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold tracking-tight">Student Details</h2>
+            <Badge variant="outline" className="rounded-full bg-white/70 text-xs text-gray-500 shadow-sm dark:bg-gray-900/70 dark:text-gray-400">
+              {mentees.length}
+            </Badge>
+          </div>
 
           {mentees.map((mentee) => {
             const isExpanded = expandedMentee === mentee.id
@@ -293,20 +305,22 @@ export default function MyMenteesPage() {
             return (
               <Card
                 key={mentee.id}
-                className={`transition-all ${isAtRisk ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-green-500'}`}
+                className={`gap-0 overflow-hidden rounded-2xl bg-white/85 py-0 shadow-sm backdrop-blur-xl transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:shadow-md dark:bg-gray-900/85 ${isAtRisk ? 'border-red-200/90 dark:border-red-900/80' : 'border-green-200/90 dark:border-green-900/80'}`}
               >
-                <CardHeader className="pb-2 px-3 md:px-6">
+                <CardHeader className="px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
                   <div className="space-y-2 md:space-y-0 md:flex md:justify-between md:items-start md:gap-4">
                     {/* Student Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Link href={`/dashboard/admin/students?student=${mentee.student.id}`}>
-                          <CardTitle className="text-base md:text-lg truncate hover:text-blue-600 hover:underline cursor-pointer">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-xs font-bold text-maroon-700 ring-1 ring-inset ring-maroon-100 dark:bg-maroon-950/60 dark:text-maroon-200 dark:ring-maroon-900">
+                        {getPersonInitials(mentee.student.name)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/dashboard/admin/students?student=${mentee.student.id}`} className="block w-fit max-w-full">
+                          <CardTitle className="cursor-pointer truncate text-base transition-colors hover:text-maroon-700 sm:text-lg dark:hover:text-maroon-300">
                             {mentee.student.name}
                           </CardTitle>
                         </Link>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <Badge variant="outline" className="text-[10px] md:text-xs px-1.5 py-0">
                           Year {mentee.yearLevel === 'YEAR_1' ? '1' : '2'}
                         </Badge>
@@ -326,32 +340,33 @@ export default function MyMenteesPage() {
                         {mentee.student.email}
                         {mentee.student.phone && <span className="hidden md:inline"> • {mentee.student.phone}</span>}
                       </CardDescription>
+                      </div>
                     </div>
 
                     {/* Quick Stats - stacks on very small screens */}
                     {analytics && (
-                      <div className="flex justify-between gap-3 pt-2 border-t md:border-t-0 md:pt-0 md:gap-6 md:text-right">
-                        <div className="text-center md:text-right">
+                      <div className="grid auto-cols-fr grid-flow-col gap-2 border-t pt-3 md:flex md:border-t-0 md:pt-0 md:text-right">
+                        <div className="rounded-lg bg-gray-50/80 px-2 py-1.5 text-center md:min-w-16 md:text-right dark:bg-gray-800/70">
                           <div className="text-[10px] md:text-xs text-gray-500 uppercase">Attend</div>
                           <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.attendance.percentage)}`}>
                             {analytics.attendance.percentage !== null ? `${analytics.attendance.percentage.toFixed(0)}%` : '—'}
                           </div>
                         </div>
                         {analytics.attendance.conductDismissalCount > 0 && (
-                          <div className="text-center md:text-right">
+                          <div className="rounded-lg bg-orange-50/80 px-2 py-1.5 text-center md:min-w-16 md:text-right dark:bg-orange-950/30">
                             <div className="text-[10px] md:text-xs text-gray-500 uppercase">Removed</div>
                             <div className="text-sm md:text-lg font-bold text-orange-600">
                               {analytics.attendance.conductDismissalCount}x
                             </div>
                           </div>
                         )}
-                        <div className="text-center md:text-right">
+                        <div className="rounded-lg bg-gray-50/80 px-2 py-1.5 text-center md:min-w-16 md:text-right dark:bg-gray-800/70">
                           <div className="text-[10px] md:text-xs text-gray-500 uppercase">Exam</div>
                           <div className={`text-sm md:text-lg font-bold ${getScoreColor(analytics.exams.overallAverage)}`}>
                             {analytics.exams.overallAverage !== null ? `${analytics.exams.overallAverage.toFixed(0)}%` : '—'}
                           </div>
                         </div>
-                        <div className="text-center md:text-right">
+                        <div className="rounded-lg bg-gray-50/80 px-2 py-1.5 text-center md:min-w-16 md:text-right dark:bg-gray-800/70">
                           <div className="text-[10px] md:text-xs text-gray-500 uppercase">Missing</div>
                           <div className={`text-sm md:text-lg font-bold ${analytics.exams.missingExams?.length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
                             {analytics.exams.missingExams?.length || 0}
@@ -362,13 +377,13 @@ export default function MyMenteesPage() {
                   </div>
                 </CardHeader>
 
-                <CardContent className="pt-0 px-3 md:px-6">
+                <CardContent className="px-4 pb-4 sm:px-6 sm:pb-5">
                   {/* Expand/Collapse Button */}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setExpandedMentee(isExpanded ? null : mentee.id)}
-                    className="w-full justify-center text-gray-500 hover:text-gray-700 text-xs md:text-sm"
+                    className="w-full justify-center rounded-xl border border-gray-200/70 bg-gray-50/70 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-800 sm:text-sm dark:border-gray-700/70 dark:bg-gray-800/60 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
                   >
                     {isExpanded ? (
                       <>
@@ -385,7 +400,7 @@ export default function MyMenteesPage() {
 
                   {/* Expanded Details */}
                   {isExpanded && (
-                    <div className="mt-3 md:mt-4 space-y-4 md:space-y-6 border-t dark:border-gray-700 pt-3 md:pt-4">
+                    <div className="mt-3 space-y-4 rounded-xl border border-gray-200/70 bg-gray-50/60 p-3 sm:mt-4 sm:space-y-6 sm:p-5 dark:border-gray-700/70 dark:bg-gray-950/35">
                     {analytics && (
                     <>
                       {/* Attendance Details */}
@@ -691,9 +706,11 @@ export default function MyMenteesPage() {
           })}
 
           {mentees.length === 0 && (
-            <Card>
-              <CardContent className="p-8 text-center text-gray-500">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <Card className="gap-0 rounded-2xl border-gray-200/80 bg-white/80 py-0 shadow-sm backdrop-blur-xl dark:border-gray-700/80 dark:bg-gray-900/80">
+              <CardContent className="p-10 text-center text-gray-500 sm:p-14 dark:text-gray-400">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-maroon-50 text-maroon-600 ring-1 ring-inset ring-maroon-100 dark:bg-maroon-950/50 dark:text-maroon-300 dark:ring-maroon-900">
+                  <Users className="h-7 w-7" />
+                </div>
                 <p className="text-lg font-medium">
                   {isPriest ? 'No students enrolled' : 'No mentees assigned yet'}
                 </p>

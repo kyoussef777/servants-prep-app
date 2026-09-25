@@ -17,6 +17,7 @@ import { withCurrentOption } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { MentorFilterCombobox } from '@/components/admin/mentor-filter-combobox'
 
 interface FatherOfConfession {
   id: string
@@ -317,7 +318,7 @@ export default function EnrollmentsPage() {
   })
 
   // Calculate workload per mentor
-  const mentorWorkload = new Map()
+  const mentorWorkload = new Map<string, number>()
   if (Array.isArray(enrollments)) {
     enrollments.forEach(enrollment => {
       if (enrollment.mentor) {
@@ -424,19 +425,12 @@ export default function EnrollmentsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-9 w-full sm:w-56 text-sm"
               />
-              <select
+              <MentorFilterCombobox
+                mentors={mentors}
+                workload={mentorWorkload}
                 value={filterMentor}
-                onChange={(e) => setFilterMentor(e.target.value)}
-                className="h-9 px-2 text-sm rounded-md border border-input bg-background dark:bg-gray-800 dark:text-white dark:border-gray-600"
-              >
-                <option value="all">All Mentors</option>
-                <option value="unassigned">Unassigned</option>
-                {mentors.map(mentor => (
-                  <option key={mentor.id} value={mentor.id}>
-                    {mentor.name} ({mentorWorkload.get(mentor.id) || 0})
-                  </option>
-                ))}
-              </select>
+                onValueChange={setFilterMentor}
+              />
               <select
                 value={filterYear}
                 onChange={(e) => setFilterYear(e.target.value)}
