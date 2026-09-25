@@ -53,7 +53,7 @@ describe('Navbar scroll motion', () => {
 
     expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
     expect(nav).toHaveAttribute('data-page-position', 'top')
-    expect(nav).toHaveClass('bg-gray-50', 'dark:bg-gray-950')
+    expect(nav).toHaveClass('bg-[var(--app-canvas)]')
     expect(floatingPanel).not.toHaveClass('overflow-hidden')
 
     window.scrollY = 120
@@ -62,7 +62,7 @@ describe('Navbar scroll motion', () => {
       expect(nav).toHaveAttribute('data-scroll-state', 'compact')
       expect(nav).toHaveAttribute('data-page-position', 'scrolled')
       expect(nav).toHaveClass('bg-transparent')
-      expect(nav).not.toHaveClass('bg-gray-50', 'dark:bg-gray-950')
+      expect(nav).not.toHaveClass('bg-[var(--app-canvas)]')
     })
 
     window.scrollY = 60
@@ -77,7 +77,7 @@ describe('Navbar scroll motion', () => {
     fireEvent.scroll(window)
     await waitFor(() => {
       expect(nav).toHaveAttribute('data-page-position', 'top')
-      expect(nav).toHaveClass('bg-gray-50', 'dark:bg-gray-950')
+      expect(nav).toHaveClass('bg-[var(--app-canvas)]')
     })
   })
 
