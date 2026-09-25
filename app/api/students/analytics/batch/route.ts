@@ -108,37 +108,31 @@ export async function GET(request: Request) {
       ? { exam: { academicYearId } }
       : {}
 
-    // Get academic years for reference
+    // Get academic years for reference (oldest first)
     const academicYears = await prisma.academicYear.findMany({
       orderBy: { startDate: 'asc' },
-      select: { id: true, name: true }
+      select: { id: true, isActive: true }
     })
 
-    // Create academic year ID lookup by name
-    const academicYearIdByName = new Map<string, string>()
-    academicYears.forEach(ay => {
-      if (ay.name.includes('2024-2025')) {
-        academicYearIdByName.set('2024-2025', ay.id)
-      } else if (ay.name.includes('2025-2026')) {
-        academicYearIdByName.set('2025-2026', ay.id)
-      }
-    })
+    // Current year = the active year (or the latest if none is active);
+    // previous year = the one before it by start date
+    const activeIndex = academicYears.findIndex(ay => ay.isActive)
+    const currentIndex = activeIndex >= 0 ? activeIndex : academicYears.length - 1
+    const currentYearId = academicYears[currentIndex]?.id
+    const previousYearId = academicYears[currentIndex - 1]?.id
 
-    // Year mapping is now PER-STUDENT based on their current year level:
-    // - Year 2 students: Year 1 = 2024-2025, Year 2 = 2025-2026
-    // - Year 1 students: Year 1 = 2025-2026, Year 2 = N/A (not started yet)
-    // We'll create a function to get the year mapping for each student
+    // Year mapping is PER-STUDENT based on their current year level:
+    // - Year 2 students: Year 1 = previous year, Year 2 = current year
+    // - Year 1 students: Year 1 = current year, Year 2 = N/A (not started yet)
     const getStudentYearMapping = (studentYearLevel: string) => {
       if (studentYearLevel === 'YEAR_2') {
-        // Year 2 students started in 2024-2025
         return {
-          year1AcademicYearId: academicYearIdByName.get('2024-2025'),
-          year2AcademicYearId: academicYearIdByName.get('2025-2026')
+          year1AcademicYearId: previousYearId,
+          year2AcademicYearId: currentYearId
         }
       } else {
-        // Year 1 students started in 2025-2026
         return {
-          year1AcademicYearId: academicYearIdByName.get('2025-2026'),
+          year1AcademicYearId: currentYearId,
           year2AcademicYearId: null // Not in Year 2 yet
         }
       }
