@@ -226,6 +226,11 @@ enum SundaySchoolFeedbackStatus {
   DECLINED
 }
 
+enum SundaySchoolFeedbackType {
+  PROBLEM
+  IDEA
+}
+
 enum SundaySchoolFeedbackVoteType {
   UP
   DOWN
@@ -1240,6 +1245,7 @@ model SundaySchoolPriestNote {
 // intentionally global rather than scoped to a class or academic year.
 model SundaySchoolFeedbackIdea {
   id            String                     @id @default(cuid())
+  type          SundaySchoolFeedbackType   @default(IDEA)
   title         String
   description   String?                    @db.Text
   status        SundaySchoolFeedbackStatus @default(OPEN)

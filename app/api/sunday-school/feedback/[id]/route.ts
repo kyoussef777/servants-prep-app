@@ -33,7 +33,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const { id } = await params
     const existing = await prisma.sundaySchoolFeedbackIdea.findUnique({
       where: { id },
-      select: { id: true, title: true, description: true, submittedById: true, status: true },
+      select: { id: true, type: true, title: true, description: true, submittedById: true, status: true },
     })
     if (!existing) {
       return NextResponse.json({ error: 'Feedback idea not found' }, { status: 404 })
@@ -44,7 +44,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
     }
     const payload = body as Record<string, unknown>
-    const contentRequested = payload.title !== undefined || payload.description !== undefined
+    const contentRequested =
+      payload.type !== undefined ||
+      payload.title !== undefined ||
+      payload.description !== undefined
     const statusRequested = payload.status !== undefined
 
     if (!contentRequested && !statusRequested) {
@@ -68,7 +71,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
       const validation = validateFeedbackContent(
         payload.title ?? existing.title,
-        payload.description === undefined ? existing.description : payload.description
+        payload.description === undefined ? existing.description : payload.description,
+        payload.type ?? existing.type
       )
       if (!validation.value) {
         return NextResponse.json({ error: validation.error }, { status: 400 })

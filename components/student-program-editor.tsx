@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { canBeMentor, canManageAllUsers, canManageEnrollments, canManageUsers, getRoleDisplayName } from '@/lib/roles'
+import { canManageAllUsers, canManageEnrollments, canManageUsers, getRoleDisplayName } from '@/lib/roles'
 import { formatToastTimestamp, withCurrentOption } from '@/lib/utils'
 import { fetcher, staticDataConfig } from '@/lib/swr'
 
@@ -107,10 +107,13 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
   const enrollment = student.enrollments?.[0]
   const registration = student.createdFromRegistration?.[0]
 
-  const { data: users = [] } = useSWR<Option[]>('/api/users', fetcher, staticDataConfig)
+  const { data: mentors = [] } = useSWR<Option[]>(
+    canEdit ? '/api/mentor-options' : null,
+    fetcher,
+    staticDataConfig
+  )
   const { data: fathers = [] } = useSWR<Option[]>('/api/fathers-of-confession', fetcher, staticDataConfig)
   const { data: years = [] } = useSWR<Option[]>('/api/academic-years', fetcher, staticDataConfig)
-  const mentors = users.filter(u => u.role && canBeMentor(u.role))
   const [saving, setSaving] = useState(false)
 
   const save = async (url: string, body: object, message: string, method = 'PATCH') => {

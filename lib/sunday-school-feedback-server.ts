@@ -1,5 +1,6 @@
 import type {
   SundaySchoolFeedbackStatus,
+  SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
 } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
@@ -13,6 +14,7 @@ import type { SundaySchoolFeedbackIdea } from '@/types/sunday-school'
 
 export const feedbackIdeaSelect = {
   id: true,
+  type: true,
   title: true,
   description: true,
   status: true,
@@ -26,6 +28,7 @@ export const feedbackIdeaSelect = {
 
 export interface FeedbackIdeaRecord {
   id: string
+  type: SundaySchoolFeedbackType
   title: string
   description: string | null
   status: SundaySchoolFeedbackStatus
@@ -75,6 +78,7 @@ export async function serializeFeedbackIdeas(
     const ideaCounts = counts.get(idea.id) ?? { upvotes: 0, downvotes: 0 }
     return {
       id: idea.id,
+      type: idea.type,
       title: idea.title,
       description: idea.description,
       status: idea.status,

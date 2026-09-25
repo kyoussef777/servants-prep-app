@@ -13,7 +13,13 @@ export function SiteFooter() {
         <p className="text-xs text-gray-500 dark:text-gray-400">
           © {new Date().getFullYear()} St. Mark Coptic Orthodox Church.
         </p>
-        <nav className="flex items-center gap-4" aria-label="Legal">
+        <nav className="flex items-center gap-4" aria-label="Footer">
+          <Link
+            href="/dashboard/servants/feedback"
+            className="text-xs text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+          >
+            Feedback
+          </Link>
           <Link
             href={`${legalBase}/terms`}
             className="text-xs text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"

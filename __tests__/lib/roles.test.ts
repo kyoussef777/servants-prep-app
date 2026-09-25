@@ -204,14 +204,14 @@ describe('Role Helper Functions', () => {
   })
 
   describe('canBeMentor', () => {
-    it('should return true for SUPER_ADMIN, SERVANT_PREP, and MENTOR', () => {
+    it('should return true for SUPER_ADMIN, PRIEST, SERVANT_PREP, and MENTOR', () => {
       expect(canBeMentor(UserRole.SUPER_ADMIN as UserRoleType)).toBe(true)
+      expect(canBeMentor(UserRole.PRIEST as UserRoleType)).toBe(true)
       expect(canBeMentor(UserRole.SERVANT_PREP as UserRoleType)).toBe(true)
       expect(canBeMentor(UserRole.MENTOR as UserRoleType)).toBe(true)
     })
 
-    it('should return false for PRIEST and STUDENT', () => {
-      expect(canBeMentor(UserRole.PRIEST as UserRoleType)).toBe(false)
+    it('should return false for STUDENT', () => {
       expect(canBeMentor(UserRole.STUDENT as UserRoleType)).toBe(false)
     })
   })
@@ -353,6 +353,7 @@ describe('Role Permission Matrix', () => {
     expect(canManageData(role)).toBe(false) // PRIEST is read-only
     expect(canAssignMentors(role)).toBe(false) // PRIEST is read-only
     expect(canViewStudents(role)).toBe(true)
+    expect(canBeMentor(role)).toBe(true)
   })
 
   it('SERVANT_PREP should be able to manage users but not all users', () => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -18,9 +18,10 @@ import {
   canAdministerSundaySchool,
   canReviewServantApplications,
 } from '@/lib/roles'
-import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
+import { ArrowRight, Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { getPersonInitials } from '@/lib/person-name'
+import { cn } from '@/lib/utils'
 
 interface NavLink {
   href: string
@@ -34,6 +35,39 @@ export function Navbar() {
   const { resolvedTheme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [switchingModes, setSwitchingModes] = useState(false)
+  const [isScrollCompact, setIsScrollCompact] = useState(false)
+  const lastScrollY = useRef(0)
+  const scrollFrame = useRef<number | null>(null)
+
+  useEffect(() => {
+    lastScrollY.current = window.scrollY
+
+    const handleScroll = () => {
+      if (scrollFrame.current !== null) return
+
+      scrollFrame.current = window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY
+        const delta = currentScrollY - lastScrollY.current
+
+        if (currentScrollY <= 20) {
+          setIsScrollCompact(false)
+        } else if (delta > 6) {
+          setIsScrollCompact(true)
+        } else if (delta < -6) {
+          setIsScrollCompact(false)
+        }
+
+        lastScrollY.current = currentScrollY
+        scrollFrame.current = null
+      })
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)
+    }
+  }, [])
 
   if (
     !session?.user ||
@@ -259,11 +293,28 @@ export function Navbar() {
   const { primary: primaryLinks, more: moreLinks } = getNavLinks()
   const allLinks = [...primaryLinks, ...moreLinks]
   const isMoreActive = moreLinks.some(link => isActive(link.href))
+  const navCondensed = isScrollCompact && !mobileMenuOpen
 
   return (
-    <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-2">
+    <nav
+      data-scroll-state={navCondensed ? 'compact' : 'expanded'}
+      className="sticky top-0 z-50 h-20 px-2 pt-2 sm:h-[88px] sm:px-4 sm:pt-3"
+    >
+      <div
+        className={cn(
+          'mx-auto overflow-hidden rounded-2xl border border-gray-200/80 bg-white/90 shadow-lg shadow-gray-900/8 backdrop-blur-xl transition-[max-width,transform,box-shadow,background-color,border-color] duration-300 ease-out motion-reduce:transition-none dark:border-gray-700/80 dark:bg-gray-900/90 dark:shadow-black/30',
+          navCondensed
+            ? 'max-w-6xl -translate-y-1 shadow-xl shadow-gray-900/12 dark:shadow-black/40'
+            : 'max-w-7xl translate-y-0'
+        )}
+      >
+        <div className="px-3 sm:px-5 lg:px-6">
+        <div
+          className={cn(
+            'flex items-center justify-between gap-2 transition-[height] duration-300 ease-out motion-reduce:transition-none',
+            navCondensed ? 'h-14' : 'h-16'
+          )}
+        >
           {/* Left side - Logo/Title */}
           <div className="flex min-w-0 flex-1 items-center gap-8 overflow-hidden">
             <div
@@ -284,7 +335,7 @@ export function Navbar() {
                       : 'h-9 w-9 rounded-md bg-black p-1 sm:h-10 sm:w-10'}
                   />
                 </span>
-                <span className="truncate whitespace-nowrap text-lg font-bold text-gray-900 sm:text-xl dark:text-white">
+                <span className="truncate whitespace-nowrap text-base font-bold text-gray-900 sm:text-xl dark:text-white">
                   {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
                 </span>
               </Link>
@@ -385,11 +436,20 @@ export function Navbar() {
               type="button"
               aria-label="Open command palette"
               onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-              className="hidden w-56 items-center gap-2 rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500 transition-all hover:border-gray-300 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 md:inline-flex lg:w-48 xl:w-56 2xl:w-64 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800"
+              className={cn(
+                'hidden h-10 items-center rounded-lg border bg-gray-50 text-sm text-gray-500 transition-all duration-300 hover:border-gray-300 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 md:inline-flex dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800',
+                navCondensed
+                  ? 'w-10 justify-center px-0'
+                  : 'w-56 gap-2 px-3 lg:w-48 xl:w-56 2xl:w-64'
+              )}
             >
               <Search className="h-4 w-4 shrink-0" />
-              <span className="flex-1 text-left truncate">Search students, lessons…</span>
-              <kbd className="hidden lg:inline-flex h-5 items-center rounded border bg-white dark:bg-gray-900 dark:border-gray-700 px-1.5 font-mono text-[10px] text-gray-500">⌘K</kbd>
+              {!navCondensed && (
+                <>
+                  <span className="flex-1 text-left truncate">Search students, lessons…</span>
+                  <kbd className="hidden lg:inline-flex h-5 items-center rounded border bg-white dark:bg-gray-900 dark:border-gray-700 px-1.5 font-mono text-[10px] text-gray-500">⌘K</kbd>
+                </>
+              )}
             </button>
 
             {/* Search trigger - mobile icon only */}
@@ -408,18 +468,28 @@ export function Navbar() {
             {/* Mobile menu button */}
             <Button
               variant="ghost"
-              className="xl:hidden"
+              className="relative overflow-hidden xl:hidden"
               size="icon"
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation-menu"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              {mobileMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
+              <Menu
+                className={cn(
+                  'absolute h-6 w-6 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+                  mobileMenuOpen ? 'rotate-90 scale-75 opacity-0' : 'rotate-0 scale-100 opacity-100'
+                )}
+              />
+              <X
+                className={cn(
+                  'absolute h-6 w-6 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+                  mobileMenuOpen ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-75 opacity-0'
+                )}
+              />
             </Button>
 
-            <div className={showIdentityText ? 'hidden min-w-0 max-w-40 shrink flex-col items-end 2xl:flex' : 'hidden'}>
+            <div className={showIdentityText && !navCondensed ? 'hidden min-w-0 max-w-40 shrink flex-col items-end 2xl:flex' : 'hidden'}>
               <span
                 className="max-w-full truncate text-sm font-medium text-gray-900 dark:text-white"
                 title={session.user.name ?? undefined}
@@ -522,18 +592,38 @@ export function Navbar() {
         </div>
 
         {/* Mobile menu - flat list of all links */}
-        {mobileMenuOpen && (
-          <div className="border-t dark:border-gray-800 xl:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1">
+        <div
+          id="mobile-navigation-menu"
+          aria-hidden={!mobileMenuOpen}
+          className={cn(
+            'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none xl:hidden',
+            mobileMenuOpen
+              ? 'visible grid-rows-[1fr] opacity-100'
+              : 'invisible grid-rows-[0fr] opacity-0 delay-300'
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="mx-1 mb-2 space-y-1 rounded-xl border border-gray-200/70 bg-gray-50/75 px-2 pb-3 pt-2 shadow-inner dark:border-gray-700/70 dark:bg-gray-800/65">
               {canSwitchModes && (
                 <Link
                   href={modeDestination}
                   onClick={handleModeSwitch}
                   data-mode-switch
                   aria-disabled={switchingModes}
-                  className="block px-3 py-2 mb-1 rounded-md text-base font-medium border text-gray-700 dark:text-gray-300 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="group mb-2 flex items-center gap-3 rounded-lg border border-gray-200/80 bg-white/85 px-3 py-2.5 text-gray-800 shadow-sm transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-maroon-200 hover:bg-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2 dark:border-gray-700/80 dark:bg-gray-900/75 dark:text-gray-100 dark:hover:border-maroon-700 dark:hover:bg-gray-900"
                 >
-                  Switch to {inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-[11px] font-bold tracking-wide text-maroon-700 ring-1 ring-inset ring-maroon-100 dark:bg-maroon-950 dark:text-maroon-200 dark:ring-maroon-800">
+                    {inSundaySchoolMode ? 'SP' : 'SS'}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">
+                      {inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}
+                    </span>
+                    <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
+                      Switch portal view
+                    </span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-maroon-600 dark:text-gray-500 dark:group-hover:text-maroon-300" />
                 </Link>
               )}
               {allLinks.map(link => (
@@ -552,7 +642,8 @@ export function Navbar() {
               ))}
             </div>
           </div>
-        )}
+        </div>
+        </div>
       </div>
     </nav>
   )

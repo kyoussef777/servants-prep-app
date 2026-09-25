@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { canAssignMentors, canManageEnrollments, canSetAsyncStatus } from "@/lib/roles"
 import { notifyMentorAssigned } from "@/lib/notifications"
 import { enrollmentStatusUpdate, reconcileLateStartAttendance } from "@/lib/api-utils"
+import { isEligibleMentorAccount } from "@/lib/mentor-eligibility"
 
 // PATCH /api/enrollments/[id] - Update an enrollment
 // - SUPER_ADMIN: Can update all fields including mentor assignment
@@ -30,10 +31,24 @@ export async function PATCH(
     const { yearLevel, mentorId, isActive, status, notes, academicYearId, fatherOfConfessionId, isAsyncStudent, asyncReason, attendanceStartDate, graduationNote } = body
 
     const updateData: Record<string, unknown> = {}
+    const mentorAssignmentRequested = mentorId !== undefined
+    const nextMentorId = mentorId || null
     if (yearLevel) updateData.yearLevel = yearLevel
     // Only SUPER_ADMIN/SERVANT_PREP can change mentor assignment
     if (mentorId !== undefined && canAssignMentors(user.role)) {
-      updateData.mentorId = mentorId || null
+      if (mentorId) {
+        const mentor = await prisma.user.findUnique({
+          where: { id: mentorId },
+          select: { role: true, isDisabled: true },
+        })
+        if (!isEligibleMentorAccount(mentor)) {
+          return NextResponse.json(
+            { error: "Selected user cannot be assigned as a mentor" },
+            { status: 400 }
+          )
+        }
+      }
+      updateData.mentorId = nextMentorId
     }
     if (isActive !== undefined) updateData.isActive = isActive
     if (notes !== undefined) updateData.notes = notes
@@ -83,6 +98,12 @@ export async function PATCH(
     }
 
     const enrollment = await prisma.$transaction(async (tx) => {
+      const currentEnrollment = mentorAssignmentRequested
+        ? await tx.studentEnrollment.findUniqueOrThrow({
+            where: { id },
+            select: { mentorId: true },
+          })
+        : null
       const updated = await tx.studentEnrollment.update({
         where: { id },
         data: updateData,
@@ -123,6 +144,30 @@ export async function PATCH(
         }
       })
 
+      if (
+        mentorAssignmentRequested &&
+        currentEnrollment?.mentorId !== nextMentorId
+      ) {
+        const changedAt = new Date()
+        await tx.mentorAssignment.updateMany({
+          where: { studentEnrollmentId: id, endedAt: null },
+          data: {
+            endedAt: changedAt,
+            endedById: user.id,
+            endReason: nextMentorId ? "Mentor reassigned" : "Mentor removed",
+          },
+        })
+        if (nextMentorId) {
+          await tx.mentorAssignment.create({
+            data: {
+              studentEnrollmentId: id,
+              mentorUserId: nextMentorId,
+              assignedById: user.id,
+            },
+          })
+        }
+      }
+
       // Reconcile late-start attendance atomically when the start date changed
       if (attendanceStartChanged) {
         await reconcileLateStartAttendance(updated.studentId, newAttendanceStart, tx)
@@ -132,7 +177,7 @@ export async function PATCH(
     })
 
     // Notify student when a mentor is assigned (non-blocking)
-    if (mentorId && enrollment.mentor) {
+    if (nextMentorId && enrollment.mentor) {
       notifyMentorAssigned({
         studentId: enrollment.student.id,
         mentorName: enrollment.mentor.name,
