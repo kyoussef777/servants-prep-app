@@ -133,8 +133,11 @@ describe('Navbar scroll motion', () => {
       expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
       expect(nav).toHaveAttribute('data-mobile-visibility', 'hidden')
       expect(nav).toHaveClass('-translate-y-[calc(100%+1rem)]')
-      expect(nav).toHaveClass('transition-[translate,background-color]')
-      expect(nav).toHaveClass('will-change-[translate]')
+      expect(nav).toHaveClass('opacity-0')
+      expect(nav).toHaveClass('duration-[520ms]')
+      expect(nav).toHaveClass('ease-[cubic-bezier(0.4,0,0.2,1)]')
+      expect(nav).toHaveClass('transition-[translate,opacity,background-color]')
+      expect(nav).toHaveClass('will-change-[translate,opacity]')
       expect(nav).toHaveClass('bg-[var(--app-canvas)]')
     })
 
@@ -144,7 +147,12 @@ describe('Navbar scroll motion', () => {
     await waitFor(() => {
       expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
       expect(nav).toHaveAttribute('data-mobile-visibility', 'visible')
-      expect(nav).toHaveClass('translate-y-0')
+      expect(nav).toHaveClass(
+        'translate-y-0',
+        'opacity-100',
+        'duration-[650ms]',
+        'ease-[cubic-bezier(0.16,1,0.3,1)]'
+      )
     })
   })
 })
