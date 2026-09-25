@@ -133,6 +133,8 @@ describe('Navbar scroll motion', () => {
       expect(nav).toHaveAttribute('data-scroll-state', 'expanded')
       expect(nav).toHaveAttribute('data-mobile-visibility', 'hidden')
       expect(nav).toHaveClass('-translate-y-[calc(100%+1rem)]')
+      expect(nav).toHaveClass('transition-[translate,background-color]')
+      expect(nav).toHaveClass('will-change-[translate]')
       expect(nav).toHaveClass('bg-[var(--app-canvas)]')
     })
 
