@@ -461,24 +461,28 @@ function SubmissionDetailDialog({
           <div>
             <h4 className="font-semibold mb-2">Mentor Servant Information</h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-gray-600">Name:</span> {submission.mentorName}</div>
-              <div><span className="text-gray-600">Phone:</span> {submission.mentorPhone}</div>
-              <div className="col-span-2"><span className="text-gray-600">Email:</span> {submission.mentorEmail}</div>
+              <div><span className="text-gray-600">Name:</span> {submission.mentorName || 'Not provided'}</div>
+              <div><span className="text-gray-600">Phone:</span> {submission.mentorPhone || 'Not provided'}</div>
+              <div className="col-span-2"><span className="text-gray-600">Email:</span> {submission.mentorEmail || 'Not provided'}</div>
             </div>
           </div>
 
           {/* Approval Form */}
           <div>
             <h4 className="font-semibold mb-2">Approval Form</h4>
-            <a
-              href={submission.approvalFormUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-maroon-600 hover:underline flex items-center"
-            >
-              <Eye className="w-4 h-4 mr-1" />
-              View {submission.approvalFormFilename}
-            </a>
+            {submission.approvalFormUrl ? (
+              <a
+                href={submission.approvalFormUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-maroon-600 hover:underline flex items-center"
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                View {submission.approvalFormFilename || 'signed form'}
+              </a>
+            ) : (
+              <p className="text-sm text-gray-500">Not provided yet</p>
+            )}
           </div>
 
           {/* Review Section (if pending) */}

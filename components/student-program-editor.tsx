@@ -44,11 +44,11 @@ export interface EditableStudent {
     createdAt: string
     reviewedAt: string | null
     reviewNote: string | null
-    approvalFormUrl: string
+    approvalFormUrl: string | null
     fatherOfConfessionName: string
-    mentorName: string
-    mentorPhone: string
-    mentorEmail: string
+    mentorName: string | null
+    mentorPhone: string | null
+    mentorEmail: string | null
     reviewer: { name: string } | null
   }>
 }
@@ -307,12 +307,19 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
                 {registration.reviewer && ` by ${registration.reviewer.name}`}
               </p>
               <p><span className="text-gray-600">Father of confession listed:</span> {registration.fatherOfConfessionName}</p>
-              <p><span className="text-gray-600">Mentor listed:</span> {registration.mentorName} · {registration.mentorPhone} · {registration.mentorEmail}</p>
+              <p>
+                <span className="text-gray-600">Mentor listed:</span>{' '}
+                {[registration.mentorName, registration.mentorPhone, registration.mentorEmail].filter(Boolean).join(' · ') || 'Not provided'}
+              </p>
               {registration.reviewNote && <p><span className="text-gray-600">Review note:</span> {registration.reviewNote}</p>}
               <div className="flex flex-wrap gap-3 pt-1">
-                <a href={registration.approvalFormUrl} target="_blank" rel="noopener noreferrer" className="text-maroon-700 hover:underline">
-                  View signed registration form
-                </a>
+                {registration.approvalFormUrl ? (
+                  <a href={registration.approvalFormUrl} target="_blank" rel="noopener noreferrer" className="text-maroon-700 hover:underline">
+                    View signed registration form
+                  </a>
+                ) : (
+                  <span className="text-gray-500">Approval form not provided</span>
+                )}
                 <Link href="/dashboard/admin/registrations" className="text-maroon-700 hover:underline">
                   Open registrations
                 </Link>

@@ -201,11 +201,6 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
       return
     }
 
-    if (!formData.approvalFormUrl) {
-      toast.error('Please upload your signed approval form')
-      return
-    }
-
     if (formData.previouslyAttendedPrep === 'true' && !formData.previousPrepLocation) {
       toast.error('Please specify where you previously attended Servants Prep')
       return
@@ -241,14 +236,25 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
 
   // Calculate form progress
   const calculateProgress = () => {
-    const fields = Object.entries(formData)
-    const filledFields = fields.filter(([key, value]) => {
-      if (key === 'previousPrepLocation' && formData.previouslyAttendedPrep !== 'true') {
-        return true // Not required
-      }
-      return value !== ''
-    })
-    return (filledFields.length / fields.length) * 100
+    const requiredFields: Array<keyof FormData> = [
+      'email',
+      'fullName',
+      'dateOfBirth',
+      'phone',
+      'fatherOfConfessionName',
+      'previouslyServed',
+      'currentlyServing',
+      'previouslyAttendedPrep',
+      'grade',
+      'profileImageUrl',
+    ]
+
+    if (formData.previouslyAttendedPrep === 'true') {
+      requiredFields.push('previousPrepLocation')
+    }
+
+    const filledFields = requiredFields.filter((key) => formData[key] !== '')
+    return (filledFields.length / requiredFields.length) * 100
   }
 
   if (step === 'CODE') {
@@ -321,6 +327,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                 <li>Our admins will review your application</li>
                 <li>You&apos;ll be notified once a decision is made</li>
                 <li>If approved, you&apos;ll receive login credentials via your mentor</li>
+                <li>Any optional approval or mentor details can be completed from your account</li>
               </ul>
             </div>
             <p className="text-center text-sm text-gray-600">
@@ -571,12 +578,15 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
 
               {/* Approval Form Upload */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Approval Form *</h3>
+                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Approval Form (optional)</h3>
                 <div className="space-y-2">
                   <Label htmlFor="approvalForm">
                     Upload your signed form documenting approval of your mentor servant and father
                     of confession
                   </Label>
+                  <p className="text-sm text-gray-600">
+                    You may submit your application now and upload this after your account is approved.
+                  </p>
                   <a
                     href="https://drive.google.com/file/d/1ebGILBc8OAAPaTWbpmwLDDqjEm-lnbQ7/view?usp=drivesdk"
                     target="_blank"
@@ -635,34 +645,34 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
 
               {/* Mentor Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Mentor Servant Information</h3>
+                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Mentor Servant Information (optional)</h3>
+                <p className="text-sm text-gray-600">
+                  You may leave this section blank and complete it from your account after approval.
+                </p>
                 <div className="grid gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="mentorName">Mentor Servant&apos;s Name *</Label>
+                    <Label htmlFor="mentorName">Mentor Servant&apos;s Name</Label>
                     <Input
                       id="mentorName"
-                      required
                       value={formData.mentorName}
                       onChange={(e) => setFormData({ ...formData, mentorName: e.target.value })}
                     />
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="mentorPhone">Mentor Servant&apos;s Phone Number *</Label>
+                      <Label htmlFor="mentorPhone">Mentor Servant&apos;s Phone Number</Label>
                       <Input
                         id="mentorPhone"
                         type="tel"
-                        required
                         value={formData.mentorPhone}
                         onChange={(e) => setFormData({ ...formData, mentorPhone: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mentorEmail">Mentor Servant&apos;s Email *</Label>
+                      <Label htmlFor="mentorEmail">Mentor Servant&apos;s Email</Label>
                       <Input
                         id="mentorEmail"
                         type="email"
-                        required
                         value={formData.mentorEmail}
                         onChange={(e) => setFormData({ ...formData, mentorEmail: e.target.value })}
                       />
@@ -675,7 +685,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
               <div className="pt-4">
                 <Button
                   type="submit"
-                  disabled={isSubmitting || !formData.approvalFormUrl || !formData.profileImageUrl}
+                  disabled={isSubmitting || isUploading || isUploadingProfilePic || !formData.profileImageUrl}
                   className="w-full bg-maroon-600 hover:bg-maroon-700"
                   size="lg"
                 >

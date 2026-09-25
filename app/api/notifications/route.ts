@@ -10,10 +10,16 @@ export async function DELETE(request: NextRequest) {
     const { notificationIds, clearAll } = body
 
     if (clearAll) {
-      await prisma.notification.deleteMany({ where: { userId: user.id } })
+      await prisma.notification.deleteMany({
+        where: { userId: user.id, isPersistent: false },
+      })
     } else if (notificationIds && Array.isArray(notificationIds) && notificationIds.length > 0) {
       await prisma.notification.deleteMany({
-        where: { id: { in: notificationIds }, userId: user.id },
+        where: {
+          id: { in: notificationIds },
+          userId: user.id,
+          isPersistent: false,
+        },
       })
     } else {
       return NextResponse.json(
@@ -49,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     const notifications = await prisma.notification.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ isPersistent: 'desc' }, { createdAt: 'desc' }],
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     })

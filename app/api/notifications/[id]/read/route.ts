@@ -20,6 +20,7 @@ export async function PATCH(
       where: {
         id,
         userId: session.user.id,
+        isPersistent: false,
       },
       data: { isRead: true },
     })
