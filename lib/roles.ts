@@ -106,9 +106,17 @@ export const canSelfAssignMentees = (role: UserRole) => {
   return role === UserRole.MENTOR
 }
 
-// Can be assigned as a mentor (have mentees)
+// Can be assigned as a mentor (have mentees). Priests remain read-only in the
+// application; this only allows an enrollment to name them as its mentor.
+export const MENTOR_ELIGIBLE_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.PRIEST,
+  UserRole.SERVANT_PREP,
+  UserRole.MENTOR,
+]
+
 export const canBeMentor = (role: UserRole) => {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.SERVANT_PREP || role === UserRole.MENTOR
+  return MENTOR_ELIGIBLE_ROLES.includes(role)
 }
 
 // Can view students (admins and mentors)

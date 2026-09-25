@@ -78,20 +78,20 @@ export default function EnrollmentsPage() {
     const fetchData = async () => {
       try {
         // Fetch all data in parallel
-        const [enrollmentsRes, usersRes, yearsRes, fathersRes] = await Promise.all([
+        const [enrollmentsRes, mentorsRes, yearsRes, fathersRes] = await Promise.all([
           fetch('/api/enrollments'),
-          fetch('/api/users'),
+          fetch('/api/mentor-options'),
           fetch('/api/academic-years'),
           fetch('/api/fathers-of-confession')
         ])
 
         if (!enrollmentsRes.ok) throw new Error('Failed to fetch enrollments')
-        if (!usersRes.ok) throw new Error('Failed to fetch users')
+        if (!mentorsRes.ok) throw new Error('Failed to fetch mentors')
         if (!yearsRes.ok) throw new Error('Failed to fetch academic years')
 
-        const [enrollmentsData, usersData, yearsData, fathersData] = await Promise.all([
+        const [enrollmentsData, mentorsData, yearsData, fathersData] = await Promise.all([
           enrollmentsRes.json(),
-          usersRes.json(),
+          mentorsRes.json(),
           yearsRes.json(),
           fathersRes.ok ? fathersRes.json() : []
         ])
@@ -105,15 +105,7 @@ export default function EnrollmentsPage() {
         // Set fathers of confession
         setFathersOfConfession(Array.isArray(fathersData) ? fathersData : [])
 
-        // Filter to only users who can be mentors
-        const mentorsData = Array.isArray(usersData)
-          ? usersData.filter((user: { role: string }) =>
-              user.role === 'SUPER_ADMIN' ||
-              user.role === 'SERVANT_PREP' ||
-              user.role === 'MENTOR'
-            )
-          : []
-        setMentors(mentorsData)
+        setMentors(Array.isArray(mentorsData) ? mentorsData : [])
       } catch (error) {
         console.error('Failed to fetch data:', error)
         setEnrollments([])

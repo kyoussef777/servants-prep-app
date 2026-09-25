@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { canManageAllUsers, getRoleDisplayName } from '@/lib/roles'
+import { canBeMentor, canManageAllUsers, getRoleDisplayName } from '@/lib/roles'
 import { RoleTag, UserRole } from '@prisma/client'
 import { toast } from 'sonner'
 import { Camera, Trash2, Pencil, X } from 'lucide-react'
@@ -792,7 +792,7 @@ export default function UsersPage() {
                             )}
                           </td>
                           <td className="p-2 text-center">
-                            {user.role === 'MENTOR' || user.role === 'SERVANT_PREP' ? (
+                            {canBeMentor(user.role) ? (
                               <span className="font-medium">{user._count?.mentoredStudents || 0}</span>
                             ) : (
                               <span className="text-gray-400">-</span>
@@ -965,7 +965,7 @@ export default function UsersPage() {
                             tags={user.roleAssignments?.map((assignment) => assignment.tag) ?? []}
                             legacyRole={user.role}
                           />
-                          {(user.role === 'MENTOR' || user.role === 'SERVANT_PREP') && user._count?.mentoredStudents ? (
+                          {canBeMentor(user.role) && user._count?.mentoredStudents ? (
                             <span className="text-[10px] text-gray-500">({user._count.mentoredStudents})</span>
                           ) : null}
                         </div>

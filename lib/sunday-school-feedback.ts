@@ -1,5 +1,6 @@
 import {
   SundaySchoolFeedbackStatus,
+  SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
 } from '@prisma/client'
 import type { SundaySchoolAccess } from '@/lib/sunday-school-access'
@@ -18,6 +19,7 @@ export type FeedbackStatusFilter = SundaySchoolFeedbackStatus | 'ACTIVE' | 'ALL'
 export type FeedbackSort = 'TOP' | 'NEWEST'
 
 export interface FeedbackContent {
+  type: SundaySchoolFeedbackType
   title: string
   description: string | null
 }
@@ -29,8 +31,16 @@ export interface FeedbackValidationResult {
 
 export function validateFeedbackContent(
   title: unknown,
-  description: unknown
+  description: unknown,
+  type: unknown = SundaySchoolFeedbackType.IDEA
 ): FeedbackValidationResult {
+  if (
+    typeof type !== 'string' ||
+    !Object.values(SundaySchoolFeedbackType).includes(type as SundaySchoolFeedbackType)
+  ) {
+    return { error: 'Select whether this feedback is a problem or an idea' }
+  }
+
   if (typeof title !== 'string') {
     return { error: 'Title is required' }
   }
@@ -56,6 +66,7 @@ export function validateFeedbackContent(
 
   return {
     value: {
+      type: type as SundaySchoolFeedbackType,
       title: trimmedTitle,
       description: trimmedDescription || null,
     },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   SundaySchoolFeedbackStatus,
+  SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
 } from '@prisma/client'
 import type { SundaySchoolAccess } from '@/lib/sunday-school-access'
@@ -75,7 +76,28 @@ describe('Sunday School feedback permissions', () => {
 describe('Sunday School feedback validation and sorting', () => {
   it('trims valid content and normalizes an empty description', () => {
     expect(validateFeedbackContent('  Better reports  ', '   ')).toEqual({
-      value: { title: 'Better reports', description: null },
+      value: {
+        type: SundaySchoolFeedbackType.IDEA,
+        title: 'Better reports',
+        description: null,
+      },
+    })
+  })
+
+  it('accepts problems and rejects an unknown feedback type', () => {
+    expect(validateFeedbackContent(
+      'Attendance is broken',
+      'The save button fails.',
+      SundaySchoolFeedbackType.PROBLEM
+    )).toEqual({
+      value: {
+        type: SundaySchoolFeedbackType.PROBLEM,
+        title: 'Attendance is broken',
+        description: 'The save button fails.',
+      },
+    })
+    expect(validateFeedbackContent('Valid title', '', 'QUESTION')).toEqual({
+      error: 'Select whether this feedback is a problem or an idea',
     })
   })
 

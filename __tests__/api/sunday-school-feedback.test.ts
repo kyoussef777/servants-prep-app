@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { SundaySchoolFeedbackStatus, SundaySchoolFeedbackVoteType } from '@prisma/client'
+import {
+  SundaySchoolFeedbackStatus,
+  SundaySchoolFeedbackType,
+  SundaySchoolFeedbackVoteType,
+} from '@prisma/client'
 
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
@@ -68,6 +72,7 @@ describe('Sunday School feedback API permissions', () => {
     mocks.serializeFeedbackIdeas.mockResolvedValue([{ id: 'idea-1' }])
     mocks.findUnique.mockResolvedValue({
       id: 'idea-1',
+      type: SundaySchoolFeedbackType.IDEA,
       title: 'An idea',
       description: null,
       submittedById: 'author-1',
@@ -83,12 +88,19 @@ describe('Sunday School feedback API permissions', () => {
     const response = await POST(new Request('http://localhost/api/sunday-school/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'A useful idea', description: '' }),
+      body: JSON.stringify({
+        type: SundaySchoolFeedbackType.PROBLEM,
+        title: 'A useful problem report',
+        description: '',
+      }),
     }))
 
     expect(response.status).toBe(201)
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ submittedById: 'priest-1' }),
+    }))
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ type: SundaySchoolFeedbackType.PROBLEM }),
     }))
   })
 

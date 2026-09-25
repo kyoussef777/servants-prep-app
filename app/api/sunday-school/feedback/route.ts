@@ -96,7 +96,8 @@ export async function POST(request: Request) {
 
     const validation = validateFeedbackContent(
       (body as Record<string, unknown>).title,
-      (body as Record<string, unknown>).description
+      (body as Record<string, unknown>).description,
+      (body as Record<string, unknown>).type
     )
     if (!validation.value) {
       return NextResponse.json({ error: validation.error }, { status: 400 })

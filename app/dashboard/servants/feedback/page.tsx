@@ -3,11 +3,14 @@
 import { useState, type FormEvent } from 'react'
 import {
   SundaySchoolFeedbackStatus,
+  SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
 } from '@prisma/client'
 import {
   ArrowBigDown,
   ArrowBigUp,
+  Bug,
+  Lightbulb,
   Pencil,
   Plus,
   Trash2,
@@ -66,6 +69,16 @@ const STATUS_STYLES: Record<SundaySchoolFeedbackStatus, string> = {
   IN_PROGRESS: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
   COMPLETED: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200',
   DECLINED: 'border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300',
+}
+
+const TYPE_LABELS: Record<SundaySchoolFeedbackType, string> = {
+  PROBLEM: 'Problem',
+  IDEA: 'Idea',
+}
+
+const TYPE_STYLES: Record<SundaySchoolFeedbackType, string> = {
+  PROBLEM: 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200',
+  IDEA: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
 }
 
 function formatSubmittedDate(value: string) {
@@ -190,6 +203,9 @@ export default function SundaySchoolFeedbackPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingIdea, setEditingIdea] = useState<SundaySchoolFeedbackIdea | null>(null)
+  const [feedbackType, setFeedbackType] = useState<SundaySchoolFeedbackType>(
+    SundaySchoolFeedbackType.IDEA
+  )
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
@@ -200,6 +216,7 @@ export default function SundaySchoolFeedbackPage() {
 
   const openCreateDialog = () => {
     setEditingIdea(null)
+    setFeedbackType(SundaySchoolFeedbackType.IDEA)
     setTitle('')
     setDescription('')
     setDialogOpen(true)
@@ -207,6 +224,7 @@ export default function SundaySchoolFeedbackPage() {
 
   const openEditDialog = (idea: SundaySchoolFeedbackIdea) => {
     setEditingIdea(idea)
+    setFeedbackType(idea.type)
     setTitle(idea.title)
     setDescription(idea.description ?? '')
     setDialogOpen(true)
@@ -223,7 +241,7 @@ export default function SundaySchoolFeedbackPage() {
         {
           method: editingIdea ? 'PATCH' : 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, description }),
+          body: JSON.stringify({ type: feedbackType, title, description }),
         }
       )
       const body = await res.json()
@@ -231,6 +249,7 @@ export default function SundaySchoolFeedbackPage() {
 
       setDialogOpen(false)
       setEditingIdea(null)
+      setFeedbackType(SundaySchoolFeedbackType.IDEA)
       setTitle('')
       setDescription('')
       await mutate()
@@ -362,6 +381,9 @@ export default function SundaySchoolFeedbackPage() {
                           <Badge variant="outline" className={STATUS_STYLES[idea.status]}>
                             {STATUS_LABELS[idea.status]}
                           </Badge>
+                          <Badge variant="outline" className={TYPE_STYLES[idea.type]}>
+                            {TYPE_LABELS[idea.type]}
+                          </Badge>
                         </div>
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                           Submitted by {idea.submitter?.name ?? 'Former user'} on{' '}
@@ -443,9 +465,50 @@ export default function SundaySchoolFeedbackPage() {
             <DialogHeader>
               <DialogTitle>{editingIdea ? 'Edit feedback' : 'Post feedback'}</DialogTitle>
               <DialogDescription>
-                Share an idea, request an improvement, or report a bug in the Sunday School application.
+                Found a problem, or have an idea? Tell the team. Every submission is reviewed.
               </DialogDescription>
             </DialogHeader>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Feedback type</legend>
+              <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Feedback type">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={feedbackType === SundaySchoolFeedbackType.PROBLEM}
+                  onClick={() => setFeedbackType(SundaySchoolFeedbackType.PROBLEM)}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500',
+                    feedbackType === SundaySchoolFeedbackType.PROBLEM
+                      ? 'border-red-400 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950/40 dark:text-red-200'
+                      : 'hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900'
+                  )}
+                >
+                  <Bug className="h-5 w-5 shrink-0" />
+                  <span>
+                    <span className="block font-medium">Problem</span>
+                    <span className="block text-xs opacity-75">Something is not working</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={feedbackType === SundaySchoolFeedbackType.IDEA}
+                  onClick={() => setFeedbackType(SundaySchoolFeedbackType.IDEA)}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500',
+                    feedbackType === SundaySchoolFeedbackType.IDEA
+                      ? 'border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'
+                      : 'hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900'
+                  )}
+                >
+                  <Lightbulb className="h-5 w-5 shrink-0" />
+                  <span>
+                    <span className="block font-medium">Idea</span>
+                    <span className="block text-xs opacity-75">A suggestion or improvement</span>
+                  </span>
+                </button>
+              </div>
+            </fieldset>
             <div className="space-y-2">
               <Label htmlFor="feedback-title">Title</Label>
               <Input
