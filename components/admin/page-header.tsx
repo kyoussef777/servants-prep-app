@@ -9,7 +9,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, lastSaved, actions }: PageHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2">
       <div>
         <h1 className="text-2xl font-bold">{title}</h1>
         {description && (
@@ -18,7 +18,7 @@ export function PageHeader({ title, description, lastSaved, actions }: PageHeade
         {lastSaved !== undefined && <LastSaved date={lastSaved ?? null} />}
       </div>
       {actions && (
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 lg:w-auto">
           {actions}
         </div>
       )}

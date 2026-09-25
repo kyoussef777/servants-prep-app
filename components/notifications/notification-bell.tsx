@@ -211,23 +211,25 @@ export function NotificationBell() {
         <>
           {/* Mobile backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-black/40 animate-in fade-in-0 duration-200 motion-reduce:animate-none sm:hidden"
+            className="fixed inset-0 z-40 bg-black/40 animate-in fade-in-0 duration-200 motion-reduce:animate-none lg:hidden"
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Panel — bottom sheet on mobile, dropdown on desktop */}
+          {/* Keep the bottom sheet through tablet-sized viewports. Mobile browsers
+              can report a layout width above the `sm` breakpoint when display
+              scaling or site zoom is active. */}
           <div id="notifications-panel" role="dialog" aria-label="Notifications" className="
             fixed bottom-0 left-0 right-0 z-50
-            sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96
-            rounded-t-2xl sm:rounded-lg
+            lg:absolute lg:bottom-auto lg:left-auto lg:right-0 lg:top-full lg:mt-2 lg:w-96
+            rounded-t-2xl lg:rounded-lg
             border bg-popover text-popover-foreground shadow-xl
             flex flex-col
-            max-h-[85vh] sm:max-h-[520px]
+            max-h-[85dvh] lg:max-h-[520px]
             animate-in fade-in-0 slide-in-from-bottom-4 duration-200 motion-reduce:animate-none
-            sm:slide-in-from-top-2 sm:zoom-in-95
+            lg:slide-in-from-top-2 lg:zoom-in-95
           ">
             {/* Drag handle (mobile only) */}
-            <div className="flex justify-center pt-2.5 pb-1 sm:hidden flex-shrink-0">
+            <div className="flex justify-center pt-2.5 pb-1 lg:hidden flex-shrink-0">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
             </div>
 
@@ -249,7 +251,7 @@ export function NotificationBell() {
                     title="Mark all as read"
                   >
                     <CheckCheck className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Mark all read</span>
+                    <span className="hidden lg:inline">Mark all read</span>
                   </button>
                 )}
                 {notifications.length > 0 && (
@@ -259,12 +261,12 @@ export function NotificationBell() {
                     title="Clear all notifications"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Clear all</span>
+                    <span className="hidden lg:inline">Clear all</span>
                   </button>
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="sm:hidden rounded p-1 hover:bg-accent transition-colors ml-1"
+                  className="lg:hidden rounded p-1 hover:bg-accent transition-colors ml-1"
                   aria-label="Close notifications"
                 >
                   <X className="h-4 w-4" />
@@ -349,7 +351,7 @@ export function NotificationBell() {
             </div>
 
             {/* Bottom safe area for mobile */}
-            <div className="sm:hidden flex-shrink-0 h-4" />
+            <div className="lg:hidden h-[max(1rem,env(safe-area-inset-bottom))] flex-shrink-0" />
           </div>
         </>
       )}

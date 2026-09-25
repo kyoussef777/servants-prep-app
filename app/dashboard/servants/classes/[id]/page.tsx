@@ -234,7 +234,7 @@ export default function SundaySchoolClassDetailPage() {
           title={detail.name}
           description={`${getLevelDisplayName(detail.level)} · ${detail.children.length} children`}
           actions={
-            <div className="flex gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:w-auto lg:flex-wrap">
               <Button asChild variant="outline">
                 <Link href="/dashboard/servants/lessons">Lessons</Link>
               </Button>

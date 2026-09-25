@@ -69,8 +69,8 @@ export function Navbar() {
   const inSundaySchoolMode = pathname.startsWith('/dashboard/servants')
   // Sunday School access comes from assignments, not a role, so this reads the
   // standing the session carries. Someone with a foot in both modes — a prep
-  // leader or mentor who also serves — gets the switcher; a SERVANT has only
-  // one mode.
+  // leader or mentor who also serves — gets the service chooser in the profile
+  // menu; a SERVANT has only one mode.
   const hasSundaySchool = session.user.sundaySchool?.hasAccess ?? false
   const prepModeDestination =
     session.user.role === 'MENTOR' ? '/dashboard/mentor' : '/dashboard/admin'
@@ -81,6 +81,22 @@ export function Navbar() {
     : '/dashboard/servants'
   const dashboardDestination = inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'
   const accountDestination = inSundaySchoolMode ? '/dashboard/servants/account' : '/settings'
+  const serviceOptions = [
+    {
+      name: 'Servants Prep',
+      href: prepModeDestination,
+      logo: '/sp-logo.png',
+      logoClassName: 'rounded-md bg-black p-1',
+      active: !inSundaySchoolMode,
+    },
+    {
+      name: 'Sunday School',
+      href: '/dashboard/servants',
+      logo: '/sunday-school-favicon.png',
+      logoClassName: '',
+      active: inSundaySchoolMode,
+    },
+  ]
 
   const handleModeSwitch = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -186,8 +202,8 @@ export function Navbar() {
       }
     }
 
-    // Anyone browsing Sunday School mode gets that mode's links; the switcher
-    // next to the logo takes those with both back to the prep program.
+    // Anyone browsing Sunday School mode gets that mode's links; the service
+    // chooser in the profile menu takes those with both back to prep.
     if (inSundaySchoolMode && hasSundaySchool) {
       const links: NavLink[] = [
         { href: '/dashboard/servants', label: 'Dashboard' },
@@ -263,13 +279,13 @@ export function Navbar() {
   const isMoreActive = moreLinks.some(link => isActive(link.href))
 
   return (
-    <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50">
+    <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50 flex-none">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-2">
+        <div className="flex h-16 min-h-16 items-center justify-between gap-2">
           {/* Left side - Logo/Title */}
           <div className="flex min-w-0 flex-1 items-center gap-8 overflow-hidden">
             <div
-              className={`flex min-w-0 items-center gap-2 sm:gap-3 ${canSwitchModes ? 'sm:w-[288px] sm:justify-between' : ''}`}
+              className="flex min-w-0 items-center gap-2 sm:gap-3"
             >
               <Link
                 href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
@@ -291,30 +307,6 @@ export function Navbar() {
                 </span>
               </Link>
 
-              {/* One-click mode toggle. Its fixed-width brand group keeps the
-                  navigation from shifting when the mode name and logo change. */}
-              {canSwitchModes && (
-                <Link
-                  href={modeDestination}
-                  onClick={handleModeSwitch}
-                  data-mode-switch
-                  aria-label={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
-                  aria-disabled={switchingModes}
-                  title={`Switch to ${inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}`}
-                  className={`relative hidden h-7 w-[58px] shrink-0 grid-cols-2 items-center rounded-full border border-gray-300 bg-gray-100 p-0.5 text-[9px] font-bold text-gray-500 transition-colors hover:border-maroon-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 focus-visible:ring-offset-2 sm:grid dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 ${switchingModes ? 'pointer-events-none' : ''}`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`absolute inset-y-0.5 left-0.5 w-[26px] rounded-full bg-maroon-700 shadow-sm transition-transform duration-200 ease-out ${inSundaySchoolMode ? 'translate-x-[26px]' : 'translate-x-0'}`}
-                  />
-                  <span className={`relative z-10 text-center ${inSundaySchoolMode ? '' : 'text-white'}`}>
-                    SP
-                  </span>
-                  <span className={`relative z-10 text-center ${inSundaySchoolMode ? 'text-white' : ''}`}>
-                    SS
-                  </span>
-                </Link>
-              )}
             </div>
 
             {/* Navigation Links */}
@@ -435,7 +427,11 @@ export function Navbar() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Button
+                  variant="ghost"
+                  className="relative h-10 w-10 rounded-full"
+                  aria-label="Open profile menu"
+                >
                   <Avatar className="h-10 w-10">
                     {session.user.profileImageUrl && (
                       <AvatarImage src={session.user.profileImageUrl} alt={session.user.name || ''} />
@@ -446,7 +442,7 @@ export function Navbar() {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-72">
                 <div className="flex flex-col space-y-1 p-2">
                   <p className="text-sm font-medium">{session.user.name}</p>
                   <p className="text-xs text-muted-foreground">{session.user.email}</p>
@@ -454,6 +450,66 @@ export function Navbar() {
                     {getRoleDisplayName(session.user.role)}
                   </p>
                 </div>
+                {canSwitchModes && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 pb-1 pt-1 text-xs font-medium text-muted-foreground">
+                      Services
+                    </div>
+                    <div className="space-y-1">
+                      {serviceOptions.map((service) =>
+                        service.active ? (
+                          <div
+                            key={service.name}
+                            aria-current="page"
+                            className="mx-1 flex items-center gap-3 rounded-md bg-accent/60 px-2 py-2"
+                          >
+                            <Image
+                              src={service.logo}
+                              alt={`${service.name} logo`}
+                              width={32}
+                              height={32}
+                              className={`h-8 w-8 object-contain ${service.logoClassName}`}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">
+                                {service.name}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                Current service
+                              </span>
+                            </span>
+                          </div>
+                        ) : (
+                          <DropdownMenuItem key={service.name} asChild>
+                            <Link
+                              href={service.href}
+                              onClick={handleModeSwitch}
+                              data-mode-switch
+                              aria-disabled={switchingModes}
+                              aria-label={`Switch to ${service.name}`}
+                              className={switchingModes ? 'pointer-events-none' : 'cursor-pointer'}
+                            >
+                              <Image
+                                src={service.logo}
+                                alt={`${service.name} logo`}
+                                width={32}
+                                height={32}
+                                className={`h-8 w-8 object-contain ${service.logoClassName}`}
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-medium">{service.name}</span>
+                                <span className="block text-xs text-muted-foreground">
+                                  Switch service
+                                </span>
+                              </span>
+                            </Link>
+                          </DropdownMenuItem>
+                        )
+                      )}
+                    </div>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href={dashboardDestination} className="cursor-pointer">
@@ -527,17 +583,6 @@ export function Navbar() {
         {mobileMenuOpen && (
           <div className="border-t dark:border-gray-800 xl:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1">
-              {canSwitchModes && (
-                <Link
-                  href={modeDestination}
-                  onClick={handleModeSwitch}
-                  data-mode-switch
-                  aria-disabled={switchingModes}
-                  className="block px-3 py-2 mb-1 rounded-md text-base font-medium border text-gray-700 dark:text-gray-300 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  Switch to {inSundaySchoolMode ? 'Servants Prep' : 'Sunday School'}
-                </Link>
-              )}
               {allLinks.map(link => (
                 <Link
                   key={link.href}
