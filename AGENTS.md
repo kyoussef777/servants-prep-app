@@ -45,6 +45,9 @@ bun dev                  # Dev server with Turbopack (http://localhost:3000)
 bun run build            # Production build (generates Prisma Client; never changes a database)
 bun lint                 # ESLint
 bunx tsc --noEmit        # Typecheck without emitting
+bun run mobile          # Expo native app (see apps/mobile/README.md)
+bun run mobile:typecheck
+bun run mobile:export   # Bundle iOS and Android; not signed native binaries
 
 # Testing (Vitest)
 bun test                 # Watch mode
@@ -90,6 +93,18 @@ NEXTAUTH_SECRET="<openssl rand -base64 32>"
 Never commit a `.env`. Never log or echo these values.
 
 ## Repository layout
+
+This is a Bun workspace. The Next.js app remains at the root; `apps/mobile/`
+contains the Expo application, `packages/contracts/` contains shared type-only
+contracts, and `packages/domain/` contains platform-independent helpers. Use
+the checked-in hoisted linker configuration to avoid duplicate native modules.
+Mobile code must not import the Prisma runtime or Next.js/server-only modules.
+Import shared enum types from `@stmark/contracts` using `import type`.
+The native app uses the existing API and NextAuth credentials flow. Its API
+origin is `EXPO_PUBLIC_API_URL`; never put database URLs or secrets in Expo
+public variables. Local development uses git-ignored `.env.local` files.
+See `apps/mobile/README.md` for connection details and scope.
+Run both mobile checks above when changing mobile code or shared packages.
 
 ```
 app/
@@ -301,3 +316,13 @@ Deployed on Vercel at `https://servants-prep-app.vercel.app`. Required env vars
 are the four listed above. `/api/health` checks database connectivity after a
 deploy. Preview and production environments must use different Neon branch
 connection strings.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
