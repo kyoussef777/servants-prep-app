@@ -554,7 +554,11 @@ export function Navbar() {
               </span>
             </div>
 
-            <DropdownMenu open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
+            <DropdownMenu
+              open={profileMenuOpen}
+              onOpenChange={setProfileMenuOpen}
+              modal={false}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
