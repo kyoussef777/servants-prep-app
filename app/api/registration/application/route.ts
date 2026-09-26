@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { NotificationType, RegistrationStatus } from '@prisma/client'
 import { requireAuth } from '@/lib/auth-helpers'
 import { normalizeOptionalEmail } from '@/lib/email'
+import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
 import { prisma } from '@/lib/prisma'
 
 type ApplicationDetails = {
+  id: string
   fatherOfConfessionName: string | null
   approvalFormUrl: string | null
   approvalFormFilename: string | null
@@ -13,13 +15,27 @@ type ApplicationDetails = {
   mentorEmail: string | null
 }
 
-function getMissingDetails(application: ApplicationDetails) {
+type MentorDetails = {
+  mentorName: string | null
+  mentorPhone: string | null
+  mentorEmail: string | null
+}
+
+function getMissingDetails(
+  application: ApplicationDetails | null,
+  annualMentorRequired: boolean,
+  annualMentorInformation: MentorDetails | null
+) {
   return [
-    !application.fatherOfConfessionName ? 'fatherOfConfession' : null,
-    !application.approvalFormUrl || !application.approvalFormFilename ? 'approvalForm' : null,
-    !application.mentorName || !application.mentorPhone || !application.mentorEmail
-      ? 'mentorInformation'
+    application && !application.fatherOfConfessionName ? 'fatherOfConfession' : null,
+    application && (!application.approvalFormUrl || !application.approvalFormFilename)
+      ? 'approvalForm'
       : null,
+    annualMentorRequired
+      ? !annualMentorInformation ? 'mentorInformation' : null
+      : application && (!application.mentorName || !application.mentorPhone || !application.mentorEmail)
+        ? 'mentorInformation'
+        : null,
   ].filter((detail): detail is string => Boolean(detail))
 }
 
@@ -39,20 +55,58 @@ async function getApprovedApplication(userId: string) {
   })
 }
 
+async function getApplicationState(userId: string) {
+  const [application, annualRequirement] = await Promise.all([
+    getApprovedApplication(userId),
+    getAnnualMentorRequirement(userId),
+  ])
+
+  if (!application && !annualRequirement) return null
+
+  const annualInformation = annualRequirement?.information ?? null
+  const mentorDetails = annualInformation ?? application ?? {
+    mentorName: annualRequirement?.enrollment.mentorName ?? null,
+    mentorPhone: annualRequirement?.enrollment.mentorPhone ?? null,
+    mentorEmail: null,
+  }
+  const missingDetails = getMissingDetails(
+    application,
+    Boolean(annualRequirement),
+    annualInformation
+  )
+
+  return {
+    application,
+    annualRequirement,
+    missingDetails,
+    details: {
+      fatherOfConfessionName: application?.fatherOfConfessionName ?? null,
+      approvalFormUrl: application?.approvalFormUrl ?? null,
+      approvalFormFilename: application?.approvalFormFilename ?? null,
+      mentorName: mentorDetails.mentorName,
+      mentorPhone: mentorDetails.mentorPhone,
+      mentorEmail: mentorDetails.mentorEmail,
+    },
+  }
+}
+
 export async function GET() {
   try {
     const user = await requireAuth()
-    const application = await getApprovedApplication(user.id)
+    const state = await getApplicationState(user.id)
 
-    if (!application) {
-      return NextResponse.json({ error: 'Approved registration not found' }, { status: 404 })
+    if (!state) {
+      return NextResponse.json({ error: 'Application information not found' }, { status: 404 })
     }
 
-    const missingDetails = getMissingDetails(application)
     return NextResponse.json({
-      application,
-      missingDetails,
-      complete: missingDetails.length === 0,
+      application: state.details,
+      showChurchInformation: Boolean(state.application),
+      showApprovalForm: Boolean(state.application),
+      annualMentorRequired: Boolean(state.annualRequirement),
+      academicYear: state.annualRequirement?.activeYear ?? null,
+      missingDetails: state.missingDetails,
+      complete: state.missingDetails.length === 0,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal server error'
@@ -66,10 +120,10 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const user = await requireAuth()
-    const existingApplication = await getApprovedApplication(user.id)
+    const state = await getApplicationState(user.id)
 
-    if (!existingApplication) {
-      return NextResponse.json({ error: 'Approved registration not found' }, { status: 404 })
+    if (!state) {
+      return NextResponse.json({ error: 'Application information not found' }, { status: 404 })
     }
 
     const body = await request.json()
@@ -80,9 +134,13 @@ export async function PATCH(request: NextRequest) {
     const mentorPhone = typeof body.mentorPhone === 'string' ? body.mentorPhone.trim() : ''
     const mentorEmail = normalizeOptionalEmail(body.mentorEmail) ?? ''
 
-    if (!fatherOfConfessionName || !mentorName || !mentorPhone || !mentorEmail) {
+    if ((state.application && !fatherOfConfessionName) || !mentorName || !mentorPhone || !mentorEmail) {
       return NextResponse.json(
-        { error: 'Father of confession and all mentor fields are required' },
+        {
+          error: state.application
+            ? 'Father of confession and all mentor fields are required'
+            : 'All mentor fields are required',
+        },
         { status: 400 }
       )
     }
@@ -90,41 +148,92 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid mentor email format' }, { status: 400 })
     }
 
-    const application = await prisma.$transaction(async (tx) => {
-      let fatherOfConfession = await tx.fatherOfConfession.findFirst({
-        where: { name: { equals: fatherOfConfessionName, mode: 'insensitive' } },
-        select: { id: true },
-      })
+    const result = await prisma.$transaction(async (tx) => {
+      let fatherOfConfessionId: string | undefined
+      let updatedApplication = state.application
 
-      fatherOfConfession ??= await tx.fatherOfConfession.create({
-        data: { name: fatherOfConfessionName, isActive: true },
-        select: { id: true },
-      })
+      if (state.application) {
+        let fatherOfConfession = await tx.fatherOfConfession.findFirst({
+          where: { name: { equals: fatherOfConfessionName, mode: 'insensitive' } },
+          select: { id: true },
+        })
 
-      const updatedApplication = await tx.registrationSubmission.update({
-        where: { id: existingApplication.id },
-        data: { fatherOfConfessionName, mentorName, mentorPhone, mentorEmail },
-        select: {
-          id: true,
-          fatherOfConfessionName: true,
-          approvalFormUrl: true,
-          approvalFormFilename: true,
-          mentorName: true,
-          mentorPhone: true,
-          mentorEmail: true,
-        },
-      })
+        fatherOfConfession ??= await tx.fatherOfConfession.create({
+          data: { name: fatherOfConfessionName, isActive: true },
+          select: { id: true },
+        })
+        fatherOfConfessionId = fatherOfConfession.id
+
+        updatedApplication = await tx.registrationSubmission.update({
+          where: { id: state.application.id },
+          data: { fatherOfConfessionName, mentorName, mentorPhone, mentorEmail },
+          select: {
+            id: true,
+            fatherOfConfessionName: true,
+            approvalFormUrl: true,
+            approvalFormFilename: true,
+            mentorName: true,
+            mentorPhone: true,
+            mentorEmail: true,
+          },
+        })
+      }
 
       await tx.studentEnrollment.updateMany({
         where: { studentId: user.id },
         data: {
-          fatherOfConfessionId: fatherOfConfession.id,
+          ...(fatherOfConfessionId ? { fatherOfConfessionId } : {}),
           mentorName,
           mentorPhone,
         },
       })
 
-      if (getMissingDetails(updatedApplication).length === 0) {
+      if (state.annualRequirement) {
+        await tx.annualMentorInformation.upsert({
+          where: {
+            studentId_academicYearId: {
+              studentId: user.id,
+              academicYearId: state.annualRequirement.activeYear.id,
+            },
+          },
+          create: {
+            studentId: user.id,
+            academicYearId: state.annualRequirement.activeYear.id,
+            mentorName,
+            mentorPhone,
+            mentorEmail,
+          },
+          update: { mentorName, mentorPhone, mentorEmail, submittedAt: new Date() },
+        })
+
+        await tx.notification.deleteMany({
+          where: {
+            userId: user.id,
+            type: NotificationType.REGISTRATION_INCOMPLETE,
+            isPersistent: true,
+            metadata: {
+              path: ['academicYearId'],
+              equals: state.annualRequirement.activeYear.id,
+            },
+          },
+        })
+      }
+
+      const details = {
+        fatherOfConfessionName: updatedApplication?.fatherOfConfessionName ?? null,
+        approvalFormUrl: updatedApplication?.approvalFormUrl ?? null,
+        approvalFormFilename: updatedApplication?.approvalFormFilename ?? null,
+        mentorName,
+        mentorPhone,
+        mentorEmail,
+      }
+      const missingDetails = getMissingDetails(
+        updatedApplication,
+        Boolean(state.annualRequirement),
+        state.annualRequirement ? { mentorName, mentorPhone, mentorEmail } : null
+      )
+
+      if (missingDetails.length === 0) {
         await tx.notification.deleteMany({
           where: {
             userId: user.id,
@@ -134,14 +243,17 @@ export async function PATCH(request: NextRequest) {
         })
       }
 
-      return updatedApplication
+      return { details, missingDetails }
     })
 
-    const missingDetails = getMissingDetails(application)
     return NextResponse.json({
-      application,
-      missingDetails,
-      complete: missingDetails.length === 0,
+      application: result.details,
+      showChurchInformation: Boolean(state.application),
+      showApprovalForm: Boolean(state.application),
+      annualMentorRequired: Boolean(state.annualRequirement),
+      academicYear: state.annualRequirement?.activeYear ?? null,
+      missingDetails: result.missingDetails,
+      complete: result.missingDetails.length === 0,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal server error'

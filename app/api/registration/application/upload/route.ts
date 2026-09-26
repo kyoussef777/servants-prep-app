@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { NotificationType, RegistrationStatus } from '@prisma/client'
 import { put } from '@vercel/blob'
 import { requireAuth } from '@/lib/auth-helpers'
+import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
 import { prisma } from '@/lib/prisma'
 
 const ALLOWED_FILE_TYPES = [
@@ -16,17 +17,20 @@ const MAX_FILE_SIZE = 4.5 * 1024 * 1024
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth()
-    const application = await prisma.registrationSubmission.findFirst({
-      where: { createdUserId: user.id, status: RegistrationStatus.APPROVED },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        fatherOfConfessionName: true,
-        mentorName: true,
-        mentorPhone: true,
-        mentorEmail: true,
-      },
-    })
+    const [application, annualMentorRequirement] = await Promise.all([
+      prisma.registrationSubmission.findFirst({
+        where: { createdUserId: user.id, status: RegistrationStatus.APPROVED },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          fatherOfConfessionName: true,
+          mentorName: true,
+          mentorPhone: true,
+          mentorEmail: true,
+        },
+      }),
+      getAnnualMentorRequirement(user.id),
+    ])
 
     if (!application) {
       return NextResponse.json({ error: 'Approved registration not found' }, { status: 404 })
@@ -53,7 +57,8 @@ export async function POST(request: NextRequest) {
       application.fatherOfConfessionName &&
       application.mentorName &&
       application.mentorPhone &&
-      application.mentorEmail
+      application.mentorEmail &&
+      (!annualMentorRequirement || annualMentorRequirement.information)
     )
 
     await prisma.$transaction(async (tx) => {
