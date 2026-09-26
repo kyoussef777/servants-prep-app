@@ -40,6 +40,7 @@ const requiredApplication = {
   dateOfBirth: '2008-01-02',
   phone: '555-0100',
   previouslyServed: false,
+  previousServiceLocation: '',
   currentlyServing: false,
   previouslyAttendedPrep: false,
   previousPrepLocation: '',
@@ -85,6 +86,7 @@ describe('registration submission', () => {
     expect(mocks.createSubmission).toHaveBeenCalledWith({
       data: expect.objectContaining({
         fatherOfConfessionName: null,
+        previousServiceLocation: null,
         approvalFormUrl: null,
         approvalFormFilename: null,
         mentorName: null,
@@ -96,6 +98,50 @@ describe('registration submission', () => {
       applicantName: 'Student Name',
       registrationId: 'registration-1',
     })
+  })
+
+  it('requires a location when the applicant previously served', async () => {
+    const response = await POST(request({
+      ...requiredApplication,
+      previouslyServed: true,
+    }))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Previous service location is required when you have served before',
+    })
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('stores the previous service and Servants Prep locations when selected', async () => {
+    const response = await POST(request({
+      ...requiredApplication,
+      previouslyServed: true,
+      previousServiceLocation: '  St. Mark Youth Ministry  ',
+      previouslyAttendedPrep: true,
+      previousPrepLocation: '  St. George Servants Prep  ',
+    }))
+
+    expect(response.status).toBe(201)
+    expect(mocks.createSubmission).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        previousServiceLocation: 'St. Mark Youth Ministry',
+        previousPrepLocation: 'St. George Servants Prep',
+      }),
+    })
+  })
+
+  it('requires a location when the applicant previously attended Servants Prep', async () => {
+    const response = await POST(request({
+      ...requiredApplication,
+      previouslyAttendedPrep: true,
+    }))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Previous prep location is required when you have attended before',
+    })
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
   it('keeps post-approval application fields out of the initial registration', async () => {

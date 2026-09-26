@@ -1313,16 +1313,17 @@ model RegistrationSubmission {
   status       RegistrationStatus @default(PENDING)
 
   // Applicant info
-  email                  String
-  fullName               String
-  dateOfBirth            DateTime
-  phone                  String
-  fatherOfConfessionName String?
-  previouslyServed       Boolean
-  currentlyServing       Boolean
-  previouslyAttendedPrep Boolean
-  previousPrepLocation   String? // Only if previouslyAttendedPrep = true
-  grade                  StudentGrade
+  email                   String
+  fullName                String
+  dateOfBirth             DateTime
+  phone                   String
+  fatherOfConfessionName  String?
+  previouslyServed        Boolean
+  previousServiceLocation String? // Only if previouslyServed = true
+  currentlyServing        Boolean
+  previouslyAttendedPrep  Boolean
+  previousPrepLocation    String? // Only if previouslyAttendedPrep = true
+  grade                   StudentGrade
 
   // Approval form upload
   approvalFormUrl      String? // Vercel Blob URL

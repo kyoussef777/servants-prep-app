@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
       dateOfBirth,
       phone,
       previouslyServed,
+      previousServiceLocation,
       currentlyServing,
       previouslyAttendedPrep,
       previousPrepLocation,
@@ -27,6 +28,12 @@ export async function POST(req: NextRequest) {
       profileImageFilename,
     } = body
     const normalizedEmail = normalizeEmail(email)
+    const normalizedPreviousServiceLocation = typeof previousServiceLocation === 'string'
+      ? previousServiceLocation.trim()
+      : ''
+    const normalizedPreviousPrepLocation = typeof previousPrepLocation === 'string'
+      ? previousPrepLocation.trim()
+      : ''
 
     // Validate required fields
     if (
@@ -65,8 +72,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (previouslyServed && !normalizedPreviousServiceLocation) {
+      return NextResponse.json(
+        { error: 'Previous service location is required when you have served before' },
+        { status: 400 }
+      )
+    }
+
     // Validate previousPrepLocation is required if previouslyAttendedPrep is true
-    if (previouslyAttendedPrep && !previousPrepLocation) {
+    if (previouslyAttendedPrep && !normalizedPreviousPrepLocation) {
       return NextResponse.json(
         { error: 'Previous prep location is required when you have attended before' },
         { status: 400 }
@@ -155,9 +169,10 @@ export async function POST(req: NextRequest) {
           phone,
           fatherOfConfessionName: null,
           previouslyServed,
+          previousServiceLocation: previouslyServed ? normalizedPreviousServiceLocation : null,
           currentlyServing,
           previouslyAttendedPrep,
-          previousPrepLocation: previousPrepLocation || null,
+          previousPrepLocation: previouslyAttendedPrep ? normalizedPreviousPrepLocation : null,
           grade: grade as StudentGrade,
           approvalFormUrl: null,
           approvalFormFilename: null,
