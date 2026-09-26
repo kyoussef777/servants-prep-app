@@ -153,13 +153,15 @@ try {
   assert.equal(lessonList.lessons.find(l => l.id === lessonId)?.resources.length, 1);
   await assert.rejects(client.request(`/api/sunday-school/lessons/${lessonId}`, patch({ ownerId: null })), denied);
   await assert.rejects(client.request(`/api/sunday-school/classes/${classId}`, patch({ name: "Forbidden rename" })), denied);
-  await assert.rejects(client.request(`/api/sunday-school/servant-attendance?classId=${classId}&date=2026-09-19`), denied);
+  const servantTeam = await client.request<{ canEdit: boolean }>(`/api/sunday-school/servant-attendance?classId=${classId}&date=2026-09-19`);
+  assert.equal(servantTeam.canEdit, true);
   await assert.rejects(client.request("/api/sunday-school/organization"), denied);
   // No confidential note is created here: doing so would notify unrelated priests.
   await client.request("/api/sunday-school/visitations", post({ childId, status: "DONE", visitedAt: "2026-09-19", notes: "Native visitation check" }));
   const visits = await client.request<{ classes: { children: { id: string; visitations: { notes: string }[] }[] }[] }>(`/api/sunday-school/visitations?classId=${classId}`);
   assert.equal(visits.classes[0].children[0].visitations[0].notes, "Native visitation check");
-  const idea = await client.request<{ id: string }>("/api/sunday-school/feedback", post({ title: `Native check ${suffix}`, description: "Disposable integration fixture" }));
+  const idea = await client.request<{ id: string; type: string }>("/api/sunday-school/feedback", post({ type: "IDEA", title: `Native check ${suffix}`, description: "Disposable integration fixture" }));
+  assert.equal(idea.type, "IDEA");
   await client.request(`/api/sunday-school/feedback/${idea.id}`, patch({ title: `Updated native check ${suffix}` }));
   await assert.rejects(client.request(`/api/sunday-school/feedback/${idea.id}/vote`, { ...post({ vote: "UP" }), method: "PUT" }), denied);
   await assert.rejects(client.request(`/api/sunday-school/feedback/${idea.id}`, patch({ status: "COMPLETED" })), denied);
