@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { isMissingNotificationPersistenceColumn } from '@/lib/notification-schema-compat'
 
 // PATCH /api/notifications/[id]/read - Mark a single notification as read (used by service worker)
 export async function PATCH(
@@ -16,14 +17,19 @@ export async function PATCH(
 
     const { id } = await params
 
-    await prisma.notification.updateMany({
-      where: {
-        id,
-        userId: session.user.id,
-        isPersistent: false,
-      },
-      data: { isRead: true },
-    })
+    const where = { id, userId: session.user.id }
+    try {
+      await prisma.notification.updateMany({
+        where: { ...where, isPersistent: false },
+        data: { isRead: true },
+      })
+    } catch (error: unknown) {
+      if (!isMissingNotificationPersistenceColumn(error)) throw error
+      await prisma.notification.updateMany({
+        where,
+        data: { isRead: true },
+      })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error: unknown) {

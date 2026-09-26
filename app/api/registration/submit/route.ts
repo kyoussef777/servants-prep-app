@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { isInviteCodeValid } from '@/lib/registration-utils'
 import { StudentGrade, RegistrationStatus } from '@prisma/client'
 import { notifyNewRegistration } from '@/lib/notifications'
-import { normalizeEmail, normalizeOptionalEmail } from '@/lib/email'
+import { normalizeEmail } from '@/lib/email'
 
 /**
  * POST /api/registration/submit
@@ -18,27 +18,22 @@ export async function POST(req: NextRequest) {
       fullName,
       dateOfBirth,
       phone,
-      fatherOfConfessionName,
       previouslyServed,
+      previousServiceLocation,
       currentlyServing,
       previouslyAttendedPrep,
       previousPrepLocation,
       grade,
-      approvalFormUrl,
-      approvalFormFilename,
       profileImageUrl,
       profileImageFilename,
-      mentorName,
-      mentorPhone,
-      mentorEmail,
     } = body
     const normalizedEmail = normalizeEmail(email)
-    const normalizedMentorEmail = normalizeOptionalEmail(mentorEmail)
-    const normalizedMentorName = typeof mentorName === 'string' ? mentorName.trim() || null : null
-    const normalizedMentorPhone = typeof mentorPhone === 'string' ? mentorPhone.trim() || null : null
-    const normalizedApprovalFormUrl = typeof approvalFormUrl === 'string' ? approvalFormUrl.trim() || null : null
-    const normalizedApprovalFormFilename = typeof approvalFormFilename === 'string' ? approvalFormFilename.trim() || null : null
-    const hasApprovalForm = Boolean(normalizedApprovalFormUrl && normalizedApprovalFormFilename)
+    const normalizedPreviousServiceLocation = typeof previousServiceLocation === 'string'
+      ? previousServiceLocation.trim()
+      : ''
+    const normalizedPreviousPrepLocation = typeof previousPrepLocation === 'string'
+      ? previousPrepLocation.trim()
+      : ''
 
     // Validate required fields
     if (
@@ -47,7 +42,6 @@ export async function POST(req: NextRequest) {
       !fullName ||
       !dateOfBirth ||
       !phone ||
-      !fatherOfConfessionName ||
       previouslyServed === undefined ||
       currentlyServing === undefined ||
       previouslyAttendedPrep === undefined ||
@@ -63,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(normalizedEmail) || (normalizedMentorEmail && !emailRegex.test(normalizedMentorEmail))) {
+    if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
@@ -78,8 +72,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (previouslyServed && !normalizedPreviousServiceLocation) {
+      return NextResponse.json(
+        { error: 'Previous service location is required when you have served before' },
+        { status: 400 }
+      )
+    }
+
     // Validate previousPrepLocation is required if previouslyAttendedPrep is true
-    if (previouslyAttendedPrep && !previousPrepLocation) {
+    if (previouslyAttendedPrep && !normalizedPreviousPrepLocation) {
       return NextResponse.json(
         { error: 'Previous prep location is required when you have attended before' },
         { status: 400 }
@@ -119,29 +120,42 @@ export async function POST(req: NextRequest) {
         throw new Error('Invite code has reached maximum usage')
       }
 
-      // Check for duplicate pending/approved submission with same email
-      const existingSubmission = await tx.registrationSubmission.findFirst({
-        where: {
-          email: normalizedEmail,
-          status: {
-            in: [RegistrationStatus.PENDING, RegistrationStatus.APPROVED],
-          },
-        },
-      })
-
-      if (existingSubmission) {
-        throw new Error(
-          'A registration with this email is already pending or approved'
-        )
-      }
-
-      // Check if a user with this email already exists
+      // Registration is only for new applicants. Existing users complete
+      // their application from inside their account.
       const existingUser = await tx.user.findUnique({
         where: { email: normalizedEmail },
+        select: { id: true },
       })
 
       if (existingUser) {
-        throw new Error('A user with this email already exists')
+        throw new Error(
+          'An account with this email already exists. Please sign in; registration is only for new applicants.'
+        )
+      }
+
+      // One open application per email at a time
+      const pendingSubmission = await tx.registrationSubmission.findFirst({
+        where: {
+          email: normalizedEmail,
+          status: RegistrationStatus.PENDING,
+        },
+        select: { id: true },
+      })
+
+      if (pendingSubmission) {
+        throw new Error('A registration with this email is already pending review')
+      }
+
+      const approvedSubmission = await tx.registrationSubmission.findFirst({
+        where: {
+          email: normalizedEmail,
+          status: RegistrationStatus.APPROVED,
+        },
+        select: { id: true },
+      })
+
+      if (approvedSubmission) {
+        throw new Error('A registration with this email has already been approved')
       }
 
       // Create submission
@@ -153,19 +167,21 @@ export async function POST(req: NextRequest) {
           fullName,
           dateOfBirth: new Date(dateOfBirth),
           phone,
-          fatherOfConfessionName,
+          fatherOfConfessionName: null,
           previouslyServed,
+          previousServiceLocation: previouslyServed ? normalizedPreviousServiceLocation : null,
           currentlyServing,
           previouslyAttendedPrep,
-          previousPrepLocation: previousPrepLocation || null,
+          previousPrepLocation: previouslyAttendedPrep ? normalizedPreviousPrepLocation : null,
           grade: grade as StudentGrade,
-          approvalFormUrl: hasApprovalForm ? normalizedApprovalFormUrl : null,
-          approvalFormFilename: hasApprovalForm ? normalizedApprovalFormFilename : null,
+          approvalFormUrl: null,
+          approvalFormFilename: null,
           profileImageUrl,
           profileImageFilename,
-          mentorName: normalizedMentorName,
-          mentorPhone: normalizedMentorPhone,
-          mentorEmail: normalizedMentorEmail,
+          mentorName: null,
+          mentorPhone: null,
+          mentorEmail: null,
+          createdUserId: null,
         },
       })
 
@@ -192,7 +208,7 @@ export async function POST(req: NextRequest) {
       {
         id: submission.id,
         message:
-          'Registration submitted successfully! Your application is under review.',
+          'Registration submitted successfully! Your registration is under review.',
       },
       { status: 201 }
     )

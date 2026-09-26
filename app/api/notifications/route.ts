@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
+import { ensureAnnualMentorReminder } from '@/lib/annual-mentor-information'
+import { ensurePendingServantApplicationNotifications } from '@/lib/notifications'
+import {
+  isMissingNotificationPersistenceColumn,
+  notificationSelectWithoutPersistence,
+} from '@/lib/notification-schema-compat'
 
 // DELETE /api/notifications - Dismiss (delete) notifications
 export async function DELETE(request: NextRequest) {
@@ -9,18 +15,22 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json()
     const { notificationIds, clearAll } = body
 
-    if (clearAll) {
-      await prisma.notification.deleteMany({
-        where: { userId: user.id, isPersistent: false },
-      })
-    } else if (notificationIds && Array.isArray(notificationIds) && notificationIds.length > 0) {
-      await prisma.notification.deleteMany({
-        where: {
-          id: { in: notificationIds },
-          userId: user.id,
-          isPersistent: false,
-        },
-      })
+    const where = clearAll
+      ? { userId: user.id }
+      : notificationIds && Array.isArray(notificationIds) && notificationIds.length > 0
+        ? { id: { in: notificationIds }, userId: user.id }
+        : null
+
+    if (where) {
+      try {
+        await prisma.notification.deleteMany({
+          where: { ...where, isPersistent: false },
+        })
+      } catch (error: unknown) {
+        if (!isMissingNotificationPersistenceColumn(error)) throw error
+        // An unmigrated database cannot contain persistent notifications yet.
+        await prisma.notification.deleteMany({ where })
+      }
     } else {
       return NextResponse.json(
         { error: 'Provide notificationIds or clearAll' },
@@ -42,6 +52,16 @@ export async function DELETE(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth()
+    await Promise.all([
+      ensureAnnualMentorReminder(user.id),
+      ensurePendingServantApplicationNotifications(user.id),
+    ].map(async operation => {
+      try {
+        await operation
+      } catch (error: unknown) {
+        if (!isMissingNotificationPersistenceColumn(error)) throw error
+      }
+    }))
 
     const url = new URL(request.url)
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 50)
@@ -53,12 +73,28 @@ export async function GET(request: NextRequest) {
       where.isRead = false
     }
 
-    const notifications = await prisma.notification.findMany({
-      where,
-      orderBy: [{ isPersistent: 'desc' }, { createdAt: 'desc' }],
-      take: limit + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    })
+    let notifications
+    try {
+      notifications = await prisma.notification.findMany({
+        where,
+        orderBy: [{ isPersistent: 'desc' }, { createdAt: 'desc' }],
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      })
+    } catch (error: unknown) {
+      if (!isMissingNotificationPersistenceColumn(error)) throw error
+      const legacyNotifications = await prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: notificationSelectWithoutPersistence,
+      })
+      notifications = legacyNotifications.map(notification => ({
+        ...notification,
+        isPersistent: false,
+      }))
+    }
 
     const hasMore = notifications.length > limit
     if (hasMore) notifications.pop()

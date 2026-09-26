@@ -39,8 +39,8 @@ const requiredApplication = {
   fullName: 'Student Name',
   dateOfBirth: '2008-01-02',
   phone: '555-0100',
-  fatherOfConfessionName: 'Fr. Mark',
   previouslyServed: false,
+  previousServiceLocation: '',
   currentlyServing: false,
   previouslyAttendedPrep: false,
   previousPrepLocation: '',
@@ -85,6 +85,8 @@ describe('registration submission', () => {
     expect(response.status).toBe(201)
     expect(mocks.createSubmission).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        fatherOfConfessionName: null,
+        previousServiceLocation: null,
         approvalFormUrl: null,
         approvalFormFilename: null,
         mentorName: null,
@@ -98,15 +100,121 @@ describe('registration submission', () => {
     })
   })
 
-  it('still validates mentor email when it is supplied', async () => {
+  it('requires a location when the applicant previously served', async () => {
     const response = await POST(request({
       ...requiredApplication,
+      previouslyServed: true,
+    }))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Previous service location is required when you have served before',
+    })
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('stores the previous service and Servants Prep locations when selected', async () => {
+    const response = await POST(request({
+      ...requiredApplication,
+      previouslyServed: true,
+      previousServiceLocation: '  St. Mark Youth Ministry  ',
+      previouslyAttendedPrep: true,
+      previousPrepLocation: '  St. George Servants Prep  ',
+    }))
+
+    expect(response.status).toBe(201)
+    expect(mocks.createSubmission).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        previousServiceLocation: 'St. Mark Youth Ministry',
+        previousPrepLocation: 'St. George Servants Prep',
+      }),
+    })
+  })
+
+  it('requires a location when the applicant previously attended Servants Prep', async () => {
+    const response = await POST(request({
+      ...requiredApplication,
+      previouslyAttendedPrep: true,
+    }))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Previous prep location is required when you have attended before',
+    })
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
+  it('keeps post-approval application fields out of the initial registration', async () => {
+    const response = await POST(request({
+      ...requiredApplication,
+      fatherOfConfessionName: 'Fr. Mark',
+      approvalFormUrl: 'https://example.com/form.pdf',
+      approvalFormFilename: 'form.pdf',
       mentorName: 'Mentor Name',
       mentorPhone: '555-0199',
       mentorEmail: 'not-an-email',
     }))
 
-    expect(response.status).toBe(400)
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(response.status).toBe(201)
+    expect(mocks.createSubmission).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        fatherOfConfessionName: null,
+        approvalFormUrl: null,
+        approvalFormFilename: null,
+        mentorName: null,
+        mentorPhone: null,
+        mentorEmail: null,
+      }),
+    })
+  })
+
+  it('directs existing users to update mentor information from their account', async () => {
+    mocks.findUser.mockResolvedValue({ id: 'user-1' })
+
+    const response = await POST(request(requiredApplication))
+    const body = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(body).toEqual({
+      error: 'An account with this email already exists. Please sign in; registration is only for new applicants.',
+    })
+    expect(mocks.createSubmission).not.toHaveBeenCalled()
+  })
+
+  it('blocks an email that already has an approved application', async () => {
+    mocks.findSubmission
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'registration-0' })
+
+    const response = await POST(request(requiredApplication))
+
+    expect(response.status).toBe(409)
+    expect(mocks.findSubmission).toHaveBeenCalledWith({
+      where: {
+        email: 'student@example.com',
+        status: 'APPROVED',
+      },
+      select: { id: true },
+    })
+  })
+
+  it('rejects a second submission while one is pending', async () => {
+    mocks.findSubmission.mockResolvedValueOnce({ id: 'registration-0' })
+
+    const response = await POST(request(requiredApplication))
+
+    expect(response.status).toBe(409)
+    expect(mocks.createSubmission).not.toHaveBeenCalled()
+  })
+
+  it('rejects a second approved submission', async () => {
+    mocks.findSubmission
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'registration-0' })
+
+    const response = await POST(request(requiredApplication))
+
+    expect(response.status).toBe(409)
+    expect(mocks.createSubmission).not.toHaveBeenCalled()
   })
 })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { NotificationType, RegistrationStatus } from '@prisma/client'
 import { put } from '@vercel/blob'
 import { requireAuth } from '@/lib/auth-helpers'
+import { getAnnualMentorRequirement } from '@/lib/annual-mentor-information'
 import { prisma } from '@/lib/prisma'
 
 const ALLOWED_FILE_TYPES = [
@@ -16,30 +17,29 @@ const MAX_FILE_SIZE = 4.5 * 1024 * 1024
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth()
-    const submission = await prisma.registrationSubmission.findFirst({
-      where: {
-        createdUserId: user.id,
-        status: RegistrationStatus.APPROVED,
-      },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        mentorName: true,
-        mentorPhone: true,
-        mentorEmail: true,
-      },
-    })
+    const [application, annualMentorRequirement] = await Promise.all([
+      prisma.registrationSubmission.findFirst({
+        where: { createdUserId: user.id, status: RegistrationStatus.APPROVED },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          fatherOfConfessionName: true,
+          mentorName: true,
+          mentorPhone: true,
+          mentorEmail: true,
+        },
+      }),
+      getAnnualMentorRequirement(user.id),
+    ])
 
-    if (!submission) {
+    if (!application) {
       return NextResponse.json({ error: 'Approved registration not found' }, { status: 404 })
     }
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-    }
+    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
       return NextResponse.json({ error: 'Please upload a PNG, JPG, GIF, or PDF file' }, { status: 400 })
     }
@@ -47,20 +47,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size exceeds 4.5 MB limit' }, { status: 400 })
     }
 
-    const blob = await put(`registrations/${submission.id}/${Date.now()}-${file.name}`, file, {
+    const blob = await put(`registrations/${application.id}/${Date.now()}-${file.name}`, file, {
       access: 'public',
       addRandomSuffix: true,
       token: process.env.BLOB_READ_WRITE_TOKEN,
     })
 
-    const complete = Boolean(submission.mentorName && submission.mentorPhone && submission.mentorEmail)
+    const complete = Boolean(
+      application.fatherOfConfessionName &&
+      application.mentorName &&
+      application.mentorPhone &&
+      application.mentorEmail &&
+      (!annualMentorRequirement || annualMentorRequirement.information)
+    )
+
     await prisma.$transaction(async (tx) => {
       await tx.registrationSubmission.update({
-        where: { id: submission.id },
-        data: {
-          approvalFormUrl: blob.url,
-          approvalFormFilename: file.name,
-        },
+        where: { id: application.id },
+        data: { approvalFormUrl: blob.url, approvalFormFilename: file.name },
       })
 
       if (complete) {
@@ -74,11 +78,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      url: blob.url,
-      filename: file.name,
-      complete,
-    })
+    return NextResponse.json({ url: blob.url, filename: file.name, complete })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(

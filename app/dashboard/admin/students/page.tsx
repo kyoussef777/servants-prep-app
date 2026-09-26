@@ -345,10 +345,14 @@ function StudentsManagementContent() {
         throw new Error(error.error || 'Failed to update')
       }
 
+      const result = await res.json()
+
       const now = new Date()
       setLastSaved(now)
       toast.success(`Updated ${enrollmentIds.length} student(s) to ${yearLevel === 'YEAR_1' ? 'Year 1' : 'Year 2'}`, {
-        description: formatToastTimestamp(now)
+        description: yearLevel === 'YEAR_2' && result.promotion
+          ? `Year 1 attendance preserved${result.promotion.attendanceRecordsCreated > 0 ? ` · ${result.promotion.attendanceRecordsCreated} active-year records added` : ''} · ${formatToastTimestamp(now)}`
+          : formatToastTimestamp(now)
       })
 
       await fetchStudents()
