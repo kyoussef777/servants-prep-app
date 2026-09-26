@@ -122,7 +122,7 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
   if (!enrollments) return <TableSkeleton />
 
   return (
-    <div className="space-y-3 min-w-0">
+    <div className="w-full min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <FilterSelect
           aria-label="Academic year"
@@ -151,15 +151,15 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
         their first period; after that, upload a photo of the slip signed by their father of confession.
       </p>
 
-      <Card className="py-0 gap-0 overflow-hidden">
-        <CardContent className="p-0 overflow-x-auto">
+      <Card className="w-full min-w-0 max-w-full gap-0 overflow-hidden py-0">
+        <CardContent className="w-full min-w-0 max-w-full overflow-x-auto p-0">
           {visibleRows.length === 0 ? (
             <EmptyState message="No students to show" />
           ) : (
-            <table className="w-full text-sm">
+            <table className="min-w-max text-sm">
               <thead className="border-b bg-gray-50 dark:bg-gray-900">
                 <tr>
-                  {!enrollment && <th className="text-left p-3 font-semibold sticky left-0 bg-gray-50 dark:bg-gray-900">Student</th>}
+                  {!enrollment && <th className="text-left p-3 font-semibold sticky left-0 border-r bg-gray-50 dark:bg-gray-900">Student</th>}
                   {visibleRows[0].cells.map(({ period }) => (
                     <th key={period.start.toISOString()} className="p-3 font-semibold text-center whitespace-nowrap">
                       {formatConfessionPeriod(period)}
@@ -171,7 +171,7 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
                 {visibleRows.map(({ enrollment: e, cells, missing }) => (
                   <tr key={e.studentId} className="border-b last:border-0">
                     {!enrollment && (
-                      <td className="p-3 sticky left-0 bg-card min-w-44">
+                      <td className="p-3 sticky left-0 border-r bg-card min-w-32 max-w-40 sm:min-w-44 sm:max-w-none">
                         <div className="font-medium">{e.student.name}</div>
                         <div className="text-xs text-gray-500">{e.fatherOfConfession?.name ?? 'No father of confession'}</div>
                         {missing > 0 && <div className="text-xs text-red-600">{missing} missing</div>}
@@ -198,7 +198,7 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
                             ) : badge}
                             {canEdit && status !== 'na' && status !== 'upcoming' && (
                               <div className="flex items-center gap-1">
-                                <label className="cursor-pointer text-xs text-maroon-700 dark:text-maroon-300 hover:underline rounded px-1 focus-within:ring-2 focus-within:ring-maroon-500">
+                                <label className="cursor-pointer text-xs text-maroon-700 dark:text-maroon-300 hover:underline rounded px-2 py-1 focus-within:ring-2 focus-within:ring-maroon-500">
                                   <input
                                     type="file"
                                     accept="image/*,application/pdf"
@@ -217,9 +217,9 @@ export function ConfessionTracker({ enrollment, canEdit }: { enrollment?: Confes
                                     type="button"
                                     onClick={() => handleRemove(slip)}
                                     aria-label={`Remove ${formatConfessionPeriod(period)} slip`}
-                                    className="p-0.5 text-gray-400 hover:text-red-600"
+                                    className="rounded p-1.5 text-gray-400 hover:text-red-600"
                                   >
-                                    <Trash2 className="h-3 w-3" />
+                                    <Trash2 className="h-3.5 w-3.5" />
                                   </button>
                                 )}
                               </div>

@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { canBeMentor, canManageAllUsers, canManageEnrollments, canManageUsers, getRoleDisplayName } from '@/lib/roles'
+import { canManageAllUsers, canManageEnrollments, canManageUsers, getRoleDisplayName } from '@/lib/roles'
 import { formatToastTimestamp, withCurrentOption } from '@/lib/utils'
 import { fetcher, staticDataConfig } from '@/lib/swr'
 
@@ -44,11 +44,11 @@ export interface EditableStudent {
     createdAt: string
     reviewedAt: string | null
     reviewNote: string | null
-    approvalFormUrl: string
+    approvalFormUrl: string | null
     fatherOfConfessionName: string
-    mentorName: string
-    mentorPhone: string
-    mentorEmail: string
+    mentorName: string | null
+    mentorPhone: string | null
+    mentorEmail: string | null
     reviewer: { name: string } | null
   }>
 }
@@ -107,10 +107,13 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
   const enrollment = student.enrollments?.[0]
   const registration = student.createdFromRegistration?.[0]
 
-  const { data: users = [] } = useSWR<Option[]>('/api/users', fetcher, staticDataConfig)
+  const { data: mentors = [] } = useSWR<Option[]>(
+    canEdit ? '/api/mentor-options' : null,
+    fetcher,
+    staticDataConfig
+  )
   const { data: fathers = [] } = useSWR<Option[]>('/api/fathers-of-confession', fetcher, staticDataConfig)
   const { data: years = [] } = useSWR<Option[]>('/api/academic-years', fetcher, staticDataConfig)
-  const mentors = users.filter(u => u.role && canBeMentor(u.role))
   const [saving, setSaving] = useState(false)
 
   const save = async (url: string, body: object, message: string, method = 'PATCH') => {
@@ -304,12 +307,19 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
                 {registration.reviewer && ` by ${registration.reviewer.name}`}
               </p>
               <p><span className="text-gray-600">Father of confession listed:</span> {registration.fatherOfConfessionName}</p>
-              <p><span className="text-gray-600">Mentor listed:</span> {registration.mentorName} · {registration.mentorPhone} · {registration.mentorEmail}</p>
+              <p>
+                <span className="text-gray-600">Mentor listed:</span>{' '}
+                {[registration.mentorName, registration.mentorPhone, registration.mentorEmail].filter(Boolean).join(' · ') || 'Not provided'}
+              </p>
               {registration.reviewNote && <p><span className="text-gray-600">Review note:</span> {registration.reviewNote}</p>}
               <div className="flex flex-wrap gap-3 pt-1">
-                <a href={registration.approvalFormUrl} target="_blank" rel="noopener noreferrer" className="text-maroon-700 hover:underline">
-                  View signed registration form
-                </a>
+                {registration.approvalFormUrl ? (
+                  <a href={registration.approvalFormUrl} target="_blank" rel="noopener noreferrer" className="text-maroon-700 hover:underline">
+                    View signed registration form
+                  </a>
+                ) : (
+                  <span className="text-gray-500">Approval form not provided</span>
+                )}
                 <Link href="/dashboard/admin/registrations" className="text-maroon-700 hover:underline">
                   Open registrations
                 </Link>

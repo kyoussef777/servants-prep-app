@@ -9,7 +9,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, lastSaved, actions }: PageHeaderProps) {
   return (
-    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2">
+    <div className="flex flex-col items-start justify-between gap-2 lg:flex-row lg:items-center">
       <div>
         <h1 className="text-2xl font-bold">{title}</h1>
         {description && (

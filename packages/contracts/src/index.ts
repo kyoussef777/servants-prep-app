@@ -3,6 +3,7 @@ export type {
   AttendanceStatus,
   SundaySchoolLevel,
   SundaySchoolAuthority,
+  SundaySchoolFeedbackType,
   UserRole,
   RoleTag,
 } from "@prisma/client";

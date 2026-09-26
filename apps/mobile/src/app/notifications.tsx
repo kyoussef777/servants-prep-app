@@ -1,4 +1,4 @@
-import { Alert, Pressable, View } from "react-native";
+import { Alert, Linking, Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
 import {
   Card,
@@ -11,10 +11,22 @@ import {
 import { usePortal } from "@/data/portal-provider";
 import { DataStatus } from "@/components/data-status";
 import { useAppTheme } from "@/theme";
+import { apiOrigin } from "@/data/auth-provider";
 
 export default function Notifications() {
   const { colors } = useAppTheme();
   const { notifications, markRead, loading, error, refresh } = usePortal();
+  const openRequiredAction = async (url?: string | null) => {
+    if (!url) {
+      Alert.alert("Action required", "Complete this action in the ministry portal.");
+      return;
+    }
+    try {
+      await Linking.openURL(new URL(url, `${apiOrigin}/`).toString());
+    } catch {
+      Alert.alert("Unable to open the portal", "Please try again from the website.");
+    }
+  };
   return (
     <>
       <Stack.Screen
@@ -48,7 +60,7 @@ export default function Notifications() {
           <Card key={item.id}>
             <RowLink
               title={item.title}
-              subtitle={item.message}
+              subtitle={item.body}
               icon={<Icon ios="bell" android="notifications" />}
               trailing={
                 !item.isRead ? (
@@ -64,6 +76,10 @@ export default function Notifications() {
                 ) : undefined
               }
               onPress={() => {
+                if (item.isPersistent) {
+                  void openRequiredAction(item.url);
+                  return;
+                }
                 void markRead(item.id).catch((error) =>
                   Alert.alert(
                     "Unable to update notification",
@@ -73,7 +89,7 @@ export default function Notifications() {
               }}
             />
             <Copy kind="caption">
-              {item.isRead ? "Read" : "Tap to mark as read"}
+              {item.isPersistent ? "Action required · Tap to continue" : item.isRead ? "Read" : "Tap to mark as read"}
             </Copy>
           </Card>
         ))}

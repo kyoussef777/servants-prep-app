@@ -19,15 +19,19 @@ vi.mock('@/lib/sunday-school-access', () => ({
   canViewServantAttendance: (access: {
     isAdmin: boolean
     readOnly: boolean
+    servantClassIds: Set<string>
     coordinatorClassIds: Set<string>
   }, classId: string) =>
-    access.isAdmin || access.readOnly || access.coordinatorClassIds.has(classId),
+    access.isAdmin || access.readOnly || access.servantClassIds.has(classId) || access.coordinatorClassIds.has(classId),
   canTakeServantAttendance: (access: {
     isAdmin: boolean
     readOnly: boolean
+    servantClassIds: Set<string>
     coordinatorClassIds: Set<string>
   }, classId: string) =>
-    access.isAdmin || (!access.readOnly && access.coordinatorClassIds.has(classId)),
+    access.isAdmin || (!access.readOnly && (
+      access.servantClassIds.has(classId) || access.coordinatorClassIds.has(classId)
+    )),
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -51,17 +55,24 @@ import { POST } from '@/app/api/sunday-school/servant-attendance/batch/route'
 const coordinatorAccess = {
   isAdmin: false,
   readOnly: false,
+  servantClassIds: new Set<string>(),
   coordinatorClassIds: new Set(['class-1']),
 }
 const priestAccess = {
   isAdmin: false,
   readOnly: true,
+  servantClassIds: new Set<string>(),
   coordinatorClassIds: new Set<string>(),
 }
 const servantAccess = {
   isAdmin: false,
   readOnly: false,
+  servantClassIds: new Set(['class-1']),
   coordinatorClassIds: new Set<string>(),
+}
+const unrelatedServantAccess = {
+  ...servantAccess,
+  servantClassIds: new Set(['class-2']),
 }
 
 function saveRequest(records: Array<{ servantId: string; status: string }>) {
@@ -150,8 +161,23 @@ describe('Sunday School servant attendance API', () => {
     expect(body.roster).toHaveLength(1)
   })
 
-  it('refuses an ordinary servant', async () => {
+  it('allows a class servant to load and record attendance for the whole class roster', async () => {
     mocks.getSundaySchoolAccess.mockResolvedValue(servantAccess)
+
+    const loadResponse = await GET(new Request(
+      'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2025-10-05'
+    ))
+    const saveResponse = await POST(saveRequest([
+      { servantId: 'servant-1', status: SundaySchoolServantAttendanceStatus.PRESENT },
+    ]))
+
+    expect(loadResponse.status).toBe(200)
+    expect(saveResponse.status).toBe(200)
+    expect(mocks.attendanceUpsert).toHaveBeenCalled()
+  })
+
+  it('refuses a servant who is not assigned to the requested class', async () => {
+    mocks.getSundaySchoolAccess.mockResolvedValue(unrelatedServantAccess)
 
     const response = await GET(new Request(
       'http://localhost/api/sunday-school/servant-attendance?classId=class-1&date=2025-10-05'

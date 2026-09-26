@@ -2,6 +2,7 @@ import type {
   AttendanceStatus,
   SundaySchoolAuthority,
   SundaySchoolFeedbackStatus,
+  SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
   SundaySchoolLevel,
   SundaySchoolServantAttendanceStatus,
@@ -187,6 +188,7 @@ export interface SundaySchoolVisitationsResponse {
 
 export interface SundaySchoolFeedbackIdea {
   id: string;
+  type: SundaySchoolFeedbackType;
   title: string;
   description: string | null;
   status: SundaySchoolFeedbackStatus;

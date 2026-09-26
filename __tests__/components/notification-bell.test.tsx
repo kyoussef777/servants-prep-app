@@ -5,6 +5,17 @@ import userEvent from '@testing-library/user-event'
 const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
   push: vi.fn(),
+  onOpenChange: vi.fn(),
+  notifications: [] as Array<{
+    id: string
+    type: string
+    title: string
+    body: string
+    url: string | null
+    isRead: boolean
+    isPersistent: boolean
+    createdAt: string
+  }>,
 }))
 
 vi.mock('next-auth/react', () => ({
@@ -17,7 +28,11 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('swr', () => ({
   default: () => ({
-    data: { notifications: [], unreadCount: 3, nextCursor: null },
+    data: {
+      notifications: mocks.notifications,
+      unreadCount: 3,
+      nextCursor: null,
+    },
     mutate: mocks.mutate,
   }),
 }))
@@ -27,11 +42,23 @@ import { NotificationBell } from '@/components/notifications/notification-bell'
 describe('NotificationBell', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.notifications = [
+      {
+        id: 'n1',
+        type: 'ANNOUNCEMENT',
+        title: 'Hello',
+        body: 'Body',
+        url: null,
+        isRead: false,
+        isPersistent: false,
+        createdAt: new Date().toISOString(),
+      },
+    ]
   })
 
   it('fills the selected bell without moving or resizing it', async () => {
     const user = userEvent.setup()
-    render(<NotificationBell />)
+    render(<NotificationBell onOpenChange={mocks.onOpenChange} />)
 
     const button = screen.getByRole('button', { name: 'Notifications (3 unread)' })
     const icon = screen.getByTestId('notification-bell-icon')
@@ -42,19 +69,57 @@ describe('NotificationBell', () => {
     await user.click(button)
 
     expect(button).toHaveAttribute('aria-expanded', 'true')
+    expect(mocks.onOpenChange).toHaveBeenCalledWith(true)
     expect(button).toHaveClass('bg-accent', 'text-primary')
     expect(icon).toHaveClass('fill-current')
     expect(icon).not.toHaveClass('-rotate-12', 'scale-110')
     expect(button).not.toHaveClass('scale-105')
     const panel = screen.getByRole('dialog', { name: 'Notifications' })
-    expect(panel).toHaveClass(
-      'animate-in',
-      'fade-in-0',
-      'fixed',
-      'bottom-0',
-      'max-h-[85dvh]',
-      'lg:absolute'
-    )
-    expect(panel).not.toHaveClass('sm:absolute')
+    expect(panel).toHaveClass('animate-in', 'fade-in-0')
+  })
+
+  it('portals the panel out of the navbar and closes on Escape', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<nav className="backdrop-blur-xl"><NotificationBell /></nav>)
+
+    await user.click(screen.getByRole('button', { name: 'Notifications (3 unread)' }))
+
+    const panel = screen.getByRole('dialog', { name: 'Notifications' })
+    // Fixed positioning must resolve against the viewport, not the blurred navbar
+    expect(container.contains(panel)).toBe(false)
+    // Row actions must not be nested inside the row button (invalid HTML)
+    expect(panel.querySelector('button button')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Mark as read' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Notifications' })).toBeNull()
+  })
+
+  it('does not offer dismiss or mark-read actions for a required notification', async () => {
+    mocks.notifications = [
+      {
+        id: 'required-1',
+        type: 'REGISTRATION_INCOMPLETE',
+        title: 'Complete Your Registration',
+        body: 'Please add your remaining registration details.',
+        url: '/dashboard/student/registration',
+        isRead: false,
+        isPersistent: true,
+        createdAt: new Date().toISOString(),
+      },
+    ]
+    const user = userEvent.setup()
+    render(<NotificationBell />)
+
+    await user.click(screen.getByRole('button', { name: 'Notifications (3 unread)' }))
+
+    expect(screen.getByText('Required')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dismiss notification' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Mark as read' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Mark all read/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Clear all notifications/i })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /Complete Your Registration/i }))
+    expect(mocks.push).toHaveBeenCalledWith('/dashboard/student/registration')
   })
 })

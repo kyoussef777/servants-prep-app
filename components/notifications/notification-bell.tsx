@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
@@ -30,6 +31,7 @@ interface Notification {
   body: string
   url: string | null
   isRead: boolean
+  isPersistent: boolean
   createdAt: string
 }
 
@@ -57,6 +59,8 @@ function getNotificationMeta(type: string): { icon: React.ElementType; color: st
       return { icon: UserCheck, color: 'text-green-600 bg-green-100 dark:bg-green-900/40' }
     case 'REGISTRATION_REJECTED':
       return { icon: ShieldAlert, color: 'text-red-600 bg-red-100 dark:bg-red-900/40' }
+    case 'REGISTRATION_INCOMPLETE':
+      return { icon: ClipboardList, color: 'text-amber-700 bg-amber-100 dark:bg-amber-900/40' }
     case 'ASYNC_NOTE_REVIEWED':
       return { icon: FileText, color: 'text-indigo-600 bg-indigo-100 dark:bg-indigo-900/40' }
     case 'MENTOR_ASSIGNED':
@@ -72,11 +76,18 @@ function getNotificationMeta(type: string): { icon: React.ElementType; color: st
   }
 }
 
-export function NotificationBell() {
+interface NotificationBellProps {
+  onOpenChange?: (isOpen: boolean) => void
+}
+
+export function NotificationBell({ onOpenChange }: NotificationBellProps = {}) {
   const { data: session } = useSession()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+  // Desktop dropdown anchor, measured from the bell when opened
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   const { data, mutate } = useSWR<NotificationsResponse>(
     session?.user ? '/api/notifications?limit=15' : null,
@@ -85,26 +96,48 @@ export function NotificationBell() {
   )
 
   const unreadCount = data?.unreadCount ?? 0
-  const notifications = data?.notifications ?? []
+  const notifications = useMemo(() => data?.notifications ?? [], [data?.notifications])
+  const hasDismissibleUnread = notifications.some(
+    (notification) => !notification.isPersistent && !notification.isRead
+  )
 
-  // Close on click outside (desktop)
+  const updateOpen = useCallback((nextOpen: boolean) => {
+    setIsOpen(nextOpen)
+    onOpenChange?.(nextOpen)
+  }, [onOpenChange])
+
+  const toggleOpen = () => {
+    const rect = dropdownRef.current?.getBoundingClientRect()
+    if (!isOpen && rect) {
+      setAnchor({ top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) })
+    }
+    updateOpen(!isOpen)
+  }
+
+  // Close on click outside or Escape. The panel is portaled, so check both refs.
   useEffect(() => {
+    if (!isOpen) return
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
+      const target = event.target as Node
+      if (!dropdownRef.current?.contains(target) && !panelRef.current?.contains(target)) {
+        updateOpen(false)
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // Lock body scroll on mobile when open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') updateOpen(false)
     }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, updateOpen])
+
+  // Lock body scroll only for the mobile bottom sheet
+  useEffect(() => {
+    if (!isOpen || window.innerWidth >= 1024) return
+    document.body.style.overflow = 'hidden'
     return () => {
       document.body.style.overflow = ''
     }
@@ -133,6 +166,9 @@ export function NotificationBell() {
 
   const dismissNotification = useCallback(
     async (id: string) => {
+      const notification = notifications.find((item) => item.id === id)
+      if (notification?.isPersistent) return
+
       mutate(
         (current) =>
           current
@@ -153,11 +189,22 @@ export function NotificationBell() {
       })
       mutate()
     },
-    [mutate]
+    [mutate, notifications]
   )
 
   const clearAll = useCallback(async () => {
-    mutate({ notifications: [], unreadCount: 0, nextCursor: null }, false)
+    mutate(
+      (current) => {
+        if (!current) return current
+        const persistentNotifications = current.notifications.filter((notification) => notification.isPersistent)
+        return {
+          ...current,
+          notifications: persistentNotifications,
+          unreadCount: persistentNotifications.filter((notification) => !notification.isRead).length,
+        }
+      },
+      false
+    )
     await fetch('/api/notifications', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -168,15 +215,15 @@ export function NotificationBell() {
 
   const handleNotificationClick = useCallback(
     (notification: Notification) => {
-      if (!notification.isRead) {
+      if (!notification.isRead && !notification.isPersistent) {
         markRead(notification.id)
       }
       if (notification.url) {
         router.push(notification.url)
       }
-      setIsOpen(false)
+      updateOpen(false)
     },
-    [markRead, router]
+    [markRead, router, updateOpen]
   )
 
   if (!session?.user) return null
@@ -184,7 +231,7 @@ export function NotificationBell() {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className={`relative rounded-md p-2 transition-colors duration-150 hover:bg-accent motion-reduce:transition-none ${
           isOpen ? 'bg-accent text-primary' : ''
         }`}
@@ -207,20 +254,26 @@ export function NotificationBell() {
         )}
       </button>
 
-      {isOpen && (
+      {/* Portaled to <body>: the navbar's blur/translate would otherwise become
+          the containing block for these fixed elements and trap them in the navbar. */}
+      {isOpen && createPortal(
         <>
           {/* Mobile backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-black/40 animate-in fade-in-0 duration-200 motion-reduce:animate-none lg:hidden"
-            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 z-[60] bg-black/40 animate-in fade-in-0 duration-200 motion-reduce:animate-none lg:hidden"
+            onClick={() => updateOpen(false)}
           />
 
-          {/* Keep the bottom sheet through tablet-sized viewports. Mobile browsers
-              can report a layout width above the `sm` breakpoint when display
-              scaling or site zoom is active. */}
-          <div id="notifications-panel" role="dialog" aria-label="Notifications" className="
-            fixed bottom-0 left-0 right-0 z-50
-            lg:absolute lg:bottom-auto lg:left-auto lg:right-0 lg:top-full lg:mt-2 lg:w-96
+          {/* Panel — bottom sheet on mobile, dropdown on desktop */}
+          <div
+            ref={panelRef}
+            id="notifications-panel"
+            role="dialog"
+            aria-label="Notifications"
+            style={{ '--notif-top': `${anchor?.top ?? 88}px`, '--notif-right': `${anchor?.right ?? 16}px` } as React.CSSProperties}
+            className="
+            fixed bottom-0 left-0 right-0 z-[60]
+            lg:bottom-auto lg:left-auto lg:right-[var(--notif-right)] lg:top-[var(--notif-top)] lg:w-96
             rounded-t-2xl lg:rounded-lg
             border bg-popover text-popover-foreground shadow-xl
             flex flex-col
@@ -244,7 +297,7 @@ export function NotificationBell() {
                 )}
               </div>
               <div className="flex items-center gap-1">
-                {unreadCount > 0 && (
+                {hasDismissibleUnread && (
                   <button
                     onClick={markAllRead}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-accent"
@@ -254,7 +307,7 @@ export function NotificationBell() {
                     <span className="hidden lg:inline">Mark all read</span>
                   </button>
                 )}
-                {notifications.length > 0 && (
+                {notifications.some((notification) => !notification.isPersistent) && (
                   <button
                     onClick={clearAll}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded hover:bg-accent"
@@ -265,7 +318,7 @@ export function NotificationBell() {
                   </button>
                 )}
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => updateOpen(false)}
                   className="lg:hidden rounded p-1 hover:bg-accent transition-colors ml-1"
                   aria-label="Close notifications"
                 >
@@ -309,6 +362,11 @@ export function NotificationBell() {
                               {!notification.isRead && (
                                 <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
                               )}
+                              {notification.isPersistent && (
+                                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                  Required
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
                               {notification.body}
@@ -317,33 +375,31 @@ export function NotificationBell() {
                               {formatDistanceToNow(notification.createdAt)}
                             </span>
                           </div>
-
+                        </div>
+                      </button>
+                      {/* Row actions: always visible on touch, on hover/focus on desktop */}
+                      {!notification.isPersistent && (
+                        <div className="absolute top-2 right-2 flex flex-col items-center gap-1">
+                          <button
+                            onClick={() => dismissNotification(notification.id)}
+                            className="rounded p-1 hover:bg-accent transition-all lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
+                            title="Dismiss notification"
+                            aria-label="Dismiss notification"
+                          >
+                            <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                          </button>
                           {!notification.isRead && (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                markRead(notification.id)
-                              }}
-                              className="flex-shrink-0 mt-1 rounded p-1 hover:bg-accent transition-colors"
+                              onClick={() => markRead(notification.id)}
+                              className="rounded p-1 hover:bg-accent transition-colors"
                               title="Mark as read"
+                              aria-label="Mark as read"
                             >
                               <Check className="h-3.5 w-3.5 text-muted-foreground" />
                             </button>
                           )}
                         </div>
-                      </button>
-                      {/* Dismiss button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          dismissNotification(notification.id)
-                        }}
-                        className="absolute top-2 right-2 rounded p-1 opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
-                        title="Dismiss notification"
-                        aria-label="Dismiss notification"
-                      >
-                        <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                      </button>
+                      )}
                     </div>
                   )
                 })
@@ -353,7 +409,8 @@ export function NotificationBell() {
             {/* Bottom safe area for mobile */}
             <div className="lg:hidden h-[max(1rem,env(safe-area-inset-bottom))] flex-shrink-0" />
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   )

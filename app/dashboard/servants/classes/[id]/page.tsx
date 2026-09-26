@@ -311,14 +311,14 @@ export default function SundaySchoolClassDetailPage() {
             ) : (
               <div className="divide-y dark:divide-gray-800">
                 {classAssignments.map(assignment => (
-                  <div key={assignment.id} className="flex items-center justify-between gap-3 py-3">
+                  <div key={assignment.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div className="min-w-0">
                       <p className="font-medium truncate">{assignment.user.name}</p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                         {assignment.user.email}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
                       {assignment.authority === SundaySchoolAuthority.COORDINATOR && (
                         <Badge className="bg-maroon-600">Coordinator</Badge>
                       )}

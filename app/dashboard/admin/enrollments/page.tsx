@@ -17,6 +17,7 @@ import { withCurrentOption } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { MentorFilterCombobox } from '@/components/admin/mentor-filter-combobox'
 
 interface FatherOfConfession {
   id: string
@@ -78,20 +79,20 @@ export default function EnrollmentsPage() {
     const fetchData = async () => {
       try {
         // Fetch all data in parallel
-        const [enrollmentsRes, usersRes, yearsRes, fathersRes] = await Promise.all([
+        const [enrollmentsRes, mentorsRes, yearsRes, fathersRes] = await Promise.all([
           fetch('/api/enrollments'),
-          fetch('/api/users'),
+          fetch('/api/mentor-options'),
           fetch('/api/academic-years'),
           fetch('/api/fathers-of-confession')
         ])
 
         if (!enrollmentsRes.ok) throw new Error('Failed to fetch enrollments')
-        if (!usersRes.ok) throw new Error('Failed to fetch users')
+        if (!mentorsRes.ok) throw new Error('Failed to fetch mentors')
         if (!yearsRes.ok) throw new Error('Failed to fetch academic years')
 
-        const [enrollmentsData, usersData, yearsData, fathersData] = await Promise.all([
+        const [enrollmentsData, mentorsData, yearsData, fathersData] = await Promise.all([
           enrollmentsRes.json(),
-          usersRes.json(),
+          mentorsRes.json(),
           yearsRes.json(),
           fathersRes.ok ? fathersRes.json() : []
         ])
@@ -105,15 +106,7 @@ export default function EnrollmentsPage() {
         // Set fathers of confession
         setFathersOfConfession(Array.isArray(fathersData) ? fathersData : [])
 
-        // Filter to only users who can be mentors
-        const mentorsData = Array.isArray(usersData)
-          ? usersData.filter((user: { role: string }) =>
-              user.role === 'SUPER_ADMIN' ||
-              user.role === 'SERVANT_PREP' ||
-              user.role === 'MENTOR'
-            )
-          : []
-        setMentors(mentorsData)
+        setMentors(Array.isArray(mentorsData) ? mentorsData : [])
       } catch (error) {
         console.error('Failed to fetch data:', error)
         setEnrollments([])
@@ -325,7 +318,7 @@ export default function EnrollmentsPage() {
   })
 
   // Calculate workload per mentor
-  const mentorWorkload = new Map()
+  const mentorWorkload = new Map<string, number>()
   if (Array.isArray(enrollments)) {
     enrollments.forEach(enrollment => {
       if (enrollment.mentor) {
@@ -432,19 +425,12 @@ export default function EnrollmentsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-9 w-full sm:w-56 text-sm"
               />
-              <select
+              <MentorFilterCombobox
+                mentors={mentors}
+                workload={mentorWorkload}
                 value={filterMentor}
-                onChange={(e) => setFilterMentor(e.target.value)}
-                className="h-9 px-2 text-sm rounded-md border border-input bg-background dark:bg-gray-800 dark:text-white dark:border-gray-600"
-              >
-                <option value="all">All Mentors</option>
-                <option value="unassigned">Unassigned</option>
-                {mentors.map(mentor => (
-                  <option key={mentor.id} value={mentor.id}>
-                    {mentor.name} ({mentorWorkload.get(mentor.id) || 0})
-                  </option>
-                ))}
-              </select>
+                onValueChange={setFilterMentor}
+              />
               <select
                 value={filterYear}
                 onChange={(e) => setFilterYear(e.target.value)}

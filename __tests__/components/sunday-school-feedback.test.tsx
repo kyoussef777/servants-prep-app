@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   SundaySchoolFeedbackStatus,
+  SundaySchoolFeedbackType,
   SundaySchoolFeedbackVoteType,
 } from '@prisma/client'
 import type { SundaySchoolFeedbackResponse } from '@/types/sunday-school'
@@ -33,6 +34,7 @@ function makeResponse(
     ideas: [
       {
         id: 'idea-1',
+        type: SundaySchoolFeedbackType.IDEA,
         title: 'Add lesson reminders',
         description: 'Send a reminder before class.',
         status: SundaySchoolFeedbackStatus.OPEN,
@@ -76,6 +78,7 @@ describe('Sunday School feedback page', () => {
     render(<SundaySchoolFeedbackPage />)
 
     expect(screen.getByText('Add lesson reminders')).toBeInTheDocument()
+    expect(screen.getByText('Idea')).toBeInTheDocument()
     expect(screen.getByText(/Submitted by Sunday Servant/)).toBeInTheDocument()
     expect(screen.getByText(/report bugs/i)).toBeInTheDocument()
     expect(screen.getByText('3 upvotes and 1 downvotes')).toHaveClass('sr-only')
@@ -95,6 +98,7 @@ describe('Sunday School feedback page', () => {
     render(<SundaySchoolFeedbackPage />)
 
     await user.click(screen.getByRole('button', { name: 'Post feedback' }))
+    await user.click(screen.getByRole('radio', { name: /Problem/ }))
     await user.type(screen.getByLabelText('Title'), 'Add calendar export')
     await user.type(screen.getByLabelText('Details (optional)'), 'Let servants export sessions.')
     await user.click(screen.getByRole('button', { name: 'Submit feedback' }))
@@ -103,6 +107,10 @@ describe('Sunday School feedback page', () => {
       '/api/sunday-school/feedback',
       expect.objectContaining({ method: 'POST' })
     ))
+    const request = vi.mocked(fetch).mock.calls[0][1]
+    expect(JSON.parse(String(request?.body))).toEqual(expect.objectContaining({
+      type: SundaySchoolFeedbackType.PROBLEM,
+    }))
     expect(mocks.mutate).toHaveBeenCalled()
   })
 

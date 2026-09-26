@@ -29,9 +29,10 @@ import {
 export type PortalNotification = {
   id: string;
   title: string;
-  message: string;
+  body: string;
   isRead: boolean;
-  link?: string | null;
+  isPersistent?: boolean;
+  url?: string | null;
 };
 type AttendanceSummary = { marks: AttendanceMarks; savedAt: string | null };
 export const attendanceKey = (classId: string, date: string) =>
@@ -238,6 +239,7 @@ export function PortalProvider({ children }: PropsWithChildren) {
     return confirmed;
   }
   async function markRead(id: string) {
+    if (notifications.some((item) => item.id === id && item.isPersistent)) return;
     await request(`/api/notifications/${encodeURIComponent(id)}/read`, {
       method: "PATCH",
     });

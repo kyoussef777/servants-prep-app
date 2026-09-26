@@ -5,6 +5,7 @@ const ACTION_LABELS: Record<string, string> = {
   ADMIN_VIEW_AS_SWITCHED: 'Switched View as user',
   ADMIN_VIEW_AS_STOPPED: 'Stopped View as',
   'user.role_tags.update': 'Updated access roles',
+  'user.delete': 'Deleted a user account',
   'sunday_school.priest_note.create': 'Created a confidential visitation note',
 }
 
@@ -34,6 +35,9 @@ const METADATA_LABELS: Record<string, string> = {
   compatibilityRole: 'Primary role',
   visitationId: 'Visitation ID',
   childId: 'Child ID',
+  targetName: 'User name',
+  targetEmail: 'User email',
+  bulkDelete: 'Bulk deletion',
 }
 
 export interface DisplayableAuditEvent {
@@ -60,7 +64,12 @@ export function auditEntityLabel(entityType: string): string {
 }
 
 export function auditTargetLabel(event: DisplayableAuditEvent): string {
-  return event.target?.name || event.target?.email || auditEntityLabel(event.entityType)
+  const metadata = event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)
+    ? event.metadata as Record<string, unknown>
+    : null
+  const deletedTargetName = typeof metadata?.targetName === 'string' ? metadata.targetName : null
+  const deletedTargetEmail = typeof metadata?.targetEmail === 'string' ? metadata.targetEmail : null
+  return event.target?.name || event.target?.email || deletedTargetName || deletedTargetEmail || auditEntityLabel(event.entityType)
 }
 
 export function auditActionSummary(event: DisplayableAuditEvent): string {
@@ -83,6 +92,8 @@ export function auditActionSummary(event: DisplayableAuditEvent): string {
       return `Stopped viewing as ${target}`
     case 'user.role_tags.update':
       return `Updated access roles for ${target}`
+    case 'user.delete':
+      return `Deleted user account for ${target}`
     default:
       return ACTION_LABELS[event.action] ?? humanizeAuditIdentifier(event.action)
   }

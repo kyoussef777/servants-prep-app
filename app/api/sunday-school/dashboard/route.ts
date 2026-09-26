@@ -137,10 +137,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
 
-      const allowedTrendClassIds =
-        requestedAudience === "servants" && !trendAccess.isAdmin && !trendAccess.readOnly
-          ? Array.from(trendAccess.coordinatorClassIds)
-          : visibleClassFilter(trendAccess)
+      const allowedTrendClassIds = visibleClassFilter(trendAccess)
       const trendClasses = trendAccess.canRead
         ? await prisma.sundaySchoolClass.findMany({
             where: {

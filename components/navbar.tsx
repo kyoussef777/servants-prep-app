@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -21,6 +21,7 @@ import {
 import { Menu, X, Moon, Sun, ChevronDown, Search } from 'lucide-react'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { getPersonInitials } from '@/lib/person-name'
+import { cn } from '@/lib/utils'
 
 interface NavLink {
   href: string
@@ -33,7 +34,93 @@ export function Navbar() {
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [switchingModes, setSwitchingModes] = useState(false)
+  const [isScrollCompact, setIsScrollCompact] = useState(false)
+  const [isMobileNavHidden, setIsMobileNavHidden] = useState(false)
+  const [isAtTop, setIsAtTop] = useState(true)
+  const lastScrollY = useRef(0)
+  const mobileScrollDistance = useRef(0)
+  const scrollFrame = useRef<number | null>(null)
+
+  useEffect(() => {
+    const mobileViewport = window.matchMedia?.('(max-width: 1023px)')
+    const isMobileViewport = () => mobileViewport?.matches ?? window.innerWidth <= 1023
+    lastScrollY.current = window.scrollY
+    setIsAtTop(window.scrollY <= 20)
+    if (isMobileViewport()) {
+      setIsScrollCompact(false)
+    } else {
+      setIsMobileNavHidden(false)
+    }
+
+    const syncResponsiveState = () => {
+      mobileScrollDistance.current = 0
+      if (isMobileViewport()) {
+        setIsScrollCompact(false)
+      } else {
+        setIsMobileNavHidden(false)
+      }
+    }
+
+    const handleScroll = () => {
+      if (scrollFrame.current !== null) return
+
+      scrollFrame.current = window.requestAnimationFrame(() => {
+        const currentScrollY = Math.max(0, window.scrollY)
+        const delta = currentScrollY - lastScrollY.current
+        setIsAtTop(currentScrollY <= 20)
+
+        if (currentScrollY <= 20) {
+          setIsScrollCompact(false)
+          setIsMobileNavHidden(false)
+          mobileScrollDistance.current = 0
+        } else if (isMobileViewport()) {
+          setIsScrollCompact(false)
+
+          if (delta > 0) {
+            mobileScrollDistance.current = Math.max(0, mobileScrollDistance.current) + delta
+            if (currentScrollY > 96 && mobileScrollDistance.current >= 40) {
+              setIsMobileNavHidden(true)
+              mobileScrollDistance.current = 0
+            }
+          } else if (delta < 0) {
+            mobileScrollDistance.current = Math.min(0, mobileScrollDistance.current) + delta
+            if (mobileScrollDistance.current <= -18) {
+              setIsMobileNavHidden(false)
+              mobileScrollDistance.current = 0
+            }
+          }
+        } else if (delta > 6) {
+          setIsMobileNavHidden(false)
+          setIsScrollCompact(true)
+        } else if (delta < -6) {
+          setIsMobileNavHidden(false)
+          setIsScrollCompact(false)
+        }
+
+        lastScrollY.current = currentScrollY
+        scrollFrame.current = null
+      })
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    mobileViewport?.addEventListener('change', syncResponsiveState)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      mobileViewport?.removeEventListener('change', syncResponsiveState)
+      if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)
+    }
+  }, [])
+
+  const navOverlayOpen = mobileMenuOpen || profileMenuOpen || notificationsOpen
+
+  useEffect(() => {
+    if (!navOverlayOpen) return
+    setIsMobileNavHidden(false)
+    mobileScrollDistance.current = 0
+  }, [navOverlayOpen])
 
   if (
     !session?.user ||
@@ -97,6 +184,7 @@ export function Navbar() {
       active: inSundaySchoolMode,
     },
   ]
+  const serviceRowClassName = 'mx-1 flex h-16 shrink-0 items-center gap-3 rounded-md px-2 py-2'
 
   const handleModeSwitch = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
@@ -188,7 +276,7 @@ export function Navbar() {
         { href: '/dashboard/servants/classes', label: 'Classes' },
         { href: '/dashboard/servants/feedback', label: 'Feedback' },
       ]
-      if (session.user.sundaySchool?.isCoordinator) {
+      if (hasSundaySchool) {
         servantMore.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
       }
       return {
@@ -217,9 +305,7 @@ export function Navbar() {
         { href: '/dashboard/servants/feedback', label: 'Feedback' },
       ]
 
-      if (session.user.sundaySchool?.isCoordinator || role === 'PRIEST' || role === 'SUPER_ADMIN') {
-        more.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
-      }
+      more.unshift({ href: '/dashboard/servants/servant-attendance', label: 'Servant attendance' })
 
       if (canReviewServantApplications(role)) {
         more.push({
@@ -277,16 +363,40 @@ export function Navbar() {
   const { primary: primaryLinks, more: moreLinks } = getNavLinks()
   const allLinks = [...primaryLinks, ...moreLinks]
   const isMoreActive = moreLinks.some(link => isActive(link.href))
+  const navCondensed = isScrollCompact && !mobileMenuOpen
+  const mobileNavHidden = isMobileNavHidden && !navOverlayOpen
 
   return (
-    <nav className="border-b bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-0 z-50 flex-none">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 min-h-16 items-center justify-between gap-2">
+    <nav
+      data-scroll-state={navCondensed ? 'compact' : 'expanded'}
+      data-page-position={isAtTop ? 'top' : 'scrolled'}
+      data-mobile-visibility={mobileNavHidden ? 'hidden' : 'visible'}
+      className={cn(
+        'sticky top-0 z-50 h-20 w-full min-w-0 translate-y-0 transform-gpu px-2 pt-2 opacity-100 will-change-[translate,opacity] transition-[translate,opacity,background-color] motion-reduce:transition-none sm:h-[88px] sm:px-4 sm:pt-3',
+        mobileNavHidden
+          ? '-translate-y-[calc(100%+1rem)] pointer-events-none opacity-0 duration-[520ms] ease-[cubic-bezier(0.4,0,0.2,1)] lg:translate-y-0 lg:pointer-events-auto lg:opacity-100'
+          : 'translate-y-0 opacity-100 duration-[650ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
+        isAtTop ? 'bg-[var(--app-canvas)]' : 'bg-[var(--app-canvas)] lg:bg-transparent'
+      )}
+    >
+      <div
+        className={cn(
+          'mx-auto w-full min-w-0 rounded-2xl border border-gray-200/80 bg-white/90 shadow-lg shadow-gray-900/8 backdrop-blur-xl transition-[max-width,transform,box-shadow,background-color,border-color] duration-300 ease-out motion-reduce:transition-none dark:border-gray-700/80 dark:bg-gray-900/90 dark:shadow-black/30',
+          navCondensed
+            ? 'max-w-6xl -translate-y-1 shadow-xl shadow-gray-900/12 dark:shadow-black/40'
+            : 'max-w-7xl translate-y-0'
+        )}
+      >
+        <div className="px-3 sm:px-5 lg:px-6">
+        <div
+          className={cn(
+            'flex items-center justify-between gap-2 transition-[height] duration-300 ease-out motion-reduce:transition-none',
+            navCondensed ? 'h-14' : 'h-16'
+          )}
+        >
           {/* Left side - Logo/Title */}
           <div className="flex min-w-0 flex-1 items-center gap-8 overflow-hidden">
-            <div
-              className="flex min-w-0 items-center gap-2 sm:gap-3"
-            >
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <Link
                 href={inSundaySchoolMode ? '/dashboard/servants' : '/dashboard'}
                 className="flex min-w-0 items-center gap-2 sm:shrink-0 sm:gap-3"
@@ -302,7 +412,7 @@ export function Navbar() {
                       : 'h-9 w-9 rounded-md bg-black p-1 sm:h-10 sm:w-10'}
                   />
                 </span>
-                <span className="truncate whitespace-nowrap text-lg font-bold text-gray-900 sm:text-xl dark:text-white">
+                <span className="truncate whitespace-nowrap text-base font-bold text-gray-900 sm:text-xl dark:text-white">
                   {inSundaySchoolMode ? 'Sunday School' : 'Servants Prep'}
                 </span>
               </Link>
@@ -379,11 +489,20 @@ export function Navbar() {
               type="button"
               aria-label="Open command palette"
               onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-              className="hidden w-56 items-center gap-2 rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500 transition-all hover:border-gray-300 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 md:inline-flex lg:w-48 xl:w-56 2xl:w-64 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800"
+              className={cn(
+                'hidden h-10 items-center rounded-lg border bg-gray-50 text-sm text-gray-500 transition-all duration-300 hover:border-gray-300 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-500 md:inline-flex dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-800',
+                navCondensed
+                  ? 'w-10 justify-center px-0'
+                  : 'w-56 gap-2 px-3 lg:w-48 xl:w-56 2xl:w-64'
+              )}
             >
               <Search className="h-4 w-4 shrink-0" />
-              <span className="flex-1 text-left truncate">Search students, lessons…</span>
-              <kbd className="hidden lg:inline-flex h-5 items-center rounded border bg-white dark:bg-gray-900 dark:border-gray-700 px-1.5 font-mono text-[10px] text-gray-500">⌘K</kbd>
+              {!navCondensed && (
+                <>
+                  <span className="flex-1 text-left truncate">Search students, lessons…</span>
+                  <kbd className="hidden lg:inline-flex h-5 items-center rounded border bg-white dark:bg-gray-900 dark:border-gray-700 px-1.5 font-mono text-[10px] text-gray-500">⌘K</kbd>
+                </>
+              )}
             </button>
 
             {/* Search trigger - mobile icon only */}
@@ -397,23 +516,33 @@ export function Navbar() {
             </button>
 
             {/* Notification bell */}
-            <NotificationBell />
+            <NotificationBell onOpenChange={setNotificationsOpen} />
 
             {/* Mobile menu button */}
             <Button
               variant="ghost"
-              className="xl:hidden"
+              className="relative overflow-hidden xl:hidden"
               size="icon"
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation-menu"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              {mobileMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
+              <Menu
+                className={cn(
+                  'absolute h-6 w-6 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+                  mobileMenuOpen ? 'rotate-90 scale-75 opacity-0' : 'rotate-0 scale-100 opacity-100'
+                )}
+              />
+              <X
+                className={cn(
+                  'absolute h-6 w-6 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+                  mobileMenuOpen ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-75 opacity-0'
+                )}
+              />
             </Button>
 
-            <div className={showIdentityText ? 'hidden min-w-0 max-w-40 shrink flex-col items-end 2xl:flex' : 'hidden'}>
+            <div className={showIdentityText && !navCondensed ? 'hidden min-w-0 max-w-40 shrink flex-col items-end 2xl:flex' : 'hidden'}>
               <span
                 className="max-w-full truncate text-sm font-medium text-gray-900 dark:text-white"
                 title={session.user.name ?? undefined}
@@ -425,7 +554,7 @@ export function Navbar() {
               </span>
             </div>
 
-            <DropdownMenu>
+            <DropdownMenu open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -461,8 +590,9 @@ export function Navbar() {
                         service.active ? (
                           <div
                             key={service.name}
+                            data-service-option
                             aria-current="page"
-                            className="mx-1 flex items-center gap-3 rounded-md bg-accent/60 px-2 py-2"
+                            className={`${serviceRowClassName} bg-accent/60`}
                           >
                             <Image
                               src={service.logo}
@@ -481,7 +611,12 @@ export function Navbar() {
                             </span>
                           </div>
                         ) : (
-                          <DropdownMenuItem key={service.name} asChild>
+                          <DropdownMenuItem
+                            key={service.name}
+                            asChild
+                            data-service-option
+                            className={`${serviceRowClassName} focus:bg-accent/60`}
+                          >
                             <Link
                               href={service.href}
                               onClick={handleModeSwitch}
@@ -580,9 +715,18 @@ export function Navbar() {
         </div>
 
         {/* Mobile menu - flat list of all links */}
-        {mobileMenuOpen && (
-          <div className="border-t dark:border-gray-800 xl:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1">
+        <div
+          id="mobile-navigation-menu"
+          aria-hidden={!mobileMenuOpen}
+          className={cn(
+            'grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out motion-reduce:transition-none xl:hidden',
+            mobileMenuOpen
+              ? 'visible grid-rows-[1fr] opacity-100 pointer-events-auto'
+              : 'invisible grid-rows-[0fr] opacity-0 pointer-events-none'
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="mx-1 mb-2 max-h-[calc(100dvh-7rem)] space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-gray-200/70 bg-gray-50/75 px-2 pb-3 pt-2 shadow-inner dark:border-gray-700/70 dark:bg-gray-800/65">
               {allLinks.map(link => (
                 <Link
                   key={link.href}
@@ -599,7 +743,8 @@ export function Navbar() {
               ))}
             </div>
           </div>
-        )}
+        </div>
+        </div>
       </div>
     </nav>
   )

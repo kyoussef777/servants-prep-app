@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest) {
 
     if (markAllRead) {
       await prisma.notification.updateMany({
-        where: { userId: user.id, isRead: false },
+        where: { userId: user.id, isRead: false, isPersistent: false },
         data: { isRead: true },
       })
     } else if (notificationIds && Array.isArray(notificationIds)) {
@@ -19,6 +19,7 @@ export async function PATCH(request: NextRequest) {
         where: {
           id: { in: notificationIds },
           userId: user.id,
+          isPersistent: false,
         },
         data: { isRead: true },
       })

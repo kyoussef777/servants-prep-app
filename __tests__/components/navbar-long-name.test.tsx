@@ -48,12 +48,6 @@ describe('Navbar with long names', () => {
   it('hides an oversized identity label and uses meaningful avatar initials', () => {
     render(<Navbar />)
 
-    expect(screen.getByRole('navigation')).toHaveClass('flex-none')
-    expect(screen.getByRole('navigation').firstElementChild?.firstElementChild).toHaveClass(
-      'h-16',
-      'min-h-16'
-    )
-
     const name = screen.getByText('Rev. Fr. Daniel Abdel-Maseih')
     expect(name.parentElement).toHaveClass('hidden')
     expect(name.parentElement).not.toHaveClass('2xl:flex')
@@ -79,25 +73,37 @@ describe('Navbar with long names', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
 
-    expect(await screen.findByText('Services')).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: 'Servants Prep logo' })).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: 'Sunday School logo' })).toBeInTheDocument()
+    expect(screen.getByText('Services')).toBeInTheDocument()
+    expect(screen.getByAltText('Servants Prep logo')).toBeInTheDocument()
+    expect(screen.getByAltText('Sunday School logo')).toBeInTheDocument()
+    expect(screen.getByText('Current service')).toBeInTheDocument()
+    const serviceRows = Array.from(document.querySelectorAll('[data-service-option]'))
+    expect(serviceRows).toHaveLength(2)
+    for (const row of serviceRows) {
+      expect(row).toHaveClass('mx-1', 'h-16', 'gap-3', 'px-2', 'py-2')
+      expect(row.querySelector('img')).toHaveClass('h-8', 'w-8')
+    }
+    expect(document.querySelector('[data-service-option][aria-current="page"]')).toHaveClass(
+      'bg-accent/60'
+    )
+    expect(serviceRows.find(row => !row.hasAttribute('aria-current'))).toHaveClass(
+      'focus:bg-accent/60'
+    )
     expect(screen.getByRole('menuitem', { name: 'Switch to Servants Prep' })).toHaveAttribute(
       'href',
       '/dashboard/admin'
     )
-    expect(screen.getByText('Current service')).toBeInTheDocument()
   })
 
-  it('offers the same logo-based switcher from Servants Prep', async () => {
+  it('offers the same logo switcher from Servants Prep', async () => {
     mocks.pathname = '/dashboard/admin'
     const user = userEvent.setup()
     render(<Navbar />)
 
     await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
 
-    expect(screen.getByRole('img', { name: 'Servants Prep logo' })).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: 'Sunday School logo' })).toBeInTheDocument()
+    expect(screen.getByAltText('Servants Prep logo')).toBeInTheDocument()
+    expect(screen.getByAltText('Sunday School logo')).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Switch to Sunday School' })).toHaveAttribute(
       'href',
       '/dashboard/servants'
