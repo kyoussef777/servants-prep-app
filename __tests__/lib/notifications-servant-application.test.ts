@@ -5,8 +5,9 @@ const mocks = vi.hoisted(() => ({
   findAdmins: vi.fn(),
   findAdmin: vi.fn(),
   findPendingApplications: vi.fn(),
-  claimApplication: vi.fn(),
-  createNotification: vi.fn(),
+  findExistingNotifications: vi.fn(),
+  updateExistingNotifications: vi.fn(),
+  upsertNotification: vi.fn(),
   transaction: vi.fn(),
   findSubscriptions: vi.fn(),
 }))
@@ -28,6 +29,7 @@ vi.mock('@/lib/prisma', () => ({
       findFirst: mocks.findAdmin,
     },
     servantApplication: { findMany: mocks.findPendingApplications },
+    notification: { findMany: mocks.findExistingNotifications },
     pushSubscription: { findMany: mocks.findSubscriptions },
     $transaction: mocks.transaction,
   },
@@ -39,8 +41,10 @@ import {
 } from '@/lib/notifications'
 
 const transactionClient = {
-  servantApplication: { updateMany: mocks.claimApplication },
-  notification: { create: mocks.createNotification },
+  notification: {
+    updateMany: mocks.updateExistingNotifications,
+    upsert: mocks.upsertNotification,
+  },
 }
 
 describe('servant application in-app notifications', () => {
@@ -49,16 +53,16 @@ describe('servant application in-app notifications', () => {
     mocks.findAdmins.mockResolvedValue([{ id: 'admin-1' }])
     mocks.findAdmin.mockResolvedValue({ id: 'admin-1' })
     mocks.findPendingApplications.mockResolvedValue([])
-    mocks.claimApplication.mockResolvedValue({ count: 1 })
-    mocks.createNotification.mockImplementation(async ({ data }) => ({
-      id: `notification-${data.userId}`,
-      ...data,
+    mocks.findExistingNotifications.mockResolvedValue([])
+    mocks.updateExistingNotifications.mockResolvedValue({ count: 0 })
+    mocks.upsertNotification.mockImplementation(async ({ create }) => ({
+      ...create,
     }))
     mocks.findSubscriptions.mockResolvedValue([])
     mocks.transaction.mockImplementation(async callback => callback(transactionClient))
   })
 
-  it('commits the in-app notification and delivery marker before returning', async () => {
+  it('commits a persistent in-app notification before returning', async () => {
     await notifyNewServantApplication({
       applicantName: 'New Servant',
       applicationId: 'application-1',
@@ -78,12 +82,17 @@ describe('servant application in-app notifications', () => {
       },
       select: { id: true },
     })
-    expect(mocks.claimApplication).toHaveBeenCalledWith({
-      where: { id: 'application-1', adminNotifiedAt: null },
-      data: { adminNotifiedAt: expect.any(Date) },
+    expect(mocks.findExistingNotifications).toHaveBeenCalledWith({
+      where: {
+        userId: { in: ['admin-1'] },
+        type: NotificationType.SERVANT_APPLICATION_RECEIVED,
+      },
+      select: { id: true, userId: true, metadata: true, isPersistent: true },
     })
-    expect(mocks.createNotification).toHaveBeenCalledWith({
-      data: {
+    expect(mocks.upsertNotification).toHaveBeenCalledWith({
+      where: { id: 'servant-application:application-1:admin-1' },
+      create: {
+        id: 'servant-application:application-1:admin-1',
         userId: 'admin-1',
         type: NotificationType.SERVANT_APPLICATION_RECEIVED,
         title: 'New Servant Application',
@@ -93,7 +102,9 @@ describe('servant application in-app notifications', () => {
           applicationId: 'application-1',
           applicantName: 'New Servant',
         },
+        isPersistent: true,
       },
+      update: { isPersistent: true },
     })
   })
 
@@ -106,22 +117,30 @@ describe('servant application in-app notifications', () => {
     await ensurePendingServantApplicationNotifications('admin-1')
 
     expect(mocks.findPendingApplications).toHaveBeenCalledWith({
-      where: { status: 'PENDING', adminNotifiedAt: null },
+      where: { status: 'PENDING' },
       select: { id: true, fullName: true },
       orderBy: { createdAt: 'asc' },
     })
-    expect(mocks.claimApplication).toHaveBeenCalledTimes(2)
-    expect(mocks.createNotification).toHaveBeenCalledTimes(2)
+    expect(mocks.upsertNotification).toHaveBeenCalledTimes(2)
   })
 
-  it('does not create duplicates when another request already claimed delivery', async () => {
-    mocks.claimApplication.mockResolvedValue({ count: 0 })
+  it('upgrades an existing alert without creating a duplicate', async () => {
+    mocks.findExistingNotifications.mockResolvedValue([{
+      id: 'existing-notification',
+      userId: 'admin-1',
+      metadata: { applicationId: 'application-1' },
+      isPersistent: false,
+    }])
 
     await notifyNewServantApplication({
       applicantName: 'New Servant',
       applicationId: 'application-1',
     })
 
-    expect(mocks.createNotification).not.toHaveBeenCalled()
+    expect(mocks.updateExistingNotifications).toHaveBeenCalledWith({
+      where: { id: { in: ['existing-notification'] } },
+      data: { isPersistent: true },
+    })
+    expect(mocks.upsertNotification).not.toHaveBeenCalled()
   })
 })

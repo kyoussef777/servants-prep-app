@@ -1401,7 +1401,6 @@ model ServantApplication {
   reviewedAt      DateTime?
   reviewNote      String?   @db.Text
   createdUserId   String?
-  adminNotifiedAt DateTime? // Set atomically with creation of Super Admin in-app notifications.
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1412,7 +1411,6 @@ model ServantApplication {
   @@index([status])
   @@index([email])
   @@index([createdAt])
-  @@index([status, adminNotifiedAt])
 }
 
 // A parent's request to register a child for Sunday School. Stays pending
