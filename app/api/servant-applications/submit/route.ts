@@ -70,10 +70,17 @@ export async function POST(req: NextRequest) {
       })
     })
 
-    notifyNewServantApplication({
-      applicantName: normalizedName,
-      applicationId: application.id,
-    }).catch(() => {})
+    try {
+      // Wait for the in-app records to commit before completing the request.
+      // A later notification-feed reconciliation repairs this if delivery is
+      // temporarily unavailable without making the application look failed.
+      await notifyNewServantApplication({
+        applicantName: normalizedName,
+        applicationId: application.id,
+      })
+    } catch (notificationError) {
+      console.error('Failed to create servant application notifications:', notificationError)
+    }
 
     return NextResponse.json(
       {

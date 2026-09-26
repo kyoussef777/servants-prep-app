@@ -328,9 +328,9 @@ model User {
   linkedSundaySchoolChild               SundaySchoolChild?              @relation("SundaySchoolChildAccount")
 
   // Registration relations
-  createdInviteCodes      InviteCode[]             @relation("InviteCodeCreator")
-  reviewedRegistrations   RegistrationSubmission[] @relation("RegistrationReviewer")
-  createdFromRegistration RegistrationSubmission[] @relation("RegistrationCreatedUser")
+  createdInviteCodes      InviteCode[]              @relation("InviteCodeCreator")
+  reviewedRegistrations   RegistrationSubmission[]  @relation("RegistrationReviewer")
+  createdFromRegistration RegistrationSubmission[]  @relation("RegistrationCreatedUser")
   annualMentorInformation AnnualMentorInformation[]
 
   // Servant application relations
@@ -1397,10 +1397,11 @@ model ServantApplication {
   availability String? @db.Text // Legacy compatibility column; no longer collected.
   motivation   String? @db.Text // Stores current grade until the contract migration.
 
-  reviewedBy    String?
-  reviewedAt    DateTime?
-  reviewNote    String?   @db.Text
-  createdUserId String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewNote      String?   @db.Text
+  createdUserId   String?
+  adminNotifiedAt DateTime? // Set atomically with creation of Super Admin in-app notifications.
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1411,6 +1412,7 @@ model ServantApplication {
   @@index([status])
   @@index([email])
   @@index([createdAt])
+  @@index([status, adminNotifiedAt])
 }
 
 // A parent's request to register a child for Sunday School. Stays pending

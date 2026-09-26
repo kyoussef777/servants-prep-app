@@ -432,6 +432,77 @@ export async function notifyConductRemoval({
 /**
  * Notify SUPER_ADMINs about a new servant application
  */
+async function deliverServantApplicationNotifications(
+  applications: Array<{ id: string; fullName: string }>
+) {
+  if (applications.length === 0) return []
+
+  const admins = await prisma.user.findMany({
+    where: {
+      isDisabled: false,
+      OR: [
+        { role: 'SUPER_ADMIN' },
+        {
+          roleAssignments: {
+            some: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
+          },
+        },
+      ],
+    },
+    select: { id: true },
+  })
+
+  // Leave adminNotifiedAt empty when no recipient exists so a later
+  // reconciliation can deliver the alert after an administrator is added.
+  if (admins.length === 0) return []
+
+  const notifications = await prisma.$transaction(async (tx) => {
+    const created = []
+
+    for (const application of applications) {
+      // This conditional update is the delivery claim. Concurrent submission
+      // and notification-feed requests cannot create duplicate alerts.
+      const claimed = await tx.servantApplication.updateMany({
+        where: { id: application.id, adminNotifiedAt: null },
+        data: { adminNotifiedAt: new Date() },
+      })
+      if (claimed.count === 0) continue
+
+      for (const admin of admins) {
+        created.push(await tx.notification.create({
+          data: {
+            userId: admin.id,
+            type: NotificationType.SERVANT_APPLICATION_RECEIVED,
+            title: 'New Servant Application',
+            body: `${application.fullName} has applied to serve in Sunday School.`,
+            url: '/dashboard/servants/servant-applications',
+            metadata: {
+              applicationId: application.id,
+              applicantName: application.fullName,
+            },
+          },
+        }))
+      }
+    }
+
+    return created
+  })
+
+  // In-app records are committed above. Browser push remains best-effort and
+  // cannot affect whether the bell notification exists.
+  void Promise.allSettled(notifications.map((notification) =>
+    sendPushToUser(notification.userId, {
+      title: notification.title,
+      body: notification.body,
+      url: notification.url || '/',
+      tag: notification.type,
+      notificationId: notification.id,
+    })
+  ))
+
+  return notifications
+}
+
 export async function notifyNewServantApplication({
   applicantName,
   applicationId,
@@ -439,19 +510,45 @@ export async function notifyNewServantApplication({
   applicantName: string
   applicationId: string
 }) {
-  const admins = await prisma.user.findMany({
-    where: { role: 'SUPER_ADMIN', isDisabled: false },
+  return deliverServantApplicationNotifications([
+    { id: applicationId, fullName: applicantName },
+  ])
+}
+
+/**
+ * Repair missed in-app alerts for pending applications. This runs when a
+ * Super Admin loads the notification feed, so applications submitted before
+ * this fix are recovered without a one-off production data script.
+ */
+export async function ensurePendingServantApplicationNotifications(userId: string) {
+  const admin = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      isDisabled: false,
+      OR: [
+        { role: 'SUPER_ADMIN' },
+        {
+          roleAssignments: {
+            some: { tag: RoleTag.SUPER_ADMIN, revokedAt: null },
+          },
+        },
+      ],
+    },
     select: { id: true },
   })
 
-  await createNotifications({
-    userIds: admins.map((a) => a.id),
-    type: NotificationType.SERVANT_APPLICATION_RECEIVED,
-    title: 'New Servant Application',
-    body: `${applicantName} has applied to serve in Sunday School.`,
-    url: '/dashboard/servants/servant-applications',
-    metadata: { applicationId, applicantName },
+  if (!admin) return []
+
+  const pendingApplications = await prisma.servantApplication.findMany({
+    where: {
+      status: 'PENDING',
+      adminNotifiedAt: null,
+    },
+    select: { id: true, fullName: true },
+    orderBy: { createdAt: 'asc' },
   })
+
+  return deliverServantApplicationNotifications(pendingApplications)
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { ensureAnnualMentorReminder } from '@/lib/annual-mentor-information'
+import { ensurePendingServantApplicationNotifications } from '@/lib/notifications'
 
 // DELETE /api/notifications - Dismiss (delete) notifications
 export async function DELETE(request: NextRequest) {
@@ -43,7 +44,10 @@ export async function DELETE(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth()
-    await ensureAnnualMentorReminder(user.id)
+    await Promise.all([
+      ensureAnnualMentorReminder(user.id),
+      ensurePendingServantApplicationNotifications(user.id),
+    ])
 
     const url = new URL(request.url)
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 50)
