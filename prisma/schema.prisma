@@ -331,6 +331,7 @@ model User {
   createdInviteCodes      InviteCode[]             @relation("InviteCodeCreator")
   reviewedRegistrations   RegistrationSubmission[] @relation("RegistrationReviewer")
   createdFromRegistration RegistrationSubmission[] @relation("RegistrationCreatedUser")
+  annualMentorInformation AnnualMentorInformation[]
 
   // Servant application relations
   reviewedServantApplications   ServantApplication[] @relation("ServantApplicationReviewer")
@@ -447,6 +448,7 @@ model AcademicYear {
   sundaySchoolAssignments        SundaySchoolAssignment[]
   sundaySchoolClasses            SundaySchoolClass[]
   sundaySchoolServantAssignments SundaySchoolServantAssignment[]
+  annualMentorInformation        AnnualMentorInformation[]
 
   @@index([isActive])
 }
@@ -1355,6 +1357,26 @@ model RegistrationSubmission {
   @@index([status])
   @@index([email])
   @@index([createdAt])
+}
+
+// Mentor contact details are renewed once per academic year after a student
+// has an account. Keeping these separate from the admission application lets
+// returning students update only what the program actually needs each year.
+model AnnualMentorInformation {
+  id             String   @id @default(cuid())
+  studentId      String
+  academicYearId String
+  mentorName     String
+  mentorPhone    String
+  mentorEmail    String
+  submittedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  student      User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, academicYearId])
+  @@index([academicYearId])
 }
 
 // Sunday School servant volunteer application. Deliberately separate from

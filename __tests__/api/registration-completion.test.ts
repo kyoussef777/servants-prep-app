@@ -3,8 +3,11 @@ import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
-  findFirst: vi.fn(),
-  updateSubmission: vi.fn(),
+  findActiveYear: vi.fn(),
+  findEnrollment: vi.fn(),
+  findSubmission: vi.fn(),
+  findAnnualInformation: vi.fn(),
+  upsertAnnualInformation: vi.fn(),
   updateEnrollment: vi.fn(),
   deleteNotifications: vi.fn(),
   transaction: vi.fn(),
@@ -13,7 +16,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    registrationSubmission: { findFirst: mocks.findFirst },
+    academicYear: { findFirst: mocks.findActiveYear },
+    studentEnrollment: { findUnique: mocks.findEnrollment },
+    registrationSubmission: { findFirst: mocks.findSubmission },
+    annualMentorInformation: { findUnique: mocks.findAnnualInformation },
     $transaction: mocks.transaction,
   },
 }))
@@ -29,6 +35,12 @@ const incompleteSubmission = {
   mentorEmail: null,
 }
 
+const completedMentorInformation = {
+  mentorName: 'Mentor Name',
+  mentorPhone: '555-0199',
+  mentorEmail: 'mentor@example.com',
+}
+
 function patchRequest(body: Record<string, unknown>) {
   return new NextRequest('http://localhost/api/registration/completion', {
     method: 'PATCH',
@@ -37,70 +49,69 @@ function patchRequest(body: Record<string, unknown>) {
   })
 }
 
-describe('registration completion', () => {
+describe('annual mentor information completion', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.requireAuth.mockResolvedValue({ id: 'student-1', role: 'STUDENT' })
-    mocks.findFirst.mockResolvedValue(incompleteSubmission)
-    mocks.updateEnrollment.mockResolvedValue({ count: 1 })
+    mocks.findActiveYear.mockResolvedValue({ id: 'year-1', name: '2026-2027' })
+    mocks.findEnrollment.mockResolvedValue({ id: 'enrollment-1', isActive: true })
+    mocks.findSubmission.mockResolvedValue(incompleteSubmission)
+    mocks.findAnnualInformation.mockResolvedValue(null)
+    mocks.upsertAnnualInformation.mockResolvedValue(completedMentorInformation)
+    mocks.updateEnrollment.mockResolvedValue({ id: 'enrollment-1' })
     mocks.deleteNotifications.mockResolvedValue({ count: 1 })
     mocks.transaction.mockImplementation(async (callback) => callback({
-      registrationSubmission: { update: mocks.updateSubmission },
-      studentEnrollment: { updateMany: mocks.updateEnrollment },
+      annualMentorInformation: { upsert: mocks.upsertAnnualInformation },
+      studentEnrollment: { update: mocks.updateEnrollment },
       notification: { deleteMany: mocks.deleteNotifications },
     }))
   })
 
-  it('reports both missing registration sections', async () => {
+  it('reports an optional approval form and annual mentor information as missing', async () => {
     const response = await GET()
     const body = await response.json()
 
     expect(response.status).toBe(200)
     expect(body.complete).toBe(false)
     expect(body.missingDetails).toEqual(['approvalForm', 'mentorInformation'])
+    expect(body.academicYear).toEqual({ id: 'year-1', name: '2026-2027' })
   })
 
-  it('keeps the reminder when only mentor information is completed', async () => {
-    mocks.updateSubmission.mockResolvedValue({
-      ...incompleteSubmission,
-      mentorName: 'Mentor Name',
-      mentorPhone: '555-0199',
-      mentorEmail: 'mentor@example.com',
-    })
-
-    const response = await PATCH(patchRequest({
-      mentorName: 'Mentor Name',
-      mentorPhone: '555-0199',
-      mentorEmail: 'mentor@example.com',
-    }))
+  it('saves mentor information for the active year and keeps an approval reminder', async () => {
+    const response = await PATCH(patchRequest(completedMentorInformation))
     const body = await response.json()
 
     expect(response.status).toBe(200)
     expect(body.complete).toBe(false)
     expect(body.missingDetails).toEqual(['approvalForm'])
+    expect(mocks.upsertAnnualInformation).toHaveBeenCalledWith({
+      where: {
+        studentId_academicYearId: {
+          studentId: 'student-1',
+          academicYearId: 'year-1',
+        },
+      },
+      create: expect.objectContaining({
+        studentId: 'student-1',
+        academicYearId: 'year-1',
+        ...completedMentorInformation,
+      }),
+      update: expect.objectContaining(completedMentorInformation),
+    })
     expect(mocks.deleteNotifications).not.toHaveBeenCalled()
   })
 
-  it('clears the persistent reminder after every section is complete', async () => {
-    mocks.findFirst.mockResolvedValue({
-      ...incompleteSubmission,
-      approvalFormUrl: 'https://example.com/form.pdf',
-      approvalFormFilename: 'form.pdf',
-    })
-    mocks.updateSubmission.mockResolvedValue({
+  it('clears the persistent reminder when approval and mentor details are complete', async () => {
+    mocks.findSubmission.mockResolvedValue({
       id: 'registration-1',
       approvalFormUrl: 'https://example.com/form.pdf',
       approvalFormFilename: 'form.pdf',
-      mentorName: 'Mentor Name',
-      mentorPhone: '555-0199',
-      mentorEmail: 'mentor@example.com',
+      mentorName: null,
+      mentorPhone: null,
+      mentorEmail: null,
     })
 
-    const response = await PATCH(patchRequest({
-      mentorName: 'Mentor Name',
-      mentorPhone: '555-0199',
-      mentorEmail: 'mentor@example.com',
-    }))
+    const response = await PATCH(patchRequest(completedMentorInformation))
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -112,5 +123,12 @@ describe('registration completion', () => {
         isPersistent: true,
       },
     })
+  })
+
+  it('requires all three mentor fields', async () => {
+    const response = await PATCH(patchRequest({ mentorName: 'Mentor Name' }))
+
+    expect(response.status).toBe(400)
+    expect(mocks.upsertAnnualInformation).not.toHaveBeenCalled()
   })
 })

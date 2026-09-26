@@ -22,12 +22,7 @@ export async function POST(request: NextRequest) {
         status: RegistrationStatus.APPROVED,
       },
       orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        mentorName: true,
-        mentorPhone: true,
-        mentorEmail: true,
-      },
+      select: { id: true },
     })
 
     if (!submission) {
@@ -53,7 +48,22 @@ export async function POST(request: NextRequest) {
       token: process.env.BLOB_READ_WRITE_TOKEN,
     })
 
-    const complete = Boolean(submission.mentorName && submission.mentorPhone && submission.mentorEmail)
+    const activeYear = await prisma.academicYear.findFirst({
+      where: { isActive: true },
+      select: { id: true },
+    })
+    const mentorInformation = activeYear
+      ? await prisma.annualMentorInformation.findUnique({
+          where: {
+            studentId_academicYearId: {
+              studentId: user.id,
+              academicYearId: activeYear.id,
+            },
+          },
+          select: { id: true },
+        })
+      : null
+    const complete = Boolean(mentorInformation)
     await prisma.$transaction(async (tx) => {
       await tx.registrationSubmission.update({
         where: { id: submission.id },

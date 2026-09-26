@@ -119,12 +119,18 @@ export async function POST(req: NextRequest) {
         throw new Error('Invite code has reached maximum usage')
       }
 
-      // Existing users re-register every year. Link the submission to their
-      // account so approval updates it instead of creating a duplicate user.
+      // Registration is only for new applicants. Existing students renew
+      // mentor information from their account each academic year.
       const existingUser = await tx.user.findUnique({
         where: { email: normalizedEmail },
         select: { id: true },
       })
+
+      if (existingUser) {
+        throw new Error(
+          'An account with this email already exists. Please sign in to update your mentor information.'
+        )
+      }
 
       // One open application per email at a time
       const pendingSubmission = await tx.registrationSubmission.findFirst({
@@ -139,31 +145,16 @@ export async function POST(req: NextRequest) {
         throw new Error('A registration with this email is already pending review')
       }
 
-      // An approved application only blocks a new one within the same
-      // academic year. With no active year, fall back to blocking approved
-      // applications for emails that do not have an account yet.
-      const activeYear = await tx.academicYear.findFirst({
-        where: { isActive: true },
-        select: { startDate: true },
+      const approvedSubmission = await tx.registrationSubmission.findFirst({
+        where: {
+          email: normalizedEmail,
+          status: RegistrationStatus.APPROVED,
+        },
+        select: { id: true },
       })
 
-      if (activeYear || !existingUser) {
-        const approvedSubmission = await tx.registrationSubmission.findFirst({
-          where: {
-            email: normalizedEmail,
-            status: RegistrationStatus.APPROVED,
-            ...(activeYear ? { createdAt: { gte: activeYear.startDate } } : {}),
-          },
-          select: { id: true },
-        })
-
-        if (approvedSubmission) {
-          throw new Error(
-            activeYear
-              ? 'A registration with this email has already been approved for this year'
-              : 'A registration with this email has already been approved'
-          )
-        }
+      if (approvedSubmission) {
+        throw new Error('A registration with this email has already been approved')
       }
 
       // Create submission
@@ -188,7 +179,7 @@ export async function POST(req: NextRequest) {
           mentorName: normalizedMentorName,
           mentorPhone: normalizedMentorPhone,
           mentorEmail: normalizedMentorEmail,
-          createdUserId: existingUser?.id ?? null,
+          createdUserId: null,
         },
       })
 

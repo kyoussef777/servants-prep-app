@@ -98,6 +98,15 @@ export async function POST(req: NextRequest) {
           activeAcademicYearId,
           tx
         )
+
+        // A Year 2 promotion starts a fresh annual mentor confirmation even
+        // if the academic year was activated before the promotion ran.
+        await tx.annualMentorInformation.deleteMany({
+          where: {
+            studentId: { in: promotedStudentIds },
+            academicYearId: activeAcademicYearId,
+          },
+        })
       }
 
       return {

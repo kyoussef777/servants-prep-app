@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   findActiveYear: vi.fn(),
   updateEnrollments: vi.fn(),
   backfillAttendance: vi.fn(),
+  deleteAnnualMentorInformation: vi.fn(),
   enrollmentStatusUpdate: vi.fn(),
 }))
 
@@ -27,6 +28,7 @@ const transactionClient = {
     updateMany: mocks.updateEnrollments,
   },
   academicYear: { findFirst: mocks.findActiveYear },
+  annualMentorInformation: { deleteMany: mocks.deleteAnnualMentorInformation },
 }
 
 function request(updates: Record<string, unknown>) {
@@ -50,6 +52,7 @@ describe('bulk enrollment promotion', () => {
     mocks.findActiveYear.mockResolvedValue({ id: 'year-2026' })
     mocks.updateEnrollments.mockResolvedValue({ count: 2 })
     mocks.backfillAttendance.mockResolvedValue(5)
+    mocks.deleteAnnualMentorInformation.mockResolvedValue({ count: 0 })
     mocks.transaction.mockImplementation(
       async (callback: (tx: typeof transactionClient) => unknown) => callback(transactionClient)
     )
@@ -79,6 +82,12 @@ describe('bulk enrollment promotion', () => {
       'year-2026',
       transactionClient
     )
+    expect(mocks.deleteAnnualMentorInformation).toHaveBeenCalledWith({
+      where: {
+        studentId: { in: ['student-1', 'student-2'] },
+        academicYearId: 'year-2026',
+      },
+    })
   })
 
   it('does not promote students without an active academic year', async () => {

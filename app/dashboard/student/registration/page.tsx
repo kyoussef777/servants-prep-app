@@ -24,6 +24,8 @@ interface RegistrationDetails {
 export default function CompleteRegistrationPage() {
   const { session, status } = useAdminGuard(isStudent)
   const [details, setDetails] = useState<RegistrationDetails | null>(null)
+  const [academicYearName, setAcademicYearName] = useState('the current academic year')
+  const [showApprovalForm, setShowApprovalForm] = useState(false)
   const [complete, setComplete] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -38,6 +40,8 @@ export default function CompleteRegistrationPage() {
         if (!response.ok) throw new Error(data.error || 'Unable to load registration')
         setDetails(data.submission)
         setComplete(data.complete)
+        setAcademicYearName(data.academicYear?.name || 'the current academic year')
+        setShowApprovalForm(Boolean(data.showApprovalForm))
       })
       .catch((error) => toast.error(error instanceof Error ? error.message : 'Unable to load registration'))
       .finally(() => setLoading(false))
@@ -95,7 +99,7 @@ export default function CompleteRegistrationPage() {
       setDetails(data.submission)
       setComplete(data.complete)
       if (data.complete) void mutate('/api/notifications?limit=15')
-      toast.success(data.complete ? 'Registration completed' : 'Registration details saved')
+      toast.success(data.complete ? 'Account information completed' : 'Mentor information saved')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to save details')
     } finally {
@@ -122,8 +126,8 @@ export default function CompleteRegistrationPage() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
         <PageHeader
-          title="Complete Your Registration"
-          description="Add the remaining information from your Servants Prep application."
+          title="Annual Student Information"
+          description={`Confirm your mentor servant information for ${academicYearName}.`}
         />
 
         {complete ? (
@@ -131,8 +135,8 @@ export default function CompleteRegistrationPage() {
             <CardContent className="flex items-start gap-3 pt-6">
               <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-green-700" />
               <div>
-                <p className="font-semibold text-green-900">Your registration is complete.</p>
-                <p className="mt-1 text-sm text-green-800">The registration reminder has been cleared.</p>
+                <p className="font-semibold text-green-900">Your information is complete for {academicYearName}.</p>
+                <p className="mt-1 text-sm text-green-800">The account reminder has been cleared.</p>
               </div>
             </CardContent>
           </Card>
@@ -141,13 +145,13 @@ export default function CompleteRegistrationPage() {
             <CardContent className="flex items-start gap-3 pt-6">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
               <p className="text-sm text-amber-900">
-                Your reminder will remain in notifications until both sections below are complete.
+                Your reminder will remain in notifications until the required information below is complete.
               </p>
             </CardContent>
           </Card>
         )}
 
-        <Card>
+        {showApprovalForm && <Card>
           <CardHeader>
             <CardTitle>Approval Form</CardTitle>
             <CardDescription>Upload the signed approval form from your mentor servant and father of confession.</CardDescription>
@@ -183,12 +187,14 @@ export default function CompleteRegistrationPage() {
               <p className="mt-2 text-xs text-gray-500">PNG, JPG, GIF, or PDF (maximum 4.5 MB)</p>
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
         <Card>
           <CardHeader>
             <CardTitle>Mentor Servant Information</CardTitle>
-            <CardDescription>Provide all three details to complete this section.</CardDescription>
+            <CardDescription>
+              Provide all three details for {academicYearName}. You will be asked to confirm them again each academic year.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={saveMentorInformation} className="space-y-4">

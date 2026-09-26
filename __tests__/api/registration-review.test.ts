@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   findFather: vi.fn(),
   createEnrollment: vi.fn(),
   createNotification: vi.fn(),
+  upsertAnnualMentorInformation: vi.fn(),
   hash: vi.fn(),
   backfillAttendance: vi.fn(),
   notifyReviewed: vi.fn(),
@@ -88,6 +89,7 @@ describe('registration approval follow-up', () => {
         create: mocks.createNotification,
         deleteMany: mocks.deleteNotifications,
       },
+      annualMentorInformation: { upsert: mocks.upsertAnnualMentorInformation },
     }))
   })
 
@@ -109,6 +111,7 @@ describe('registration approval follow-up', () => {
         isPersistent: true,
         metadata: {
           registrationId: 'registration-1',
+          academicYearId: 'year-1',
           missingDetails: ['approval form', 'mentor servant information'],
         },
       }),
@@ -173,6 +176,7 @@ describe('registration approval follow-up', () => {
         userId: 'student-1',
         metadata: {
           registrationId: 'registration-2',
+          academicYearId: 'year-1',
           missingDetails: ['mentor servant information'],
         },
       }),
@@ -182,5 +186,53 @@ describe('registration approval follow-up', () => {
         data: expect.objectContaining({ createdUserId: 'student-1' }),
       })
     )
+  })
+
+  it('uses optional application mentor details for the active academic year', async () => {
+    mocks.findSubmission.mockResolvedValue({
+      id: 'registration-3',
+      status: RegistrationStatus.PENDING,
+      email: 'new-student@example.com',
+      fullName: 'New Student',
+      phone: '555-0102',
+      profileImageUrl: 'https://example.com/profile.jpg',
+      fatherOfConfessionName: 'Fr. Mark',
+      approvalFormUrl: 'https://example.com/form.pdf',
+      approvalFormFilename: 'form.pdf',
+      mentorName: 'Mentor Name',
+      mentorPhone: '555-0199',
+      mentorEmail: 'mentor@example.com',
+    })
+
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-3/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', yearLevel: 'YEAR_1' }),
+    })
+
+    const response = await POST(request, { params: Promise.resolve({ id: 'registration-3' }) })
+
+    expect(response.status).toBe(200)
+    expect(mocks.upsertAnnualMentorInformation).toHaveBeenCalledWith({
+      where: {
+        studentId_academicYearId: {
+          studentId: 'student-1',
+          academicYearId: 'year-1',
+        },
+      },
+      create: {
+        studentId: 'student-1',
+        academicYearId: 'year-1',
+        mentorName: 'Mentor Name',
+        mentorPhone: '555-0199',
+        mentorEmail: 'mentor@example.com',
+      },
+      update: expect.objectContaining({
+        mentorName: 'Mentor Name',
+        mentorPhone: '555-0199',
+        mentorEmail: 'mentor@example.com',
+      }),
+    })
+    expect(mocks.createNotification).not.toHaveBeenCalled()
   })
 })

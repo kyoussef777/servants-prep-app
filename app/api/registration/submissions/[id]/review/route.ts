@@ -11,8 +11,8 @@ import { backfillAttendanceForStudent } from '@/lib/api-utils'
 
 /**
  * POST /api/registration/submissions/[id]/review
- * Approve or reject a registration submission. Approving a returning
- * applicant's submission updates their existing account instead of creating one.
+ * Approve or reject a registration submission. New applications create an
+ * account; the existing-user branch remains for pending legacy submissions.
  * Auth: SUPER_ADMIN, SERVANT_PREP
  */
 export async function POST(
@@ -188,11 +188,37 @@ export async function POST(
           })
         }
 
+        const hasMentorInformation = Boolean(
+          submission.mentorName && submission.mentorPhone && submission.mentorEmail
+        )
+
+        if (hasMentorInformation && targetAcademicYearId) {
+          await tx.annualMentorInformation.upsert({
+            where: {
+              studentId_academicYearId: {
+                studentId: userId,
+                academicYearId: targetAcademicYearId,
+              },
+            },
+            create: {
+              studentId: userId,
+              academicYearId: targetAcademicYearId,
+              mentorName: submission.mentorName!,
+              mentorPhone: submission.mentorPhone!,
+              mentorEmail: submission.mentorEmail!,
+            },
+            update: {
+              mentorName: submission.mentorName!,
+              mentorPhone: submission.mentorPhone!,
+              mentorEmail: submission.mentorEmail!,
+              submittedAt: new Date(),
+            },
+          })
+        }
+
         const missingRegistrationDetails = [
           !submission.approvalFormUrl || !submission.approvalFormFilename ? 'approval form' : null,
-          !submission.mentorName || !submission.mentorPhone || !submission.mentorEmail
-            ? 'mentor servant information'
-            : null,
+          !hasMentorInformation ? 'mentor servant information' : null,
         ].filter((detail): detail is string => Boolean(detail))
 
         if (missingRegistrationDetails.length > 0) {
@@ -200,12 +226,13 @@ export async function POST(
             data: {
               userId,
               type: NotificationType.REGISTRATION_INCOMPLETE,
-              title: 'Complete Your Registration',
-              body: `Please add your ${missingRegistrationDetails.join(' and ')}. This reminder will remain until your registration is complete.`,
+              title: 'Complete Your Account Setup',
+              body: `Please add your ${missingRegistrationDetails.join(' and ')}. This reminder will remain until the required information is complete.`,
               url: '/dashboard/student/registration',
               isPersistent: true,
               metadata: {
                 registrationId: submission.id,
+                academicYearId: targetAcademicYearId || null,
                 missingDetails: missingRegistrationDetails,
               },
             },
