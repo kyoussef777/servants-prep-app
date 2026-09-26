@@ -462,7 +462,7 @@ function SubmissionDetailDialog({
           <div>
             <h4 className="font-semibold mb-2">Service History</h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-gray-600">Previously Served:</span> {submission.previouslyServed ? 'Yes' : 'No'}</div>
+              <div><span className="text-gray-600">Previously Served:</span> {submission.previouslyServed ? `Yes (${submission.previousServiceLocation || 'Location not provided'})` : 'No'}</div>
               <div><span className="text-gray-600">Currently Serving:</span> {submission.currentlyServing ? 'Yes' : 'No'}</div>
               <div className="col-span-2"><span className="text-gray-600">Previously Attended Prep:</span> {submission.previouslyAttendedPrep ? `Yes (${submission.previousPrepLocation})` : 'No'}</div>
             </div>

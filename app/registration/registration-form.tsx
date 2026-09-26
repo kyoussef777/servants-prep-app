@@ -21,6 +21,7 @@ interface FormData {
   dateOfBirth: string
   phone: string
   previouslyServed: string
+  previousServiceLocation: string
   currentlyServing: string
   previouslyAttendedPrep: string
   previousPrepLocation: string
@@ -43,6 +44,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
     dateOfBirth: '',
     phone: '',
     previouslyServed: '',
+    previousServiceLocation: '',
     currentlyServing: '',
     previouslyAttendedPrep: '',
     previousPrepLocation: '',
@@ -139,6 +141,11 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
       return
     }
 
+    if (formData.previouslyServed === 'true' && !formData.previousServiceLocation.trim()) {
+      toast.error('Please specify where you previously served')
+      return
+    }
+
     if (formData.previouslyAttendedPrep === 'true' && !formData.previousPrepLocation) {
       toast.error('Please specify where you previously attended Servants Prep')
       return
@@ -188,6 +195,9 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
 
     if (formData.previouslyAttendedPrep === 'true') {
       requiredFields.push('previousPrepLocation')
+    }
+    if (formData.previouslyServed === 'true') {
+      requiredFields.push('previousServiceLocation')
     }
 
     const filledFields = requiredFields.filter((key) => formData[key] !== '')
@@ -410,7 +420,11 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                     <Select
                       required
                       value={formData.previouslyServed}
-                      onValueChange={(value) => setFormData({ ...formData, previouslyServed: value })}
+                      onValueChange={(value) => setFormData({
+                        ...formData,
+                        previouslyServed: value,
+                        ...(value === 'false' ? { previousServiceLocation: '' } : {}),
+                      })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select..." />
@@ -438,6 +452,20 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                     </Select>
                   </div>
                 </div>
+                {formData.previouslyServed === 'true' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="previousServiceLocation">Where did you previously serve? *</Label>
+                    <Input
+                      id="previousServiceLocation"
+                      required
+                      placeholder="Church, ministry, or service name"
+                      value={formData.previousServiceLocation}
+                      onChange={(e) =>
+                        setFormData({ ...formData, previousServiceLocation: e.target.value })
+                      }
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="previouslyAttendedPrep">
                     Have you previously attended Servants Prep? *
@@ -445,9 +473,11 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                   <Select
                     required
                     value={formData.previouslyAttendedPrep}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, previouslyAttendedPrep: value })
-                    }
+                    onValueChange={(value) => setFormData({
+                      ...formData,
+                      previouslyAttendedPrep: value,
+                      ...(value === 'false' ? { previousPrepLocation: '' } : {}),
+                    })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select..." />
@@ -464,6 +494,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                     <Input
                       id="previousPrepLocation"
                       required
+                      placeholder="Servants Prep program or church"
                       value={formData.previousPrepLocation}
                       onChange={(e) =>
                         setFormData({ ...formData, previousPrepLocation: e.target.value })
