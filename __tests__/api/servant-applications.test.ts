@@ -116,6 +116,25 @@ describe('servant applications API', () => {
     })
   })
 
+  it('keeps a submitted application successful while logging a repairable notification failure', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.notifyNewApplication.mockRejectedValueOnce(new Error('notification database unavailable'))
+
+    const response = await POST(submissionRequest({
+      email: 'servant@example.com',
+      fullName: 'Sunday Servant',
+      phone: '555-0100',
+      currentGrade: '3rd grade',
+    }))
+
+    expect(response.status).toBe(201)
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to create servant application notifications:',
+      expect.any(Error)
+    )
+    consoleError.mockRestore()
+  })
+
   it('keeps the review queue restricted to Super Admins', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'prep-1', role: 'SERVANT_PREP' })
 
