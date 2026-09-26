@@ -17,7 +17,6 @@ const mocks = vi.hoisted(() => ({
   findFather: vi.fn(),
   createEnrollment: vi.fn(),
   createNotification: vi.fn(),
-  upsertAnnualMentorInformation: vi.fn(),
   hash: vi.fn(),
   backfillAttendance: vi.fn(),
   notifyReviewed: vi.fn(),
@@ -45,7 +44,7 @@ describe('registration approval follow-up', () => {
       fullName: 'Student Name',
       phone: '555-0100',
       profileImageUrl: 'https://example.com/profile.jpg',
-      fatherOfConfessionName: 'Fr. Mark',
+      fatherOfConfessionName: null,
       approvalFormUrl: null,
       approvalFormFilename: null,
       mentorName: null,
@@ -89,11 +88,10 @@ describe('registration approval follow-up', () => {
         create: mocks.createNotification,
         deleteMany: mocks.deleteNotifications,
       },
-      annualMentorInformation: { upsert: mocks.upsertAnnualMentorInformation },
     }))
   })
 
-  it('creates a persistent reminder when optional registration details are missing', async () => {
+  it('creates a persistent reminder for the post-approval application', async () => {
     const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -107,12 +105,11 @@ describe('registration approval follow-up', () => {
       data: expect.objectContaining({
         userId: 'student-1',
         type: 'REGISTRATION_INCOMPLETE',
-        url: '/dashboard/student/registration',
+        url: '/dashboard/student/application',
         isPersistent: true,
         metadata: {
           registrationId: 'registration-1',
-          academicYearId: 'year-1',
-          missingDetails: ['approval form', 'mentor servant information'],
+          missingDetails: ['father of confession', 'approval form', 'mentor servant information'],
         },
       }),
     })
@@ -176,7 +173,6 @@ describe('registration approval follow-up', () => {
         userId: 'student-1',
         metadata: {
           registrationId: 'registration-2',
-          academicYearId: 'year-1',
           missingDetails: ['mentor servant information'],
         },
       }),
@@ -188,7 +184,7 @@ describe('registration approval follow-up', () => {
     )
   })
 
-  it('uses optional application mentor details for the active academic year', async () => {
+  it('does not create a reminder for a legacy submission that is already complete', async () => {
     mocks.findSubmission.mockResolvedValue({
       id: 'registration-3',
       status: RegistrationStatus.PENDING,
@@ -213,26 +209,6 @@ describe('registration approval follow-up', () => {
     const response = await POST(request, { params: Promise.resolve({ id: 'registration-3' }) })
 
     expect(response.status).toBe(200)
-    expect(mocks.upsertAnnualMentorInformation).toHaveBeenCalledWith({
-      where: {
-        studentId_academicYearId: {
-          studentId: 'student-1',
-          academicYearId: 'year-1',
-        },
-      },
-      create: {
-        studentId: 'student-1',
-        academicYearId: 'year-1',
-        mentorName: 'Mentor Name',
-        mentorPhone: '555-0199',
-        mentorEmail: 'mentor@example.com',
-      },
-      update: expect.objectContaining({
-        mentorName: 'Mentor Name',
-        mentorPhone: '555-0199',
-        mentorEmail: 'mentor@example.com',
-      }),
-    })
     expect(mocks.createNotification).not.toHaveBeenCalled()
   })
 })

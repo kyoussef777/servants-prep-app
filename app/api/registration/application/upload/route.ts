@@ -16,25 +16,26 @@ const MAX_FILE_SIZE = 4.5 * 1024 * 1024
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth()
-    const submission = await prisma.registrationSubmission.findFirst({
-      where: {
-        createdUserId: user.id,
-        status: RegistrationStatus.APPROVED,
-      },
+    const application = await prisma.registrationSubmission.findFirst({
+      where: { createdUserId: user.id, status: RegistrationStatus.APPROVED },
       orderBy: { createdAt: 'desc' },
-      select: { id: true },
+      select: {
+        id: true,
+        fatherOfConfessionName: true,
+        mentorName: true,
+        mentorPhone: true,
+        mentorEmail: true,
+      },
     })
 
-    if (!submission) {
+    if (!application) {
       return NextResponse.json({ error: 'Approved registration not found' }, { status: 404 })
     }
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-    }
+    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
       return NextResponse.json({ error: 'Please upload a PNG, JPG, GIF, or PDF file' }, { status: 400 })
     }
@@ -42,35 +43,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size exceeds 4.5 MB limit' }, { status: 400 })
     }
 
-    const blob = await put(`registrations/${submission.id}/${Date.now()}-${file.name}`, file, {
+    const blob = await put(`registrations/${application.id}/${Date.now()}-${file.name}`, file, {
       access: 'public',
       addRandomSuffix: true,
       token: process.env.BLOB_READ_WRITE_TOKEN,
     })
 
-    const activeYear = await prisma.academicYear.findFirst({
-      where: { isActive: true },
-      select: { id: true },
-    })
-    const mentorInformation = activeYear
-      ? await prisma.annualMentorInformation.findUnique({
-          where: {
-            studentId_academicYearId: {
-              studentId: user.id,
-              academicYearId: activeYear.id,
-            },
-          },
-          select: { id: true },
-        })
-      : null
-    const complete = Boolean(mentorInformation)
+    const complete = Boolean(
+      application.fatherOfConfessionName &&
+      application.mentorName &&
+      application.mentorPhone &&
+      application.mentorEmail
+    )
+
     await prisma.$transaction(async (tx) => {
       await tx.registrationSubmission.update({
-        where: { id: submission.id },
-        data: {
-          approvalFormUrl: blob.url,
-          approvalFormFilename: file.name,
-        },
+        where: { id: application.id },
+        data: { approvalFormUrl: blob.url, approvalFormFilename: file.name },
       })
 
       if (complete) {
@@ -84,11 +73,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      url: blob.url,
-      filename: file.name,
-      complete,
-    })
+    return NextResponse.json({ url: blob.url, filename: file.name, complete })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(

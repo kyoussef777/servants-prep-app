@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { isInviteCodeValid } from '@/lib/registration-utils'
 import { StudentGrade, RegistrationStatus } from '@prisma/client'
 import { notifyNewRegistration } from '@/lib/notifications'
-import { normalizeEmail, normalizeOptionalEmail } from '@/lib/email'
+import { normalizeEmail } from '@/lib/email'
 
 /**
  * POST /api/registration/submit
@@ -18,27 +18,15 @@ export async function POST(req: NextRequest) {
       fullName,
       dateOfBirth,
       phone,
-      fatherOfConfessionName,
       previouslyServed,
       currentlyServing,
       previouslyAttendedPrep,
       previousPrepLocation,
       grade,
-      approvalFormUrl,
-      approvalFormFilename,
       profileImageUrl,
       profileImageFilename,
-      mentorName,
-      mentorPhone,
-      mentorEmail,
     } = body
     const normalizedEmail = normalizeEmail(email)
-    const normalizedMentorEmail = normalizeOptionalEmail(mentorEmail)
-    const normalizedMentorName = typeof mentorName === 'string' ? mentorName.trim() || null : null
-    const normalizedMentorPhone = typeof mentorPhone === 'string' ? mentorPhone.trim() || null : null
-    const normalizedApprovalFormUrl = typeof approvalFormUrl === 'string' ? approvalFormUrl.trim() || null : null
-    const normalizedApprovalFormFilename = typeof approvalFormFilename === 'string' ? approvalFormFilename.trim() || null : null
-    const hasApprovalForm = Boolean(normalizedApprovalFormUrl && normalizedApprovalFormFilename)
 
     // Validate required fields
     if (
@@ -47,7 +35,6 @@ export async function POST(req: NextRequest) {
       !fullName ||
       !dateOfBirth ||
       !phone ||
-      !fatherOfConfessionName ||
       previouslyServed === undefined ||
       currentlyServing === undefined ||
       previouslyAttendedPrep === undefined ||
@@ -63,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(normalizedEmail) || (normalizedMentorEmail && !emailRegex.test(normalizedMentorEmail))) {
+    if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
@@ -119,8 +106,8 @@ export async function POST(req: NextRequest) {
         throw new Error('Invite code has reached maximum usage')
       }
 
-      // Registration is only for new applicants. Existing students renew
-      // mentor information from their account each academic year.
+      // Registration is only for new applicants. Existing users complete
+      // their application from inside their account.
       const existingUser = await tx.user.findUnique({
         where: { email: normalizedEmail },
         select: { id: true },
@@ -128,7 +115,7 @@ export async function POST(req: NextRequest) {
 
       if (existingUser) {
         throw new Error(
-          'An account with this email already exists. Please sign in to update your mentor information.'
+          'An account with this email already exists. Please sign in; registration is only for new applicants.'
         )
       }
 
@@ -166,19 +153,19 @@ export async function POST(req: NextRequest) {
           fullName,
           dateOfBirth: new Date(dateOfBirth),
           phone,
-          fatherOfConfessionName,
+          fatherOfConfessionName: null,
           previouslyServed,
           currentlyServing,
           previouslyAttendedPrep,
           previousPrepLocation: previousPrepLocation || null,
           grade: grade as StudentGrade,
-          approvalFormUrl: hasApprovalForm ? normalizedApprovalFormUrl : null,
-          approvalFormFilename: hasApprovalForm ? normalizedApprovalFormFilename : null,
+          approvalFormUrl: null,
+          approvalFormFilename: null,
           profileImageUrl,
           profileImageFilename,
-          mentorName: normalizedMentorName,
-          mentorPhone: normalizedMentorPhone,
-          mentorEmail: normalizedMentorEmail,
+          mentorName: null,
+          mentorPhone: null,
+          mentorEmail: null,
           createdUserId: null,
         },
       })
@@ -206,7 +193,7 @@ export async function POST(req: NextRequest) {
       {
         id: submission.id,
         message:
-          'Registration submitted successfully! Your application is under review.',
+          'Registration submitted successfully! Your registration is under review.',
       },
       { status: 201 }
     )
