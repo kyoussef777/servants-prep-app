@@ -361,7 +361,9 @@ function SubmissionDetailDialog({
 
       const data = await res.json()
       toast.success('Registration approved!', {
-        description: `Temp password: ${data.tempPassword}`,
+        description: data.tempPassword
+          ? `Temp password: ${data.tempPassword}`
+          : 'Linked to their existing account. Their password is unchanged.',
         duration: 10000,
       })
       onUpdate()
@@ -406,6 +408,7 @@ function SubmissionDetailDialog({
   }
 
   const canReview = session?.user && canReviewRegistrations(session.user.role) && submission.status === RegistrationStatus.PENDING
+  const isReturningApplicant = submission.status === RegistrationStatus.PENDING && Boolean(submission.createdUser)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -418,6 +421,14 @@ function SubmissionDetailDialog({
         </DialogHeader>
 
         <div className="space-y-6">
+          {isReturningApplicant && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+              Returning applicant — this registration is linked to the existing account for{' '}
+              <strong>{submission.createdUser?.name || submission.createdUser?.email}</strong>. Approving it updates that
+              account; no new login is created and their year level is kept.
+            </div>
+          )}
+
           {/* Personal Info */}
           <div>
             <h4 className="font-semibold mb-2">Personal Information</h4>
@@ -488,7 +499,7 @@ function SubmissionDetailDialog({
           {/* Review Section (if pending) */}
           {canReview && (
             <div className="border-t pt-4 space-y-4">
-              <div>
+              <div className={isReturningApplicant ? 'hidden' : undefined}>
                 <Label htmlFor="yearLevel">Starting Year Level</Label>
                 <Select value={yearLevel} onValueChange={(value) => setYearLevel(value as YearLevel)}>
                   <SelectTrigger className="w-full mt-1">

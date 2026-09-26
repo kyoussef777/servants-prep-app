@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
   updateSubmission: vi.fn(),
   findUser: vi.fn(),
   createUser: vi.fn(),
+  updateUser: vi.fn(),
+  findEnrollment: vi.fn(),
+  updateEnrollment: vi.fn(),
+  deleteNotifications: vi.fn(),
   findAcademicYear: vi.fn(),
   findFather: vi.fn(),
   createEnrollment: vi.fn(),
@@ -68,14 +72,22 @@ describe('registration approval follow-up', () => {
       user: {
         findUnique: mocks.findUser,
         create: mocks.createUser,
+        update: mocks.updateUser,
       },
       academicYear: { findFirst: mocks.findAcademicYear },
       fatherOfConfession: {
         findFirst: mocks.findFather,
         create: vi.fn(),
       },
-      studentEnrollment: { create: mocks.createEnrollment },
-      notification: { create: mocks.createNotification },
+      studentEnrollment: {
+        create: mocks.createEnrollment,
+        findUnique: mocks.findEnrollment,
+        update: mocks.updateEnrollment,
+      },
+      notification: {
+        create: mocks.createNotification,
+        deleteMany: mocks.deleteNotifications,
+      },
     }))
   })
 
@@ -101,5 +113,74 @@ describe('registration approval follow-up', () => {
         },
       }),
     })
+  })
+
+  it('approves a returning applicant by updating their existing account', async () => {
+    mocks.findSubmission.mockResolvedValue({
+      id: 'registration-2',
+      status: RegistrationStatus.PENDING,
+      email: 'student@example.com',
+      fullName: 'Student Name',
+      phone: '555-0101',
+      profileImageUrl: 'https://example.com/new-profile.jpg',
+      fatherOfConfessionName: 'Fr. Mark',
+      approvalFormUrl: 'https://example.com/form.pdf',
+      approvalFormFilename: 'form.pdf',
+      mentorName: null,
+      mentorPhone: null,
+      mentorEmail: null,
+      createdUserId: 'student-1',
+    })
+    mocks.findUser.mockResolvedValue({
+      id: 'student-1',
+      role: UserRole.STUDENT,
+      profileImageUrl: 'https://example.com/old-profile.jpg',
+    })
+    mocks.findEnrollment.mockResolvedValue({ id: 'enrollment-1', isActive: true })
+    mocks.updateSubmission.mockResolvedValue({
+      id: 'registration-2',
+      fullName: 'Student Name',
+      createdUser: { id: 'student-1' },
+    })
+
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-2/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', yearLevel: 'YEAR_1' }),
+    })
+
+    const response = await POST(request, { params: Promise.resolve({ id: 'registration-2' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.tempPassword).toBeNull()
+    expect(body.linkedExistingUser).toBe(true)
+    expect(mocks.createUser).not.toHaveBeenCalled()
+    expect(mocks.hash).not.toHaveBeenCalled()
+    expect(mocks.createEnrollment).not.toHaveBeenCalled()
+    expect(mocks.updateUser).toHaveBeenCalledWith({
+      where: { id: 'student-1' },
+      data: { phone: '555-0101', profileImageUrl: 'https://example.com/new-profile.jpg' },
+    })
+    // Year level is left alone and an existing mentor is not wiped
+    expect(mocks.updateEnrollment).toHaveBeenCalledWith({
+      where: { id: 'enrollment-1' },
+      data: { fatherOfConfessionId: 'father-1' },
+    })
+    expect(mocks.deleteNotifications).toHaveBeenCalled()
+    expect(mocks.createNotification).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: 'student-1',
+        metadata: {
+          registrationId: 'registration-2',
+          missingDetails: ['mentor servant information'],
+        },
+      }),
+    })
+    expect(mocks.updateSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ createdUserId: 'student-1' }),
+      })
+    )
   })
 })

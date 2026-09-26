@@ -55,6 +55,7 @@ bun test:coverage        # With coverage
 bun db:generate          # Regenerate Prisma Client — REQUIRED after schema changes
 bun db:push              # Push schema without migrations
 bun db:migrate           # Create and run a migration
+bun db:deploy            # Apply committed migrations (explicit production step)
 bun db:seed              # Seed test data
 bun db:studio            # Prisma Studio GUI
 
@@ -291,6 +292,7 @@ Do not add a role. Extend the assignment model — see
 | Type errors after a schema change | `bun db:generate` |
 | Stale build artifacts | `rm -rf .next && bun dev` |
 | A preview needs schema changes | Point the preview at an isolated Neon branch, then run `bun db:push` explicitly against that branch |
+| `Null constraint violation` / missing column in production after a merge | A committed migration was never applied. Run `bun db:deploy` with the direct (unpooled) production URL |
 | A route 403s unexpectedly in Sunday School | The user probably has no assignment for the **active academic year** |
 
 ## Production
