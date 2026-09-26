@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canManageEnrollments } from '@/lib/roles'
-import { enrollmentStatusUpdate } from '@/lib/api-utils'
+import { backfillAttendanceForStudents, enrollmentStatusUpdate } from '@/lib/api-utils'
 
 interface BulkUpdateRequest {
   enrollmentIds: string[]
@@ -55,6 +55,32 @@ export async function POST(req: NextRequest) {
 
     // Perform bulk update using a transaction
     const result = await prisma.$transaction(async (tx) => {
+      const currentEnrollments = updates.yearLevel === 'YEAR_2'
+        ? await tx.studentEnrollment.findMany({
+            where: { id: { in: enrollmentIds } },
+            select: { id: true, studentId: true, yearLevel: true, isActive: true },
+          })
+        : []
+
+      let activeAcademicYearId: string | null = null
+      let attendanceRecordsCreated = 0
+
+      if (
+        updates.yearLevel === 'YEAR_2' &&
+        currentEnrollments.some(enrollment => enrollment.yearLevel === 'YEAR_1' && enrollment.isActive)
+      ) {
+        const activeAcademicYear = await tx.academicYear.findFirst({
+          where: { isActive: true },
+          select: { id: true },
+        })
+
+        if (!activeAcademicYear) {
+          throw new Error('No active academic year is configured for Year 2 promotion')
+        }
+
+        activeAcademicYearId = activeAcademicYear.id
+      }
+
       const updated = await tx.studentEnrollment.updateMany({
         where: {
           id: { in: enrollmentIds }
@@ -62,19 +88,45 @@ export async function POST(req: NextRequest) {
         data: updateData
       })
 
-      return updated
+      const promotedStudentIds = currentEnrollments
+        .filter(enrollment => enrollment.yearLevel === 'YEAR_1' && enrollment.isActive)
+        .map(enrollment => enrollment.studentId)
+
+      if (activeAcademicYearId && promotedStudentIds.length > 0) {
+        attendanceRecordsCreated = await backfillAttendanceForStudents(
+          promotedStudentIds,
+          activeAcademicYearId,
+          tx
+        )
+      }
+
+      return {
+        count: updated.count,
+        promotedCount: promotedStudentIds.length,
+        activeAcademicYearId,
+        attendanceRecordsCreated,
+      }
     })
 
     return NextResponse.json({
       success: true,
       message: `Successfully updated ${result.count} enrollment(s)`,
-      count: result.count
+      count: result.count,
+      promotion: updates.yearLevel === 'YEAR_2'
+        ? {
+            promotedCount: result.promotedCount,
+            historicalAttendancePreserved: true,
+            activeAcademicYearId: result.activeAcademicYearId,
+            attendanceRecordsCreated: result.attendanceRecordsCreated,
+          }
+        : null,
     })
   } catch (error: unknown) {
     console.error('Bulk update error:', error)
+    const message = error instanceof Error ? error.message : 'Failed to update enrollments'
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update enrollments' },
-      { status: 500 }
+      { error: message },
+      { status: message.includes('No active academic year') ? 409 : 500 }
     )
   }
 }

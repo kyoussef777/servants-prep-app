@@ -167,19 +167,19 @@ export function withAdminAuth<T extends unknown[]>(
 }
 
 /**
- * Backfill attendance records for a newly enrolled student.
- * Creates ABSENT records for all lessons in the student's academic year
- * that already have attendance taken (i.e., other students have records).
- * This ensures the new student appears in all past lesson attendance views.
+ * Backfill attendance records for students joining an academic year.
+ * Creates ABSENT records for lessons that already have attendance taken while
+ * preserving every historical record attached to earlier lessons.
  *
  * Can be called with a Prisma transaction client or the default prisma client.
  */
-export async function backfillAttendanceForStudent(
-  studentId: string,
+export async function backfillAttendanceForStudents(
+  studentIds: string[],
   academicYearId: string | null,
   tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 ) {
-  if (!academicYearId) return
+  const uniqueStudentIds = [...new Set(studentIds)]
+  if (!academicYearId || uniqueStudentIds.length === 0) return 0
 
   const db = tx || prisma
 
@@ -188,38 +188,53 @@ export async function backfillAttendanceForStudent(
   const lessonsWithAttendance = await db.lesson.findMany({
     where: {
       academicYearId,
-      status: { not: 'CANCELLED' },
+      status: { notIn: ['CANCELLED', 'NO_CLASS'] },
       isExamDay: false,
       attendanceRecords: { some: {} },
     },
     select: { id: true },
   })
 
-  if (lessonsWithAttendance.length === 0) return
+  if (lessonsWithAttendance.length === 0) return 0
 
-  // Check which of these lessons the student already has records for
+  // Check which student/lesson pairs already have records.
   const existingRecords = await db.attendanceRecord.findMany({
     where: {
-      studentId,
+      studentId: { in: uniqueStudentIds },
       lessonId: { in: lessonsWithAttendance.map(l => l.id) },
     },
-    select: { lessonId: true },
+    select: { lessonId: true, studentId: true },
   })
-  const existingLessonIds = new Set(existingRecords.map(r => r.lessonId))
+  const existingRecordKeys = new Set(
+    existingRecords.map(record => `${record.studentId}:${record.lessonId}`)
+  )
 
-  // Create ABSENT records for lessons the student doesn't have records for
-  const toCreate = lessonsWithAttendance
-    .filter(l => !existingLessonIds.has(l.id))
-    .map(l => ({
-      lessonId: l.id,
-      studentId,
-      status: 'ABSENT' as const,
-      recordedBy: null,
-    }))
+  // Create ABSENT records only for missing student/lesson pairs.
+  const toCreate = uniqueStudentIds.flatMap(studentId =>
+    lessonsWithAttendance
+      .filter(lesson => !existingRecordKeys.has(`${studentId}:${lesson.id}`))
+      .map(lesson => ({
+        lessonId: lesson.id,
+        studentId,
+        status: 'ABSENT' as const,
+        recordedBy: null,
+      }))
+  )
 
   if (toCreate.length > 0) {
-    await db.attendanceRecord.createMany({ data: toCreate })
+    const result = await db.attendanceRecord.createMany({ data: toCreate, skipDuplicates: true })
+    return result.count
   }
+
+  return 0
+}
+
+export async function backfillAttendanceForStudent(
+  studentId: string,
+  academicYearId: string | null,
+  tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+) {
+  return backfillAttendanceForStudents([studentId], academicYearId, tx)
 }
 
 type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
