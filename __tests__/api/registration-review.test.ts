@@ -44,7 +44,7 @@ describe('registration approval follow-up', () => {
       fullName: 'Student Name',
       phone: '555-0100',
       profileImageUrl: 'https://example.com/profile.jpg',
-      fatherOfConfessionName: 'Fr. Mark',
+      fatherOfConfessionName: null,
       approvalFormUrl: null,
       approvalFormFilename: null,
       mentorName: null,
@@ -91,7 +91,7 @@ describe('registration approval follow-up', () => {
     }))
   })
 
-  it('creates a persistent reminder when optional registration details are missing', async () => {
+  it('creates a persistent reminder for the post-approval application', async () => {
     const request = new NextRequest('http://localhost/api/registration/submissions/registration-1/review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -105,11 +105,11 @@ describe('registration approval follow-up', () => {
       data: expect.objectContaining({
         userId: 'student-1',
         type: 'REGISTRATION_INCOMPLETE',
-        url: '/dashboard/student/registration',
+        url: '/dashboard/student/application',
         isPersistent: true,
         metadata: {
           registrationId: 'registration-1',
-          missingDetails: ['approval form', 'mentor servant information'],
+          missingDetails: ['father of confession', 'approval form', 'mentor servant information'],
         },
       }),
     })
@@ -182,5 +182,33 @@ describe('registration approval follow-up', () => {
         data: expect.objectContaining({ createdUserId: 'student-1' }),
       })
     )
+  })
+
+  it('does not create a reminder for a legacy submission that is already complete', async () => {
+    mocks.findSubmission.mockResolvedValue({
+      id: 'registration-3',
+      status: RegistrationStatus.PENDING,
+      email: 'new-student@example.com',
+      fullName: 'New Student',
+      phone: '555-0102',
+      profileImageUrl: 'https://example.com/profile.jpg',
+      fatherOfConfessionName: 'Fr. Mark',
+      approvalFormUrl: 'https://example.com/form.pdf',
+      approvalFormFilename: 'form.pdf',
+      mentorName: 'Mentor Name',
+      mentorPhone: '555-0199',
+      mentorEmail: 'mentor@example.com',
+    })
+
+    const request = new NextRequest('http://localhost/api/registration/submissions/registration-3/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', yearLevel: 'YEAR_1' }),
+    })
+
+    const response = await POST(request, { params: Promise.resolve({ id: 'registration-3' }) })
+
+    expect(response.status).toBe(200)
+    expect(mocks.createNotification).not.toHaveBeenCalled()
   })
 })

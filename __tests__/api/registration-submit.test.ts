@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   findInviteCode: vi.fn(),
   findSubmission: vi.fn(),
   findUser: vi.fn(),
-  findActiveYear: vi.fn(),
   createSubmission: vi.fn(),
   updateInviteCode: vi.fn(),
   transaction: vi.fn(),
@@ -40,7 +39,6 @@ const requiredApplication = {
   fullName: 'Student Name',
   dateOfBirth: '2008-01-02',
   phone: '555-0100',
-  fatherOfConfessionName: 'Fr. Mark',
   previouslyServed: false,
   currentlyServing: false,
   previouslyAttendedPrep: false,
@@ -64,7 +62,6 @@ describe('registration submission', () => {
     })
     mocks.findSubmission.mockResolvedValue(null)
     mocks.findUser.mockResolvedValue(null)
-    mocks.findActiveYear.mockResolvedValue({ startDate: new Date('2026-09-01') })
     mocks.createSubmission.mockResolvedValue({ id: 'registration-1' })
     mocks.updateInviteCode.mockResolvedValue({})
     mocks.notifyNewRegistration.mockResolvedValue(undefined)
@@ -78,7 +75,6 @@ describe('registration submission', () => {
         create: mocks.createSubmission,
       },
       user: { findUnique: mocks.findUser },
-      academicYear: { findFirst: mocks.findActiveYear },
     }))
   })
 
@@ -88,6 +84,7 @@ describe('registration submission', () => {
     expect(response.status).toBe(201)
     expect(mocks.createSubmission).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        fatherOfConfessionName: null,
         approvalFormUrl: null,
         approvalFormFilename: null,
         mentorName: null,
@@ -101,42 +98,55 @@ describe('registration submission', () => {
     })
   })
 
-  it('still validates mentor email when it is supplied', async () => {
+  it('keeps post-approval application fields out of the initial registration', async () => {
     const response = await POST(request({
       ...requiredApplication,
+      fatherOfConfessionName: 'Fr. Mark',
+      approvalFormUrl: 'https://example.com/form.pdf',
+      approvalFormFilename: 'form.pdf',
       mentorName: 'Mentor Name',
       mentorPhone: '555-0199',
       mentorEmail: 'not-an-email',
     }))
 
-    expect(response.status).toBe(400)
-    expect(mocks.transaction).not.toHaveBeenCalled()
-  })
-
-  it('lets an existing user re-register and links the submission to their account', async () => {
-    mocks.findUser.mockResolvedValue({ id: 'user-1' })
-
-    const response = await POST(request(requiredApplication))
-
     expect(response.status).toBe(201)
     expect(mocks.createSubmission).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        email: 'student@example.com',
-        createdUserId: 'user-1',
+        fatherOfConfessionName: null,
+        approvalFormUrl: null,
+        approvalFormFilename: null,
+        mentorName: null,
+        mentorPhone: null,
+        mentorEmail: null,
       }),
     })
   })
 
-  it('only blocks on approved submissions from the current academic year', async () => {
+  it('directs existing users to update mentor information from their account', async () => {
     mocks.findUser.mockResolvedValue({ id: 'user-1' })
 
-    await POST(request(requiredApplication))
+    const response = await POST(request(requiredApplication))
+    const body = await response.json()
 
+    expect(response.status).toBe(409)
+    expect(body).toEqual({
+      error: 'An account with this email already exists. Please sign in; registration is only for new applicants.',
+    })
+    expect(mocks.createSubmission).not.toHaveBeenCalled()
+  })
+
+  it('blocks an email that already has an approved application', async () => {
+    mocks.findSubmission
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'registration-0' })
+
+    const response = await POST(request(requiredApplication))
+
+    expect(response.status).toBe(409)
     expect(mocks.findSubmission).toHaveBeenCalledWith({
       where: {
         email: 'student@example.com',
         status: 'APPROVED',
-        createdAt: { gte: new Date('2026-09-01') },
       },
       select: { id: true },
     })
@@ -151,8 +161,7 @@ describe('registration submission', () => {
     expect(mocks.createSubmission).not.toHaveBeenCalled()
   })
 
-  it('rejects a second approved submission in the same academic year', async () => {
-    mocks.findUser.mockResolvedValue({ id: 'user-1' })
+  it('rejects a second approved submission', async () => {
     mocks.findSubmission
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: 'registration-0' })

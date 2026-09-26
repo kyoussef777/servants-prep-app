@@ -454,7 +454,7 @@ function SubmissionDetailDialog({
           <div>
             <h4 className="font-semibold mb-2">Church Information</h4>
             <div className="text-sm">
-              <span className="text-gray-600">Father of Confession:</span> {submission.fatherOfConfessionName}
+              <span className="text-gray-600">Father of Confession:</span> {submission.fatherOfConfessionName || 'To be completed after approval'}
             </div>
           </div>
 

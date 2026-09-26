@@ -45,7 +45,7 @@ export interface EditableStudent {
     reviewedAt: string | null
     reviewNote: string | null
     approvalFormUrl: string | null
-    fatherOfConfessionName: string
+    fatherOfConfessionName: string | null
     mentorName: string | null
     mentorPhone: string | null
     mentorEmail: string | null
@@ -306,7 +306,7 @@ export function StudentProgramEditor({ student, onRefresh }: { student: Editable
                 {registration.reviewedAt && ` · Reviewed ${new Date(registration.reviewedAt).toLocaleDateString()}`}
                 {registration.reviewer && ` by ${registration.reviewer.name}`}
               </p>
-              <p><span className="text-gray-600">Father of confession listed:</span> {registration.fatherOfConfessionName}</p>
+              <p><span className="text-gray-600">Father of confession listed:</span> {registration.fatherOfConfessionName || 'Not provided'}</p>
               <p>
                 <span className="text-gray-600">Mentor listed:</span>{' '}
                 {[registration.mentorName, registration.mentorPhone, registration.mentorEmail].filter(Boolean).join(' · ') || 'Not provided'}

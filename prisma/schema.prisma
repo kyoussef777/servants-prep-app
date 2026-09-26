@@ -1317,7 +1317,7 @@ model RegistrationSubmission {
   fullName               String
   dateOfBirth            DateTime
   phone                  String
-  fatherOfConfessionName String
+  fatherOfConfessionName String?
   previouslyServed       Boolean
   currentlyServing       Boolean
   previouslyAttendedPrep Boolean

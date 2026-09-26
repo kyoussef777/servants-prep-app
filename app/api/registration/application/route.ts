@@ -4,30 +4,32 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { normalizeOptionalEmail } from '@/lib/email'
 import { prisma } from '@/lib/prisma'
 
-function getMissingDetails(submission: {
+type ApplicationDetails = {
+  fatherOfConfessionName: string | null
   approvalFormUrl: string | null
   approvalFormFilename: string | null
   mentorName: string | null
   mentorPhone: string | null
   mentorEmail: string | null
-}) {
+}
+
+function getMissingDetails(application: ApplicationDetails) {
   return [
-    !submission.approvalFormUrl || !submission.approvalFormFilename ? 'approvalForm' : null,
-    !submission.mentorName || !submission.mentorPhone || !submission.mentorEmail
+    !application.fatherOfConfessionName ? 'fatherOfConfession' : null,
+    !application.approvalFormUrl || !application.approvalFormFilename ? 'approvalForm' : null,
+    !application.mentorName || !application.mentorPhone || !application.mentorEmail
       ? 'mentorInformation'
       : null,
   ].filter((detail): detail is string => Boolean(detail))
 }
 
-async function getApprovedSubmission(userId: string) {
+async function getApprovedApplication(userId: string) {
   return prisma.registrationSubmission.findFirst({
-    where: {
-      createdUserId: userId,
-      status: RegistrationStatus.APPROVED,
-    },
+    where: { createdUserId: userId, status: RegistrationStatus.APPROVED },
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,
+      fatherOfConfessionName: true,
       approvalFormUrl: true,
       approvalFormFilename: true,
       mentorName: true,
@@ -40,15 +42,15 @@ async function getApprovedSubmission(userId: string) {
 export async function GET() {
   try {
     const user = await requireAuth()
-    const submission = await getApprovedSubmission(user.id)
+    const application = await getApprovedApplication(user.id)
 
-    if (!submission) {
+    if (!application) {
       return NextResponse.json({ error: 'Approved registration not found' }, { status: 404 })
     }
 
-    const missingDetails = getMissingDetails(submission)
+    const missingDetails = getMissingDetails(application)
     return NextResponse.json({
-      submission,
+      application,
       missingDetails,
       complete: missingDetails.length === 0,
     })
@@ -64,27 +66,47 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const user = await requireAuth()
-    const existingSubmission = await getApprovedSubmission(user.id)
+    const existingApplication = await getApprovedApplication(user.id)
 
-    if (!existingSubmission) {
+    if (!existingApplication) {
       return NextResponse.json({ error: 'Approved registration not found' }, { status: 404 })
     }
 
     const body = await request.json()
-    const mentorName = typeof body.mentorName === 'string' ? body.mentorName.trim() || null : null
-    const mentorPhone = typeof body.mentorPhone === 'string' ? body.mentorPhone.trim() || null : null
-    const mentorEmail = normalizeOptionalEmail(body.mentorEmail)
+    const fatherOfConfessionName = typeof body.fatherOfConfessionName === 'string'
+      ? body.fatherOfConfessionName.trim()
+      : ''
+    const mentorName = typeof body.mentorName === 'string' ? body.mentorName.trim() : ''
+    const mentorPhone = typeof body.mentorPhone === 'string' ? body.mentorPhone.trim() : ''
+    const mentorEmail = normalizeOptionalEmail(body.mentorEmail) ?? ''
 
-    if (mentorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mentorEmail)) {
+    if (!fatherOfConfessionName || !mentorName || !mentorPhone || !mentorEmail) {
+      return NextResponse.json(
+        { error: 'Father of confession and all mentor fields are required' },
+        { status: 400 }
+      )
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mentorEmail)) {
       return NextResponse.json({ error: 'Invalid mentor email format' }, { status: 400 })
     }
 
-    const submission = await prisma.$transaction(async (tx) => {
-      const updatedSubmission = await tx.registrationSubmission.update({
-        where: { id: existingSubmission.id },
-        data: { mentorName, mentorPhone, mentorEmail },
+    const application = await prisma.$transaction(async (tx) => {
+      let fatherOfConfession = await tx.fatherOfConfession.findFirst({
+        where: { name: { equals: fatherOfConfessionName, mode: 'insensitive' } },
+        select: { id: true },
+      })
+
+      fatherOfConfession ??= await tx.fatherOfConfession.create({
+        data: { name: fatherOfConfessionName, isActive: true },
+        select: { id: true },
+      })
+
+      const updatedApplication = await tx.registrationSubmission.update({
+        where: { id: existingApplication.id },
+        data: { fatherOfConfessionName, mentorName, mentorPhone, mentorEmail },
         select: {
           id: true,
+          fatherOfConfessionName: true,
           approvalFormUrl: true,
           approvalFormFilename: true,
           mentorName: true,
@@ -95,10 +117,14 @@ export async function PATCH(request: NextRequest) {
 
       await tx.studentEnrollment.updateMany({
         where: { studentId: user.id },
-        data: { mentorName, mentorPhone },
+        data: {
+          fatherOfConfessionId: fatherOfConfession.id,
+          mentorName,
+          mentorPhone,
+        },
       })
 
-      if (getMissingDetails(updatedSubmission).length === 0) {
+      if (getMissingDetails(updatedApplication).length === 0) {
         await tx.notification.deleteMany({
           where: {
             userId: user.id,
@@ -108,12 +134,12 @@ export async function PATCH(request: NextRequest) {
         })
       }
 
-      return updatedSubmission
+      return updatedApplication
     })
 
-    const missingDetails = getMissingDetails(submission)
+    const missingDetails = getMissingDetails(application)
     return NextResponse.json({
-      submission,
+      application,
       missingDetails,
       complete: missingDetails.length === 0,
     })

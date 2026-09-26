@@ -102,9 +102,9 @@ describe('NotificationBell', () => {
       {
         id: 'required-1',
         type: 'REGISTRATION_INCOMPLETE',
-        title: 'Complete Your Registration',
+        title: 'Complete Your Application',
         body: 'Please add your remaining registration details.',
-        url: '/dashboard/student/registration',
+        url: '/dashboard/student/application',
         isRead: false,
         isPersistent: true,
         createdAt: new Date().toISOString(),
@@ -121,7 +121,7 @@ describe('NotificationBell', () => {
     expect(screen.queryByRole('button', { name: /Mark all read/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /Clear all notifications/i })).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: /Complete Your Registration/i }))
-    expect(mocks.push).toHaveBeenCalledWith('/dashboard/student/registration')
+    await user.click(screen.getByRole('button', { name: /Complete Your Application/i }))
+    expect(mocks.push).toHaveBeenCalledWith('/dashboard/student/application')
   })
 })

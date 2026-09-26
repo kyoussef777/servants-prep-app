@@ -8,13 +8,13 @@ const ALLOWED_FILE_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/gif',
-  'application/pdf',
 ]
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024 // 4.5 MB (Vercel's server upload limit)
 
 /**
  * POST /api/registration/upload
- * Upload approval form to Vercel Blob (public endpoint, gated by invite code)
+ * Upload the registration profile image to Vercel Blob (public endpoint,
+ * gated by invite code). Approval forms are uploaded after account creation.
  * Requires valid invite code in x-invite-code header
  */
 export async function POST(req: NextRequest) {
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     // Upload to Vercel Blob
     const blob = await put(
-      `registrations/${Date.now()}-${file.name}`,
+      `registrations/profile-images/${Date.now()}-${file.name}`,
       file,
       {
         access: 'public',

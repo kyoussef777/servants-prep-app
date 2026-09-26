@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { isInviteCodeValid } from '@/lib/registration-utils'
 import { StudentGrade, RegistrationStatus } from '@prisma/client'
 import { notifyNewRegistration } from '@/lib/notifications'
-import { normalizeEmail, normalizeOptionalEmail } from '@/lib/email'
+import { normalizeEmail } from '@/lib/email'
 
 /**
  * POST /api/registration/submit
@@ -18,27 +18,15 @@ export async function POST(req: NextRequest) {
       fullName,
       dateOfBirth,
       phone,
-      fatherOfConfessionName,
       previouslyServed,
       currentlyServing,
       previouslyAttendedPrep,
       previousPrepLocation,
       grade,
-      approvalFormUrl,
-      approvalFormFilename,
       profileImageUrl,
       profileImageFilename,
-      mentorName,
-      mentorPhone,
-      mentorEmail,
     } = body
     const normalizedEmail = normalizeEmail(email)
-    const normalizedMentorEmail = normalizeOptionalEmail(mentorEmail)
-    const normalizedMentorName = typeof mentorName === 'string' ? mentorName.trim() || null : null
-    const normalizedMentorPhone = typeof mentorPhone === 'string' ? mentorPhone.trim() || null : null
-    const normalizedApprovalFormUrl = typeof approvalFormUrl === 'string' ? approvalFormUrl.trim() || null : null
-    const normalizedApprovalFormFilename = typeof approvalFormFilename === 'string' ? approvalFormFilename.trim() || null : null
-    const hasApprovalForm = Boolean(normalizedApprovalFormUrl && normalizedApprovalFormFilename)
 
     // Validate required fields
     if (
@@ -47,7 +35,6 @@ export async function POST(req: NextRequest) {
       !fullName ||
       !dateOfBirth ||
       !phone ||
-      !fatherOfConfessionName ||
       previouslyServed === undefined ||
       currentlyServing === undefined ||
       previouslyAttendedPrep === undefined ||
@@ -63,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(normalizedEmail) || (normalizedMentorEmail && !emailRegex.test(normalizedMentorEmail))) {
+    if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }
@@ -119,12 +106,18 @@ export async function POST(req: NextRequest) {
         throw new Error('Invite code has reached maximum usage')
       }
 
-      // Existing users re-register every year. Link the submission to their
-      // account so approval updates it instead of creating a duplicate user.
+      // Registration is only for new applicants. Existing users complete
+      // their application from inside their account.
       const existingUser = await tx.user.findUnique({
         where: { email: normalizedEmail },
         select: { id: true },
       })
+
+      if (existingUser) {
+        throw new Error(
+          'An account with this email already exists. Please sign in; registration is only for new applicants.'
+        )
+      }
 
       // One open application per email at a time
       const pendingSubmission = await tx.registrationSubmission.findFirst({
@@ -139,31 +132,16 @@ export async function POST(req: NextRequest) {
         throw new Error('A registration with this email is already pending review')
       }
 
-      // An approved application only blocks a new one within the same
-      // academic year. With no active year, fall back to blocking approved
-      // applications for emails that do not have an account yet.
-      const activeYear = await tx.academicYear.findFirst({
-        where: { isActive: true },
-        select: { startDate: true },
+      const approvedSubmission = await tx.registrationSubmission.findFirst({
+        where: {
+          email: normalizedEmail,
+          status: RegistrationStatus.APPROVED,
+        },
+        select: { id: true },
       })
 
-      if (activeYear || !existingUser) {
-        const approvedSubmission = await tx.registrationSubmission.findFirst({
-          where: {
-            email: normalizedEmail,
-            status: RegistrationStatus.APPROVED,
-            ...(activeYear ? { createdAt: { gte: activeYear.startDate } } : {}),
-          },
-          select: { id: true },
-        })
-
-        if (approvedSubmission) {
-          throw new Error(
-            activeYear
-              ? 'A registration with this email has already been approved for this year'
-              : 'A registration with this email has already been approved'
-          )
-        }
+      if (approvedSubmission) {
+        throw new Error('A registration with this email has already been approved')
       }
 
       // Create submission
@@ -175,20 +153,20 @@ export async function POST(req: NextRequest) {
           fullName,
           dateOfBirth: new Date(dateOfBirth),
           phone,
-          fatherOfConfessionName,
+          fatherOfConfessionName: null,
           previouslyServed,
           currentlyServing,
           previouslyAttendedPrep,
           previousPrepLocation: previousPrepLocation || null,
           grade: grade as StudentGrade,
-          approvalFormUrl: hasApprovalForm ? normalizedApprovalFormUrl : null,
-          approvalFormFilename: hasApprovalForm ? normalizedApprovalFormFilename : null,
+          approvalFormUrl: null,
+          approvalFormFilename: null,
           profileImageUrl,
           profileImageFilename,
-          mentorName: normalizedMentorName,
-          mentorPhone: normalizedMentorPhone,
-          mentorEmail: normalizedMentorEmail,
-          createdUserId: existingUser?.id ?? null,
+          mentorName: null,
+          mentorPhone: null,
+          mentorEmail: null,
+          createdUserId: null,
         },
       })
 
@@ -215,7 +193,7 @@ export async function POST(req: NextRequest) {
       {
         id: submission.id,
         message:
-          'Registration submitted successfully! Your application is under review.',
+          'Registration submitted successfully! Your registration is under review.',
       },
       { status: 201 }
     )

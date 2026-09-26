@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
 import { StudentGrade } from '@prisma/client'
 import { getGradeDisplayName } from '@/lib/registration-utils'
-import { Upload, CheckCircle2, Loader2, Download, Camera } from 'lucide-react'
+import { CheckCircle2, Loader2, Camera } from 'lucide-react'
 
 type RegistrationStep = 'CODE' | 'FORM' | 'CONFIRMATION'
 
@@ -20,19 +20,13 @@ interface FormData {
   fullName: string
   dateOfBirth: string
   phone: string
-  fatherOfConfessionName: string
   previouslyServed: string
   currentlyServing: string
   previouslyAttendedPrep: string
   previousPrepLocation: string
   grade: string
-  approvalFormUrl: string
-  approvalFormFilename: string
   profileImageUrl: string
   profileImageFilename: string
-  mentorName: string
-  mentorPhone: string
-  mentorEmail: string
 }
 
 export default function RegistrationForm({ yearName }: { yearName: string | null }) {
@@ -41,7 +35,6 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
   const [codeLabel, setCodeLabel] = useState<string | null>(null)
   const [isValidating, setIsValidating] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
   const [isUploadingProfilePic, setIsUploadingProfilePic] = useState(false)
 
   const [formData, setFormData] = useState<FormData>({
@@ -49,19 +42,13 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
     fullName: '',
     dateOfBirth: '',
     phone: '',
-    fatherOfConfessionName: '',
     previouslyServed: '',
     currentlyServing: '',
     previouslyAttendedPrep: '',
     previousPrepLocation: '',
     grade: '',
-    approvalFormUrl: '',
-    approvalFormFilename: '',
     profileImageUrl: '',
     profileImageFilename: '',
-    mentorName: '',
-    mentorPhone: '',
-    mentorEmail: '',
   })
 
   const handleValidateCode = async () => {
@@ -91,55 +78,6 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
       toast.error('Failed to validate invite code')
     } finally {
       setIsValidating(false)
-    }
-  }
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'application/pdf']
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Invalid file type. Please upload PNG, JPG, GIF, or PDF')
-      return
-    }
-
-    // Validate file size (4.5 MB)
-    if (file.size > 4.5 * 1024 * 1024) {
-      toast.error('File size exceeds 4.5 MB limit')
-      return
-    }
-
-    setIsUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await fetch('/api/registration/upload', {
-        method: 'POST',
-        headers: {
-          'x-invite-code': inviteCode.trim().toUpperCase(),
-        },
-        body: formData,
-      })
-
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Upload failed')
-      }
-
-      const data = await res.json()
-      setFormData((prev) => ({
-        ...prev,
-        approvalFormUrl: data.url,
-        approvalFormFilename: data.filename,
-      }))
-      toast.success('File uploaded successfully!')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to upload file')
-    } finally {
-      setIsUploading(false)
     }
   }
 
@@ -241,7 +179,6 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
       'fullName',
       'dateOfBirth',
       'phone',
-      'fatherOfConfessionName',
       'previouslyServed',
       'currentlyServing',
       'previouslyAttendedPrep',
@@ -269,7 +206,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
             </div>
             <CardTitle className="text-2xl sm:text-3xl">St. Paul&apos;s Servants Prep</CardTitle>
             <CardDescription className="text-base mt-2">
-              Application for Servants Prep{yearName && ` ${yearName}`}
+              Registration for Servants Prep{yearName && ` ${yearName}`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 px-6 pb-8">
@@ -315,19 +252,19 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
             <div className="flex justify-center">
               <CheckCircle2 className="w-24 h-24 text-green-600" />
             </div>
-            <CardTitle className="text-2xl sm:text-3xl text-green-600">Application Submitted!</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl text-green-600">Registration Submitted!</CardTitle>
             <CardDescription className="text-base mt-2">
-              Your application has been received and is under review.
+              Your registration has been received and is under review.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 px-6 pb-8">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
               <p className="font-semibold text-green-900 mb-2">What happens next?</p>
               <ul className="list-disc list-inside space-y-1 text-green-800">
-                <li>Our admins will review your application</li>
+                <li>Our admins will review your registration</li>
                 <li>You&apos;ll be notified once a decision is made</li>
                 <li>If approved, you&apos;ll receive login credentials via your mentor</li>
-                <li>Any optional approval or mentor details can be completed from your account</li>
+                <li>After approval, sign in to complete the rest of your application</li>
               </ul>
             </div>
             <p className="text-center text-sm text-gray-600">
@@ -345,7 +282,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
         <Card className="border-2 border-maroon-600 shadow-lg">
           <CardHeader className="space-y-4 pb-6">
             <div className="flex items-center justify-between mb-2">
-              <CardTitle className="text-2xl sm:text-3xl">Servants Prep Application</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">Servants Prep Registration</CardTitle>
               {codeLabel && (
                 <Badge variant="outline" className="text-xs">
                   {codeLabel}
@@ -464,22 +401,6 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                 </div>
               </div>
 
-              {/* Church Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Church Information</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="fatherOfConfession">Your Father of Confession *</Label>
-                  <Input
-                    id="fatherOfConfession"
-                    required
-                    value={formData.fatherOfConfessionName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, fatherOfConfessionName: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
               {/* Service History */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Service History</h3>
@@ -576,116 +497,11 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                 </div>
               </div>
 
-              {/* Approval Form Upload */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Approval Form (optional)</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="approvalForm">
-                    Upload your signed form documenting approval of your mentor servant and father
-                    of confession
-                  </Label>
-                  <p className="text-sm text-gray-600">
-                    You may submit your application now and upload this after your account is approved.
-                  </p>
-                  <a
-                    href="https://drive.google.com/file/d/1ebGILBc8OAAPaTWbpmwLDDqjEm-lnbQ7/view?usp=drivesdk"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-maroon-600 hover:underline mb-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download Approval Form Template
-                  </a>
-                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                    {formData.approvalFormUrl ? (
-                      <div className="space-y-2">
-                        <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto" />
-                        <p className="text-sm font-medium">{formData.approvalFormFilename}</p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setFormData({ ...formData, approvalFormUrl: '', approvalFormFilename: '' })
-                          }
-                        >
-                          Change File
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Upload className="w-12 h-12 text-gray-400 mx-auto" />
-                        <div>
-                          <Label
-                            htmlFor="approvalForm"
-                            className="cursor-pointer text-maroon-600 hover:underline"
-                          >
-                            Click to upload
-                          </Label>
-                          <Input
-                            id="approvalForm"
-                            type="file"
-                            accept="image/*,application/pdf"
-                            className="hidden"
-                            onChange={handleFileUpload}
-                            disabled={isUploading}
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          PNG, JPG, GIF, or PDF (Max 4.5 MB)
-                        </p>
-                        {isUploading && (
-                          <p className="text-sm text-maroon-600 font-medium">Uploading...</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Mentor Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-maroon-600">Mentor Servant Information (optional)</h3>
-                <p className="text-sm text-gray-600">
-                  You may leave this section blank and complete it from your account after approval.
-                </p>
-                <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mentorName">Mentor Servant&apos;s Name</Label>
-                    <Input
-                      id="mentorName"
-                      value={formData.mentorName}
-                      onChange={(e) => setFormData({ ...formData, mentorName: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="mentorPhone">Mentor Servant&apos;s Phone Number</Label>
-                      <Input
-                        id="mentorPhone"
-                        type="tel"
-                        value={formData.mentorPhone}
-                        onChange={(e) => setFormData({ ...formData, mentorPhone: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="mentorEmail">Mentor Servant&apos;s Email</Label>
-                      <Input
-                        id="mentorEmail"
-                        type="email"
-                        value={formData.mentorEmail}
-                        onChange={(e) => setFormData({ ...formData, mentorEmail: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* Submit Button */}
               <div className="pt-4">
                 <Button
                   type="submit"
-                  disabled={isSubmitting || isUploading || isUploadingProfilePic || !formData.profileImageUrl}
+                  disabled={isSubmitting || isUploadingProfilePic || !formData.profileImageUrl}
                   className="w-full bg-maroon-600 hover:bg-maroon-700"
                   size="lg"
                 >
@@ -695,7 +511,7 @@ export default function RegistrationForm({ yearName }: { yearName: string | null
                       Submitting...
                     </>
                   ) : (
-                    'Submit Application'
+                    'Submit Registration'
                   )}
                 </Button>
                 <p className="text-xs text-center text-gray-500 mt-2">

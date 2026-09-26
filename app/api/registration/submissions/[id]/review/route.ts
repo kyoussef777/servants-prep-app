@@ -11,8 +11,8 @@ import { backfillAttendanceForStudent } from '@/lib/api-utils'
 
 /**
  * POST /api/registration/submissions/[id]/review
- * Approve or reject a registration submission. Approving a returning
- * applicant's submission updates their existing account instead of creating one.
+ * Approve or reject a registration submission. New applications create an
+ * account; the existing-user branch remains for pending legacy submissions.
  * Auth: SUPER_ADMIN, SERVANT_PREP
  */
 export async function POST(
@@ -75,25 +75,27 @@ export async function POST(
 
         // Find or create Father of Confession
         let fatherOfConfessionId: string | null = null
-        const existingFoC = await tx.fatherOfConfession.findFirst({
-          where: {
-            name: {
-              equals: submission.fatherOfConfessionName,
-              mode: 'insensitive',
-            },
-          },
-        })
-
-        if (existingFoC) {
-          fatherOfConfessionId = existingFoC.id
-        } else {
-          const newFoC = await tx.fatherOfConfession.create({
-            data: {
-              name: submission.fatherOfConfessionName,
-              isActive: true,
+        if (submission.fatherOfConfessionName) {
+          const existingFoC = await tx.fatherOfConfession.findFirst({
+            where: {
+              name: {
+                equals: submission.fatherOfConfessionName,
+                mode: 'insensitive',
+              },
             },
           })
-          fatherOfConfessionId = newFoC.id
+
+          if (existingFoC) {
+            fatherOfConfessionId = existingFoC.id
+          } else {
+            const newFoC = await tx.fatherOfConfession.create({
+              data: {
+                name: submission.fatherOfConfessionName,
+                isActive: true,
+              },
+            })
+            fatherOfConfessionId = newFoC.id
+          }
         }
 
         let userId: string
@@ -101,8 +103,8 @@ export async function POST(
         let shouldBackfillAttendance = true
 
         if (existingUser) {
-          // Yearly re-registration: refresh contact details on the existing
-          // account. Password, role, and year level stay as they are.
+          // Preserve compatibility with a pending legacy submission that was
+          // linked before existing-account registrations were disabled.
           userId = existingUser.id
           await tx.user.update({
             where: { id: existingUser.id },
@@ -145,7 +147,7 @@ export async function POST(
             shouldBackfillAttendance = false
           }
 
-          // Replace any reminder left over from a previous year's registration
+          // Replace any reminder left over from the legacy submission.
           await tx.notification.deleteMany({
             where: {
               userId: existingUser.id,
@@ -188,11 +190,14 @@ export async function POST(
           })
         }
 
+        const hasMentorInformation = Boolean(
+          submission.mentorName && submission.mentorPhone && submission.mentorEmail
+        )
+
         const missingRegistrationDetails = [
+          !submission.fatherOfConfessionName ? 'father of confession' : null,
           !submission.approvalFormUrl || !submission.approvalFormFilename ? 'approval form' : null,
-          !submission.mentorName || !submission.mentorPhone || !submission.mentorEmail
-            ? 'mentor servant information'
-            : null,
+          !hasMentorInformation ? 'mentor servant information' : null,
         ].filter((detail): detail is string => Boolean(detail))
 
         if (missingRegistrationDetails.length > 0) {
@@ -200,9 +205,9 @@ export async function POST(
             data: {
               userId,
               type: NotificationType.REGISTRATION_INCOMPLETE,
-              title: 'Complete Your Registration',
-              body: `Please add your ${missingRegistrationDetails.join(' and ')}. This reminder will remain until your registration is complete.`,
-              url: '/dashboard/student/registration',
+              title: 'Complete Your Application',
+              body: `Please add your ${missingRegistrationDetails.join(' and ')}. This reminder will remain until your application is complete.`,
+              url: '/dashboard/student/application',
               isPersistent: true,
               metadata: {
                 registrationId: submission.id,
