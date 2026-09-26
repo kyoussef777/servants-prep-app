@@ -55,4 +55,19 @@ describe('attendance backfill for promoted students', () => {
     ).resolves.toBe(0)
     expect(tx.lesson.findMany).not.toHaveBeenCalled()
   })
+
+  it('handles a newly active production year with no recorded lessons', async () => {
+    const tx = {
+      lesson: { findMany: vi.fn().mockResolvedValue([]) },
+      attendanceRecord: { findMany: vi.fn(), createMany: vi.fn() },
+    }
+
+    const studentIds = Array.from({ length: 39 }, (_, index) => `student-${index + 1}`)
+
+    await expect(
+      backfillAttendanceForStudents(studentIds, 'active-2026-2027', tx as never)
+    ).resolves.toBe(0)
+    expect(tx.attendanceRecord.findMany).not.toHaveBeenCalled()
+    expect(tx.attendanceRecord.createMany).not.toHaveBeenCalled()
+  })
 })
