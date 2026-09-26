@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
+import { isMissingNotificationPersistenceColumn } from '@/lib/notification-schema-compat'
 
 // PATCH /api/notifications/read - Mark notifications as read
 export async function PATCH(request: NextRequest) {
@@ -9,20 +10,25 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const { notificationIds, markAllRead } = body
 
-    if (markAllRead) {
-      await prisma.notification.updateMany({
-        where: { userId: user.id, isRead: false, isPersistent: false },
-        data: { isRead: true },
-      })
-    } else if (notificationIds && Array.isArray(notificationIds)) {
-      await prisma.notification.updateMany({
-        where: {
-          id: { in: notificationIds },
-          userId: user.id,
-          isPersistent: false,
-        },
-        data: { isRead: true },
-      })
+    const where = markAllRead
+      ? { userId: user.id, isRead: false }
+      : notificationIds && Array.isArray(notificationIds)
+        ? { id: { in: notificationIds }, userId: user.id }
+        : null
+
+    if (where) {
+      try {
+        await prisma.notification.updateMany({
+          where: { ...where, isPersistent: false },
+          data: { isRead: true },
+        })
+      } catch (error: unknown) {
+        if (!isMissingNotificationPersistenceColumn(error)) throw error
+        await prisma.notification.updateMany({
+          where,
+          data: { isRead: true },
+        })
+      }
     } else {
       return NextResponse.json(
         { error: 'Provide notificationIds or markAllRead' },
