@@ -22,10 +22,19 @@ interface ApplicationDetails {
   mentorEmail: string | null
 }
 
+interface AcademicYearSummary {
+  id: string
+  name: string
+}
+
 export default function CompleteApplicationPage() {
   const { session, status } = useAdminGuard(isStudent)
   const [details, setDetails] = useState<ApplicationDetails | null>(null)
   const [complete, setComplete] = useState(false)
+  const [showChurchInformation, setShowChurchInformation] = useState(true)
+  const [showApprovalForm, setShowApprovalForm] = useState(true)
+  const [annualMentorRequired, setAnnualMentorRequired] = useState(false)
+  const [academicYear, setAcademicYear] = useState<AcademicYearSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -39,6 +48,10 @@ export default function CompleteApplicationPage() {
         if (!response.ok) throw new Error(data.error || 'Unable to load application')
         setDetails(data.application)
         setComplete(data.complete)
+        setShowChurchInformation(data.showChurchInformation)
+        setShowApprovalForm(data.showApprovalForm)
+        setAnnualMentorRequired(data.annualMentorRequired)
+        setAcademicYear(data.academicYear)
       })
       .catch((error) => toast.error(error instanceof Error ? error.message : 'Unable to load application'))
       .finally(() => setLoading(false))
@@ -96,8 +109,16 @@ export default function CompleteApplicationPage() {
 
       setDetails(data.application)
       setComplete(data.complete)
+      setShowChurchInformation(data.showChurchInformation)
+      setShowApprovalForm(data.showApprovalForm)
+      setAnnualMentorRequired(data.annualMentorRequired)
+      setAcademicYear(data.academicYear)
       if (data.complete) void mutate('/api/notifications?limit=15')
-      toast.success(data.complete ? 'Application completed' : 'Application details saved')
+      toast.success(
+        annualMentorRequired
+          ? 'Mentor information confirmed'
+          : data.complete ? 'Application completed' : 'Application details saved'
+      )
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to save application')
     } finally {
@@ -124,8 +145,10 @@ export default function CompleteApplicationPage() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
         <PageHeader
-          title="Complete Your Application"
-          description="Add the remaining church and mentor information after your registration was approved."
+          title={annualMentorRequired ? 'Confirm Your Mentor Information' : 'Complete Your Application'}
+          description={annualMentorRequired
+            ? `Confirm your mentor servant contact information for ${academicYear?.name ?? 'the current academic year'}.`
+            : 'Add the remaining church and mentor information after your registration was approved.'}
         />
 
         {complete ? (
@@ -133,8 +156,14 @@ export default function CompleteApplicationPage() {
             <CardContent className="flex items-start gap-3 pt-6">
               <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-green-700" />
               <div>
-                <p className="font-semibold text-green-900">Your application is complete.</p>
-                <p className="mt-1 text-sm text-green-800">The application reminder has been cleared.</p>
+                <p className="font-semibold text-green-900">
+                  {annualMentorRequired ? 'Your mentor information is confirmed.' : 'Your application is complete.'}
+                </p>
+                <p className="mt-1 text-sm text-green-800">
+                  {annualMentorRequired
+                    ? `You are up to date for ${academicYear?.name ?? 'the current academic year'}.`
+                    : 'The application reminder has been cleared.'}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -150,26 +179,32 @@ export default function CompleteApplicationPage() {
         )}
 
         <form onSubmit={saveApplication} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Church Information</CardTitle>
-              <CardDescription>Tell us who your father of confession is.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Label htmlFor="father-of-confession">Father of Confession</Label>
-              <Input
-                id="father-of-confession"
-                required
-                value={details.fatherOfConfessionName ?? ''}
-                onChange={(event) => setDetails({ ...details, fatherOfConfessionName: event.target.value })}
-              />
-            </CardContent>
-          </Card>
+          {showChurchInformation && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Church Information</CardTitle>
+                <CardDescription>Tell us who your father of confession is.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Label htmlFor="father-of-confession">Father of Confession</Label>
+                <Input
+                  id="father-of-confession"
+                  required
+                  value={details.fatherOfConfessionName ?? ''}
+                  onChange={(event) => setDetails({ ...details, fatherOfConfessionName: event.target.value })}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
               <CardTitle>Mentor Servant Information</CardTitle>
-              <CardDescription>Provide your mentor servant&apos;s contact information.</CardDescription>
+              <CardDescription>
+                {annualMentorRequired
+                  ? `Confirm or update these details for ${academicYear?.name ?? 'the current academic year'}.`
+                  : 'Provide your mentor servant\'s contact information.'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -205,13 +240,13 @@ export default function CompleteApplicationPage() {
               </div>
               <Button type="submit" disabled={saving} className="bg-maroon-600 hover:bg-maroon-700">
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save application details
+                {annualMentorRequired ? 'Confirm mentor information' : 'Save application details'}
               </Button>
             </CardContent>
           </Card>
         </form>
 
-        <Card>
+        {showApprovalForm && <Card>
           <CardHeader>
             <CardTitle>Approval Form</CardTitle>
             <CardDescription>Upload the signed approval form from your mentor servant and father of confession.</CardDescription>
@@ -256,7 +291,7 @@ export default function CompleteApplicationPage() {
               <p className="mt-2 text-xs text-gray-500">PNG, JPG, GIF, or PDF (maximum 4.5 MB)</p>
             </div>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
     </div>
   )

@@ -3,16 +3,21 @@ import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
+  getAnnualMentorRequirement: vi.fn(),
   findApplication: vi.fn(),
   updateApplication: vi.fn(),
   findFather: vi.fn(),
   createFather: vi.fn(),
   updateEnrollment: vi.fn(),
   deleteNotifications: vi.fn(),
+  upsertAnnualMentorInformation: vi.fn(),
   transaction: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
+vi.mock('@/lib/annual-mentor-information', () => ({
+  getAnnualMentorRequirement: mocks.getAnnualMentorRequirement,
+}))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     registrationSubmission: { findFirst: mocks.findApplication },
@@ -51,6 +56,7 @@ describe('post-approval application', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.requireAuth.mockResolvedValue({ id: 'student-1', role: 'STUDENT' })
+    mocks.getAnnualMentorRequirement.mockResolvedValue(null)
     mocks.findApplication.mockResolvedValue(incompleteApplication)
     mocks.findFather.mockResolvedValue({ id: 'father-1' })
     mocks.updateEnrollment.mockResolvedValue({ count: 1 })
@@ -62,6 +68,7 @@ describe('post-approval application', () => {
       },
       registrationSubmission: { update: mocks.updateApplication },
       studentEnrollment: { updateMany: mocks.updateEnrollment },
+      annualMentorInformation: { upsert: mocks.upsertAnnualMentorInformation },
       notification: { deleteMany: mocks.deleteNotifications },
     }))
   })
@@ -131,5 +138,68 @@ describe('post-approval application', () => {
 
     expect(response.status).toBe(400)
     expect(mocks.updateApplication).not.toHaveBeenCalled()
+  })
+
+  it('lets an already-promoted legacy student confirm mentor information without a registration record', async () => {
+    mocks.findApplication.mockResolvedValue(null)
+    mocks.getAnnualMentorRequirement.mockResolvedValue({
+      activeYear: { id: 'year-2026', name: '2026-2027' },
+      enrollment: {
+        id: 'enrollment-1',
+        isActive: true,
+        yearLevel: 'YEAR_2',
+        mentorName: 'Previous Mentor',
+        mentorPhone: '555-0100',
+      },
+      information: null,
+    })
+    mocks.upsertAnnualMentorInformation.mockResolvedValue({ id: 'annual-1' })
+
+    const getResponse = await GET()
+    const getBody = await getResponse.json()
+
+    expect(getResponse.status).toBe(200)
+    expect(getBody).toMatchObject({
+      annualMentorRequired: true,
+      showChurchInformation: false,
+      showApprovalForm: false,
+      complete: false,
+      missingDetails: ['mentorInformation'],
+      application: {
+        mentorName: 'Previous Mentor',
+        mentorPhone: '555-0100',
+      },
+    })
+
+    const response = await PATCH(patchRequest({
+      mentorName: 'Current Mentor',
+      mentorPhone: '555-0111',
+      mentorEmail: 'current@example.com',
+    }))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.complete).toBe(true)
+    expect(mocks.upsertAnnualMentorInformation).toHaveBeenCalledWith({
+      where: {
+        studentId_academicYearId: {
+          studentId: 'student-1',
+          academicYearId: 'year-2026',
+        },
+      },
+      create: {
+        studentId: 'student-1',
+        academicYearId: 'year-2026',
+        mentorName: 'Current Mentor',
+        mentorPhone: '555-0111',
+        mentorEmail: 'current@example.com',
+      },
+      update: {
+        mentorName: 'Current Mentor',
+        mentorPhone: '555-0111',
+        mentorEmail: 'current@example.com',
+        submittedAt: expect.any(Date),
+      },
+    })
   })
 })

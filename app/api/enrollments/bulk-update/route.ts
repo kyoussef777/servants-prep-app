@@ -98,6 +98,16 @@ export async function POST(req: NextRequest) {
           activeAcademicYearId,
           tx
         )
+
+        // Promotion starts a fresh Year 2 mentor confirmation. The persistent
+        // notification is generated from this missing record the next time the
+        // student's notification feed loads (including for older promotions).
+        await tx.annualMentorInformation.deleteMany({
+          where: {
+            studentId: { in: promotedStudentIds },
+            academicYearId: activeAcademicYearId,
+          },
+        })
       }
 
       return {
