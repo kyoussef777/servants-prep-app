@@ -1,4 +1,4 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { router, Stack } from "expo-router";
 import { getLevelDisplayName } from "@stmark/domain";
 import {
@@ -6,14 +6,16 @@ import {
   Button,
   CalendarDate,
   Card,
+  CompactRow,
+  ConnectionBadge,
   Copy,
   Icon,
-  ConnectionBadge,
-  RowLink,
+  ListSurface,
   Screen,
   SectionTitle,
   styles,
 } from "@/components/ui";
+import { TopActions } from "@/components/top-actions";
 import { attendanceKey, meetingDate, usePortal } from "@/data/portal-provider";
 import { DataStatus } from "@/components/data-status";
 import { useAppTheme } from "@/theme";
@@ -24,166 +26,178 @@ export default function Home() {
     attendance,
     classes,
     lessons,
-    unreadCount: unread,
+    unreadCount,
     loading,
     error,
     refresh,
   } = usePortal();
   const pending = classes.filter(
-    (cls) =>
-      cls.canServe && !attendance[attendanceKey(cls.id, meetingDate(cls))],
+    (schoolClass) =>
+      schoolClass.canServe &&
+      !attendance[attendanceKey(schoolClass.id, meetingDate(schoolClass))],
   );
-  const nextClass = pending[0] ?? classes[0];
+  const primaryClass = pending[0] ?? classes[0];
+  const attendanceRecorded = primaryClass
+    ? !!attendance[attendanceKey(primaryClass.id, meetingDate(primaryClass))]
+    : false;
+  const childCount = classes.reduce(
+    (total, schoolClass) => total + (schoolClass._count?.children ?? 0),
+    0,
+  );
+
   return (
     <>
       <Stack.Screen
         options={{
           title: "Sunday School",
           headerRight: () => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Notifications, ${unread} unread`}
-              onPress={() => router.push("/notifications")}
-              style={{
-                minWidth: 44,
-                minHeight: 44,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Icon ios="bell" android="notifications" />
-              {unread > 0 && (
-                <View
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: 4,
-                    position: "absolute",
-                    top: 8,
-                    right: 9,
-                    backgroundColor: colors.action,
-                  }}
-                />
-              )}
-            </Pressable>
+            <TopActions unread={unreadCount} notifications />
           ),
         }}
       />
       <Screen refreshing={loading} onRefresh={() => void refresh()}>
-        <View style={{ gap: 18 }}>
+        <View style={[styles.row, { justifyContent: "space-between" }]}>
           <Brand />
           <ConnectionBadge />
         </View>
-        <View style={{ gap: 10 }}>
-          <Copy kind="title">Overview</Copy>
-          <Copy color={colors.muted}>
-            Classes, attendance, and upcoming lessons.
-          </Copy>
-        </View>
         <DataStatus />
+
         {!loading && !error && !classes.length && (
           <Card>
-            <Copy>No classes are assigned to this account yet.</Copy>
+            <Copy kind="heading">No assigned class</Copy>
+            <Copy kind="caption">
+              Your Sunday School assignment will appear here when it is ready.
+            </Copy>
           </Card>
         )}
-        {nextClass && (
-          <Card
-            style={{
-              backgroundColor: colors.hero,
-              borderColor: colors.hero,
-              padding: 24,
-            }}
-          >
-            <View style={[styles.row, { justifyContent: "space-between" }]}>
-              <Copy kind="eyebrow" color="#F9D0D9">
-                THIS WEEK
-              </Copy>
-              <Icon
-                ios="checklist"
-                android="checklist"
-                size={26}
-                color="#F9D0D9"
+
+        {primaryClass && (
+          <View style={{ gap: 10 }}>
+            <SectionTitle title="This week" />
+            <Card style={{ padding: 18, gap: 14 }}>
+              <View style={[styles.row, { alignItems: "flex-start" }]}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 15,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: colors.primarySoft,
+                  }}
+                >
+                  <Icon ios="person.2.fill" android="groups" size={21} />
+                </View>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Copy kind="heading">{primaryClass.name}</Copy>
+                  <Copy kind="caption">
+                    {getLevelDisplayName(primaryClass.level)} ·{" "}
+                    {primaryClass._count?.children ?? 0}{" "}
+                    {(primaryClass._count?.children ?? 0) === 1
+                      ? "child"
+                      : "children"}
+                  </Copy>
+                </View>
+                <View
+                  style={[
+                    styles.pill,
+                    {
+                      backgroundColor: attendanceRecorded
+                        ? colors.successSoft
+                        : colors.warningSoft,
+                    },
+                  ]}
+                >
+                  <Copy
+                    kind="caption"
+                    color={attendanceRecorded ? colors.success : colors.warning}
+                  >
+                    {attendanceRecorded ? "Recorded" : "To do"}
+                  </Copy>
+                </View>
+              </View>
+              <Button
+                label={
+                  primaryClass.canServe
+                    ? attendanceRecorded
+                      ? "Review attendance"
+                      : "Take attendance"
+                    : "View attendance"
+                }
+                onPress={() =>
+                  router.push({
+                    pathname: "/attendance/[classId]",
+                    params: { classId: primaryClass.id },
+                  })
+                }
               />
-            </View>
-            <Copy kind="heading" color={colors.onHero}>
-              {pending.length
-                ? "Attendance is ready."
-                : "Attendance is complete."}
-            </Copy>
-            <Copy color="#FCE7EB">
-              {pending.length
-                ? `${pending.length} ${pending.length === 1 ? "class needs" : "classes need"} attendance. Next: ${nextClass.name}.`
-                : "Attendance is recorded for all assigned classes."}
-            </Copy>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() =>
-                router.push({
-                  pathname: "/attendance/[classId]",
-                  params: { classId: nextClass.id },
-                })
-              }
-              style={({ pressed }) => [
-                styles.button,
-                {
-                  backgroundColor: "#FFFFFF",
-                  opacity: pressed ? 0.85 : 1,
-                  flexDirection: "row",
-                  gap: 10,
-                },
-              ]}
+            </Card>
+          </View>
+        )}
+
+        {!!classes.length && (
+          <ListSurface>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                minHeight: 76,
+              }}
             >
-              <Icon
-                ios="checkmark.circle"
-                android="check_circle"
-                color={colors.hero}
-                size={20}
+              <Metric
+                value={classes.length}
+                label={classes.length === 1 ? "Class" : "Classes"}
               />
-              <Copy color={colors.hero} style={{ fontWeight: "600" }}>
-                {pending.length ? "Take attendance" : "Review attendance"}
-              </Copy>
-            </Pressable>
-          </Card>
+              <View
+                style={{ width: 1, height: 34, backgroundColor: colors.border }}
+              />
+              <Metric
+                value={childCount}
+                label={childCount === 1 ? "Child" : "Children"}
+              />
+              <View
+                style={{ width: 1, height: 34, backgroundColor: colors.border }}
+              />
+              <Metric value={pending.length} label="Attendance due" />
+            </View>
+          </ListSurface>
         )}
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          <Card style={{ flex: 1 }}>
-            <Copy kind="title">{classes.length}</Copy>
-            <Copy kind="caption">Your classes</Copy>
-          </Card>
-          <Card style={{ flex: 1 }}>
-            <Copy kind="title">
-              {classes.reduce(
-                (total, cls) => total + (cls._count?.children ?? 0),
-                0,
-              )}
-            </Copy>
-            <Copy kind="caption">Children enrolled</Copy>
-          </Card>
+
+        <View style={{ gap: 10 }}>
+          <SectionTitle title="Upcoming lessons" />
+          <ListSurface>
+            {!loading && !lessons.length && (
+              <View style={{ paddingVertical: 18 }}>
+                <Copy kind="caption">No upcoming lessons.</Copy>
+              </View>
+            )}
+            {lessons.slice(0, 4).map((lesson, index) => (
+              <CompactRow
+                key={lesson.id}
+                divider={index < Math.min(lessons.length, 4) - 1}
+                title={lesson.title ?? "Weekly lesson"}
+                subtitle={lesson.class.name}
+                icon={<CalendarDate date={lesson.sundayDate} />}
+                onPress={() =>
+                  router.push({
+                    pathname: "/lesson/[id]",
+                    params: { id: lesson.id, classId: lesson.classId },
+                  })
+                }
+              />
+            ))}
+          </ListSurface>
         </View>
-        <SectionTitle title="Upcoming lessons" />
-        <Card>
-          {!loading && !lessons.length && <Copy>No upcoming lessons.</Copy>}
-          {lessons.slice(0, 4).map((lesson) => (
-            <RowLink
-              key={lesson.id}
-              title={lesson.title ?? "Untitled lesson"}
-              subtitle={`${lesson.class.name} · ${getLevelDisplayName(lesson.class.level)}`}
-              icon={<CalendarDate date={lesson.sundayDate} />}
-              onPress={() =>
-                router.push({
-                  pathname: "/lesson/[id]",
-                  params: { id: lesson.id },
-                })
-              }
-            />
-          ))}
-        </Card>
-        <Button
-          label="Classes"
-          secondary
-          onPress={() => router.navigate("/(tabs)/classes")}
-        />
       </Screen>
     </>
+  );
+}
+
+function Metric({ value, label }: { value: number; label: string }) {
+  return (
+    <View style={{ flex: 1, alignItems: "center", gap: 2 }}>
+      <Copy kind="heading">{value}</Copy>
+      <Copy kind="caption">{label}</Copy>
+    </View>
   );
 }

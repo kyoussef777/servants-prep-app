@@ -34,11 +34,20 @@ const subscribe = (path: string, listener: () => void) => {
   };
 };
 
-export function request<T>(path: string, method = "GET", body?: unknown) {
+export function request<T>(
+  path: string,
+  method = "GET",
+  body?: unknown,
+  options: Omit<RequestInit, "method" | "body"> = {},
+) {
   if (!api) return Promise.reject(new Error("The portal is not configured."));
+  const headers = new Headers(options.headers);
+  if (body !== undefined) headers.set("Content-Type", "application/json");
   return api.request<T>(path, {
+    ...options,
     method,
-    ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   }).then(result => {
     if (method !== "GET") invalidateResourceCache();
     return result;

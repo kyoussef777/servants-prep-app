@@ -140,4 +140,26 @@ describe("native NextAuth session transport", () => {
     await expect(pending).rejects.toThrow();
     expect(stored).toEqual({});
   });
+  it("forwards caller cancellation to the native request", async () => {
+    const fetcher = vi.fn((_url: string, init: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () =>
+          reject(new DOMException("Aborted", "AbortError")),
+        );
+      }),
+    );
+    const client = new PortalApi(
+      "https://example.com",
+      fetcher,
+      { load: async () => ({}), save: async () => {} },
+      false,
+    );
+    const controller = new AbortController();
+    const pending = client.request("/api/sunday-school/search?q=child", {
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(pending).rejects.toThrow("Could not reach");
+    expect(fetcher.mock.calls[0][1].signal?.aborted).toBe(true);
+  });
 });

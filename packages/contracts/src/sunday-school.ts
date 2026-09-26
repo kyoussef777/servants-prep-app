@@ -140,6 +140,37 @@ export interface SundaySchoolWeeklyLessonsResponse {
   lessons: SundaySchoolWeeklyLesson[];
 }
 
+export interface SundaySchoolChildSearchResult {
+  kind: "child";
+  id: string;
+  title: string;
+  subtitle: string;
+  classId: string | null;
+}
+
+export interface SundaySchoolClassSearchResult {
+  kind: "class";
+  id: string;
+  title: string;
+  subtitle: string;
+}
+
+export interface SundaySchoolLessonSearchResult {
+  kind: "lesson";
+  id: string;
+  title: string;
+  subtitle: string;
+  classId: string;
+  sundayDate: string;
+}
+
+export interface SundaySchoolSearchResponse {
+  query: string;
+  children: SundaySchoolChildSearchResult[];
+  classes: SundaySchoolClassSearchResult[];
+  lessons: SundaySchoolLessonSearchResult[];
+}
+
 export interface SundaySchoolVisitationRecord {
   id: string;
   status: SundaySchoolVisitationStatus;

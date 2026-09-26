@@ -20,13 +20,13 @@ import {
 // Mirrors app/globals.css: the website's neutral surfaces and Sunday School
 // maroon scale are the source of truth for native color decisions.
 const light = {
-  background: "#FFFFFF",
+  background: "#F7F7F5",
   surface: "#FFFFFF",
   text: "#0A0A0A",
   muted: "#737373",
   border: "#E5E5E5",
   primary: "#6B001A",
-  primarySoft: "#F5F2F2",
+  primarySoft: "#F2ECEE",
   action: "#800020",
   onAction: "#FFFFFF",
   success: "#16A34A",
@@ -39,13 +39,13 @@ const light = {
   onHero: "#FFFFFF",
 };
 const dark: typeof light = {
-  background: "#1C1C1E",
-  surface: "#242426",
+  background: "#111113",
+  surface: "#1C1C1E",
   text: "#F5F5F7",
   muted: "#98989D",
   border: "rgba(255, 255, 255, 0.08)",
   primary: "#F5F5F7",
-  primarySoft: "rgba(255, 255, 255, 0.10)",
+  primarySoft: "rgba(255, 255, 255, 0.09)",
   action: "#800020",
   onAction: "#FFFFFF",
   success: "#4ADE80",

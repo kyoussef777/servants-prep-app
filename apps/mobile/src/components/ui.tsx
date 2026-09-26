@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SymbolView, type SFSymbol, type AndroidSymbol } from "expo-symbols";
 import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import { useAppTheme } from "@/theme";
 import { dataLabel, useAuth } from "@/data/auth-provider";
 import { GlassChrome } from "./chrome";
@@ -201,6 +202,24 @@ export function Card({
   );
 }
 
+export function ListSurface({
+  children,
+  style,
+}: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
+  const { colors } = useAppTheme();
+  return (
+    <View
+      style={[
+        styles.listSurface,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
 export function Button({
   label,
   onPress,
@@ -223,7 +242,12 @@ export function Button({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+          () => undefined,
+        );
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.button,
         {
@@ -343,6 +367,54 @@ export function RowLink({
   );
 }
 
+export function CompactRow({
+  title,
+  subtitle,
+  onPress,
+  icon,
+  trailing,
+  divider = false,
+}: {
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  icon?: React.ReactNode;
+  trailing?: React.ReactNode;
+  divider?: boolean;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => {
+        void Haptics.selectionAsync().catch(() => undefined);
+        onPress();
+      }}
+      style={({ pressed }) => [
+        styles.compactRow,
+        divider && {
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
+        { backgroundColor: pressed ? colors.primarySoft : "transparent" },
+      ]}
+    >
+      {icon}
+      <View style={{ flex: 1, gap: 2 }}>
+        <Copy style={{ fontWeight: "600" }}>{title}</Copy>
+        {subtitle && <Copy kind="caption">{subtitle}</Copy>}
+      </View>
+      {trailing}
+      <Icon
+        ios="chevron.right"
+        android="chevron_right"
+        size={14}
+        color={colors.muted}
+      />
+    </Pressable>
+  );
+}
+
 export function CalendarDate({ date }: { date: string }) {
   const { colors } = useAppTheme();
   const value = new Date(`${date.slice(0, 10)}T00:00:00Z`);
@@ -391,6 +463,12 @@ export const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   card: { borderWidth: 1, borderRadius: 24, padding: 20, gap: 16 },
+  listSurface: {
+    borderWidth: 1,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    overflow: "hidden",
+  },
   button: {
     minHeight: 52,
     borderRadius: 16,
@@ -407,6 +485,15 @@ export const styles = StyleSheet.create({
     gap: 14,
     minHeight: 60,
     paddingVertical: 6,
+  },
+  compactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 62,
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   copyable: {
     minHeight: 48,

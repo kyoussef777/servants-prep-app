@@ -4,13 +4,15 @@ import { router, Stack } from "expo-router";
 import type { SundaySchoolWeeklyLessonsResponse } from "@stmark/contracts";
 import {
   CalendarDate,
-  Card,
+  CompactRow,
   Copy,
   Icon,
-  RowLink,
+  ListSurface,
   Screen,
+  SectionTitle,
   styles,
 } from "@/components/ui";
+import { TopActions } from "@/components/top-actions";
 import { Choice, ResourceState } from "@/components/forms";
 import { endpoint, query, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
@@ -47,7 +49,11 @@ export default function Lessons() {
   return (
     <>
       <Stack.Screen
-        options={{ title: "Weekly lessons", headerLargeTitle: false }}
+        options={{
+          title: "Weekly lessons",
+          headerLargeTitle: false,
+          headerRight: () => <TopActions />,
+        }}
       />
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View
@@ -101,30 +107,69 @@ export default function Lessons() {
             retry={() => void resource.refresh()}
           />
           {resource.data && !lessons.length && (
-            <Copy>No lessons in this selection.</Copy>
+            <ListSurface>
+              <View style={{ paddingVertical: 18 }}>
+                <Copy kind="caption">No lessons in this selection.</Copy>
+              </View>
+            </ListSurface>
           )}
-          {lessons.map((lesson) => (
-            <Card key={lesson.id}>
-              <RowLink
-                title={lesson.title || "Weekly lesson"}
-                subtitle={lesson.class.name}
-                icon={<CalendarDate date={lesson.sundayDate} />}
-                onPress={() =>
-                  router.push({
-                    pathname: "/lesson/[id]",
-                    params: { id: lesson.id, classId: lesson.classId },
-                  })
+          {!!lessons.length && (
+            <View style={{ gap: 10 }}>
+              <SectionTitle
+                title={
+                  view === "mine"
+                    ? "My lessons"
+                    : view === "past"
+                      ? "Past lessons"
+                      : view === "all"
+                        ? "Academic year"
+                        : "Upcoming"
                 }
+                subtitle={`${lessons.length} ${lessons.length === 1 ? "lesson" : "lessons"}`}
               />
-              <Copy kind="caption">
-                {lesson.owner?.name ?? "Teacher not assigned"} ·{" "}
-                {lesson.resources.length} resources ·{" "}
-                {lesson.status.replaceAll("_", " ")}
-              </Copy>
-            </Card>
-          ))}
+              <ListSurface>
+                {lessons.map((lesson, index) => (
+                  <CompactRow
+                    key={lesson.id}
+                    divider={index < lessons.length - 1}
+                    title={lesson.title || "Weekly lesson"}
+                    subtitle={`${lesson.class.name} · ${lesson.owner?.name ?? "Unassigned"}`}
+                    icon={<CalendarDate date={lesson.sundayDate} />}
+                    trailing={<LessonStatus status={lesson.status} />}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/lesson/[id]",
+                        params: { id: lesson.id, classId: lesson.classId },
+                      })
+                    }
+                  />
+                ))}
+              </ListSurface>
+            </View>
+          )}
         </Screen>
       </View>
     </>
+  );
+}
+
+function LessonStatus({
+  status,
+}: {
+  status: "UNASSIGNED" | "NEEDS_LINKS" | "READY";
+}) {
+  const { colors } = useAppTheme();
+  const ready = status === "READY";
+  return (
+    <View
+      style={[
+        styles.pill,
+        { backgroundColor: ready ? colors.successSoft : colors.warningSoft },
+      ]}
+    >
+      <Copy kind="caption" color={ready ? colors.success : colors.warning}>
+        {ready ? "Ready" : status === "UNASSIGNED" ? "Unassigned" : "Needs links"}
+      </Copy>
+    </View>
   );
 }

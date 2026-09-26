@@ -151,6 +151,12 @@ export class PortalApi {
       cookieHeader(this.jar, this.origin.startsWith("https:")),
     );
     const controller = new AbortController();
+    const externalSignal = init.signal;
+    const abortFromCaller = () => controller.abort();
+    if (externalSignal?.aborted) controller.abort();
+    else externalSignal?.addEventListener("abort", abortFromCaller, {
+      once: true,
+    });
     const timeout = setTimeout(() => controller.abort(), 20000);
     try {
       const response = await this.fetcher(`${this.origin}${path}`, {
@@ -196,6 +202,7 @@ export class PortalApi {
       );
     } finally {
       clearTimeout(timeout);
+      externalSignal?.removeEventListener("abort", abortFromCaller);
     }
   }
   async session() {

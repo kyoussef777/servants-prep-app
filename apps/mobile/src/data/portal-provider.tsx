@@ -118,11 +118,16 @@ export function PortalProvider({ children }: PropsWithChildren) {
             ]),
         ),
       );
+      const primaryClassId = nextClasses[0]?.id;
       void prefetchResources([
         "/api/sunday-school/dashboard",
         "/api/sunday-school/dashboard?audience=children",
-        "/api/sunday-school/lessons?scope=year",
-        "/api/sunday-school/children?isActive=true",
+        primaryClassId
+          ? `/api/sunday-school/lessons?scope=year&classId=${encodeURIComponent(primaryClassId)}`
+          : "/api/sunday-school/lessons?scope=year",
+        primaryClassId
+          ? `/api/sunday-school/children?classId=${encodeURIComponent(primaryClassId)}&isActive=true`
+          : "/api/sunday-school/children?isActive=true",
         "/api/sunday-school/visitations",
         "/api/sunday-school/feedback?status=ALL&sort=TOP",
       ]);

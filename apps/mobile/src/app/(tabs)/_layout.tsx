@@ -55,15 +55,15 @@ export default function TabLayout() {
         />
         <NativeTabs.Trigger.Label>Ministry</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="account">
+      <NativeTabs.Trigger name="search" role="search">
         <NativeTabs.Trigger.Icon
           sf={{
-            default: "person.crop.circle",
-            selected: "person.crop.circle.fill",
+            default: "magnifyingglass",
+            selected: "magnifyingglass",
           }}
-          md="account_circle"
+          md="search"
         />
-        <NativeTabs.Trigger.Label>Account</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

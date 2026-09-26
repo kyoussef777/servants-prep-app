@@ -1,32 +1,183 @@
-import { router, type Href } from "expo-router";
+import { View } from "react-native";
+import { router, Stack, type Href } from "expo-router";
 import type { SundaySchoolDashboard } from "@stmark/contracts";
-import { Card, Copy, RowLink } from "@/components/ui";
-import { Page } from "@/components/forms";
+import {
+  CompactRow,
+  Copy,
+  Icon,
+  ListSurface,
+  Screen,
+  SectionTitle,
+} from "@/components/ui";
+import { TopActions } from "@/components/top-actions";
+import { ResourceState } from "@/components/forms";
 import { endpoint, useResource } from "@/data/resources";
 import { ministryAccess } from "@/data/ministry";
 import { usePortal } from "@/data/portal-provider";
+import { useAppTheme } from "@/theme";
+
+type MinistryLink = {
+  id: string;
+  title: string;
+  subtitle: string;
+  href: Href;
+};
 
 export default function Ministry() {
   const resource = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
   const { classes } = usePortal();
   const access = ministryAccess(resource.data, classes);
-  const link = (title: string, subtitle: string, href: Href) => <RowLink key={title} title={title} subtitle={subtitle} onPress={() => router.push(href)} />;
-  return <Page title="Ministry" {...resource}>
-    <Copy kind="title">Sunday School management</Copy>
-    {resource.data && <><Card>
-      {link("Children & families", "Roster, child profiles, family details, and history", "/roster")}
-      {link("Visitations", "Pastoral visits and confidential notes", "/visitations")}
-      {link("Attendance reports", "Children’s attendance and ministry trends", "/reports")}
-      {access.canViewServantAttendance && link("Servant attendance", access.canTakeServantAttendance ? "Record weekly servant attendance" : "View weekly servant attendance", "/servant-attendance")}
-      {access.createLevels.length > 0 && link("Child registrations", "Review and place incoming children", "/registrations")}
-      {link("Feedback", "Share ideas and vote on improvements", "/feedback")}
-    </Card>
-    {access.admin && <><Copy kind="heading">Administration</Copy><Card>
-      {link("Age groups", "Grade bands, coordinators, and priest overseers", "/age-groups")}
-      {link("People & organization", "Accounts, roles, and ministry teams", "/people")}
-      {link("Servant applications", "Review ministry applications", "/applications")}
-      {link("Activity", "Recent actions and security history", "/activity")}
-    </Card></>}
-    {access.readOnly && <Copy kind="caption">Your ministry records are read-only. Feedback participation remains available.</Copy>}</>}
-  </Page>;
+  const common: MinistryLink[] = [
+    {
+      id: "roster",
+      title: "Children & families",
+      subtitle: "Roster and profiles",
+      href: "/roster",
+    },
+    {
+      id: "visitations",
+      title: "Visitations",
+      subtitle: "Pastoral visit records",
+      href: "/visitations",
+    },
+    {
+      id: "reports",
+      title: "Attendance reports",
+      subtitle: "Attendance and trends",
+      href: "/reports",
+    },
+    ...(access.canViewServantAttendance
+      ? [{
+          id: "servant-attendance",
+          title: "Servant attendance",
+          subtitle: access.canTakeServantAttendance
+            ? "Record weekly attendance"
+            : "View weekly attendance",
+          href: "/servant-attendance" as Href,
+        }]
+      : []),
+    ...(access.createLevels.length
+      ? [{
+          id: "registrations",
+          title: "Child registrations",
+          subtitle: "Review and place children",
+          href: "/registrations" as Href,
+        }]
+      : []),
+    {
+      id: "feedback",
+      title: "Feedback",
+      subtitle: "Ideas and improvements",
+      href: "/feedback",
+    },
+  ];
+  const admin: MinistryLink[] = access.admin
+    ? [
+        {
+          id: "age-groups",
+          title: "Age groups",
+          subtitle: "Grade bands and coordinators",
+          href: "/age-groups",
+        },
+        {
+          id: "people",
+          title: "People & organization",
+          subtitle: "Accounts and ministry teams",
+          href: "/people",
+        },
+        {
+          id: "applications",
+          title: "Servant applications",
+          subtitle: "Review applications",
+          href: "/applications",
+        },
+        {
+          id: "activity",
+          title: "Activity",
+          subtitle: "Recent security history",
+          href: "/activity",
+        },
+      ]
+    : [];
+
+  return (
+    <>
+      <Stack.Screen
+        options={{ title: "Ministry", headerRight: () => <TopActions /> }}
+      />
+      <Screen
+        refreshing={resource.loading || resource.refreshing}
+        onRefresh={() => void resource.refresh()}
+      >
+        <ResourceState
+          loading={resource.loading}
+          error={resource.error}
+          retry={() => void resource.refresh()}
+        />
+        {resource.data && (
+          <>
+            <MinistryGroup title="Sunday School" links={common} />
+            {!!admin.length && (
+              <MinistryGroup title="Administration" links={admin} />
+            )}
+            {access.readOnly && (
+              <Copy kind="caption">Ministry records are read-only.</Copy>
+            )}
+          </>
+        )}
+      </Screen>
+    </>
+  );
+}
+
+function MinistryGroup({
+  title,
+  links,
+}: {
+  title: string;
+  links: MinistryLink[];
+}) {
+  return (
+    <View style={{ gap: 10 }}>
+      <SectionTitle title={title} />
+      <ListSurface>
+        {links.map((link, index) => (
+          <CompactRow
+            key={link.id}
+            divider={index < links.length - 1}
+            title={link.title}
+            subtitle={link.subtitle}
+            icon={<MinistryIcon id={link.id} />}
+            onPress={() => router.push(link.href)}
+          />
+        ))}
+      </ListSurface>
+    </View>
+  );
+}
+
+function MinistryIcon({ id }: { id: string }) {
+  const { colors } = useAppTheme();
+  const symbols =
+    id === "roster" || id === "people"
+      ? ({ ios: "person.2.fill", android: "groups" } as const)
+      : id.includes("attendance") || id === "reports"
+        ? ({ ios: "chart.bar.fill", android: "bar_chart" } as const)
+        : id === "feedback"
+          ? ({ ios: "bubble.left.and.bubble.right.fill", android: "forum" } as const)
+          : ({ ios: "square.grid.2x2.fill", android: "dashboard" } as const);
+  return (
+    <View
+      style={{
+        width: 38,
+        height: 38,
+        borderRadius: 13,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: colors.primarySoft,
+      }}
+    >
+      <Icon {...symbols} size={18} />
+    </View>
+  );
 }
