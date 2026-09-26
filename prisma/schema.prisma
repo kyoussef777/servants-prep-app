@@ -1341,7 +1341,7 @@ model RegistrationSubmission {
   reviewedBy    String?
   reviewedAt    DateTime?
   reviewNote    String?   @db.Text // Admin note (reason for rejection, etc.)
-  createdUserId String? // User.id created upon approval
+  createdUserId String? // Linked User.id: set at submission for returning users, or on approval for new ones
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
