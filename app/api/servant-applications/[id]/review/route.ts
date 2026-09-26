@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-helpers'
 import { canReviewServantApplications } from '@/lib/roles'
-import { RegistrationStatus, RoleGrantSource, RoleTag, UserRole } from '@prisma/client'
+import { NotificationType, RegistrationStatus, RoleGrantSource, RoleTag, UserRole } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { notifyServantApplicationReviewed } from '@/lib/notifications'
 
@@ -95,6 +95,13 @@ export async function POST(
           },
         })
 
+        await tx.notification.deleteMany({
+          where: {
+            type: NotificationType.SERVANT_APPLICATION_RECEIVED,
+            metadata: { path: ['applicationId'], equals: id },
+          },
+        })
+
         return { application: updatedApplication, tempPassword }
       })
 
@@ -112,35 +119,40 @@ export async function POST(
         message: 'Application approved successfully',
       })
     } else {
-      const application = await prisma.servantApplication.findUnique({
-        where: { id },
-      })
+      const updatedApplication = await prisma.$transaction(async (tx) => {
+        const application = await tx.servantApplication.findUnique({
+          where: { id },
+        })
 
-      if (!application) {
-        return NextResponse.json(
-          { error: 'Servant application not found' },
-          { status: 404 }
-        )
-      }
+        if (!application) {
+          throw new Error('Servant application not found')
+        }
 
-      if (application.status !== RegistrationStatus.PENDING) {
-        return NextResponse.json(
-          { error: 'Only pending applications can be reviewed' },
-          { status: 400 }
-        )
-      }
+        if (application.status !== RegistrationStatus.PENDING) {
+          throw new Error('Only pending applications can be reviewed')
+        }
 
-      const updatedApplication = await prisma.servantApplication.update({
-        where: { id },
-        data: {
-          status: RegistrationStatus.REJECTED,
-          reviewedBy: user.id,
-          reviewedAt: new Date(),
-          reviewNote: note || null,
-        },
-        include: {
-          reviewer: { select: { id: true, name: true, email: true } },
-        },
+        const updated = await tx.servantApplication.update({
+          where: { id },
+          data: {
+            status: RegistrationStatus.REJECTED,
+            reviewedBy: user.id,
+            reviewedAt: new Date(),
+            reviewNote: note || null,
+          },
+          include: {
+            reviewer: { select: { id: true, name: true, email: true } },
+          },
+        })
+
+        await tx.notification.deleteMany({
+          where: {
+            type: NotificationType.SERVANT_APPLICATION_RECEIVED,
+            metadata: { path: ['applicationId'], equals: id },
+          },
+        })
+
+        return updated
       })
 
       return NextResponse.json({

@@ -452,25 +452,58 @@ async function deliverServantApplicationNotifications(
     select: { id: true },
   })
 
-  // Leave adminNotifiedAt empty when no recipient exists so a later
-  // reconciliation can deliver the alert after an administrator is added.
   if (admins.length === 0) return []
+
+  const applicationIds = new Set(applications.map((application) => application.id))
+  const existingNotifications = await prisma.notification.findMany({
+    where: {
+      userId: { in: admins.map((admin) => admin.id) },
+      type: NotificationType.SERVANT_APPLICATION_RECEIVED,
+    },
+    select: {
+      id: true,
+      userId: true,
+      metadata: true,
+      isPersistent: true,
+    },
+  })
+
+  const delivered = new Set<string>()
+  const existingIdsToMakePersistent: string[] = []
+
+  for (const notification of existingNotifications) {
+    if (
+      typeof notification.metadata !== 'object' ||
+      notification.metadata === null ||
+      Array.isArray(notification.metadata)
+    ) continue
+
+    const applicationId = notification.metadata.applicationId
+    if (typeof applicationId !== 'string' || !applicationIds.has(applicationId)) continue
+
+    delivered.add(`${notification.userId}:${applicationId}`)
+    if (!notification.isPersistent) existingIdsToMakePersistent.push(notification.id)
+  }
 
   const notifications = await prisma.$transaction(async (tx) => {
     const created = []
 
-    for (const application of applications) {
-      // This conditional update is the delivery claim. Concurrent submission
-      // and notification-feed requests cannot create duplicate alerts.
-      const claimed = await tx.servantApplication.updateMany({
-        where: { id: application.id, adminNotifiedAt: null },
-        data: { adminNotifiedAt: new Date() },
+    if (existingIdsToMakePersistent.length > 0) {
+      await tx.notification.updateMany({
+        where: { id: { in: existingIdsToMakePersistent } },
+        data: { isPersistent: true },
       })
-      if (claimed.count === 0) continue
+    }
 
+    for (const application of applications) {
       for (const admin of admins) {
-        created.push(await tx.notification.create({
-          data: {
+        if (delivered.has(`${admin.id}:${application.id}`)) continue
+
+        const id = `servant-application:${application.id}:${admin.id}`
+        created.push(await tx.notification.upsert({
+          where: { id },
+          create: {
+            id,
             userId: admin.id,
             type: NotificationType.SERVANT_APPLICATION_RECEIVED,
             title: 'New Servant Application',
@@ -480,7 +513,9 @@ async function deliverServantApplicationNotifications(
               applicationId: application.id,
               applicantName: application.fullName,
             },
+            isPersistent: true,
           },
+          update: { isPersistent: true },
         }))
       }
     }
@@ -540,10 +575,7 @@ export async function ensurePendingServantApplicationNotifications(userId: strin
   if (!admin) return []
 
   const pendingApplications = await prisma.servantApplication.findMany({
-    where: {
-      status: 'PENDING',
-      adminNotifiedAt: null,
-    },
+    where: { status: 'PENDING' },
     select: { id: true, fullName: true },
     orderBy: { createdAt: 'asc' },
   })

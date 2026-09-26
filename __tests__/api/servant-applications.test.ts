@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   createApplication: vi.fn(),
   updateApplication: vi.fn(),
   createUser: vi.fn(),
+  deleteNotifications: vi.fn(),
   transaction: vi.fn(),
   notifyNewApplication: vi.fn(),
   notifyReviewedApplication: vi.fn(),
@@ -78,6 +79,7 @@ describe('servant applications API', () => {
         findUnique: mocks.findUser,
         create: mocks.createUser,
       },
+      notification: { deleteMany: mocks.deleteNotifications },
     }))
   })
 
@@ -215,11 +217,48 @@ describe('servant applications API', () => {
       }),
     }))
     expect(mocks.hash).toHaveBeenCalledWith('Welcome123!', 10)
+    expect(mocks.deleteNotifications).toHaveBeenCalledWith({
+      where: {
+        type: 'SERVANT_APPLICATION_RECEIVED',
+        metadata: { path: ['applicationId'], equals: 'application-1' },
+      },
+    })
     expect(result.tempPassword).toBe('Welcome123!')
     expect(mocks.notifyReviewedApplication).toHaveBeenCalledWith({
       userId: 'servant-1',
       status: 'APPROVED',
       applicantName: 'Sunday Servant',
+    })
+  })
+
+  it('clears the persistent admin alert when an application is rejected', async () => {
+    const request = new NextRequest(
+      'http://localhost/api/servant-applications/application-1/review',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', note: 'Not this year' }),
+      }
+    )
+
+    const response = await REVIEW(request, {
+      params: Promise.resolve({ id: 'application-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mocks.updateApplication).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'application-1' },
+      data: expect.objectContaining({
+        status: 'REJECTED',
+        reviewedBy: 'admin-1',
+        reviewNote: 'Not this year',
+      }),
+    }))
+    expect(mocks.deleteNotifications).toHaveBeenCalledWith({
+      where: {
+        type: 'SERVANT_APPLICATION_RECEIVED',
+        metadata: { path: ['applicationId'], equals: 'application-1' },
+      },
     })
   })
 
