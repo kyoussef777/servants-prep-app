@@ -1,4 +1,5 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { router, Stack } from "expo-router";
 import {
   Brand,
@@ -18,7 +19,7 @@ import { usePortal } from "@/data/portal-provider";
 import { useAppTheme, type AppearancePreference } from "@/theme";
 
 export function AccountScreen() {
-  const { colors, preference, setPreference } = useAppTheme();
+  const { colors, isDark, preference, setPreference } = useAppTheme();
   const { user, signOut } = useAuth();
   const { refresh, loading } = usePortal();
   return (
@@ -53,41 +54,22 @@ export function AccountScreen() {
           onPress={() => router.push("/profile")}
         />
         <Card>
-          <View
-            accessibilityRole="radiogroup"
-            style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
-          >
-            {(["system", "light", "dark"] as AppearancePreference[]).map(
-              (value) => (
-                <Pressable
-                  key={value}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: preference === value }}
-                  onPress={() => setPreference(value)}
-                  style={[
-                    styles.pill,
-                    {
-                      flex: 1,
-                      minHeight: 48,
-                      justifyContent: "center",
-                      backgroundColor:
-                        preference === value
-                          ? colors.primarySoft
-                          : colors.background,
-                    },
-                  ]}
-                >
-                  <Copy
-                    color={
-                      preference === value ? colors.primary : colors.muted
-                    }
-                  >
-                    {value[0].toUpperCase() + value.slice(1)}
-                  </Copy>
-                </Pressable>
-              ),
+          <SegmentedControl
+            values={["System", "Light", "Dark"]}
+            selectedIndex={(["system", "light", "dark"] as const).indexOf(
+              preference,
             )}
-          </View>
+            appearance={isDark ? "dark" : "light"}
+            tintColor={colors.primary}
+            onChange={({ nativeEvent }) =>
+              setPreference(
+                (["system", "light", "dark"] as AppearancePreference[])[
+                  nativeEvent.selectedSegmentIndex
+                ] ?? "system",
+              )
+            }
+            style={{ width: "100%", minHeight: 36 }}
+          />
         </Card>
         <Card>
           <RowLink

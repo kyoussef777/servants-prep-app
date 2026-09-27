@@ -29,7 +29,6 @@ export default function TabLayout() {
     >
       <NativeTabs.Trigger
         name="home"
-        disableAutomaticContentInsets={Platform.OS === "ios"}
       >
         <NativeTabs.Trigger.Icon
           sf={{ default: "house", selected: "house.fill" }}
@@ -39,7 +38,6 @@ export default function TabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="classes"
-        disableAutomaticContentInsets={Platform.OS === "ios"}
       >
         <NativeTabs.Trigger.Icon
           sf={{ default: "person.2", selected: "person.2.fill" }}
@@ -49,7 +47,6 @@ export default function TabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="lessons"
-        disableAutomaticContentInsets={Platform.OS === "ios"}
       >
         <NativeTabs.Trigger.Icon
           sf={{ default: "book", selected: "book.fill" }}
@@ -59,7 +56,6 @@ export default function TabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="ministry"
-        disableAutomaticContentInsets={Platform.OS === "ios"}
       >
         <NativeTabs.Trigger.Icon
           sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }}
@@ -70,7 +66,6 @@ export default function TabLayout() {
       <NativeTabs.Trigger
         name="search"
         role="search"
-        disableAutomaticContentInsets={Platform.OS === "ios"}
       >
         {Platform.OS === "android" && (
           <NativeTabs.Trigger.Icon md="search" />

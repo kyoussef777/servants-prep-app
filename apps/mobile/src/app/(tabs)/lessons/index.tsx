@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { router, Stack } from "expo-router";
 import type { SundaySchoolWeeklyLessonsResponse } from "@stmark/contracts";
 import {
@@ -52,9 +52,11 @@ export default function Lessons() {
         options={{
           title: "Weekly lessons",
           headerLargeTitle: false,
-          headerRight: () => <TopActions />,
+          headerRight:
+            Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />
+      {Platform.OS === "ios" && <TopActions />}
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View
           style={{
@@ -98,6 +100,7 @@ export default function Lessons() {
           ) : null}
         </View>
         <Screen
+          resetOnFocus
           refreshing={resource.loading || resource.refreshing}
           onRefresh={() => void resource.refresh()}
         >

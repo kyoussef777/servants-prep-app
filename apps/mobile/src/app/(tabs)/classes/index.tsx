@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { router, Stack } from "expo-router";
 import {
   compareAgeGroupsByLevel,
@@ -55,10 +55,12 @@ export default function Classes() {
       <Stack.Screen
         options={{
           title: classes.length === 1 ? "My class" : "Classes",
-          headerRight: () => <TopActions />,
+          headerRight:
+            Platform.OS === "ios" ? undefined : () => <TopActions />,
         }}
       />
-      <Screen refreshing={loading} onRefresh={() => void refresh()}>
+      {Platform.OS === "ios" && <TopActions />}
+      <Screen resetOnFocus refreshing={loading} onRefresh={() => void refresh()}>
         <ConnectionBadge />
         <DataStatus />
         {canCreateClass && (

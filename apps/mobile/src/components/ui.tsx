@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type PropsWithChildren } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from "react";
 import {
   Animated,
   Image,
@@ -12,11 +18,12 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SymbolView, type SFSymbol, type AndroidSymbol } from "expo-symbols";
+import { useFocusEffect } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useAppTheme } from "@/theme";
 import { dataLabel, useAuth } from "@/data/auth-provider";
-import { GlassChrome } from "./chrome";
+import { NativeActionButton } from "./native-action-button";
 
 export function Icon({
   ios,
@@ -45,15 +52,30 @@ export function Screen({
   refreshing = false,
   onRefresh,
   adjustForKeyboard = true,
+  resetOnFocus = false,
 }: PropsWithChildren<{
   bottom?: number;
   refreshing?: boolean;
   onRefresh?: () => void;
   adjustForKeyboard?: boolean;
+  resetOnFocus?: boolean;
 }>) {
   const { colors } = useAppTheme();
+  const [scrollRevision, setScrollRevision] = useState(0);
+  const userScrolledRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!resetOnFocus || !userScrolledRef.current) return;
+      userScrolledRef.current = false;
+      setScrollRevision((revision) => revision + 1);
+    }, [resetOnFocus]),
+  );
   return (
     <ScrollView
+      key={scrollRevision}
+      onScrollBeginDrag={() => {
+        userScrolledRef.current = true;
+      }}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       automaticallyAdjustKeyboardInsets={adjustForKeyboard}
@@ -237,42 +259,21 @@ export function Button({
   testID?: string;
   glass?: boolean;
 }) {
-  const { colors } = useAppTheme();
-  const button = (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
+  return (
+    <NativeActionButton
+      label={label}
+      secondary={secondary}
       disabled={disabled}
+      testID={testID}
+      glass={glass}
       onPress={() => {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
           () => undefined,
         );
         onPress();
       }}
-      style={({ pressed }) => [
-        styles.button,
-        {
-          backgroundColor: glass
-            ? "transparent"
-            : secondary
-              ? colors.primarySoft
-              : colors.action,
-          opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
-        },
-      ]}
-    >
-      <Text
-        style={[
-          styles.buttonLabel,
-          { color: glass || secondary ? colors.primary : colors.onAction },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
+    />
   );
-  return glass ? <GlassChrome interactive={!disabled} style={{ borderRadius: 26 }}>{button}</GlassChrome> : button;
 }
 
 export function ConnectionBadge() {
@@ -444,7 +445,7 @@ export function readableDate(date: string) {
 export const styles = StyleSheet.create({
   screen: {
     padding: 22,
-    gap: 24,
+    gap: 20,
     maxWidth: 720,
     width: "100%",
     alignSelf: "center",
@@ -464,22 +465,13 @@ export const styles = StyleSheet.create({
     letterSpacing: 1.7,
     textTransform: "uppercase",
   },
-  card: { borderWidth: 1, borderRadius: 24, padding: 20, gap: 16 },
+  card: { borderWidth: 1, borderRadius: 22, padding: 18, gap: 14 },
   listSurface: {
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: 20,
     paddingHorizontal: 16,
     overflow: "hidden",
   },
-  button: {
-    minHeight: 52,
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  buttonLabel: { fontSize: 16, fontWeight: "600", textAlign: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   rowLink: {
     flexDirection: "row",

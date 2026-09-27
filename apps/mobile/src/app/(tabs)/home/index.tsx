@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { getLevelDisplayName } from "@stmark/domain";
 import {
@@ -50,12 +50,16 @@ export default function Home() {
       <Stack.Screen
         options={{
           title: "Sunday School",
-          headerRight: () => (
-            <TopActions unread={unreadCount} notifications />
-          ),
+          headerRight:
+            Platform.OS === "ios"
+              ? undefined
+              : () => <TopActions unread={unreadCount} notifications />,
         }}
       />
-      <Screen refreshing={loading} onRefresh={() => void refresh()}>
+      {Platform.OS === "ios" && (
+        <TopActions unread={unreadCount} notifications />
+      )}
+      <Screen resetOnFocus refreshing={loading} onRefresh={() => void refresh()}>
         <View style={[styles.row, { justifyContent: "space-between" }]}>
           <Brand />
           <ConnectionBadge />

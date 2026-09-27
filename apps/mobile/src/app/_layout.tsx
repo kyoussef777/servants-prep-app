@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -48,7 +48,14 @@ function Navigation() {
         <Stack.Screen name="lesson/[id]" options={{ title: "Weekly lesson" }} />
         <Stack.Screen
           name="notifications"
-          options={{ title: "Notifications", presentation: "modal" }}
+          options={{
+            title: "Notifications",
+            presentation: Platform.OS === "ios" ? "formSheet" : "modal",
+            sheetAllowedDetents: Platform.OS === "ios" ? [0.55, 0.92] : undefined,
+            sheetInitialDetentIndex: Platform.OS === "ios" ? 1 : undefined,
+            sheetGrabberVisible: Platform.OS === "ios",
+            sheetExpandsWhenScrolledToEdge: Platform.OS === "ios",
+          }}
         />
       </Stack>
     </ThemeProvider>

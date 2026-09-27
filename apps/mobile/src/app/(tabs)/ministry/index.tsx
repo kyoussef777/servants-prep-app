@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { router, Stack, type Href } from "expo-router";
 import type { SundaySchoolDashboard } from "@stmark/contracts";
 import {
@@ -103,9 +103,15 @@ export default function Ministry() {
   return (
     <>
       <Stack.Screen
-        options={{ title: "Ministry", headerRight: () => <TopActions /> }}
+        options={{
+          title: "Ministry",
+          headerRight:
+            Platform.OS === "ios" ? undefined : () => <TopActions />,
+        }}
       />
+      {Platform.OS === "ios" && <TopActions />}
       <Screen
+        resetOnFocus
         refreshing={resource.loading || resource.refreshing}
         onRefresh={() => void resource.refresh()}
       >

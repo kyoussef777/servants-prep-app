@@ -1,4 +1,4 @@
-import { Alert, Linking, Pressable, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, View } from "react-native";
 import { router, Stack } from "expo-router";
 import {
   Card,
@@ -31,23 +31,35 @@ export default function Notifications() {
     <>
       <Stack.Screen
         options={{
-          headerRight: () => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close notifications"
-              onPress={() => router.back()}
-              style={{
-                minWidth: 44,
-                minHeight: 44,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Icon ios="xmark" android="close" />
-            </Pressable>
-          ),
+          headerRight:
+            Platform.OS === "android"
+              ? () => (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close notifications"
+                    onPress={() => router.back()}
+                    style={{
+                      minWidth: 44,
+                      minHeight: 44,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon ios="xmark" android="close" />
+                  </Pressable>
+                )
+              : undefined,
         }}
       />
+      {Platform.OS === "ios" && (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            accessibilityLabel="Close notifications"
+            icon="xmark"
+            onPress={() => router.back()}
+          />
+        </Stack.Toolbar>
+      )}
       <Screen refreshing={loading} onRefresh={() => void refresh()}>
         <ConnectionBadge />
         <DataStatus />
