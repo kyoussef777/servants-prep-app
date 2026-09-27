@@ -1,22 +1,10 @@
 import {
-  useCallback,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  TextInput,
-  View,
-} from "react-native";
-import {
-  router,
-  Stack,
-  type Href,
-  useFocusEffect,
-} from "expo-router";
+import { ActivityIndicator, Pressable, View } from "react-native";
+import { router, Stack, type Href } from "expo-router";
 import type {
   SundaySchoolDashboard,
   SundaySchoolSearchResponse,
@@ -30,7 +18,6 @@ import {
   Screen,
   SectionTitle,
 } from "@/components/ui";
-import { TopActions } from "@/components/top-actions";
 import { endpoint, request, useResource } from "@/data/resources";
 import { usePortal } from "@/data/portal-provider";
 import {
@@ -46,7 +33,6 @@ export default function Search() {
   const { colors } = useAppTheme();
   const { classes } = usePortal();
   const dashboard = useResource<SundaySchoolDashboard>(endpoint("dashboard"));
-  const input = useRef<TextInput>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SundaySchoolSearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,13 +42,6 @@ export default function Search() {
   const tools = filterSearchTools(
     searchTools(dashboard.data, classes),
     trimmed.length >= 2 ? trimmed : "",
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      const timer = setTimeout(() => input.current?.focus(), 120);
-      return () => clearTimeout(timer);
-    }, []),
   );
 
   useEffect(() => {
@@ -116,60 +95,25 @@ export default function Search() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: "Search",
-          headerLargeTitle: false,
-          headerRight: () => <TopActions />,
-        }}
+      <Stack.Title>Search</Stack.Title>
+      <Stack.SearchBar
+        autoCapitalize="none"
+        placement="automatic"
+        hideWhenScrolling={false}
+        hideNavigationBar={false}
+        obscureBackground={false}
+        placeholder="Search"
+        onChangeText={(event) => setQuery(event.nativeEvent.text)}
+        onCancelButtonPress={() => setQuery("")}
       />
-      <Screen bottom={48}>
-        <View
-          style={{
-            minHeight: 52,
-            borderRadius: 18,
-            paddingHorizontal: 16,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            backgroundColor: colors.primarySoft,
-          }}
-        >
-          <Icon
-            ios="magnifyingglass"
-            android="search"
-            size={19}
-            color={colors.muted}
+      <Screen bottom={48} adjustForKeyboard={false}>
+        {loading && (
+          <ActivityIndicator
+            accessibilityLabel="Searching"
+            size="small"
+            color={colors.primary}
           />
-          <TextInput
-            ref={input}
-            accessibilityLabel="Search Sunday School"
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Children, classes, lessons, or tools"
-            placeholderTextColor={colors.muted}
-            returnKeyType="search"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            style={{ flex: 1, color: colors.text, fontSize: 17, minHeight: 52 }}
-          />
-          {loading && <ActivityIndicator size="small" color={colors.primary} />}
-          {!!query && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Clear search"
-              hitSlop={10}
-              onPress={() => setQuery("")}
-            >
-              <Icon
-                ios="xmark.circle.fill"
-                android="cancel"
-                size={18}
-                color={colors.muted}
-              />
-            </Pressable>
-          )}
-        </View>
+        )}
 
         {!showResults ? (
           <SearchGroup title="Quick access" tools={tools.slice(0, 7)} />
@@ -329,15 +273,31 @@ function SearchGroup({ title, tools }: { title: string; tools: SearchTool[] }) {
 function ToolIcon({ id }: { id: string }) {
   const { colors } = useAppTheme();
   const symbols =
-    id === "attendance" || id === "servant-attendance"
-      ? ({ ios: "checkmark.circle.fill", android: "check_circle" } as const)
+    id === "attendance"
+      ? ({ ios: "checkmark.circle", android: "check_circle" } as const)
       : id === "lessons"
         ? ({ ios: "book.fill", android: "menu_book" } as const)
-        : id === "reports"
-          ? ({ ios: "chart.bar.fill", android: "bar_chart" } as const)
-          : id === "roster" || id === "people"
-            ? ({ ios: "person.2.fill", android: "groups" } as const)
-            : ({ ios: "square.grid.2x2.fill", android: "dashboard" } as const);
+        : id === "classes"
+          ? ({ ios: "person.2.fill", android: "groups" } as const)
+          : id === "roster"
+            ? ({ ios: "person.3.fill", android: "diversity_3" } as const)
+            : id === "visitations"
+              ? ({ ios: "house", android: "home" } as const)
+              : id === "reports"
+                ? ({ ios: "chart.bar.fill", android: "bar_chart" } as const)
+                : id === "servant-attendance"
+                  ? ({ ios: "person.badge.clock", android: "how_to_reg" } as const)
+                  : id === "registrations"
+                    ? ({ ios: "person.badge.plus", android: "person_add" } as const)
+                    : id === "feedback"
+                      ? ({ ios: "bubble.left.and.bubble.right.fill", android: "forum" } as const)
+                      : id === "applications"
+                        ? ({ ios: "doc", android: "description" } as const)
+                        : id === "age-groups"
+                          ? ({ ios: "square.grid.2x2.fill", android: "group_work" } as const)
+                          : id === "people"
+                            ? ({ ios: "building.2.fill", android: "corporate_fare" } as const)
+                            : ({ ios: "clock", android: "history" } as const);
   return (
     <View
       style={{

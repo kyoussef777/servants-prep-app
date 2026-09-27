@@ -159,13 +159,25 @@ function MinistryGroup({
 function MinistryIcon({ id }: { id: string }) {
   const { colors } = useAppTheme();
   const symbols =
-    id === "roster" || id === "people"
-      ? ({ ios: "person.2.fill", android: "groups" } as const)
-      : id.includes("attendance") || id === "reports"
-        ? ({ ios: "chart.bar.fill", android: "bar_chart" } as const)
-        : id === "feedback"
-          ? ({ ios: "bubble.left.and.bubble.right.fill", android: "forum" } as const)
-          : ({ ios: "square.grid.2x2.fill", android: "dashboard" } as const);
+    id === "roster"
+      ? ({ ios: "person.3.fill", android: "diversity_3" } as const)
+      : id === "visitations"
+        ? ({ ios: "house", android: "home" } as const)
+        : id === "reports"
+          ? ({ ios: "chart.bar.fill", android: "bar_chart" } as const)
+          : id === "servant-attendance"
+            ? ({ ios: "checkmark.circle", android: "check_circle" } as const)
+            : id === "registrations"
+              ? ({ ios: "person.badge.plus", android: "person_add" } as const)
+              : id === "feedback"
+                ? ({ ios: "bubble.left.and.bubble.right.fill", android: "forum" } as const)
+                : id === "age-groups"
+                  ? ({ ios: "square.grid.2x2.fill", android: "group_work" } as const)
+                  : id === "people"
+                    ? ({ ios: "building.2.fill", android: "corporate_fare" } as const)
+                    : id === "applications"
+                      ? ({ ios: "doc", android: "description" } as const)
+                      : ({ ios: "clock", android: "history" } as const);
   return (
     <View
       style={{

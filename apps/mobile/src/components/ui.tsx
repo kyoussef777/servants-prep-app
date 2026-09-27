@@ -44,17 +44,19 @@ export function Screen({
   bottom = 32,
   refreshing = false,
   onRefresh,
+  adjustForKeyboard = true,
 }: PropsWithChildren<{
   bottom?: number;
   refreshing?: boolean;
   onRefresh?: () => void;
+  adjustForKeyboard?: boolean;
 }>) {
   const { colors } = useAppTheme();
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
-      automaticallyAdjustKeyboardInsets
+      automaticallyAdjustKeyboardInsets={adjustForKeyboard}
       style={{ flex: 1, backgroundColor: colors.background }}
       contentInsetAdjustmentBehavior="automatic"
       refreshControl={

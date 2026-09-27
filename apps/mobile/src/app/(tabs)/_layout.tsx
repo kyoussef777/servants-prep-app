@@ -56,13 +56,9 @@ export default function TabLayout() {
         <NativeTabs.Trigger.Label>Ministry</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="search" role="search">
-        <NativeTabs.Trigger.Icon
-          sf={{
-            default: "magnifyingglass",
-            selected: "magnifyingglass",
-          }}
-          md="search"
-        />
+        {Platform.OS === "android" && (
+          <NativeTabs.Trigger.Icon md="search" />
+        )}
         <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
