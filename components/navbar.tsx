@@ -290,8 +290,8 @@ export function Navbar() {
       }
     }
 
-    // Anyone browsing Sunday School mode gets that mode's links; the switcher
-    // next to the logo takes those with both back to the prep program.
+    // Anyone browsing Sunday School mode gets that mode's links; the service
+    // chooser in the profile menu takes those with both back to prep.
     if (inSundaySchoolMode && hasSundaySchool) {
       const links: NavLink[] = [
         { href: '/dashboard/servants', label: 'Dashboard' },
