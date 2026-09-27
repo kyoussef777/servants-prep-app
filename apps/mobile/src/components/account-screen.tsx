@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { SegmentedControl } from "@expo/ui/community/segmented-control";
 import { router, Stack } from "expo-router";
 import {
@@ -24,7 +24,38 @@ export function AccountScreen() {
   const { refresh, loading } = usePortal();
   return (
     <>
-      <Stack.Screen options={{ title: "Account" }} />
+      <Stack.Screen
+        options={{
+          title: "Account",
+          headerRight:
+            Platform.OS === "android"
+              ? () => (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close account"
+                    onPress={() => router.back()}
+                    style={{
+                      minWidth: 44,
+                      minHeight: 44,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon ios="xmark" android="close" />
+                  </Pressable>
+                )
+              : undefined,
+        }}
+      />
+      {Platform.OS === "ios" && (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            accessibilityLabel="Close account"
+            icon="xmark"
+            onPress={() => router.back()}
+          />
+        </Stack.Toolbar>
+      )}
       <Screen>
         <Brand />
         <ConnectionBadge />
@@ -47,12 +78,12 @@ export function AccountScreen() {
             </View>
           </View>
         </Card>
-        <SectionTitle title="Appearance" />
         <Button
           secondary
           label="Edit profile & security"
           onPress={() => router.push("/profile")}
         />
+        <SectionTitle title="Appearance" />
         <Card>
           <SegmentedControl
             values={["System", "Light", "Dark"]}

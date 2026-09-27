@@ -23,7 +23,7 @@ export function NativeActionButton({
   return (
     <Host
       colorScheme={isDark ? "dark" : "light"}
-      seedColor={colors.action}
+      seedColor={secondary ? colors.primary : colors.action}
       style={{ alignSelf: "stretch", height: 52 }}
     >
       <Button

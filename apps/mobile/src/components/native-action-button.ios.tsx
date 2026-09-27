@@ -6,6 +6,7 @@ import {
   buttonStyle,
   controlSize,
   disabled as disabledModifier,
+  foregroundStyle,
   frame,
   tint,
 } from "@expo/ui/swift-ui/modifiers";
@@ -30,7 +31,7 @@ export function NativeActionButton({
       {width > 0 && (
         <Host
           colorScheme={isDark ? "dark" : "light"}
-          seedColor={colors.action}
+          seedColor={secondary || glass ? colors.primary : colors.action}
           style={{ width, height: 52 }}
         >
           <Button
@@ -48,6 +49,13 @@ export function NativeActionButton({
           >
             <SwiftText
               modifiers={[
+                foregroundStyle(
+                  secondary || glass
+                    ? isDark
+                      ? colors.text
+                      : colors.primary
+                    : colors.onAction,
+                ),
                 frame({ width: Math.max(0, width - 32), minHeight: 28 }),
               ]}
             >

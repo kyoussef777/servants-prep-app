@@ -8,12 +8,15 @@ import {
 import {
   Animated,
   Image,
+  InteractionManager,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -61,21 +64,43 @@ export function Screen({
   resetOnFocus?: boolean;
 }>) {
   const { colors } = useAppTheme();
-  const [scrollRevision, setScrollRevision] = useState(0);
-  const userScrolledRef = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const topOffsetRef = useRef(0);
+  const hasFocusedRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      if (!resetOnFocus || !userScrolledRef.current) return;
-      userScrolledRef.current = false;
-      setScrollRevision((revision) => revision + 1);
+      if (!resetOnFocus) return;
+      if (!hasFocusedRef.current) {
+        hasFocusedRef.current = true;
+        return;
+      }
+
+      // Native tabs intentionally preserve each tab's scroll position. These
+      // primary destinations should instead reopen at their real system top.
+      // The top offset is negative on iOS when a large-title navigation bar
+      // contributes an automatic content inset, so y=0 would collapse it.
+      const task = InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          scrollRef.current?.scrollTo({
+            y: topOffsetRef.current,
+            animated: false,
+          });
+        });
+      });
+      return () => task.cancel();
     }, [resetOnFocus]),
+  );
+  const captureInsets = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      topOffsetRef.current = -(event.nativeEvent.contentInset?.top ?? 0);
+    },
+    [],
   );
   return (
     <ScrollView
-      key={scrollRevision}
-      onScrollBeginDrag={() => {
-        userScrolledRef.current = true;
-      }}
+      ref={scrollRef}
+      onScroll={captureInsets}
+      scrollEventThrottle={32}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       automaticallyAdjustKeyboardInsets={adjustForKeyboard}

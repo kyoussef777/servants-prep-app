@@ -57,6 +57,18 @@ function Navigation() {
             sheetExpandsWhenScrolledToEdge: Platform.OS === "ios",
           }}
         />
+        <Stack.Screen
+          name="account"
+          options={{
+            title: "Account",
+            presentation: Platform.OS === "ios" ? "formSheet" : "card",
+            sheetAllowedDetents:
+              Platform.OS === "ios" ? [0.68, 0.95] : undefined,
+            sheetInitialDetentIndex: Platform.OS === "ios" ? 1 : undefined,
+            sheetGrabberVisible: Platform.OS === "ios",
+            sheetExpandsWhenScrolledToEdge: Platform.OS === "ios",
+          }}
+        />
       </Stack>
     </ThemeProvider>
   );
