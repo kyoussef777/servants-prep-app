@@ -27,35 +27,51 @@ export default function TabLayout() {
       indicatorColor={colors.primarySoft}
       rippleColor={colors.primarySoft}
     >
-      <NativeTabs.Trigger name="home">
+      <NativeTabs.Trigger
+        name="home"
+        disableAutomaticContentInsets={Platform.OS === "ios"}
+      >
         <NativeTabs.Trigger.Icon
           sf={{ default: "house", selected: "house.fill" }}
           md="home"
         />
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="classes">
+      <NativeTabs.Trigger
+        name="classes"
+        disableAutomaticContentInsets={Platform.OS === "ios"}
+      >
         <NativeTabs.Trigger.Icon
           sf={{ default: "person.2", selected: "person.2.fill" }}
           md="groups"
         />
         <NativeTabs.Trigger.Label>Classes</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="lessons">
+      <NativeTabs.Trigger
+        name="lessons"
+        disableAutomaticContentInsets={Platform.OS === "ios"}
+      >
         <NativeTabs.Trigger.Icon
           sf={{ default: "book", selected: "book.fill" }}
           md="menu_book"
         />
         <NativeTabs.Trigger.Label>Lessons</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="ministry">
+      <NativeTabs.Trigger
+        name="ministry"
+        disableAutomaticContentInsets={Platform.OS === "ios"}
+      >
         <NativeTabs.Trigger.Icon
           sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }}
           md="dashboard"
         />
         <NativeTabs.Trigger.Label>Ministry</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="search" role="search">
+      <NativeTabs.Trigger
+        name="search"
+        role="search"
+        disableAutomaticContentInsets={Platform.OS === "ios"}
+      >
         {Platform.OS === "android" && (
           <NativeTabs.Trigger.Icon md="search" />
         )}
