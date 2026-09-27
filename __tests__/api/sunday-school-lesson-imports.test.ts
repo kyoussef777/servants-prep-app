@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   canAssign: vi.fn(),
   findClass: vi.fn(),
   findLessons: vi.fn(),
+  findAssignments: vi.fn(),
   transaction: vi.fn(),
   upsertLesson: vi.fn(),
   deleteResources: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     sundaySchoolClass: { findUnique: mocks.findClass },
     sundaySchoolWeeklyLesson: { findMany: mocks.findLessons },
+    sundaySchoolServantAssignment: { findMany: mocks.findAssignments },
     $transaction: mocks.transaction,
   },
 }))
@@ -55,6 +57,9 @@ describe('Sunday School lesson CSV import API', () => {
     mocks.findLessons.mockResolvedValue([{
       id: 'lesson-existing',
       sundayDate: new Date('2026-09-27T00:00:00.000Z'),
+    }])
+    mocks.findAssignments.mockResolvedValue([{
+      user: { id: 'servant-1', name: 'Jane Servant', email: 'jane@example.com' },
     }])
     mocks.upsertLesson.mockResolvedValue({ id: 'lesson-existing' })
     mocks.transaction.mockImplementation(async callback => callback({
@@ -100,6 +105,66 @@ describe('Sunday School lesson CSV import API', () => {
       url: 'https://example.com/slides',
       sortOrder: 0,
     }] })
+  })
+
+  it('assigns by servant name when the spreadsheet has no email', async () => {
+    const response = await POST(request([{
+      rowNumber: 2,
+      lessonDate: '2026-09-27',
+      ownerName: '  jane   servant ',
+      ownerEmail: null,
+      title: null,
+      resources: [],
+      replaceResources: false,
+    }]))
+    const body = await response.json()
+
+    expect(body).toMatchObject({ assignedRows: 1, unmatchedRows: 0, warnings: [] })
+    expect(mocks.upsertLesson).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        ownerId: 'servant-1',
+        assignedById: 'coordinator-1',
+        title: null,
+      }),
+      update: {
+        ownerId: 'servant-1',
+        assignedById: 'coordinator-1',
+      },
+    }))
+  })
+
+  it('falls back to the servant name when the supplied email does not match', async () => {
+    const response = await POST(request([{
+      rowNumber: 2,
+      lessonDate: '2026-09-27',
+      ownerName: 'Jane Servant',
+      ownerEmail: 'old-address@example.com',
+      title: null,
+      resources: [],
+      replaceResources: false,
+    }]))
+
+    expect(await response.json()).toMatchObject({ assignedRows: 1, unmatchedRows: 0 })
+  })
+
+  it('imports unmatched rows without overwriting the current lesson owner', async () => {
+    const response = await POST(request([{
+      rowNumber: 2,
+      lessonDate: '2026-09-27',
+      ownerName: 'Unknown Servant',
+      ownerEmail: null,
+      title: null,
+      resources: [],
+      replaceResources: false,
+    }]))
+    const body = await response.json()
+
+    expect(body).toMatchObject({
+      assignedRows: 0,
+      unmatchedRows: 1,
+      warnings: [{ rowNumber: 2 }],
+    })
+    expect(mocks.upsertLesson).toHaveBeenCalledWith(expect.objectContaining({ update: {} }))
   })
 
   it('preserves existing links for a title-only spreadsheet', async () => {
