@@ -8,7 +8,6 @@ import {
 import {
   Animated,
   Image,
-  InteractionManager,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -82,8 +81,9 @@ export function Screen({
       // first user drag. It is negative on iOS when a large-title navigation
       // bar contributes an adjusted inset; the reported contentInset remains
       // zero in that case, and scrolling to y=0 would collapse the title.
-      const task = InteractionManager.runAfterInteractions(() => {
-        requestAnimationFrame(() => {
+      let secondFrame: number | null = null;
+      const firstFrame = requestAnimationFrame(() => {
+        secondFrame = requestAnimationFrame(() => {
           if (topOffsetRef.current === null) return;
           scrollRef.current?.scrollTo({
             y: topOffsetRef.current,
@@ -91,7 +91,10 @@ export function Screen({
           });
         });
       });
-      return () => task.cancel();
+      return () => {
+        cancelAnimationFrame(firstFrame);
+        if (secondFrame !== null) cancelAnimationFrame(secondFrame);
+      };
     }, [resetOnFocus]),
   );
   const captureTopOffset = useCallback(
