@@ -93,7 +93,7 @@ export function normalizeRosterBirthDate(value: string | null): string | null {
 }
 
 /** RFC 4180-style CSV reader with quoted commas, escaped quotes, and newlines. */
-function readCsv(text: string): Array<{ rowNumber: number; values: string[] }> {
+export function readCsv(text: string): Array<{ rowNumber: number; values: string[] }> {
   const source = text.replace(/^\uFEFF/, '')
   const rows: Array<{ rowNumber: number; values: string[] }> = []
   let values: string[] = []
