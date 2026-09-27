@@ -101,7 +101,7 @@ export function Screen({
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (userInteractedRef.current) return;
       const offset = event.nativeEvent.contentOffset.y;
-      if (topOffsetRef.current === null || offset < topOffsetRef.current) {
+      if (topOffsetRef.current === null) {
         topOffsetRef.current = offset;
       }
     },
@@ -114,6 +114,7 @@ export function Screen({
       onScrollBeginDrag={() => {
         userInteractedRef.current = true;
       }}
+      scrollToOverflowEnabled={resetOnFocus}
       scrollEventThrottle={32}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
