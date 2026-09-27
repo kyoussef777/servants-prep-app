@@ -65,7 +65,8 @@ export function Screen({
 }>) {
   const { colors } = useAppTheme();
   const scrollRef = useRef<ScrollView>(null);
-  const topOffsetRef = useRef(0);
+  const topOffsetRef = useRef<number | null>(null);
+  const userInteractedRef = useRef(false);
   const hasFocusedRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
@@ -77,10 +78,13 @@ export function Screen({
 
       // Native tabs intentionally preserve each tab's scroll position. These
       // primary destinations should instead reopen at their real system top.
-      // The top offset is negative on iOS when a large-title navigation bar
-      // contributes an automatic content inset, so y=0 would collapse it.
+      // The real top offset is captured from the native scroll view before the
+      // first user drag. It is negative on iOS when a large-title navigation
+      // bar contributes an adjusted inset; the reported contentInset remains
+      // zero in that case, and scrolling to y=0 would collapse the title.
       const task = InteractionManager.runAfterInteractions(() => {
         requestAnimationFrame(() => {
+          if (topOffsetRef.current === null) return;
           scrollRef.current?.scrollTo({
             y: topOffsetRef.current,
             animated: false,
@@ -90,16 +94,23 @@ export function Screen({
       return () => task.cancel();
     }, [resetOnFocus]),
   );
-  const captureInsets = useCallback(
+  const captureTopOffset = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      topOffsetRef.current = -(event.nativeEvent.contentInset?.top ?? 0);
+      if (userInteractedRef.current) return;
+      const offset = event.nativeEvent.contentOffset.y;
+      if (topOffsetRef.current === null || offset < topOffsetRef.current) {
+        topOffsetRef.current = offset;
+      }
     },
     [],
   );
   return (
     <ScrollView
       ref={scrollRef}
-      onScroll={captureInsets}
+      onScroll={captureTopOffset}
+      onScrollBeginDrag={() => {
+        userInteractedRef.current = true;
+      }}
       scrollEventThrottle={32}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
