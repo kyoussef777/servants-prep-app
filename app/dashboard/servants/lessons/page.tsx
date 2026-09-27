@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
+import { SundaySchoolLessonImport } from '@/components/sunday-school-lesson-import'
 import type { SundaySchoolWeeklyLesson, SundaySchoolWeeklyLessonsResponse } from '@/types/sunday-school'
 
 interface ResourceDraft { title: string; url: string }
@@ -44,6 +45,13 @@ export default function SundaySchoolLessonsPage() {
 
   const classOptions = Array.from(
     new Map(lessons.map(lesson => [lesson.class.id, lesson.class])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name))
+  const manageableClasses = Array.from(
+    new Map(
+      lessons
+        .filter(lesson => lesson.canAssignOwner)
+        .map(lesson => [lesson.class.id, { id: lesson.class.id, name: lesson.class.name }])
+    ).values()
   ).sort((a, b) => a.name.localeCompare(b.name))
 
   const visibleLessons = lessons.filter(lesson => {
@@ -101,6 +109,13 @@ export default function SundaySchoolLessonsPage() {
         <PageHeader
           title="Lessons"
           description="Assign each Sunday lesson and share the slides and resources your class needs."
+          actions={manageableClasses.length > 0 ? (
+            <SundaySchoolLessonImport
+              classes={manageableClasses}
+              initialClassId={classId !== 'all' ? classId : undefined}
+              onSuccess={async () => { await mutate() }}
+            />
+          ) : undefined}
         />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
