@@ -34,6 +34,7 @@ import type {
 } from '@/types/sunday-school'
 import { SundaySchoolLevel } from '@prisma/client'
 import { Check, House, Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { SundaySchoolRosterImport } from '@/components/sunday-school-roster-import'
 
 const NEW_FAMILY_ID = '__new__'
 
@@ -310,10 +311,19 @@ function SundaySchoolChildrenContent() {
           description="Roster, family connections, and contact details for the children in your class."
           actions={
             canManage && classes.length > 0 ? (
-              <Button onClick={openCreate}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add child
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <SundaySchoolRosterImport
+                  classId={selectedClassId}
+                  className={selectedClass?.name ?? 'this class'}
+                  onSuccess={async () => {
+                    await Promise.all([mutate(), mutateFamilies()])
+                  }}
+                />
+                <Button onClick={openCreate}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add child
+                </Button>
+              </div>
             ) : undefined
           }
         />
