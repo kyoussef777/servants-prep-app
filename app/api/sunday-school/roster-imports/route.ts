@@ -12,6 +12,7 @@ import {
 } from '@/lib/sunday-school-roster-csv'
 
 const MAX_IMPORT_ROWS = 250
+const RECENT_IMPORT_LIMIT = 10
 
 type ImportResultRow = {
   rowNumber: number
@@ -71,6 +72,81 @@ function normalizeRequestRows(value: unknown): SundaySchoolRosterCsvRow[] | null
 
 function identityKey(row: Pick<SundaySchoolRosterCsvRow, 'firstName' | 'lastName' | 'birthDate'>) {
   return `${row.firstName.toLocaleLowerCase()}\u0000${row.lastName.toLocaleLowerCase()}\u0000${row.birthDate ?? ''}`
+}
+
+function rollbackSummary(summary: Prisma.JsonValue | null) {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
+    return { rolledBackAt: null, removedRows: 0, protectedRows: 0 }
+  }
+
+  const rollback = summary.rollback
+  if (!rollback || typeof rollback !== 'object' || Array.isArray(rollback)) {
+    return { rolledBackAt: null, removedRows: 0, protectedRows: 0 }
+  }
+
+  return {
+    rolledBackAt: typeof rollback.rolledBackAt === 'string' ? rollback.rolledBackAt : null,
+    removedRows: typeof rollback.removedRows === 'number' ? rollback.removedRows : 0,
+    protectedRows: typeof rollback.protectedRows === 'number' ? rollback.protectedRows : 0,
+  }
+}
+
+// GET /api/sunday-school/roster-imports?classId=...
+// Returns a small audit history so a recently uploaded roster can be undone.
+export async function GET(request: Request) {
+  try {
+    const user = await requireAuth()
+    const classId = new URL(request.url).searchParams.get('classId')?.trim() ?? ''
+    if (!classId) {
+      return NextResponse.json({ error: 'Choose a class to view imports' }, { status: 400 })
+    }
+
+    const targetClass = await prisma.sundaySchoolClass.findUnique({
+      where: { id: classId },
+      select: { id: true, academicYearId: true, isActive: true },
+    })
+    if (!targetClass || !targetClass.isActive) {
+      return NextResponse.json({ error: 'Class not found' }, { status: 404 })
+    }
+
+    const access = await getSundaySchoolAccess(user, targetClass.academicYearId)
+    if (!canServeClass(access, classId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const imports = await prisma.sundaySchoolRosterImport.findMany({
+      where: { classId, status: 'COMMITTED' },
+      orderBy: { createdAt: 'desc' },
+      take: RECENT_IMPORT_LIMIT,
+      select: {
+        id: true,
+        fileName: true,
+        totalRows: true,
+        createdRows: true,
+        matchedRows: true,
+        skippedRows: true,
+        failedRows: true,
+        summary: true,
+        createdAt: true,
+        completedAt: true,
+      },
+    })
+
+    return NextResponse.json(imports.map(rosterImport => ({
+      id: rosterImport.id,
+      fileName: rosterImport.fileName,
+      totalRows: rosterImport.totalRows,
+      createdRows: rosterImport.createdRows,
+      matchedRows: rosterImport.matchedRows,
+      skippedRows: rosterImport.skippedRows,
+      failedRows: rosterImport.failedRows,
+      createdAt: rosterImport.createdAt,
+      completedAt: rosterImport.completedAt,
+      ...rollbackSummary(rosterImport.summary),
+    })))
+  } catch (error: unknown) {
+    return handleApiError(error)
+  }
 }
 
 // POST /api/sunday-school/roster-imports

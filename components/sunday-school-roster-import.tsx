@@ -1,8 +1,19 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Loader2, Upload } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Loader2, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -36,6 +47,21 @@ interface ImportResult {
   }>
 }
 
+interface ImportHistoryItem {
+  id: string
+  fileName: string | null
+  totalRows: number
+  createdRows: number
+  matchedRows: number
+  skippedRows: number
+  failedRows: number
+  createdAt: string
+  completedAt: string | null
+  rolledBackAt: string | null
+  removedRows: number
+  protectedRows: number
+}
+
 export function SundaySchoolRosterImport({
   classId,
   className,
@@ -52,6 +78,25 @@ export function SundaySchoolRosterImport({
   const [parsed, setParsed] = useState<ParsedSundaySchoolRosterCsv | null>(null)
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
+  const [history, setHistory] = useState<ImportHistoryItem[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [undoingId, setUndoingId] = useState<string | null>(null)
+
+  const loadHistory = useCallback(async () => {
+    if (!classId) return
+    setHistoryLoading(true)
+    try {
+      const response = await fetch(`/api/sunday-school/roster-imports?classId=${encodeURIComponent(classId)}`)
+      if (!response.ok) return
+      setHistory(await response.json() as ImportHistoryItem[])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [classId])
+
+  useEffect(() => {
+    if (open) void loadHistory()
+  }, [open, loadHistory])
 
   const reset = () => {
     setFileName('')
@@ -124,7 +169,7 @@ export function SundaySchoolRosterImport({
       if (!response.ok) throw new Error(body.error || 'Failed to import the roster')
 
       setResult(body as ImportResult)
-      await onSuccess()
+      await Promise.all([onSuccess(), loadHistory()])
       toast.success('Roster imported', {
         description: `${body.createdRows} added · ${body.matchedRows} already on file`,
       })
@@ -132,6 +177,32 @@ export function SundaySchoolRosterImport({
       toast.error(error instanceof Error ? error.message : 'Failed to import the roster')
     } finally {
       setImporting(false)
+    }
+  }
+
+  const handleUndo = async (rosterImport: ImportHistoryItem) => {
+    setUndoingId(rosterImport.id)
+    try {
+      const response = await fetch(`/api/sunday-school/roster-imports/${rosterImport.id}`, {
+        method: 'DELETE',
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Failed to undo the import')
+
+      await Promise.all([onSuccess(), loadHistory()])
+      if (body.protectedRows > 0) {
+        toast.warning(`${body.removedRows} imported students removed`, {
+          description: `${body.protectedRows} kept because they now have activity or account links.`,
+        })
+      } else {
+        toast.success('CSV import undone', {
+          description: `${body.removedRows} imported students removed.`,
+        })
+      }
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to undo the import')
+    } finally {
+      setUndoingId(null)
     }
   }
 
@@ -260,6 +331,94 @@ export function SundaySchoolRosterImport({
                 )}
               </div>
             )}
+
+            <div className="space-y-3 border-t pt-5 dark:border-gray-700">
+              <div>
+                <p className="text-sm font-medium">Recent CSV imports</p>
+                <p className="text-xs text-gray-500">
+                  Undo removes only students created by that upload. Students who were already on file are never deleted.
+                </p>
+              </div>
+
+              {historyLoading && history.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading imports…
+                </div>
+              ) : history.length === 0 ? (
+                <p className="rounded-lg border border-dashed p-3 text-sm text-gray-500 dark:border-gray-700">
+                  No recent CSV imports for this class.
+                </p>
+              ) : (
+                <div className="divide-y overflow-hidden rounded-lg border dark:divide-gray-700 dark:border-gray-700">
+                  {history.map(rosterImport => {
+                    const remainingCreated = Math.max(0, rosterImport.createdRows - rosterImport.removedRows)
+                    const canUndo = !rosterImport.rolledBackAt && remainingCreated > 0
+                    return (
+                      <div key={rosterImport.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {rosterImport.fileName || 'Roster CSV'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(rosterImport.createdAt).toLocaleString()} · {rosterImport.createdRows} added · {rosterImport.matchedRows} matched
+                          </p>
+                          {rosterImport.rolledBackAt ? (
+                            <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-400">
+                              Undone · {rosterImport.removedRows} students removed
+                            </p>
+                          ) : rosterImport.removedRows > 0 ? (
+                            <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                              {rosterImport.removedRows} removed · {remainingCreated} protected or remaining
+                            </p>
+                          ) : null}
+                        </div>
+
+                        {canUndo && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={undoingId !== null}
+                                className="shrink-0 text-red-700 hover:bg-red-50 hover:text-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
+                              >
+                                {undoingId === rosterImport.id ? (
+                                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="mr-1 h-4 w-4" />
+                                )}
+                                Undo import
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Undo this CSV import?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will remove up to {remainingCreated} students created by {rosterImport.fileName || 'this CSV'}.
+                                  Existing matched students will stay on the roster. Anyone with attendance, family links,
+                                  an account, or later activity will also be kept for safety.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => void handleUndo(rosterImport)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Remove imported students
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           <DialogFooter>
