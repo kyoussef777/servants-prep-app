@@ -89,13 +89,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid session date" }, { status: 400 })
     }
 
-    if (!isSessionDateToday(sessionDate)) {
-      return NextResponse.json(
-        { error: "Attendance sessions can only be opened on the session date" },
-        { status: 400 }
-      )
-    }
-
     const sundaySchoolClass = await prisma.sundaySchoolClass.findUnique({
       where: { id: classId },
       select: { id: true, academicYearId: true },
@@ -107,6 +100,12 @@ export async function POST(request: Request) {
     const access = await getSundaySchoolAccess(user, sundaySchoolClass.academicYearId)
     if (!canServeClass(access, classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    if (!isSessionDateToday(sessionDate)) {
+      return NextResponse.json(
+        { error: "Attendance sessions can only be opened on the session date" },
+        { status: 400 }
+      )
     }
 
     // Idempotent: opening the attendance page for a date that already has a

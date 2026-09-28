@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
 import { handleApiError } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
-import { canAssignWeeklyLessonOwner, getSundaySchoolAccess } from '@/lib/sunday-school-access'
+import {
+  canServeClass,
+  getSundaySchoolAccess,
+} from '@/lib/sunday-school-access'
 import { normalizeSessionDate } from '@/lib/sunday-school-class'
 import {
   normalizeLessonDate,
@@ -75,6 +78,7 @@ export async function POST(request: Request) {
         academicYearId: true,
         isActive: true,
         academicYear: { select: { startDate: true, endDate: true } },
+        sundaySchoolYear: { select: { startDate: true, endDate: true } },
       },
     })
     if (!targetClass || !targetClass.isActive) {
@@ -82,14 +86,14 @@ export async function POST(request: Request) {
     }
 
     const access = await getSundaySchoolAccess(user, targetClass.academicYearId)
-    if (!canAssignWeeklyLessonOwner(access, classId)) {
+    if (!canServeClass(access, classId)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-
     const errors = rows.flatMap(validateSundaySchoolLessonRow)
     const seenDates = new Set<string>()
-    const academicYearStart = normalizeSessionDate(targetClass.academicYear.startDate)
-    const academicYearEnd = normalizeSessionDate(targetClass.academicYear.endDate)
+    const lessonYear = targetClass.sundaySchoolYear ?? targetClass.academicYear
+    const lessonYearStart = normalizeSessionDate(lessonYear.startDate)
+    const lessonYearEnd = normalizeSessionDate(lessonYear.endDate)
     for (const row of rows) {
       if (seenDates.has(row.lessonDate)) {
         errors.push({ rowNumber: row.rowNumber, message: 'This date appears more than once in the CSV' })
@@ -99,8 +103,8 @@ export async function POST(request: Request) {
       const date = normalizeLessonDate(row.lessonDate)
       if (!date) continue
       const lessonDate = new Date(`${date}T00:00:00.000Z`)
-      if (lessonDate < academicYearStart || lessonDate > academicYearEnd) {
-        errors.push({ rowNumber: row.rowNumber, message: 'Date is outside this class\'s academic year' })
+      if (lessonDate < lessonYearStart || lessonDate > lessonYearEnd) {
+        errors.push({ rowNumber: row.rowNumber, message: 'Date is outside this class\'s Sunday School year' })
       }
     }
     if (errors.length > 0) {
