@@ -49,17 +49,16 @@ export async function POST(request: Request) {
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 })
     }
+    // Serving this class is what grants this — PRIEST reads but never writes
+    const access = await getSundaySchoolAccess(user, session.class.academicYearId)
+    if (!canServeClass(access, session.classId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
     if (!isSessionDateToday(session.date)) {
       return NextResponse.json(
         { error: "Attendance can only be recorded on the session date" },
         { status: 400 }
       )
-    }
-
-    // Serving this class is what grants this — PRIEST reads but never writes
-    const access = await getSundaySchoolAccess(user, session.class.academicYearId)
-    if (!canServeClass(access, session.classId)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     for (const record of records) {

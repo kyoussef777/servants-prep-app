@@ -41,13 +41,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid session date" }, { status: 400 })
     }
 
-    if (!isSessionDateToday(sessionDate)) {
-      return NextResponse.json(
-        { error: "Attendance can only be recorded on the session date" },
-        { status: 400 }
-      )
-    }
-
     const servantIds = records.map(record => record.servantId)
     if (new Set(servantIds).size !== servantIds.length) {
       return NextResponse.json({ error: "Each servant may only appear once" }, { status: 400 })
@@ -77,6 +70,12 @@ export async function POST(request: Request) {
     const access = await getSundaySchoolAccess(user, sundaySchoolClass.academicYearId)
     if (!canTakeServantAttendance(access, classId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    if (!isSessionDateToday(sessionDate)) {
+      return NextResponse.json(
+        { error: "Attendance can only be recorded on the session date" },
+        { status: 400 }
+      )
     }
 
     const rosterAssignments = await prisma.sundaySchoolServantAssignment.findMany({

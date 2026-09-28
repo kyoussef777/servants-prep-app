@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   requireAuth: vi.fn(),
   getAccess: vi.fn(),
-  canAssign: vi.fn(),
+  canServe: vi.fn(),
   findClass: vi.fn(),
   findLessons: vi.fn(),
   findAssignments: vi.fn(),
@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
 vi.mock('@/lib/sunday-school-access', () => ({
   getSundaySchoolAccess: mocks.getAccess,
-  canAssignWeeklyLessonOwner: mocks.canAssign,
+  canServeClass: mocks.canServe,
 }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -40,9 +40,9 @@ function request(rows: Array<Record<string, unknown>>) {
 describe('Sunday School lesson CSV import API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.requireAuth.mockResolvedValue({ id: 'coordinator-1', role: 'SERVANT' })
+    mocks.requireAuth.mockResolvedValue({ id: 'servant-1', role: 'SERVANT' })
     mocks.getAccess.mockResolvedValue({ canRead: true })
-    mocks.canAssign.mockReturnValue(true)
+    mocks.canServe.mockReturnValue(true)
     mocks.findClass.mockResolvedValue({
       id: 'class-1',
       name: 'Grade 4',
@@ -50,8 +50,12 @@ describe('Sunday School lesson CSV import API', () => {
       academicYearId: 'year-1',
       isActive: true,
       academicYear: {
-        startDate: new Date('2026-09-01T00:00:00.000Z'),
-        endDate: new Date('2027-06-30T00:00:00.000Z'),
+        startDate: new Date('2024-09-01T00:00:00.000Z'),
+        endDate: new Date('2025-06-30T00:00:00.000Z'),
+      },
+      sundaySchoolYear: {
+        startDate: new Date('2026-09-11T00:00:00.000Z'),
+        endDate: new Date('2027-09-10T00:00:00.000Z'),
       },
     })
     mocks.findLessons.mockResolvedValue([{
@@ -123,12 +127,12 @@ describe('Sunday School lesson CSV import API', () => {
     expect(mocks.upsertLesson).toHaveBeenCalledWith(expect.objectContaining({
       create: expect.objectContaining({
         ownerId: 'servant-1',
-        assignedById: 'coordinator-1',
+        assignedById: 'servant-1',
         title: null,
       }),
       update: {
         ownerId: 'servant-1',
-        assignedById: 'coordinator-1',
+        assignedById: 'servant-1',
       },
     }))
   })
@@ -190,8 +194,8 @@ describe('Sunday School lesson CSV import API', () => {
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
-  it('requires coordinator permission for the selected class', async () => {
-    mocks.canAssign.mockReturnValue(false)
+  it('requires an active class assignment', async () => {
+    mocks.canServe.mockReturnValue(false)
 
     const response = await POST(request([{
       rowNumber: 2,

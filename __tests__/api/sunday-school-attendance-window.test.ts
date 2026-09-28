@@ -44,6 +44,9 @@ describe('Sunday School child attendance edit window', () => {
     expect(await response.json()).toEqual({
       error: 'Attendance can only be recorded on the session date',
     })
-    expect(mocks.getSundaySchoolAccess).not.toHaveBeenCalled()
+    expect(mocks.getSundaySchoolAccess).toHaveBeenCalledWith(
+      { id: 'servant-1', role: 'SERVANT' },
+      'year-1'
+    )
   })
 })
