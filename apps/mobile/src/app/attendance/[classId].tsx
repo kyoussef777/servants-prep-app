@@ -9,6 +9,7 @@ import type {
 import {
   getChildFullName,
   getLevelDisplayName,
+  isSessionDateToday,
   organizeAttendanceRoster,
   type AttendanceRosterNameOrder,
 } from "@stmark/domain";
@@ -110,12 +111,14 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
   const ids = roster.map((child) => child.id);
   const progress = rosterProgress(ids, marks);
   const dirty = !sameMarks(ids, marks, serverMarks);
-  const canEdit = !!current && !!cls.canServe && !saving;
+  const canEdit = !!current && !!cls.canServe && !saving && isSessionDateToday(date);
   const canSave = canEdit && progress.complete && dirty;
   const saveLabel = saving
     ? "Saving…"
     : !cls.canServe
       ? "Read-only access"
+      : !isSessionDateToday(date)
+        ? "Past attendance is read-only"
       : saved && !dirty
         ? "Attendance saved"
         : "Save attendance";
@@ -184,6 +187,11 @@ function AttendanceRoster({ classId, initialDate }: { classId: string; initialDa
             </Pressable>
           </View>
         </GlassChrome>
+        {!isSessionDateToday(date) && (
+          <Copy kind="caption" color={colors.warning}>
+            Attendance can only be changed on the session date.
+          </Copy>
+        )}
         {!current && !loadError && (
           <ActivityIndicator
             accessibilityLabel="Loading class roster"

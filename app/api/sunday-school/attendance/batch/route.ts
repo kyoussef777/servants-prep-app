@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { canServeClass, getSundaySchoolAccess } from "@/lib/sunday-school-access"
 import { AttendanceStatus } from "@prisma/client"
+import { isSessionDateToday } from "@/lib/sunday-school-class"
 
 // Sunday School mode: save a whole class's child attendance for one session.
 // Modeled on /api/attendance/batch, minus the prep-only concerns (conduct
@@ -37,10 +38,16 @@ export async function POST(request: Request) {
 
     const session = await prisma.sundaySchoolSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, classId: true, class: { select: { academicYearId: true } } },
+      select: { id: true, classId: true, date: true, class: { select: { academicYearId: true } } },
     })
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 })
+    }
+    if (!isSessionDateToday(session.date)) {
+      return NextResponse.json(
+        { error: "Attendance can only be recorded on the session date" },
+        { status: 400 }
+      )
     }
 
     // Serving this class is what grants this — PRIEST reads but never writes

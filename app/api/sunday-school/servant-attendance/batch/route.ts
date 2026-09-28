@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { prisma } from "@/lib/prisma"
 import { canTakeServantAttendance, getSundaySchoolAccess } from "@/lib/sunday-school-access"
-import { normalizeSessionDate } from "@/lib/sunday-school-class"
+import { isSessionDateToday, normalizeSessionDate } from "@/lib/sunday-school-class"
 
 interface ServantAttendanceRecord {
   servantId: string
@@ -41,9 +41,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid session date" }, { status: 400 })
     }
 
-    if (sessionDate > normalizeSessionDate(new Date())) {
+    if (!isSessionDateToday(sessionDate)) {
       return NextResponse.json(
-        { error: "Cannot record attendance for a future date" },
+        { error: "Attendance can only be recorded on the session date" },
         { status: 400 }
       )
     }
