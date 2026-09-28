@@ -20,6 +20,12 @@ interface BatchRequest {
   records: ChildAttendanceRecord[]
 }
 
+const SUNDAY_SCHOOL_ATTENDANCE_STATUSES = new Set<AttendanceStatus>([
+  AttendanceStatus.PRESENT,
+  AttendanceStatus.LATE,
+  AttendanceStatus.ABSENT,
+])
+
 // POST /api/sunday-school/attendance/batch
 export async function POST(request: Request) {
   try {
@@ -49,14 +55,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const validStatuses = Object.values(AttendanceStatus)
     for (const record of records) {
       if (!record.childId) {
         return NextResponse.json({ error: "Each record needs a childId" }, { status: 400 })
       }
-      if (!validStatuses.includes(record.status)) {
+      if (!SUNDAY_SCHOOL_ATTENDANCE_STATUSES.has(record.status)) {
         return NextResponse.json(
-          { error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` },
+          { error: `Invalid status. Must be one of: ${Array.from(SUNDAY_SCHOOL_ATTENDANCE_STATUSES).join(", ")}` },
           { status: 400 }
         )
       }
