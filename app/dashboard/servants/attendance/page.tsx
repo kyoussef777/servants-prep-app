@@ -40,6 +40,17 @@ import type {
 import { AttendanceStatus } from '@prisma/client'
 import { Save } from 'lucide-react'
 
+function normalizeSundaySchoolAttendanceStatus(status?: AttendanceStatus | null) {
+  if (
+    status === AttendanceStatus.PRESENT ||
+    status === AttendanceStatus.LATE ||
+    status === AttendanceStatus.ABSENT
+  ) {
+    return status
+  }
+  return undefined
+}
+
 function SundaySchoolAttendanceContent() {
   const { status } = useSundaySchoolGuard()
   const searchParams = useSearchParams()
@@ -113,14 +124,12 @@ function SundaySchoolAttendanceContent() {
         }
         const loaded = attendanceBody as SundaySchoolSessionAttendance
         setAttendance(loaded)
-        setMarks(
-          Object.fromEntries(
-            loaded.roster.map(entry => [
-              entry.id,
-              entry.attendance?.status ?? AttendanceStatus.PRESENT,
-            ])
-          )
-        )
+        const savedMarks: Record<string, AttendanceStatus> = {}
+        for (const entry of loaded.roster) {
+          const savedStatus = normalizeSundaySchoolAttendanceStatus(entry.attendance?.status)
+          if (savedStatus) savedMarks[entry.id] = savedStatus
+        }
+        setMarks(savedMarks)
         return
       }
 
@@ -142,7 +151,7 @@ function SundaySchoolAttendanceContent() {
       }))
 
       setAttendance({ session: null, roster })
-      setMarks(Object.fromEntries(roster.map(entry => [entry.id, AttendanceStatus.PRESENT])))
+      setMarks({})
     } catch (error: unknown) {
       setAttendance(null)
       setMarks({})
@@ -158,6 +167,14 @@ function SundaySchoolAttendanceContent() {
 
   const handleSave = async () => {
     if (!attendance) return
+
+    const unmarkedCount = attendance.roster.filter(entry => !marks[entry.id]).length
+    if (unmarkedCount > 0) {
+      toast.error(
+        `Select attendance for ${unmarkedCount} ${unmarkedCount === 1 ? 'child' : 'children'} before saving`
+      )
+      return
+    }
 
     setSaving(true)
     try {
@@ -180,7 +197,7 @@ function SundaySchoolAttendanceContent() {
           sessionId: sessionBody.id,
           records: attendance.roster.map(entry => ({
             childId: entry.id,
-            status: marks[entry.id] ?? AttendanceStatus.PRESENT,
+            status: marks[entry.id]!,
           })),
         }),
       })
@@ -209,6 +226,7 @@ function SundaySchoolAttendanceContent() {
     () => organizeAttendanceRoster(attendance?.roster ?? [], { nameOrder, groupByGender }),
     [attendance?.roster, groupByGender, nameOrder]
   )
+  const unmarkedCount = attendance?.roster.filter(entry => !marks[entry.id]).length ?? 0
 
   if (status === 'loading' || classesLoading) {
     return <PageLoading />
@@ -219,7 +237,7 @@ function SundaySchoolAttendanceContent() {
       <div className="max-w-7xl mx-auto space-y-6">
         <PageHeader
           title="Take Attendance"
-          description="Mark each child in your class for the week."
+          description="Select a status for every child before saving this week's attendance."
           lastSaved={lastSaved}
           actions={
             canEdit && attendance ? (
@@ -291,6 +309,7 @@ function SundaySchoolAttendanceContent() {
                   {attendance && (
                     <span className="ml-2 text-sm font-normal text-gray-600 dark:text-gray-400">
                       {presentCount} of {attendance.roster.length} here
+                      {unmarkedCount > 0 && ` · ${unmarkedCount} unmarked`}
                     </span>
                   )}
                 </CardTitle>
@@ -366,11 +385,13 @@ function SundaySchoolAttendanceContent() {
                                 </div>
                               </div>
                               <AttendanceStatusButtons
-                                currentStatus={marks[entry.id] ?? AttendanceStatus.PRESENT}
+                                currentStatus={marks[entry.id]}
                                 onStatusChange={statusValue =>
                                   setMarks(prev => ({ ...prev, [entry.id]: statusValue as AttendanceStatus }))
                                 }
                                 disabled={!canEdit}
+                                showExcused={false}
+                                absentLabel="Not present"
                               />
                             </div>
                           ))}
