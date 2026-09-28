@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { requireAuth } from "@/lib/auth-helpers"
 import { handleApiError } from "@/lib/api-utils"
 import { canServeClass, getSundaySchoolAccess, visibleClassFilter } from "@/lib/sunday-school-access"
-import { normalizeSessionDate } from "@/lib/sunday-school-class"
+import { isSessionDateToday, normalizeSessionDate } from "@/lib/sunday-school-class"
 
 // Sunday School mode: a session is one weekly meeting of one class.
 
@@ -89,10 +89,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid session date" }, { status: 400 })
     }
 
-    const today = normalizeSessionDate(new Date())
-    if (sessionDate > today) {
+    if (!isSessionDateToday(sessionDate)) {
       return NextResponse.json(
-        { error: "Cannot create a session for a future date" },
+        { error: "Attendance sessions can only be opened on the session date" },
         { status: 400 }
       )
     }

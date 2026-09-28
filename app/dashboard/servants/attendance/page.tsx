@@ -26,6 +26,7 @@ import {
   getMostRecentClassMeetingDate,
   getMostRecentSunday,
   getTodayDateInputValue,
+  isSessionDateToday,
   toDateInputValue,
 } from '@/lib/sunday-school-class'
 import type {
@@ -71,7 +72,7 @@ function SundaySchoolAttendanceContent() {
   // The server decides per class whether this person may record attendance
   const selectedClass = classes.find(c => c.id === selectedClassId)
   const selectedClassLevel = selectedClass?.level
-  const canEdit = selectedClass?.canServe ?? false
+  const canEdit = (selectedClass?.canServe ?? false) && isSessionDateToday(sessionDate)
   const {
     data: trendData,
     isLoading: trendLoading,
@@ -285,6 +286,12 @@ function SundaySchoolAttendanceContent() {
                 </div>
               </CardContent>
             </Card>
+
+            {!isSessionDateToday(sessionDate) && (
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Past attendance is read-only. Attendance can only be changed on the session date.
+              </p>
+            )}
 
             {selectedClass && (
               <SundaySchoolRecentAttendanceChart
