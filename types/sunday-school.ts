@@ -233,6 +233,8 @@ export interface SundaySchoolRosterEntry {
   firstName: string
   lastName: string
   level: SundaySchoolLevel
+  gender: 'MALE' | 'FEMALE' | null
+  profileImageUrl: string | null
   attendance: {
     id: string
     childId: string
