@@ -12,9 +12,14 @@ import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/admin/page-header'
 import { AttendanceStatusButtons } from '@/components/attendance-status-buttons'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
+import {
+  organizeAttendanceRoster,
+  type AttendanceRosterNameOrder,
+} from '@stmark/domain'
 import {
   getChildFullName,
   getLevelDisplayName,
@@ -48,6 +53,9 @@ function SundaySchoolAttendanceContent() {
   const [loadingSession, setLoadingSession] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
+  const [showPhotos, setShowPhotos] = useState(true)
+  const [groupByGender, setGroupByGender] = useState(false)
 
   // The server decides per class whether this person may record attendance
   const selectedClass = classes.find(c => c.id === selectedClassId)
@@ -127,6 +135,8 @@ function SundaySchoolAttendanceContent() {
         firstName: child.firstName,
         lastName: child.lastName,
         level: child.level,
+        gender: child.gender,
+        profileImageUrl: child.user?.profileImageUrl ?? null,
         attendance: null,
       }))
 
@@ -193,6 +203,10 @@ function SundaySchoolAttendanceContent() {
   const presentCount = useMemo(
     () => Object.values(marks).filter(s => s === AttendanceStatus.PRESENT || s === AttendanceStatus.LATE).length,
     [marks]
+  )
+  const rosterGroups = useMemo(
+    () => organizeAttendanceRoster(attendance?.roster ?? [], { nameOrder, groupByGender }),
+    [attendance?.roster, groupByGender, nameOrder]
   )
 
   if (status === 'loading' || classesLoading) {
@@ -275,28 +289,86 @@ function SundaySchoolAttendanceContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {attendance && attendance.roster.length > 0 && (
+                  <div className="mb-4 grid gap-4 rounded-lg border bg-gray-50 p-4 sm:grid-cols-3 dark:border-gray-800 dark:bg-gray-900/50">
+                    <div className="space-y-2">
+                      <Label htmlFor="attendance-name-order">Alphabetize by</Label>
+                      <select
+                        id="attendance-name-order"
+                        value={nameOrder}
+                        onChange={event => setNameOrder(event.target.value as AttendanceRosterNameOrder)}
+                        className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+                      >
+                        <option value="last">Last name</option>
+                        <option value="first">First name</option>
+                      </select>
+                    </div>
+                    <label className="flex min-h-9 items-center gap-2 self-end text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={showPhotos}
+                        onChange={event => setShowPhotos(event.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 accent-primary"
+                      />
+                      Include photos
+                    </label>
+                    <label className="flex min-h-9 items-center gap-2 self-end text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={groupByGender}
+                        onChange={event => setGroupByGender(event.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 accent-primary"
+                      />
+                      Group roster by gender
+                    </label>
+                  </div>
+                )}
                 {loadingSession ? (
                   <p className="text-center py-8 text-gray-500">Loading roster…</p>
                 ) : !attendance || attendance.roster.length === 0 ? (
                   <EmptyState message="No children on this roster yet. Add them from the Children page." />
                 ) : (
-                  <div className="divide-y dark:divide-gray-800">
-                    {attendance.roster.map(entry => (
-                      <div key={entry.id} className="flex items-center justify-between gap-3 py-3">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{getChildFullName(entry)}</p>
-                          <Badge variant="secondary" className="mt-1">
-                            {getLevelDisplayName(entry.level)}
-                          </Badge>
+                  <div className="space-y-5">
+                    {rosterGroups.map(group => (
+                      <section key={group.key}>
+                        {group.label && (
+                          <div className="mb-1 flex items-center gap-2 border-b pb-2 dark:border-gray-800">
+                            <h3 className="font-semibold">{group.label}</h3>
+                            <Badge variant="secondary">{group.entries.length}</Badge>
+                          </div>
+                        )}
+                        <div className="divide-y dark:divide-gray-800">
+                          {group.entries.map(entry => (
+                            <div key={entry.id} className="flex items-center justify-between gap-3 py-3">
+                              <div className="flex min-w-0 items-center gap-3">
+                                {showPhotos && (
+                                  <Avatar className="h-10 w-10 shrink-0">
+                                    {entry.profileImageUrl && (
+                                      <AvatarImage src={entry.profileImageUrl} alt={getChildFullName(entry)} />
+                                    )}
+                                    <AvatarFallback>
+                                      {(entry.firstName[0] ?? '') + (entry.lastName[0] ?? '')}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">{getChildFullName(entry)}</p>
+                                  <Badge variant="secondary" className="mt-1">
+                                    {getLevelDisplayName(entry.level)}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <AttendanceStatusButtons
+                                currentStatus={marks[entry.id] ?? AttendanceStatus.PRESENT}
+                                onStatusChange={statusValue =>
+                                  setMarks(prev => ({ ...prev, [entry.id]: statusValue as AttendanceStatus }))
+                                }
+                                disabled={!canEdit}
+                              />
+                            </div>
+                          ))}
                         </div>
-                        <AttendanceStatusButtons
-                          currentStatus={marks[entry.id] ?? AttendanceStatus.PRESENT}
-                          onStatusChange={statusValue =>
-                            setMarks(prev => ({ ...prev, [entry.id]: statusValue as AttendanceStatus }))
-                          }
-                          disabled={!canEdit}
-                        />
-                      </div>
+                      </section>
                     ))}
                   </div>
                 )}
