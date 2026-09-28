@@ -57,7 +57,7 @@ function DashboardShortcutCard({
                 </p>
               </div>
             </div>
-            <ArrowRight className="h-5 w-5 shrink-0 text-gray-400 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-maroon-600" />
+            <ArrowRight className="h-5 w-5 shrink-0 text-gray-400 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-maroon-600 dark:group-hover:text-maroon-300" />
           </div>
         </CardContent>
       </Link>
