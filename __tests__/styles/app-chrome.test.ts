@@ -7,9 +7,11 @@ const globalStyles = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8'
 describe('global app chrome styles', () => {
   it('keeps the desktop scrollbar gutter stable while overlays are open', () => {
     expect(globalStyles).toMatch(/html\s*{[\s\S]*?overflow-y:\s*scroll;[\s\S]*?scrollbar-gutter:\s*stable;/)
-    expect(globalStyles).toMatch(
-      /html body\[data-scroll-locked\]\s*{[\s\S]*?overflow-y:\s*scroll\s*!important;[\s\S]*?margin-right:\s*0\s*!important;[\s\S]*?padding-right:\s*0\s*!important;/
-    )
+    const lockedBodyRule = globalStyles.match(/html body\[data-scroll-locked\]\s*{([^}]*)}/)?.[1]
+
+    expect(lockedBodyRule).toContain('margin-right: 0 !important;')
+    expect(lockedBodyRule).toContain('padding-right: 0 !important;')
+    expect(lockedBodyRule).not.toContain('overflow')
   })
 
   it('uses the shared app canvas behind top-level dashboard pages', () => {
