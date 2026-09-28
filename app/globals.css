@@ -370,11 +370,10 @@
     @apply bg-background text-foreground;
   }
 
-  /* Radix keeps modal focus and background scrolling locked by marking the
-     body. Preserve the native scrollbar track while locked so opening a
-     dialog never changes the page width or makes the interface jump. */
+  /* Radix locks the body while a modal is open. The root already owns the
+     stable scrollbar gutter, so only remove Radix's width compensation here;
+     making the body scrollable too would create a second scrollbar. */
   html body[data-scroll-locked] {
-    overflow-y: scroll !important;
     margin-right: 0 !important;
     padding-right: 0 !important;
   }
