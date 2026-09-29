@@ -1369,8 +1369,15 @@ model RegistrationSubmission {
 }
 
 // Mentor contact details are confirmed again when a student begins Year 2.
-// A separate record preserves the original admission application while making
-// the Year 2 renewal explicit and auditable for each academic year.
+// One row per student per academic year makes the renewal explicit and gives
+// each year its own auditable record of who vouched for them.
+//
+// This is the per-year history, not an archive of the admission form: the
+// student's current mentor is deliberately kept in one place, so confirming a
+// Year 2 mentor also overwrites mentorName/mentorPhone/mentorEmail on their
+// approved RegistrationSubmission and on StudentEnrollment. Replacing the
+// previous mentor there is intended — the year-by-year trail lives here.
+// Pinned by __tests__/api/registration-application.test.ts.
 model AnnualMentorInformation {
   id             String   @id @default(cuid())
   studentId      String
