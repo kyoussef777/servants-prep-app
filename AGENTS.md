@@ -122,6 +122,11 @@ comment at the top of a route before editing it.
 | `assignments/`, `codes/`, `logs/`, `progress/` | **Servants Prep** — verifying that *async prep students* served their required weeks |
 | `age-groups/`, `servant-assignments/`, `classes/`, `children/`, `sessions/`, `attendance/`, `dashboard/`, `assignable-servants/` | **Sunday School mode** — the actual ministry |
 
+One Sunday School route sits outside that directory on purpose:
+`app/api/public/roster-signup` is **unauthenticated** (the roster sign-up QR
+flow). New public routes belong under `app/api/public/` so the absence of a
+session is visible in the path.
+
 The same trap exists in the schema and the enums:
 
 | Prep-side | Sunday School mode |

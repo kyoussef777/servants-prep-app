@@ -64,6 +64,7 @@ account access through a dated relationship.
 | `SundaySchoolGuardianProfile` | Guardian identity/contact independent of whether the guardian has a login. |
 | `SundaySchoolChildGuardian` | Dated relationship between guardian, child, and optional parent user; this relationship grants parent scope. |
 | `SundaySchoolRosterImport` / `Row` | Idempotent import run and per-row outcome ledger. |
+| `SundaySchoolRosterLink` | A temporary, class-scoped sign-up link (QR code). Stores only the token's SHA-256, plus `expiresAt`, `maxUses`/`useCount`, and `revokedAt`. `SundaySchoolChild.rosterLinkId` records which link let a child in. |
 | `SundaySchoolRolloverRun` / `Item` | Resumable annual promotion run and per-enrollment result. |
 | `AuditEvent` | Append-only security/business audit event with actor, action, entity, result, and request correlation. |
 | `SundaySchoolFamily` | Shared family name, home address, separate mother/father contact, and every linked child. Children in the same family are siblings. |
@@ -155,6 +156,8 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 | `classes` | GET, POST | Read: scoped. Create: `SUPER_ADMIN`, or band coordinator at that level |
 | `classes/[id]` | GET, PATCH, DELETE | View: scoped. Edit: class coordinator. Delete: band coordinator or `SUPER_ADMIN` |
 | `children` | GET, POST | People who serve the class |
+| `roster-links` | GET, POST | People who serve the class. POST returns the plaintext token exactly once |
+| `roster-links/[id]` | DELETE | People who serve the class — revokes the link; children already added stay |
 | `children/[id]` | GET, PATCH, DELETE | People who serve the child's class |
 | `families` | GET | Families connected to at least one visible child; includes all connected siblings |
 | `lessons` | GET | Class-scoped servants/leaders, linked parents, and linked child accounts |
@@ -175,6 +178,12 @@ All under `app/api/sunday-school/`. Every one resolves authority with
 `Authorization: Bearer $CRON_SECRET` and is scheduled by `vercel.json` for
 Monday at 10:00 UTC. `bun lessons:generate` provides the same one-time rollout
 backfill and is safe to rerun.
+
+`app/api/public/roster-signup` is also outside that group, and is the only
+**unauthenticated** Sunday School route. `GET ?token=` returns just the class
+name and grade; `POST` adds one child. It is deliberately not under
+`app/api/sunday-school/` so that the absence of a session is obvious on sight.
+See "Roster sign-up links" below.
 
 Two that exist for specific reasons:
 
@@ -202,7 +211,7 @@ Under `app/dashboard/servants/`, all guarded by `useSundaySchoolGuard()`.
 | `servant-attendance/page.tsx` | Coordinator-only screen — pick class and week, review servant history, mark Present/Absent, batch save |
 | `classes/page.tsx` | Class list; "New class" appears only for levels you may create at |
 | `classes/[id]/page.tsx` | Class detail: servants (with the staffing panel for coordinators), roster, recent sessions |
-| `roster/page.tsx` | Child roster CRUD, family/parent details, sibling connections, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
+| `roster/page.tsx` | Child roster CRUD (name, grade, class, birth date, guardian contact), family/parent details, sibling connections, CSV import, sign-up QR codes, and coordinator-only child-account linking (the legacy `/children` URL remains supported) |
 | `visitations/page.tsx` | Per-child visitation status, dated history, and notes across the viewer's assigned class scope |
 | `feedback/page.tsx` | Global idea board with attributed submissions, upvote-ranked voting, and `SUPER_ADMIN` moderation |
 | `age-groups/page.tsx` | `SUPER_ADMIN` only — bands and the grades each owns |
@@ -215,6 +224,42 @@ and sees no switcher.
 Parents see deduplicated upcoming lesson cards in `/dashboard/parent`. Linked
 student accounts use `/dashboard/student/class-lessons`; unlinked accounts get
 a clear empty state without gaining access to any class.
+
+## Roster sign-up links (QR codes)
+
+A servant of a class mints a temporary link from **Roster → Sign-up QR**, prints
+or projects the QR, and families fill in the child's own details without an
+account. Every sign-up lands on that one class's roster.
+
+What makes it safe to expose publicly:
+
+- **The destination is never in the request.** Class, Sunday School year, and
+  therefore grade level are read from the `SundaySchoolRosterLink` row. A caller
+  cannot aim a sign-up at another class or choose their own grade. Anything
+  resembling `classId`, `level`, `userId`, or `isActive` in the body is ignored.
+- **The token is not stored.** Only its SHA-256 lives in `tokenHash`, so a
+  database dump yields no working link. 256 bits of entropy is why the route
+  needs no lockout — a token cannot be guessed.
+- **Exposure is bounded three ways:** `expiresAt` (default 8 hours, max 7 days),
+  `maxUses` (default 40, max 200), and `revokedAt`. The use is claimed with a
+  conditional `updateMany` that re-checks all three, so concurrent submissions
+  cannot exceed the cap and an expiry that passes mid-request is caught.
+- **Nothing about the roster comes back.** A visitor sees the class name and
+  grade so they know they scanned the right poster. No child list, no guardian
+  contact, not even whether their own name matched an existing row.
+- **A public write never destroys servant-entered data.** A submission matching a
+  child already in *that* class fills blank fields only.
+- Every sign-up writes an `AuditEvent` naming the link, so it is always possible
+  to ask what a given QR code let in. `SundaySchoolChild.rosterLinkId` answers
+  the same question from the roster side.
+
+Revoking a link stops new sign-ups; it does not remove children already added.
+Use the CSV import's undo, or archive the child, for that.
+
+Sign-ups go straight onto the roster rather than into a review queue — unlike
+`ChildRegistrationRequest`, which is the *parent-account* path and still needs a
+coordinator to place the child. The QR is a kiosk sign-up sheet handed out by a
+servant who is in the room; the bounds above are what stand in for the review.
 
 ## Extending it
 

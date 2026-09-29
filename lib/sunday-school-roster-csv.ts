@@ -148,6 +148,12 @@ export function validateSundaySchoolRosterRow(
   if (row.birthDate && !normalizeRosterBirthDate(row.birthDate)) {
     errors.push({ rowNumber: row.rowNumber, message: 'Birth date must be YYYY-MM-DD or MM/DD/YYYY' })
   }
+  if (row.guardianName && row.guardianName.length > 200) {
+    errors.push({ rowNumber: row.rowNumber, message: 'Guardian name must be 200 characters or fewer' })
+  }
+  if (row.guardianPhone && row.guardianPhone.length > 50) {
+    errors.push({ rowNumber: row.rowNumber, message: 'Guardian phone must be 50 characters or fewer' })
+  }
   if (row.guardianEmail && !EMAIL_PATTERN.test(row.guardianEmail)) {
     errors.push({ rowNumber: row.rowNumber, message: 'Guardian email is invalid' })
   }

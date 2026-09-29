@@ -359,6 +359,7 @@ model User {
   mentorAssignmentsEnded MentorAssignment[]           @relation("MentorAssignmentEndedBy")
   classPlacementsMoved   SundaySchoolClassPlacement[] @relation("SundaySchoolPlacementMovedBy")
   rosterImportsCreated   SundaySchoolRosterImport[]   @relation("SundaySchoolRosterImportCreatedBy")
+  rosterLinksCreated     SundaySchoolRosterLink[]     @relation("SundaySchoolRosterLinkCreatedBy")
   rolloverRunsTriggered  SundaySchoolRolloverRun[]    @relation("SundaySchoolRolloverTriggeredBy")
   auditEvents            AuditEvent[]                 @relation("AuditEventActor")
   guardianProfile        SundaySchoolGuardianProfile? @relation("SundaySchoolGuardianAccount")
@@ -851,6 +852,7 @@ model SundaySchoolYear {
   enrollments                SundaySchoolEnrollment[]
   assignments                SundaySchoolServantAssignment[]
   rosterImports              SundaySchoolRosterImport[]
+  rosterLinks                SundaySchoolRosterLink[]
   registrationRequests       ChildRegistrationRequest[]
   rolloverRunsAsSource       SundaySchoolRolloverRun[]       @relation("SundaySchoolRolloverSourceYear")
   rolloverRunsAsTarget       SundaySchoolRolloverRun[]       @relation("SundaySchoolRolloverTargetYear")
@@ -884,6 +886,7 @@ model SundaySchoolClass {
   children                  SundaySchoolChild[]
   placements                SundaySchoolClassPlacement[]
   rosterImports             SundaySchoolRosterImport[]
+  rosterLinks               SundaySchoolRosterLink[]
   sessions                  SundaySchoolSession[]
   weeklyLessons             SundaySchoolWeeklyLesson[]
   childRegistrationRequests ChildRegistrationRequest[]
@@ -988,6 +991,9 @@ model SundaySchoolChild {
   classId       String?
   familyId      String?
   userId        String?                  @unique
+  // Set when this row came from a public roster sign-up link, so servants can
+  // see what a given QR code let onto the roster and clean it up.
+  rosterLinkId  String?
   birthDate     DateTime?
   guardianName  String?
   guardianPhone String?
@@ -1008,9 +1014,11 @@ model SundaySchoolChild {
   registrationRequest ChildRegistrationRequest?     @relation("ChildRegistrationCreatedChild")
   enrollments         SundaySchoolEnrollment[]
   rosterImportRows    SundaySchoolRosterImportRow[]
+  rosterLink          SundaySchoolRosterLink?       @relation(fields: [rosterLinkId], references: [id], onDelete: SetNull)
 
   @@index([classId])
   @@index([familyId])
+  @@index([rosterLinkId])
   @@index([level])
   @@index([isActive])
   @@index([status])
@@ -1361,8 +1369,15 @@ model RegistrationSubmission {
 }
 
 // Mentor contact details are confirmed again when a student begins Year 2.
-// A separate record preserves the original admission application while making
-// the Year 2 renewal explicit and auditable for each academic year.
+// One row per student per academic year makes the renewal explicit and gives
+// each year its own auditable record of who vouched for them.
+//
+// This is the per-year history, not an archive of the admission form: the
+// student's current mentor is deliberately kept in one place, so confirming a
+// Year 2 mentor also overwrites mentorName/mentorPhone/mentorEmail on their
+// approved RegistrationSubmission and on StudentEnrollment. Replacing the
+// previous mentor there is intended — the year-by-year trail lives here.
+// Pinned by __tests__/api/registration-application.test.ts.
 model AnnualMentorInformation {
   id             String   @id @default(cuid())
   studentId      String
@@ -1554,6 +1569,38 @@ model SundaySchoolRosterImportRow {
   @@index([childId])
   @@index([enrollmentId])
   @@index([outcome])
+}
+
+// A short-lived, class-scoped sign-up link — handed out as a QR code — that
+// lets a family put a child on ONE class's roster without an account.
+//
+// Only the SHA-256 of the token is stored, so a database leak yields no
+// working link. Class, Sunday School year, and grade level are read from this
+// row and never from the public request, which is what makes it impossible
+// for a link to fill a roster other than the one it was created for.
+// Exposure is bounded three ways: expiresAt, maxUses, and revokedAt.
+model SundaySchoolRosterLink {
+  id                 String    @id @default(cuid())
+  classId            String
+  sundaySchoolYearId String
+  tokenHash          String    @unique
+  label              String?
+  expiresAt          DateTime  @db.Timestamptz(3)
+  maxUses            Int       @default(40)
+  useCount           Int       @default(0)
+  revokedAt          DateTime? @db.Timestamptz(3)
+  createdById        String
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  class            SundaySchoolClass   @relation(fields: [classId, sundaySchoolYearId], references: [id, sundaySchoolYearId], onDelete: Restrict)
+  sundaySchoolYear SundaySchoolYear    @relation(fields: [sundaySchoolYearId], references: [id], onDelete: Restrict)
+  createdBy        User                @relation("SundaySchoolRosterLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  children         SundaySchoolChild[]
+
+  @@index([classId, revokedAt])
+  @@index([createdById])
+  @@index([sundaySchoolYearId])
 }
 
 model SundaySchoolRolloverRun {

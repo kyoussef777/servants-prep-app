@@ -238,9 +238,26 @@ an omitted Prisma filter can accidentally mean unrestricted access.
    by `/api/sunday-school/children*` and `/api/sunday-school/families`, scoped
    to people who can see at least one child in that family — never from the
    dashboard summary or the command palette.
+   The one public write path, `/api/public/roster-signup`, *collects* guardian
+   contact for a single child and returns none — see
+   [`sunday-school-mode.md`](sunday-school-mode.md), "Roster sign-up links".
 5. **A grade level belongs to at most one age group.** Enforced by
    `assertLevelsUnclaimed` on every age-group write. Without it a class would
    sit in two bands and answer to two coordinators.
+
+### The one unauthenticated Sunday School route
+
+`app/api/public/roster-signup` has no session. It is reached with a temporary
+`SundaySchoolRosterLink` token and its authority comes entirely from that row:
+the class, Sunday School year, and grade level are read from the link, never
+from the request, so it can only ever write to the one roster the link was
+created for. It is bounded by `expiresAt`, `maxUses`, and `revokedAt`, returns
+nothing about the roster, and never overwrites a field a servant filled in.
+Minting a link requires `canServeClass`, exactly like adding a child by hand.
+
+It lives outside `app/api/sunday-school/` on purpose. If you add another public
+route, put it under `app/api/public/` too — the absence of a session should be
+visible in the path, not just in a comment.
 
 ### Feedback exception for priests
 
