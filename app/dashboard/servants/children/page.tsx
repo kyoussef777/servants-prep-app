@@ -35,6 +35,7 @@ import type {
 import { SundaySchoolLevel } from '@prisma/client'
 import { Check, House, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { SundaySchoolRosterImport } from '@/components/sunday-school-roster-import'
+import { SundaySchoolRosterLinkDialog } from '@/components/sunday-school-roster-link-dialog'
 
 const NEW_FAMILY_ID = '__new__'
 
@@ -43,6 +44,10 @@ interface ChildForm {
   lastName: string
   level: SundaySchoolLevel
   classId: string
+  birthDate: string
+  guardianName: string
+  guardianPhone: string
+  guardianEmail: string
   familyId: string
   familyName: string
   homeAddress: string
@@ -61,6 +66,10 @@ const EMPTY_FORM: ChildForm = {
   lastName: '',
   level: 'GRADE_1',
   classId: '',
+  birthDate: '',
+  guardianName: '',
+  guardianPhone: '',
+  guardianEmail: '',
   familyId: NEW_FAMILY_ID,
   familyName: '',
   homeAddress: '',
@@ -192,6 +201,10 @@ function SundaySchoolChildrenContent() {
       lastName: child.lastName,
       level: child.level,
       classId: child.classId ?? '',
+      birthDate: child.birthDate ? child.birthDate.slice(0, 10) : '',
+      guardianName: child.guardianName ?? '',
+      guardianPhone: child.guardianPhone ?? '',
+      guardianEmail: child.guardianEmail ?? '',
       familyId: child.familyId ?? NEW_FAMILY_ID,
       ...familyFormFields(child.family),
       linkedUserEmail: child.user?.email ?? '',
@@ -279,7 +292,7 @@ function SundaySchoolChildrenContent() {
   }
 
   const handleDelete = async (child: SundaySchoolChild) => {
-    if (!confirm(`Remove ${getChildFullName(child)} from the roster? This also deletes their attendance history.`)) {
+    if (!confirm(`Remove ${getChildFullName(child)} from the roster? Their attendance history is kept and they can be restored by an admin.`)) {
       return
     }
 
@@ -302,6 +315,9 @@ function SundaySchoolChildrenContent() {
 
   const children = (data as SundaySchoolChild[] | undefined) ?? []
   const selectedFormFamily = families.find(family => family.id === form.familyId)
+  // A class only accepts children at its own grade, so offering every class
+  // would just produce a server-side rejection.
+  const classesForLevel = classes.filter(cls => cls.level === form.level)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
@@ -313,6 +329,13 @@ function SundaySchoolChildrenContent() {
             canManage && classes.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2">
                 <SundaySchoolRosterImport
+                  classId={selectedClassId}
+                  className={selectedClass?.name ?? 'this class'}
+                  onSuccess={async () => {
+                    await Promise.all([mutate(), mutateFamilies()])
+                  }}
+                />
+                <SundaySchoolRosterLinkDialog
                   classId={selectedClassId}
                   className={selectedClass?.name ?? 'this class'}
                   onSuccess={async () => {
@@ -520,7 +543,16 @@ function SundaySchoolChildrenContent() {
                 <select
                   id="child-level"
                   value={form.level}
-                  onChange={e => setForm(prev => ({ ...prev, level: e.target.value as SundaySchoolLevel }))}
+                  onChange={e => {
+                    const level = e.target.value as SundaySchoolLevel
+                    setForm(prev => ({
+                      ...prev,
+                      level,
+                      classId: classes.find(cls => cls.id === prev.classId)?.level === level
+                        ? prev.classId
+                        : classes.find(cls => cls.level === level)?.id ?? '',
+                    }))
+                  }}
                   className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
                 >
                   {LEVEL_ORDER.map(level => (
@@ -538,12 +570,63 @@ function SundaySchoolChildrenContent() {
                   onChange={e => setForm(prev => ({ ...prev, classId: e.target.value }))}
                   className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
                 >
-                  {classes.map(cls => (
+                  <option value="">No class yet</option>
+                  {classesForLevel.map(cls => (
                     <option key={cls.id} value={cls.id}>
                       {cls.name}
                     </option>
                   ))}
                 </select>
+                {classesForLevel.length === 0 && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    You do not serve a class at this grade.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="birthDate">Date of birth</Label>
+              <Input
+                id="birthDate"
+                type="date"
+                max={new Date().toISOString().slice(0, 10)}
+                value={form.birthDate}
+                onChange={e => setForm(prev => ({ ...prev, birthDate: e.target.value }))}
+              />
+              <p className="text-xs text-gray-500">
+                Also used to tell two children with the same name apart on a roster import.
+              </p>
+            </div>
+
+            <div className="space-y-3 rounded-lg border p-4 dark:border-gray-700">
+              <p className="font-medium">Guardian contact</p>
+              <p className="text-xs text-gray-500">
+                Used when a child has no family record — this is what a roster CSV and a
+                sign-up QR collect.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Input
+                  aria-label="Guardian name"
+                  placeholder="Name"
+                  maxLength={200}
+                  value={form.guardianName}
+                  onChange={e => setForm(prev => ({ ...prev, guardianName: e.target.value }))}
+                />
+                <Input
+                  aria-label="Guardian phone"
+                  placeholder="Phone"
+                  maxLength={50}
+                  value={form.guardianPhone}
+                  onChange={e => setForm(prev => ({ ...prev, guardianPhone: e.target.value }))}
+                />
+                <Input
+                  aria-label="Guardian email"
+                  type="email"
+                  placeholder="Email"
+                  value={form.guardianEmail}
+                  onChange={e => setForm(prev => ({ ...prev, guardianEmail: e.target.value }))}
+                />
               </div>
             </div>
 

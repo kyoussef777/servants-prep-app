@@ -9,6 +9,7 @@ import {
   type SundaySchoolAccess,
 } from "@/lib/sunday-school-access"
 import { isValidLevel } from "@/lib/sunday-school-class"
+import { enrollChildInClass } from "@/lib/sunday-school-enrollment"
 import {
   hasSundaySchoolFamilyDetails,
   normalizeSundaySchoolFamilyDetails,
@@ -135,11 +136,45 @@ export async function POST(request: Request) {
     // A child is added to a class you serve. An admin may also park a child
     // with no class yet; nobody else can.
     const access = await getSundaySchoolAccess(user)
+    let targetClass: {
+      id: string
+      level: SundaySchoolLevel
+      sundaySchoolYearId: string | null
+      status: "ACTIVE" | "ARCHIVED"
+      isActive: boolean
+    } | null = null
     if (classId) {
       if (!canServeClass(access, classId)) {
         return NextResponse.json(
           { error: "You can only add children to a class you serve" },
           { status: 403 }
+        )
+      }
+
+      // The same destination checks PATCH already makes. Without them a child
+      // could be filed into an archived class, or into a class for a different
+      // grade — which the composite placement foreign key would then reject
+      // with an opaque database error instead of a usable message.
+      targetClass = await prisma.sundaySchoolClass.findUnique({
+        where: { id: classId },
+        select: {
+          id: true,
+          level: true,
+          sundaySchoolYearId: true,
+          status: true,
+          isActive: true,
+        },
+      })
+      if (!targetClass || !targetClass.isActive || targetClass.status !== "ACTIVE") {
+        return NextResponse.json(
+          { error: "The selected class is archived or missing" },
+          { status: 400 }
+        )
+      }
+      if (targetClass.level !== level) {
+        return NextResponse.json(
+          { error: "The selected class does not match the child's grade" },
+          { status: 400 }
         )
       }
     } else if (!access.isAdmin) {
@@ -177,7 +212,7 @@ export async function POST(request: Request) {
         resolvedFamilyId = createdFamily.id
       }
 
-      return tx.sundaySchoolChild.create({
+      const created = await tx.sundaySchoolChild.create({
         data: {
           firstName: String(firstName).trim(),
           lastName: String(lastName).trim(),
@@ -196,6 +231,24 @@ export async function POST(request: Request) {
           user: { select: { id: true, name: true, email: true } },
         },
       })
+
+      // The CSV import and the parent-registration review both give a child an
+      // enrollment and a dated placement; adding one by hand used to skip both,
+      // leaving that child out of annual rollover and out of placement history.
+      // Legacy classes with no Sunday School year still cannot have either, so
+      // they keep the old behaviour rather than losing the ability to add a child.
+      if (targetClass?.sundaySchoolYearId) {
+        await enrollChildInClass(tx, {
+          childId: created.id,
+          classId: targetClass.id,
+          sundaySchoolYearId: targetClass.sundaySchoolYearId,
+          level,
+          movedById: user.id,
+          moveReason: "Added to the roster",
+        })
+      }
+
+      return created
     })
 
     return NextResponse.json(child, { status: 201 })
