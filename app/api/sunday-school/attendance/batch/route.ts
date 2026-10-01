@@ -42,6 +42,18 @@ export async function POST(request: Request) {
       )
     }
 
+    for (const record of records) {
+      if (!record.childId) {
+        return NextResponse.json({ error: "Each record needs a childId" }, { status: 400 })
+      }
+      if (!SUNDAY_SCHOOL_ATTENDANCE_STATUSES.has(record.status)) {
+        return NextResponse.json(
+          { error: `Invalid status. Must be one of: ${Array.from(SUNDAY_SCHOOL_ATTENDANCE_STATUSES).join(", ")}` },
+          { status: 400 }
+        )
+      }
+    }
+
     const session = await prisma.sundaySchoolSession.findUnique({
       where: { id: sessionId },
       select: { id: true, classId: true, date: true, class: { select: { academicYearId: true } } },
@@ -59,18 +71,6 @@ export async function POST(request: Request) {
         { error: "Attendance can only be recorded on the session date" },
         { status: 400 }
       )
-    }
-
-    for (const record of records) {
-      if (!record.childId) {
-        return NextResponse.json({ error: "Each record needs a childId" }, { status: 400 })
-      }
-      if (!SUNDAY_SCHOOL_ATTENDANCE_STATUSES.has(record.status)) {
-        return NextResponse.json(
-          { error: `Invalid status. Must be one of: ${Array.from(SUNDAY_SCHOOL_ATTENDANCE_STATUSES).join(", ")}` },
-          { status: 400 }
-        )
-      }
     }
 
     // Children must actually belong to this session's class
