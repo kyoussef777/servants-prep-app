@@ -144,6 +144,11 @@ enum SundaySchoolServantAttendanceStatus {
   ABSENT
 }
 
+enum SundaySchoolChildGender {
+  MALE
+  FEMALE
+}
+
 enum LessonStatus {
   SCHEDULED
   CANCELLED
@@ -995,6 +1000,7 @@ model SundaySchoolChild {
   // see what a given QR code let onto the roster and clean it up.
   rosterLinkId  String?
   birthDate     DateTime?
+  gender        SundaySchoolChildGender?
   guardianName  String?
   guardianPhone String?
   guardianEmail String?
@@ -1442,6 +1448,7 @@ model ChildRegistrationRequest {
   firstName     String
   lastName      String
   birthDate     DateTime
+  gender        SundaySchoolChildGender?
   intendedLevel SundaySchoolLevel
 
   // Guardian contact for this request. Pre-filled from the submitting

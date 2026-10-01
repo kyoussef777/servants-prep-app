@@ -40,6 +40,11 @@ vi.mock('@/lib/swr', () => ({
   }),
 }))
 
+vi.mock('@/lib/sunday-school-class', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/sunday-school-class')>()),
+  isSessionDateToday: () => true,
+}))
+
 vi.mock('@/components/sunday-school-recent-attendance-chart', () => ({
   SundaySchoolRecentAttendanceChart: () => null,
 }))

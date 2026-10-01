@@ -223,6 +223,12 @@ describe('public roster sign-up API', () => {
       expect(mocks.createChild.mock.calls[0][0].data.birthDate)
         .toEqual(new Date('2015-04-12T00:00:00.000Z'))
     })
+
+    it('stores a valid gender for attendance grouping', async () => {
+      await POST(signupRequest(validBody({ gender: 'FEMALE' })))
+
+      expect(mocks.createChild.mock.calls[0][0].data.gender).toBe('FEMALE')
+    })
   })
 
   describe('matching a child already on the roster', () => {

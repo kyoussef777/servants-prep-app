@@ -32,7 +32,7 @@ import type {
   SundaySchoolClass,
   SundaySchoolFamily,
 } from '@/types/sunday-school'
-import { SundaySchoolLevel } from '@prisma/client'
+import { SundaySchoolChildGender, SundaySchoolLevel } from '@prisma/client'
 import { Check, House, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { SundaySchoolRosterImport } from '@/components/sunday-school-roster-import'
 import { SundaySchoolRosterLinkDialog } from '@/components/sunday-school-roster-link-dialog'
@@ -42,6 +42,7 @@ const NEW_FAMILY_ID = '__new__'
 interface ChildForm {
   firstName: string
   lastName: string
+  gender: SundaySchoolChildGender | ''
   level: SundaySchoolLevel
   classId: string
   birthDate: string
@@ -64,6 +65,7 @@ interface ChildForm {
 const EMPTY_FORM: ChildForm = {
   firstName: '',
   lastName: '',
+  gender: '',
   level: 'GRADE_1',
   classId: '',
   birthDate: '',
@@ -199,6 +201,7 @@ function SundaySchoolChildrenContent() {
     setForm({
       firstName: child.firstName,
       lastName: child.lastName,
+      gender: child.gender ?? '',
       level: child.level,
       classId: child.classId ?? '',
       birthDate: child.birthDate ? child.birthDate.slice(0, 10) : '',
@@ -398,6 +401,9 @@ function SundaySchoolChildrenContent() {
                               {getChildFullName(child)}
                             </p>
                             <Badge variant="secondary">{getLevelDisplayName(child.level)}</Badge>
+                            {child.gender && (
+                              <Badge variant="outline">{child.gender === 'MALE' ? 'Boy' : 'Girl'}</Badge>
+                            )}
                           </div>
                           {child.family ? (
                             <div className="mt-1 space-y-0.5 text-sm text-gray-600 dark:text-gray-400">
@@ -518,7 +524,7 @@ function SundaySchoolChildrenContent() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First name</Label>
                 <Input
@@ -534,6 +540,22 @@ function SundaySchoolChildrenContent() {
                   value={form.lastName}
                   onChange={e => setForm(prev => ({ ...prev, lastName: e.target.value }))}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="child-gender">Gender</Label>
+                <select
+                  id="child-gender"
+                  value={form.gender}
+                  onChange={e => setForm(prev => ({
+                    ...prev,
+                    gender: e.target.value as SundaySchoolChildGender | '',
+                  }))}
+                  className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+                >
+                  <option value="">Not specified</option>
+                  <option value="MALE">Boy</option>
+                  <option value="FEMALE">Girl</option>
+                </select>
               </div>
             </div>
 
