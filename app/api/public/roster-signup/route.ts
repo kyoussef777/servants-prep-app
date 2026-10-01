@@ -12,6 +12,7 @@ import {
 } from '@/lib/sunday-school-roster-link'
 import {
   normalizeRosterBirthDate,
+  normalizeRosterGender,
   validateSundaySchoolRosterRow,
 } from '@/lib/sunday-school-roster-csv'
 
@@ -105,7 +106,7 @@ export async function GET(request: Request) {
 }
 
 // POST /api/public/roster-signup
-// Body: { token, firstName, lastName, birthDate?, guardianName?, guardianPhone?,
+// Body: { token, firstName, lastName, gender?, birthDate?, guardianName?, guardianPhone?,
 //         guardianEmail?, notes? }
 export async function POST(request: Request) {
   try {
@@ -131,6 +132,7 @@ export async function POST(request: Request) {
       rowNumber: 1,
       firstName: readField(body.firstName) ?? '',
       lastName: readField(body.lastName) ?? '',
+      gender: readField(body.gender) as 'MALE' | 'FEMALE' | null,
       birthDate: readField(body.birthDate),
       guardianName: readField(body.guardianName),
       guardianPhone: readField(body.guardianPhone),
@@ -148,6 +150,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Birth date must be a real date' }, { status: 400 })
     }
     const parsedBirthDate = birthDate ? new Date(`${birthDate}T00:00:00.000Z`) : null
+    const gender = normalizeRosterGender(submission.gender)
 
     // Scoped to this class on purpose: a name that also exists in another class
     // is a different child as far as this link is concerned, and must not be
@@ -162,6 +165,7 @@ export async function POST(request: Request) {
       select: {
         id: true,
         birthDate: true,
+        gender: true,
         guardianName: true,
         guardianPhone: true,
         guardianEmail: true,
@@ -193,6 +197,7 @@ export async function POST(request: Request) {
               status: 'ACTIVE',
               isActive: true,
               ...(existing.birthDate || !parsedBirthDate ? {} : { birthDate: parsedBirthDate }),
+              ...(existing.gender || !gender ? {} : { gender }),
               ...(existing.guardianName || !submission.guardianName ? {} : { guardianName: submission.guardianName }),
               ...(existing.guardianPhone || !submission.guardianPhone ? {} : { guardianPhone: submission.guardianPhone }),
               ...(existing.guardianEmail || !submission.guardianEmail ? {} : { guardianEmail: submission.guardianEmail }),
@@ -209,6 +214,7 @@ export async function POST(request: Request) {
               classId: link.classId,
               rosterLinkId: link.id,
               birthDate: parsedBirthDate,
+              gender,
               guardianName: submission.guardianName,
               guardianPhone: submission.guardianPhone,
               guardianEmail: submission.guardianEmail,

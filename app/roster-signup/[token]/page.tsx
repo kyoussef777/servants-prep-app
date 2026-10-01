@@ -26,6 +26,7 @@ interface LinkInfo {
 const EMPTY_FORM = {
   firstName: '',
   lastName: '',
+  gender: '',
   birthDate: '',
   guardianName: '',
   guardianPhone: '',
@@ -167,16 +168,32 @@ export default function RosterSignupPage({ params }: { params: Promise<{ token: 
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="birthDate">Date of birth</Label>
-                  <Input
-                    id="birthDate"
-                    type="date"
-                    max={new Date().toISOString().slice(0, 10)}
-                    value={form.birthDate}
-                    onChange={e => setForm(prev => ({ ...prev, birthDate: e.target.value }))}
-                    disabled={submitting}
-                  />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="gender">Gender</Label>
+                    <select
+                      id="gender"
+                      value={form.gender}
+                      onChange={e => setForm(prev => ({ ...prev, gender: e.target.value }))}
+                      disabled={submitting}
+                      className="h-9 w-full rounded-md border bg-transparent px-3 text-sm dark:border-gray-700"
+                    >
+                      <option value="">Not specified</option>
+                      <option value="MALE">Boy</option>
+                      <option value="FEMALE">Girl</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="birthDate">Date of birth</Label>
+                    <Input
+                      id="birthDate"
+                      type="date"
+                      max={new Date().toISOString().slice(0, 10)}
+                      value={form.birthDate}
+                      onChange={e => setForm(prev => ({ ...prev, birthDate: e.target.value }))}
+                      disabled={submitting}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-4 rounded-lg border p-4 dark:border-gray-700">
