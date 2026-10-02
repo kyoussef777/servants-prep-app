@@ -14,7 +14,7 @@ function Skeleton({
 
 function CardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("rounded-lg border bg-white p-6 shadow-sm", className)}>
+    <div className={cn("rounded-lg border border-line bg-surface p-5", className)}>
       <div className="space-y-3">
         <Skeleton className="h-4 w-1/3" />
         <Skeleton className="h-8 w-1/2" />
@@ -74,7 +74,7 @@ function DashboardSkeleton() {
 
 function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) {
   return (
-    <div className="rounded-lg border bg-white overflow-hidden">
+    <div className="rounded-lg border border-line bg-surface overflow-hidden">
       {/* Header */}
       <div className="border-b bg-gray-50 p-3">
         <div className="flex gap-4">

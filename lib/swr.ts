@@ -221,3 +221,19 @@ export function usePriestOverseers(enabled: boolean) {
     enabled ? '/api/users?role=PRIEST' : null, fetcher, defaultSWRConfig,
   )
 }
+
+export interface AcademicYearSummary {
+  id: string
+  name: string
+  startDate: string
+  endDate: string
+  isActive: boolean
+  _count?: { lessons: number; exams: number }
+}
+
+export function useAcademicYears(enabled = true, options?: SWRConfiguration) {
+  return useSWR<AcademicYearSummary[]>(enabled ? '/api/academic-years' : null, fetcher, {
+    ...staticDataConfig,
+    ...options,
+  })
+}
