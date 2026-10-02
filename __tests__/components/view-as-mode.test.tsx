@@ -78,6 +78,16 @@ describe('ViewAsMode', () => {
     })
   })
 
+  it('keeps the active View as banner readable against its warning background', () => {
+    render(<ViewAsMode />)
+
+    expect(screen.getByRole('status')).toHaveClass(
+      'bg-warn',
+      'text-white',
+      'dark:text-canvas'
+    )
+  })
+
   it('falls back to the restored account dashboard when no return page was saved', async () => {
     mocks.update.mockResolvedValue({
       user: { id: 'admin', role: UserRole.SUPER_ADMIN },

@@ -180,7 +180,7 @@ function ViewAsBanner({
   onStop: () => void
 }) {
   return (
-    <div className="bg-amber-500 text-amber-950 shadow-sm" role="status">
+    <div className="bg-warn text-white shadow-sm dark:text-canvas" role="status">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between gap-3 text-xs sm:text-sm">
         <div className="flex items-center gap-2 min-w-0">
           <Eye className="h-4 w-4 shrink-0" />
@@ -198,7 +198,7 @@ function ViewAsBanner({
           type="button"
           disabled={busy}
           onClick={onStop}
-          className="inline-flex items-center gap-1.5 rounded-md bg-amber-950/10 hover:bg-amber-950/20 px-2.5 py-1 font-medium disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-black/10 px-2.5 py-1 font-medium hover:bg-black/20 disabled:opacity-50"
         >
           <EyeOff className="h-3.5 w-3.5" />
           Stop
@@ -248,23 +248,23 @@ function PickerDialog({
             Preview the application with another user&apos;s access. All changes are blocked.
           </DialogPrimitive.Description>
           <Command className="overflow-hidden rounded-xl border bg-white dark:bg-gray-900 shadow-2xl" label="View as user">
-            <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-900/50 px-3">
-              <Eye className="h-4 w-4 text-amber-700 shrink-0" />
+            <div className="flex items-center gap-2 border-b border-warn/20 bg-warn-tint px-3">
+              <Eye className="h-4 w-4 shrink-0 text-warn" />
               <Command.Input
                 value={query}
                 onValueChange={setQuery}
                 autoFocus
                 placeholder="Search users by name or email…"
-                className="h-12 flex-1 bg-transparent text-base sm:text-sm outline-none placeholder:text-amber-700/50 text-amber-950 dark:text-amber-100"
+                className="h-12 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink-3 sm:text-sm"
               />
-              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold rounded bg-amber-200 px-1.5 py-0.5 text-amber-900">
+              <span className="hidden items-center gap-1 rounded bg-warn px-1.5 py-0.5 text-[10px] font-bold text-white sm:inline-flex dark:text-canvas">
                 <ShieldCheck className="h-3 w-3" /> READ-ONLY
               </span>
               <button
                 type="button"
                 aria-label="Close"
                 onClick={() => onOpenChange(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-amber-700 hover:bg-amber-100"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-warn hover:bg-warn/10"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -291,7 +291,7 @@ function PickerDialog({
                           value={`${user.name} ${user.email}`}
                           disabled={busy || isActor || isCurrent}
                           onSelect={() => onPick(user.id)}
-                          className="flex items-center gap-3 rounded-md px-2 py-2.5 text-sm cursor-pointer aria-selected:bg-amber-50 dark:aria-selected:bg-amber-900/30 active:bg-amber-100 data-[disabled]:opacity-40 data-[disabled]:cursor-not-allowed"
+                          className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 text-sm aria-selected:bg-warn-tint active:bg-warn-tint data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40"
                         >
                           <UserIcon className="h-4 w-4 text-gray-500 shrink-0" />
                           <span className="min-w-0 flex-1">
@@ -306,7 +306,7 @@ function PickerDialog({
                             ))}
                           </span>
                           {(isActor || isCurrent) && (
-                            <span className="text-[10px] uppercase font-bold text-amber-700">
+                            <span className="text-[10px] font-bold text-warn uppercase">
                               {isActor ? 'you' : 'current'}
                             </span>
                           )}
