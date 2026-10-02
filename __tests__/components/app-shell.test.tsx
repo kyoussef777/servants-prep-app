@@ -93,6 +93,18 @@ describe('AppShell', () => {
     expect(within(menu).getByRole('menuitem', { name: /Servants Prep/ })).toHaveAttribute('href', '/dashboard/admin')
   })
 
+  it('shows the platform shortcut on desktop and hides it on phone layouts', async () => {
+    vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue('Win32')
+    mocks.pathname = '/dashboard/admin'
+    mocks.user = { ...mocks.user, role: UserRole.SUPER_ADMIN }
+    render(<AppShell>page</AppShell>)
+
+    await userEvent.click(within(sidebar()).getByRole('button', { name: /Switch ministry/ }))
+    const shortcut = within(await screen.findByRole('menu')).getByText('Ctrl+2')
+
+    expect(shortcut).toHaveClass('hidden', 'md:inline')
+  })
+
   it('closes the ministry menu once the other ministry renders', async () => {
     mocks.pathname = '/dashboard/admin'
     mocks.user = { ...mocks.user, role: UserRole.SUPER_ADMIN }
@@ -110,7 +122,7 @@ describe('AppShell', () => {
     expect(within(sidebar()).queryByRole('button', { name: /Switch ministry/ })).not.toBeInTheDocument()
   })
 
-  it('jumps between ministries with ⌘1 and ⌘2', async () => {
+  it('jumps between ministries with Command+1 and Command+2', async () => {
     mocks.pathname = '/dashboard/admin'
     mocks.user = { ...mocks.user, role: UserRole.SUPER_ADMIN }
     render(<AppShell>page</AppShell>)
