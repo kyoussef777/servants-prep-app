@@ -24,6 +24,12 @@ export function formatDateUTC(dateStr: string | Date, options?: Intl.DateTimeFor
   return date.toLocaleDateString('en-US', { ...defaultOptions, ...options, timeZone: 'UTC' })
 }
 
+/** Like formatDateUTC, but uses exactly the options given (for date parts: `{ month: 'short' }`). */
+export function formatUTC(dateStr: string | Date, options: Intl.DateTimeFormatOptions) {
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+  return date.toLocaleDateString('en-US', { ...options, timeZone: 'UTC' })
+}
+
 /**
  * Format a timestamp for toast notification descriptions.
  * Produces output like: "Jun 15, 2024, 2:30 PM"

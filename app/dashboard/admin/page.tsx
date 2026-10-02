@@ -443,7 +443,7 @@ function SectionPerformance({ years }: { years: YearExamScores[] }) {
                 const entry = s.perYear.find((p) => p.year === y)
                 return (
                   <TableCell key={y} className="tabular hidden text-right text-ink-2 lg:table-cell">
-                    {entry?.avg != null ? `${entry.avg.toFixed(1)}%` : '—'}
+                    {entry?.avg !== null && entry?.avg !== undefined ? `${entry.avg.toFixed(1)}%` : '—'}
                     <span className="ml-1 text-xs text-ink-3">({entry?.count ?? 0})</span>
                   </TableCell>
                 )
