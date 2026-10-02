@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     where: { id: verified.userId },
     select: { email: true, name: true },
   })
-  resetLoginRateLimit(user.email)
+  await resetLoginRateLimit(user.email)
   await recordAuditEvent({
     actorUserId: verified.userId,
     action: 'AUTH_PASSWORD_RESET',

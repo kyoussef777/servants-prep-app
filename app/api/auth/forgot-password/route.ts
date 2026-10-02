@@ -19,10 +19,10 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const limits = [
+  const limits = await Promise.all([
     checkRateLimit(`forgot:${normalizedEmail}`, 3, 15 * 60 * 1000),
     checkRateLimit(`forgot-ip:${ip}`, 10, 15 * 60 * 1000),
-  ]
+  ])
   const blocked = limits.find((limit) => !limit.allowed)
   if (blocked) {
     return NextResponse.json(

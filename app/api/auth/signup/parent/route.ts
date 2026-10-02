@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const rateLimit = checkLoginRateLimit(normalizedEmail)
+    const rateLimit = await checkLoginRateLimit(normalizedEmail)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: `Too many signup attempts. Please try again in ${rateLimit.retryAfterSeconds} seconds.` },
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    resetLoginRateLimit(normalizedEmail)
+    await resetLoginRateLimit(normalizedEmail)
     emailParentWelcome({ email: user.email, name: user.name })
 
     return NextResponse.json(
