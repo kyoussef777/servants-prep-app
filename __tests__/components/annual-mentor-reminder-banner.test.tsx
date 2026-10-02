@@ -57,6 +57,26 @@ describe('AnnualMentorReminderBanner', () => {
     )
   })
 
+  it('also prompts a Year 1 student whose original mentor section is incomplete', () => {
+    mocks.state = {
+      annualMentorRequired: false,
+      academicYear: null,
+      missingDetails: ['mentorInformation'],
+      complete: false,
+    }
+
+    render(<AnnualMentorReminderBanner />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Complete your mentor information')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'finish your Servants Prep application'
+    )
+    expect(screen.getByRole('link', { name: /Complete mentor form/ })).toHaveAttribute(
+      'href',
+      '/dashboard/student/application'
+    )
+  })
+
   it('hides after the mentor information is complete', () => {
     mocks.state = { ...mocks.state!, complete: true, missingDetails: [] }
     render(<AnnualMentorReminderBanner />)
