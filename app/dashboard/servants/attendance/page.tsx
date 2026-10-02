@@ -65,6 +65,7 @@ function SundaySchoolAttendanceContent() {
   const [attendance, setAttendance] = useState<SundaySchoolSessionAttendance | null>(null)
   const [marks, setMarks] = useState<Record<string, AttendanceStatus>>({})
   const [loadingSession, setLoadingSession] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [nameOrder, setNameOrder] = useState<AttendanceRosterNameOrder>('last')
@@ -126,6 +127,7 @@ function SundaySchoolAttendanceContent() {
         }
         const loaded = attendanceBody as SundaySchoolSessionAttendance
         setAttendance(loaded)
+        setLoadError(false)
         const savedMarks: Record<string, AttendanceStatus> = {}
         for (const entry of loaded.roster) {
           const savedStatus = normalizeSundaySchoolAttendanceStatus(entry.attendance?.status)
@@ -154,9 +156,11 @@ function SundaySchoolAttendanceContent() {
 
       setAttendance({ session: null, roster })
       setMarks({})
+      setLoadError(false)
     } catch (error: unknown) {
       setAttendance(null)
       setMarks({})
+      setLoadError(true)
       toast.error(error instanceof Error ? error.message : 'Failed to load attendance')
     } finally {
       setLoadingSession(false)
@@ -315,6 +319,8 @@ function SundaySchoolAttendanceContent() {
             </div>
             {loadingSession ? (
               <EmptyState message="Loading roster…" />
+            ) : loadError ? (
+              <EmptyState title="Couldn’t load this roster" message="Something went wrong on our side. Pick the class again or try in a moment." />
             ) : !attendance || attendance.roster.length === 0 ? (
               <EmptyState message="No children on this roster yet. Add them from the Roster page." />
             ) : (
