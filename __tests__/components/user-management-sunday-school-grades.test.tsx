@@ -45,7 +45,7 @@ describe('user management Sunday School assignments', () => {
   it('shows assigned grades in their own column without the redundant badge', async () => {
     render(<UsersPage />)
 
-    expect(await screen.findByRole('columnheader', { name: 'Sunday School grades' }))
+    expect(await screen.findByRole('columnheader', { name: 'SS grades' }))
       .toBeInTheDocument()
 
     await waitFor(() => {

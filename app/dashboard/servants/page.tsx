@@ -134,7 +134,7 @@ export default function SundaySchoolDashboardPage() {
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
         title="Sunday School"
-        meta={[dashboard?.attendanceTrend.academicYears.find((y) => y.id === dashboard.attendanceTrend.selectedAcademicYearId)?.name.replace('-', '–'), 'St. Mark Coptic Orthodox Church']}
+        meta={[dashboard?.attendanceTrend?.academicYears.find((y) => y.id === dashboard.attendanceTrend.selectedAcademicYearId)?.name.replace('-', '–'), 'St. Mark Coptic Orthodox Church']}
         actions={
           <>
             {standing?.isAdmin && (

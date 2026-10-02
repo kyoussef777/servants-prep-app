@@ -22,7 +22,8 @@ describe('global app chrome styles', () => {
   })
 
   it('provides light and dark chart colors instead of fixed light-theme colors', () => {
-    expect(globalStyles.match(/--chart-attendance:/g)).toHaveLength(2)
+    // light, dark, and the Sunday School override (gold attendance line)
+    expect(globalStyles.match(/--chart-attendance:/g)).toHaveLength(3)
     expect(globalStyles.match(/--chart-exam:/g)).toHaveLength(2)
     expect(globalStyles.match(/--chart-roster:/g)).toHaveLength(2)
     expect(globalStyles.match(/--chart-target:/g)).toHaveLength(2)

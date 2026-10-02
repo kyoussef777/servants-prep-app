@@ -85,7 +85,7 @@ describe('Sunday School attendance page', () => {
     expect(screen.getByRole('button', { name: 'Late' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: 'Not present' })).toHaveAttribute('aria-pressed', 'false')
 
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save attendance' }))
 
     expect(mocks.toastError).toHaveBeenCalledWith('Select attendance for 1 child before saving')
     await waitFor(() => {

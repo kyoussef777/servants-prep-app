@@ -2,7 +2,8 @@
 
 import { use, useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PublicFrame } from '@/components/ds/public-frame'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -90,8 +91,7 @@ export default function RosterSignupPage({ params }: { params: Promise<{ token: 
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 dark:bg-gray-950">
-      <Card className="w-full max-w-lg shadow-lg">
+    <PublicFrame width="lg" className="gap-0 p-0 md:p-0 [&_[data-slot=card-title]]:font-display [&_[data-slot=card-title]]:text-[28px] [&_[data-slot=card-title]]:font-medium">
         {loading ? (
           <CardContent className="flex items-center justify-center gap-2 py-16 text-gray-500">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -266,7 +266,6 @@ export default function RosterSignupPage({ params }: { params: Promise<{ token: 
             </CardContent>
           </>
         )}
-      </Card>
-    </div>
+    </PublicFrame>
   )
 }
