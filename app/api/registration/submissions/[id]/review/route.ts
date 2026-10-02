@@ -3,12 +3,20 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { canReviewRegistrations } from '@/lib/roles'
-import { NotificationType, RegistrationStatus, UserRole, YearLevel } from '@prisma/client'
+import {
+  NotificationType,
+  RegistrationStatus,
+  RoleGrantSource,
+  RoleTag,
+  UserRole,
+  YearLevel,
+} from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { generateTempPassword } from '@/lib/registration-utils'
 import { notifyRegistrationReviewed } from '@/lib/notifications'
 import { backfillAttendanceForStudent } from '@/lib/api-utils'
 import { emailRegistrationApproved, emailRegistrationNotApproved } from '@/lib/mail/notify'
+import { del } from '@vercel/blob'
 
 /**
  * POST /api/registration/submissions/[id]/review
@@ -116,6 +124,27 @@ export async function POST(
             },
           })
 
+          const existingPrepStudentRole = await tx.userRoleAssignment.findFirst({
+            where: {
+              userId: existingUser.id,
+              tag: RoleTag.SERVANTS_PREP_STUDENT,
+              revokedAt: null,
+            },
+            select: { id: true },
+          })
+
+          if (!existingPrepStudentRole) {
+            await tx.userRoleAssignment.create({
+              data: {
+                userId: existingUser.id,
+                tag: RoleTag.SERVANTS_PREP_STUDENT,
+                source: RoleGrantSource.PREP_REGISTRATION,
+                grantedById: session.user.id,
+                note: 'Granted when Servants Prep registration was approved',
+              },
+            })
+          }
+
           const enrollment = await tx.studentEnrollment.findUnique({
             where: { studentId: existingUser.id },
             select: { id: true, isActive: true },
@@ -173,6 +202,14 @@ export async function POST(
               profileImageUrl: submission.profileImageUrl,
               mustChangePassword: true,
               isDisabled: false,
+              roleAssignments: {
+                create: {
+                  tag: RoleTag.SERVANTS_PREP_STUDENT,
+                  source: RoleGrantSource.PREP_REGISTRATION,
+                  grantedById: session.user.id,
+                  note: 'Granted when Servants Prep registration was approved',
+                },
+              },
             },
           })
           userId = newUser.id
@@ -291,55 +328,69 @@ export async function POST(
           : 'Registration approved successfully',
       })
     } else {
-      // Rejection logic
-      const submission = await prisma.registrationSubmission.findUnique({
-        where: { id },
+      const rejectedSubmission = await prisma.$transaction(async (tx) => {
+        const submission = await tx.registrationSubmission.findUnique({
+          where: { id },
+        })
+
+        if (!submission) {
+          throw new Error('Registration submission not found')
+        }
+
+        if (submission.status !== RegistrationStatus.PENDING) {
+          throw new Error('Only pending submissions can be reviewed')
+        }
+
+        await tx.registrationSubmission.delete({ where: { id } })
+
+        // A rejected application should not consume a limited invite-code use,
+        // otherwise the applicant may be unable to submit a corrected form.
+        await tx.inviteCode.updateMany({
+          where: {
+            id: submission.inviteCodeId,
+            usageCount: { gt: 0 },
+          },
+          data: { usageCount: { decrement: 1 } },
+        })
+
+        await tx.notification.deleteMany({
+          where: {
+            type: NotificationType.REGISTRATION_RECEIVED,
+            metadata: { path: ['registrationId'], equals: id },
+          },
+        })
+
+        return {
+          email: submission.email,
+          fullName: submission.fullName,
+          approvalFormUrl: submission.approvalFormUrl,
+          profileImageUrl: submission.profileImageUrl,
+        }
       })
 
-      if (!submission) {
-        return NextResponse.json(
-          { error: 'Registration submission not found' },
-          { status: 404 }
-        )
+      const uploadedFiles = [
+        rejectedSubmission.approvalFormUrl,
+        rejectedSubmission.profileImageUrl,
+      ].filter((url): url is string => Boolean(url))
+
+      if (uploadedFiles.length > 0) {
+        try {
+          await del(uploadedFiles)
+        } catch (blobError) {
+          // The database record is intentionally still removed so the applicant
+          // can re-register even if external file cleanup is temporarily down.
+          console.error('Error deleting rejected registration files:', blobError)
+        }
       }
 
-      if (submission.status !== RegistrationStatus.PENDING) {
-        return NextResponse.json(
-          { error: 'Only pending submissions can be reviewed' },
-          { status: 400 }
-        )
-      }
-
-      const updatedSubmission = await prisma.registrationSubmission.update({
-        where: { id },
-        data: {
-          status: RegistrationStatus.REJECTED,
-          reviewedBy: session.user.id,
-          reviewedAt: new Date(),
-          reviewNote: note || null,
-        },
-        include: {
-          inviteCode: {
-            select: {
-              code: true,
-              label: true,
-            },
-          },
-          reviewer: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
+      emailRegistrationNotApproved({
+        email: rejectedSubmission.email,
+        name: rejectedSubmission.fullName,
       })
-
-      emailRegistrationNotApproved({ email: updatedSubmission.email, name: updatedSubmission.fullName })
 
       return NextResponse.json({
-        submission: updatedSubmission,
-        message: 'Registration rejected',
+        success: true,
+        message: 'Registration rejected and removed',
       })
     }
   } catch (error: unknown) {
