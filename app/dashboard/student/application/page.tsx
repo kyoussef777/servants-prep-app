@@ -114,7 +114,10 @@ export default function CompleteApplicationPage() {
       setShowApprovalForm(data.showApprovalForm)
       setAnnualMentorRequired(data.annualMentorRequired)
       setAcademicYear(data.academicYear)
-      if (data.complete) void mutate('/api/notifications?limit=15')
+      if (data.complete) {
+        void mutate('/api/notifications?limit=15')
+        void mutate('/api/registration/application')
+      }
       toast.success(
         annualMentorRequired
           ? 'Mentor information confirmed'

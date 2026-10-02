@@ -28,6 +28,10 @@ vi.mock('@/components/notifications/notification-bell', () => ({
   NotificationBell: () => <button type="button">Notifications</button>,
 }))
 
+vi.mock('@/components/annual-mentor-reminder-banner', () => ({
+  AnnualMentorReminderBanner: () => null,
+}))
+
 vi.mock('@/lib/swr', () => ({
   useAcademicYears: () => ({ data: [{ id: 'y', name: '2026-2027', isActive: true }] }),
 }))

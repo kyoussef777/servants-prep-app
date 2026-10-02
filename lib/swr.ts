@@ -76,6 +76,25 @@ export function useRegistrationSettings(options?: SWRConfiguration) {
   })
 }
 
+export interface StudentApplicationState {
+  annualMentorRequired: boolean
+  academicYear: { id: string; name: string } | null
+  missingDetails: string[]
+  complete: boolean
+}
+
+export function useStudentApplicationState(enabled = true, options?: SWRConfiguration) {
+  return useSWR<StudentApplicationState>(
+    enabled ? '/api/registration/application' : null,
+    fetcher,
+    {
+      ...defaultSWRConfig,
+      shouldRetryOnError: false,
+      ...options,
+    }
+  )
+}
+
 // Servant application hooks
 export function useServantApplications(statusFilter?: string, options?: SWRConfiguration) {
   const url = statusFilter
