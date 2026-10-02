@@ -24,7 +24,7 @@ export default function DashboardPage() {
   }, [status, session, router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="flex min-h-[50vh] items-center justify-center">
       <div className="text-lg">Loading...</div>
     </div>
   )

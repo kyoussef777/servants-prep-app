@@ -165,8 +165,8 @@ export default function SundaySchoolVisitationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 dark:bg-gray-950 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         <PageHeader
           title="Visitations"
           description="Track visitations and follow-up notes for every child in your Sunday School classes."

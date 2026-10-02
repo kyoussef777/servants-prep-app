@@ -14,12 +14,12 @@ export default function StudentClassLessonsPage() {
   const lessons = (data as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []
 
   if (status === 'loading' || !session || isLoading) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-maroon-600" /></div>
+    return <div className="flex min-h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-maroon-600" /></div>
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="mx-auto max-w-4xl space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="w-full max-w-4xl space-y-5">
         <div>
           <h1 className="text-3xl font-bold">Class Lessons</h1>
           <p className="mt-1 text-gray-600 dark:text-gray-400">Upcoming Sunday School slides and resources for your class.</p>

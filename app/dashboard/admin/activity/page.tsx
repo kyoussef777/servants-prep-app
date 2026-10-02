@@ -70,8 +70,8 @@ export default function ActivityPage() {
   useEffect(() => { void loadEvents() }, [loadEvents])
 
   return (
-    <div className="min-h-screen bg-[var(--app-canvas)] p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         <Card>
         <CardHeader>
           <CardTitle>Activity log</CardTitle>

@@ -237,3 +237,39 @@ export function useAcademicYears(enabled = true, options?: SWRConfiguration) {
     ...options,
   })
 }
+
+export interface LessonSummary {
+  id: string
+  title: string
+  subtitle?: string | null
+  speaker?: string | null
+  scheduledDate: string
+  status: 'SCHEDULED' | 'CANCELLED' | 'NO_CLASS' | 'COMPLETED'
+  lessonNumber: number
+  isExamDay: boolean
+  examSection?: { id: string; displayName: string } | null
+}
+
+export function useLessons(academicYearId?: string | null, options?: SWRConfiguration) {
+  return useSWR<LessonSummary[]>(
+    academicYearId ? `/api/lessons?academicYearId=${academicYearId}` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
+}
+
+export interface ExamSummary {
+  id: string
+  examDate: string
+  yearLevel: string
+  totalPoints: number
+  examSection: { id: string; displayName: string }
+}
+
+export function useExams(academicYearId?: string | null, options?: SWRConfiguration) {
+  return useSWR<ExamSummary[]>(
+    academicYearId ? `/api/exams?academicYearId=${academicYearId}` : null,
+    fetcher,
+    { ...defaultSWRConfig, ...options }
+  )
+}

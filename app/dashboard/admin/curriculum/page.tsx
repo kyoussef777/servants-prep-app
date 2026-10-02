@@ -487,8 +487,8 @@ export default function CurriculumPage() {
   const canEdit = session?.user?.role && canManageCurriculum(session.user.role)
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-4">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         <PageHeader
           title="Curriculum"
           description={canEdit ? 'Edit lessons inline, drag to reorder, save all at once' : 'Lesson schedule and curriculum'}

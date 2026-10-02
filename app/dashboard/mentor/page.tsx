@@ -106,8 +106,8 @@ export default function MentorDashboard() {
   const classData = classAverages as ClassAveragesData | undefined
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         {/* Header */}
         <PageHeader
           title="Mentor Dashboard"

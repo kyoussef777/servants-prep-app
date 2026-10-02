@@ -41,8 +41,8 @@ export default function AttendanceSlipPage() {
   if (status === 'loading' || !years || lessonsLoading) return <PageLoading />
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8 print:p-0 print:bg-white">
-      <div className="max-w-4xl mx-auto space-y-4">
+    <div className="flex min-w-0 flex-col print:p-0 print:bg-white">
+      <div className="w-full max-w-4xl space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
           <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/student')} className="gap-1">
             <ChevronLeft className="h-4 w-4" />

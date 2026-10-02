@@ -196,15 +196,15 @@ export default function SettingsPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <div className="text-lg">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="w-full max-w-3xl space-y-5">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold">My Account</h1>

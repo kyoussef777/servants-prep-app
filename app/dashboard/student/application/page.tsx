@@ -142,8 +142,8 @@ export default function CompleteApplicationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="mx-auto max-w-3xl space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="w-full max-w-3xl space-y-5">
         <PageHeader
           title={annualMentorRequired ? 'Confirm Your Mentor Information' : 'Complete Your Application'}
           description={annualMentorRequired

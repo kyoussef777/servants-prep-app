@@ -29,8 +29,8 @@ export default function AsyncStudentsPage() {
   const readOnly = isReadOnlyAdmin(role)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Async Students</h1>
           <p className="text-muted-foreground">

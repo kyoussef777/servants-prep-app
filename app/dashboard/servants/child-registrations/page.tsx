@@ -67,7 +67,7 @@ export default function ChildRegistrationsPage() {
 
   if (status === 'loading' || !session || !hasAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-maroon-600" />
       </div>
     )
@@ -94,8 +94,8 @@ export default function ChildRegistrationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         <div>
           <h1 className="text-3xl font-bold">Child Registration Requests</h1>
           <p className="text-gray-600 mt-1">Review and place parent-submitted registration requests</p>

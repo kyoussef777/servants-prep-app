@@ -104,8 +104,8 @@ export default function SundaySchoolLessonsPage() {
   if (status === 'loading' || isLoading) return <PageLoading />
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         <PageHeader
           title="Lessons"
           description="Assign each Sunday lesson and share the slides and resources your class needs."

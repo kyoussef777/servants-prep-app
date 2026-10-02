@@ -20,7 +20,7 @@ export function StackedBarRow({
   const total = good + bad
   const pct = total > 0 ? (good / total) * 100 : 0
   return (
-    <div className="grid grid-cols-1 items-center gap-2 px-4 py-3 md:grid-cols-[170px_minmax(0,1fr)_210px] md:gap-4">
+    <div className="grid grid-cols-1 items-center gap-2 px-4 py-3 md:grid-cols-[140px_minmax(0,1fr)_auto] md:gap-4">
       <span className="text-[13px] text-ink-2">{label}</span>
       <div aria-hidden className="flex h-3 gap-0.5 overflow-hidden rounded-[3px]">
         {total === 0 ? (

@@ -387,8 +387,8 @@ function ExamsPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-4">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>

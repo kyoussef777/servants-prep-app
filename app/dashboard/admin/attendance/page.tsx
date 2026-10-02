@@ -402,8 +402,8 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-2 sm:p-4 md:p-8 overflow-x-hidden">
-      <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         {/* Header */}
         <PageHeader
           title="Take Attendance"

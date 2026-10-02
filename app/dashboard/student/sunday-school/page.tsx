@@ -147,14 +147,14 @@ export default function SundaySchoolPage() {
   }
 
   if (loading || authStatus === 'loading') {
-    return <div className="min-h-screen flex items-center justify-center"><div className="text-lg">Loading...</div></div>
+    return <div className="flex min-h-[50vh] items-center justify-center"><div className="text-lg">Loading...</div></div>
   }
 
   const activeAssignment = progress?.assignments.find(a => a.isActive)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="w-full max-w-4xl space-y-5">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/student')}>
             <ChevronLeft className="h-5 w-5" />

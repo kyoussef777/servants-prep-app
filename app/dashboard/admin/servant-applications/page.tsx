@@ -70,7 +70,7 @@ export default function ServantApplicationsPage() {
 
   if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-maroon-600" />
       </div>
     )
@@ -85,8 +85,8 @@ export default function ServantApplicationsPage() {
   ].sort(compareServantApplicationPriority)
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         <div>
           <h1 className="text-3xl font-bold">Servant Applications</h1>
           <p className="text-gray-600 mt-1">Review Sunday School servant sign-up applications</p>

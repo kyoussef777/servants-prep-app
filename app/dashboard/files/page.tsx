@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function FilesPage() {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
+    <div className="flex min-w-0 flex-col">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Files</h1>

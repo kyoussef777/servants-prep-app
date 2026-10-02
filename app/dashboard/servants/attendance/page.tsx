@@ -233,8 +233,8 @@ function SundaySchoolAttendanceContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="space-y-5">
         <PageHeader
           title="Take Attendance"
           description="Select a status for every child before saving this week's attendance."

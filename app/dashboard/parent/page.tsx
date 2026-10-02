@@ -80,7 +80,7 @@ export default function ParentDashboardPage() {
 
   if (status === 'loading' || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-maroon-600" />
       </div>
     )
@@ -91,8 +91,8 @@ export default function ParentDashboardPage() {
   const lessons = (lessonData as SundaySchoolWeeklyLessonsResponse | undefined)?.lessons ?? []
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="w-full max-w-4xl space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold">My Children</h1>
