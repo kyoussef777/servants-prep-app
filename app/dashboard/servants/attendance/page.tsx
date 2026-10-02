@@ -3,16 +3,17 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { LastSaved } from '@/components/ui/last-saved'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
-import { PageHeader } from '@/components/admin/page-header'
-import { AttendanceStatusButtons } from '@/components/attendance-status-buttons'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Initials } from '@/components/ds/person'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { AttendanceLegend, AttendanceStatusButtons } from '@/components/attendance-status-buttons'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolClasses, useSundaySchoolDashboard } from '@/lib/swr'
@@ -38,7 +39,8 @@ import type {
   SundaySchoolSessionAttendance,
 } from '@/types/sunday-school'
 import { AttendanceStatus } from '@prisma/client'
-import { Save } from 'lucide-react'
+import Link from 'next/link'
+import { Users } from 'lucide-react'
 
 function normalizeSundaySchoolAttendanceStatus(status?: AttendanceStatus | null) {
   if (
@@ -232,179 +234,147 @@ function SundaySchoolAttendanceContent() {
     return <PageLoading />
   }
 
-  return (
-    <div className="flex min-w-0 flex-col">
-      <div className="space-y-5">
-        <PageHeader
-          title="Take Attendance"
-          description="Select a status for every child before saving this week's attendance."
-          lastSaved={lastSaved}
-          actions={
-            canEdit && attendance ? (
-              <Button onClick={handleSave} disabled={saving}>
-                <Save className="h-4 w-4 mr-1" />
-                {saving ? 'Saving…' : 'Save'}
-              </Button>
-            ) : undefined
-          }
-        />
+  const readOnlyDay = !isSessionDateToday(sessionDate)
 
-        {classes.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <EmptyState message="You are not assigned to any Sunday School class yet." />
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            <Card>
-              <CardContent className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="class">Class</Label>
-                  <select
-                    id="class"
+  return (
+    <div className="flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title="Take attendance"
+        meta={['Select a status for every child before saving this week', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+        actions={
+          selectedClassId && (
+            <Button asChild variant="outline">
+              <Link href={`/dashboard/servants/roster?classId=${selectedClassId}`}>
+                <Users />
+                Roster
+              </Link>
+            </Button>
+          )
+        }
+      />
+
+      {classes.length === 0 ? (
+        <Panel>
+          <EmptyState message="You are not assigned to a Sunday School class yet. Ask your coordinator to add you." />
+        </Panel>
+      ) : (
+        <>
+          {readOnlyDay && (
+            <div role="status" className="rounded-lg bg-warn-tint px-4 py-2.5 text-[13px] text-warn">
+              <strong>Past attendance is read-only.</strong> Attendance can only be changed on the session date.
+            </div>
+          )}
+
+          <Panel
+            toolbar={
+              <>
+                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                  Class
+                  <FilterSelect
+                    aria-label="Class"
                     value={selectedClassId}
-                    onChange={e => setSelectedClassId(e.target.value)}
-                    className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
-                  >
-                    {classes.map(cls => (
-                      <option key={cls.id} value={cls.id}>
-                        {cls.name} — {getLevelDisplayName(cls.level)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="date">Week of</Label>
+                    onChange={setSelectedClassId}
+                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                  Week of
                   <Input
-                    id="date"
                     type="date"
+                    aria-label="Week of"
                     value={sessionDate}
                     max={getTodayDateInputValue()}
-                    onChange={e => setSessionDate(e.target.value)}
+                    onChange={(e) => setSessionDate(e.target.value)}
+                    className="w-40 md:h-8"
                   />
+                </label>
+                <div className="flex w-full flex-wrap items-center gap-3 lg:ml-auto lg:w-auto">
+                  <FilterSelect
+                    aria-label="Alphabetize by"
+                    value={nameOrder}
+                    onChange={(v) => setNameOrder(v as AttendanceRosterNameOrder)}
+                    options={[
+                      { value: 'last', label: 'Sort by last name' },
+                      { value: 'first', label: 'Sort by first name' },
+                    ]}
+                  />
+                  <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink-2 md:min-h-8">
+                    <input type="checkbox" checked={showPhotos} onChange={(e) => setShowPhotos(e.target.checked)} className="size-4 accent-brand" />
+                    Photos
+                  </label>
+                  <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink-2 md:min-h-8">
+                    <input type="checkbox" checked={groupByGender} onChange={(e) => setGroupByGender(e.target.checked)} className="size-4 accent-brand" />
+                    Group by gender
+                  </label>
                 </div>
-              </CardContent>
-            </Card>
+              </>
+            }
+          >
+            <div className="border-b border-line px-4 py-2.5">
+              <AttendanceLegend showExcused={false} />
+            </div>
+            {loadingSession ? (
+              <EmptyState message="Loading roster…" />
+            ) : !attendance || attendance.roster.length === 0 ? (
+              <EmptyState message="No children on this roster yet. Add them from the Roster page." />
+            ) : (
+              <div>
+                {rosterGroups.map((group) => (
+                  <section key={group.key}>
+                    {group.label && (
+                      <h3 className="flex items-center gap-2 border-b border-line bg-hover/40 px-4 py-1.5 text-xs font-semibold text-ink-2">
+                        {group.label}
+                        <span className="tabular font-normal text-ink-3">{group.entries.length}</span>
+                      </h3>
+                    )}
+                    <ul className="divide-y divide-line">
+                      {group.entries.map((entry) => (
+                        <li key={entry.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5">
+                          <span className="flex min-w-0 items-center gap-2.5">
+                            {showPhotos && <Initials name={getChildFullName(entry)} imageUrl={entry.profileImageUrl} size={32} />}
+                            <span className="flex min-w-0 flex-col leading-tight">
+                              <span className="truncate text-[14px] font-medium text-ink">{getChildFullName(entry)}</span>
+                              <span className="text-xs text-ink-3">{getLevelDisplayName(entry.level)}</span>
+                            </span>
+                          </span>
+                          <AttendanceStatusButtons
+                            currentStatus={marks[entry.id]}
+                            onStatusChange={(statusValue) => setMarks((prev) => ({ ...prev, [entry.id]: statusValue as AttendanceStatus }))}
+                            disabled={!canEdit}
+                            showExcused={false}
+                            absentLabel="Not present"
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            )}
+          </Panel>
 
-            {!isSessionDateToday(sessionDate) && (
-              <p className="text-sm text-amber-700 dark:text-amber-300">
-                Past attendance is read-only. Attendance can only be changed on the session date.
+          {canEdit && attendance && attendance.roster.length > 0 && (
+            <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom)+8px)] z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
+              <p className="tabular text-[13px] text-ink-2" aria-live="polite">
+                <b className="font-semibold text-ok">{presentCount}</b> of {attendance.roster.length} here
+                {unmarkedCount > 0 && <StatusBadge tone="warn" className="ml-2">{unmarkedCount} unmarked</StatusBadge>}
               </p>
-            )}
+              <Button onClick={handleSave} disabled={saving} className="ml-auto">
+                {saving ? 'Saving…' : 'Save attendance'}
+              </Button>
+            </div>
+          )}
 
-            {selectedClass && (
-              <SundaySchoolRecentAttendanceChart
-                trend={trendDashboard?.attendanceTrend}
-                className={selectedClass.name}
-                throughDate={sessionDate}
-                isLoading={trendLoading || trendRefreshing}
-              />
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {selectedClass?.name ?? 'Roster'}
-                  {attendance && (
-                    <span className="ml-2 text-sm font-normal text-gray-600 dark:text-gray-400">
-                      {presentCount} of {attendance.roster.length} here
-                      {unmarkedCount > 0 && ` · ${unmarkedCount} unmarked`}
-                    </span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {attendance && attendance.roster.length > 0 && (
-                  <div className="mb-4 grid gap-4 rounded-lg border bg-gray-50 p-4 sm:grid-cols-3 dark:border-gray-800 dark:bg-gray-900/50">
-                    <div className="space-y-2">
-                      <Label htmlFor="attendance-name-order">Alphabetize by</Label>
-                      <select
-                        id="attendance-name-order"
-                        value={nameOrder}
-                        onChange={event => setNameOrder(event.target.value as AttendanceRosterNameOrder)}
-                        className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
-                      >
-                        <option value="last">Last name</option>
-                        <option value="first">First name</option>
-                      </select>
-                    </div>
-                    <label className="flex min-h-9 items-center gap-2 self-end text-sm font-medium">
-                      <input
-                        type="checkbox"
-                        checked={showPhotos}
-                        onChange={event => setShowPhotos(event.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 accent-primary"
-                      />
-                      Include photos
-                    </label>
-                    <label className="flex min-h-9 items-center gap-2 self-end text-sm font-medium">
-                      <input
-                        type="checkbox"
-                        checked={groupByGender}
-                        onChange={event => setGroupByGender(event.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 accent-primary"
-                      />
-                      Group roster by gender
-                    </label>
-                  </div>
-                )}
-                {loadingSession ? (
-                  <p className="text-center py-8 text-gray-500">Loading roster…</p>
-                ) : !attendance || attendance.roster.length === 0 ? (
-                  <EmptyState message="No children on this roster yet. Add them from the Children page." />
-                ) : (
-                  <div className="space-y-5">
-                    {rosterGroups.map(group => (
-                      <section key={group.key}>
-                        {group.label && (
-                          <div className="mb-1 flex items-center gap-2 border-b pb-2 dark:border-gray-800">
-                            <h3 className="font-semibold">{group.label}</h3>
-                            <Badge variant="secondary">{group.entries.length}</Badge>
-                          </div>
-                        )}
-                        <div className="divide-y dark:divide-gray-800">
-                          {group.entries.map(entry => (
-                            <div key={entry.id} className="flex items-center justify-between gap-3 py-3">
-                              <div className="flex min-w-0 items-center gap-3">
-                                {showPhotos && (
-                                  <Avatar className="h-10 w-10 shrink-0">
-                                    {entry.profileImageUrl && (
-                                      <AvatarImage src={entry.profileImageUrl} alt={getChildFullName(entry)} />
-                                    )}
-                                    <AvatarFallback>
-                                      {(entry.firstName[0] ?? '') + (entry.lastName[0] ?? '')}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                )}
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium">{getChildFullName(entry)}</p>
-                                  <Badge variant="secondary" className="mt-1">
-                                    {getLevelDisplayName(entry.level)}
-                                  </Badge>
-                                </div>
-                              </div>
-                              <AttendanceStatusButtons
-                                currentStatus={marks[entry.id]}
-                                onStatusChange={statusValue =>
-                                  setMarks(prev => ({ ...prev, [entry.id]: statusValue as AttendanceStatus }))
-                                }
-                                disabled={!canEdit}
-                                showExcused={false}
-                                absentLabel="Not present"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
+          {selectedClass && (
+            <SundaySchoolRecentAttendanceChart
+              trend={trendDashboard?.attendanceTrend}
+              className={selectedClass.name}
+              throughDate={sessionDate}
+              isLoading={trendLoading || trendRefreshing}
+            />
+          )}
+        </>
+      )}
     </div>
   )
 }
