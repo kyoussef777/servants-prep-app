@@ -12,6 +12,6 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, lastSaved, actions }: PageHeaderProps) {
   const meta: React.ReactNode[] = []
   if (description) meta.push(description)
-  if (lastSaved !== undefined) meta.push(<LastSaved key="saved" date={lastSaved ?? null} />)
+  if (lastSaved) meta.push(<LastSaved key="saved" date={lastSaved} />)
   return <DsPageHeader title={title} meta={meta} actions={actions} />
 }

@@ -68,7 +68,7 @@ export function SortableRow({
       <tr
         ref={setNodeRef}
         style={style}
-        className={`border-b hover:bg-gray-50 ${isPast ? 'opacity-60' : ''} ${isDragging ? 'bg-blue-50 shadow-lg' : ''}`}
+        className={`h-11 border-b border-line hover:bg-hover/60 ${isPast ? 'text-ink-3' : ''} ${isDragging ? 'bg-surface shadow-lg' : ''}`}
       >
         {/* Drag handle */}
         {canEdit && (
@@ -76,7 +76,7 @@ export function SortableRow({
             className={`p-1 w-8 text-center ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
             {...(canDrag ? { ...attributes, ...listeners } : {})}
           >
-            <span className={`select-none ${canDrag ? 'text-gray-400' : 'text-gray-200 dark:text-gray-700'}`}>⠿</span>
+            <span aria-hidden className={`select-none ${canDrag ? 'text-ink-3' : 'text-line-strong'}`}>⠿</span>
           </td>
         )}
         {/* Lesson # */}
@@ -133,7 +133,7 @@ export function SortableRow({
             <select
               value={currentSectionId}
               onChange={(e) => onEdit(lesson.id, 'examSectionId', e.target.value)}
-              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs dark:bg-gray-800 dark:text-white dark:border-gray-600"
+              className="h-8 w-full rounded-md border border-line-strong bg-surface px-2 text-xs text-ink"
             >
               {sections.map(section => (
                 <option key={section.id} value={section.id}>
@@ -156,7 +156,7 @@ export function SortableRow({
             />
           ) : (
             currentIsExamDay && (
-              <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+              <Badge variant="outline" className="border-transparent bg-warn-tint text-warn">
                 Exam
               </Badge>
             )
