@@ -5,14 +5,17 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { SundaySchoolServantAttendanceStatus } from '@prisma/client'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Segmented } from '@/components/ds/segmented'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { Initials } from '@/components/ds/person'
+import { FilterSelect } from '@/components/ui/filter-select'
+import { LastSaved } from '@/components/ui/last-saved'
 import { SundaySchoolRecentAttendanceChart } from '@/components/sunday-school-recent-attendance-chart'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { PageLoading } from '@/components/ui/page-loading'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import {
@@ -152,146 +155,109 @@ function ServantAttendanceContent() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="space-y-5">
-        <PageHeader
-          title="Servant Attendance"
-          description={canEdit
-            ? 'Record which servants attended each class week.'
-            : 'View recorded servant attendance across Sunday School classes.'}
-          lastSaved={lastSaved}
-          actions={attendance?.canEdit ? (
-            <Button onClick={handleSave} disabled={saving || attendance.roster.length === 0}>
-              <Save className="mr-1 h-4 w-4" />
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-          ) : undefined}
-        />
+    <div className="flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title="Servant attendance"
+        meta={[canEdit ? 'Record which servants served each week' : 'Recorded servant attendance across classes', lastSaved ? <LastSaved key="saved" date={lastSaved} /> : null]}
+      />
 
-        {classes.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <EmptyState message="No active Sunday School classes are available." />
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            <Card>
-              <CardContent className="grid grid-cols-1 gap-4 pt-6 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="servant-attendance-class">Class</Label>
-                  <select
-                    id="servant-attendance-class"
+      {classes.length === 0 ? (
+        <Panel>
+          <EmptyState message="No active Sunday School classes are available." />
+        </Panel>
+      ) : (
+        <>
+          <Panel
+            toolbar={
+              <>
+                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                  Class
+                  <FilterSelect
+                    aria-label="Class"
                     value={selectedClassId}
-                    onChange={event => setSelectedClassId(event.target.value)}
-                    className="h-9 w-full rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
-                  >
-                    {classes.map(cls => (
-                      <option key={cls.id} value={cls.id}>
-                        {cls.name} — {getLevelDisplayName(cls.level)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="servant-attendance-date">Week of</Label>
-                  <Input
-                    id="servant-attendance-date"
-                    type="date"
-                    value={sessionDate}
-                    max={getTodayDateInputValue()}
-                    onChange={event => setSessionDate(event.target.value)}
+                    onChange={setSelectedClassId}
+                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
                   />
-                </div>
-              </CardContent>
-            </Card>
-
-            {selectedClass && (
-              <SundaySchoolRecentAttendanceChart
-                trend={trendDashboard?.attendanceTrend}
-                className={`${selectedClass.name} servants`}
-                throughDate={sessionDate}
-                isLoading={trendLoading || trendRefreshing}
-              />
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {selectedClass?.name ?? 'Servants'}
-                  {attendance && (
-                    <span className="ml-2 text-sm font-normal text-gray-600 dark:text-gray-400">
-                      {presentCount} of {attendance.roster.length} present
-                    </span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {attendanceLoading ? (
-                  <p className="py-8 text-center text-gray-500">Loading servant roster…</p>
-                ) : !attendance || attendance.roster.length === 0 ? (
-                  <EmptyState message="No active servants are assigned directly to this class." />
-                ) : (
-                  <div className="divide-y dark:divide-gray-800">
-                    {attendance.roster.map(entry => {
-                      const current = marks[entry.userId] ?? SundaySchoolServantAttendanceStatus.PRESENT
-                      return (
-                        <div key={entry.userId} className="flex items-center justify-between gap-3 py-3">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">{entry.name}</p>
-                            <p className="truncate text-sm text-gray-600 dark:text-gray-400">{entry.email}</p>
-                            {entry.authority === 'COORDINATOR' && (
-                              <Badge className="mt-1 bg-maroon-600">Coordinator</Badge>
-                            )}
-                          </div>
-                          {canEdit ? (
-                            <div className="flex gap-2" role="group" aria-label={`Attendance for ${entry.name}`}>
-                              <Button
-                                size="sm"
-                                variant={current === SundaySchoolServantAttendanceStatus.PRESENT ? 'default' : 'outline'}
-                                onClick={() => setMarks(previous => ({
-                                  ...previous,
-                                  [entry.userId]: SundaySchoolServantAttendanceStatus.PRESENT,
-                                }))}
-                                aria-pressed={current === SundaySchoolServantAttendanceStatus.PRESENT}
-                              >
-                                Present
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant={current === SundaySchoolServantAttendanceStatus.ABSENT ? 'destructive' : 'outline'}
-                                onClick={() => setMarks(previous => ({
-                                  ...previous,
-                                  [entry.userId]: SundaySchoolServantAttendanceStatus.ABSENT,
-                                }))}
-                                aria-pressed={current === SundaySchoolServantAttendanceStatus.ABSENT}
-                              >
-                                Absent
-                              </Button>
-                            </div>
-                          ) : (
-                            <Badge variant={entry.attendance?.status === SundaySchoolServantAttendanceStatus.PRESENT
-                              ? 'default'
-                              : entry.attendance?.status === SundaySchoolServantAttendanceStatus.ABSENT
-                                ? 'destructive'
-                                : 'outline'}>
-                              {entry.attendance?.status === SundaySchoolServantAttendanceStatus.PRESENT
-                                ? 'Present'
-                                : entry.attendance?.status === SundaySchoolServantAttendanceStatus.ABSENT
-                                  ? 'Absent'
-                                  : 'Not recorded'}
-                            </Badge>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+                </label>
+                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                  Week of
+                  <Input type="date" aria-label="Week of" value={sessionDate} max={getTodayDateInputValue()} onChange={(e) => setSessionDate(e.target.value)} className="w-40 md:h-8" />
+                </label>
+                {attendance && (
+                  <span className="tabular text-[13px] text-ink-2 md:ml-auto">
+                    <b className="font-semibold text-ok">{presentCount}</b> of {attendance.roster.length} present
+                  </span>
                 )}
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
+              </>
+            }
+          >
+            {attendanceLoading ? (
+              <EmptyState message="Loading servant roster…" />
+            ) : !attendance || attendance.roster.length === 0 ? (
+              <EmptyState message="No active servants are assigned directly to this class." />
+            ) : (
+              <ul className="divide-y divide-line">
+                {attendance.roster.map((entry) => {
+                  const current = marks[entry.userId] ?? SundaySchoolServantAttendanceStatus.PRESENT
+                  const recorded = entry.attendance?.status
+                  return (
+                    <li key={entry.userId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <Initials name={entry.name} />
+                        <span className="flex min-w-0 flex-col leading-tight">
+                          <span className="flex items-center gap-2">
+                            <span className="truncate text-[13.5px] font-medium text-ink">{entry.name}</span>
+                            {entry.authority === 'COORDINATOR' && <StatusBadge tone="gold" dot={false}>Coordinator</StatusBadge>}
+                          </span>
+                          <span className="truncate text-xs text-ink-3">{entry.email}</span>
+                        </span>
+                      </span>
+                      {canEdit ? (
+                        <Segmented
+                          label={`Attendance for ${entry.name}`}
+                          value={current}
+                          onChange={(value) => setMarks((previous) => ({ ...previous, [entry.userId]: value }))}
+                          options={[
+                            { value: SundaySchoolServantAttendanceStatus.PRESENT, label: 'Present' },
+                            { value: SundaySchoolServantAttendanceStatus.ABSENT, label: 'Absent' },
+                          ]}
+                        />
+                      ) : recorded === SundaySchoolServantAttendanceStatus.PRESENT ? (
+                        <StatusBadge tone="ok">Present</StatusBadge>
+                      ) : recorded === SundaySchoolServantAttendanceStatus.ABSENT ? (
+                        <StatusBadge tone="bad">Absent</StatusBadge>
+                      ) : (
+                        <StatusBadge tone="neutral">Not recorded</StatusBadge>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Panel>
+
+          {attendance?.canEdit && attendance.roster.length > 0 && (
+            <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom)+8px)] z-30 flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
+              <p className="tabular text-[13px] text-ink-2">
+                <b className="font-semibold text-ok">{presentCount}</b> present · <b className="font-semibold text-bad">{attendance.roster.length - presentCount}</b> absent
+              </p>
+              <Button onClick={handleSave} disabled={saving} className="ml-auto">
+                <Save />
+                {saving ? 'Saving…' : 'Save attendance'}
+              </Button>
+            </div>
+          )}
+
+          {selectedClass && (
+            <SundaySchoolRecentAttendanceChart
+              trend={trendDashboard?.attendanceTrend}
+              className={`${selectedClass.name} servants`}
+              throughDate={sessionDate}
+              isLoading={trendLoading || trendRefreshing}
+            />
+          )}
+        </>
+      )}
     </div>
   )
 }
