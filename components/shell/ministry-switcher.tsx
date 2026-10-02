@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import {
@@ -30,6 +31,11 @@ export function MinistrySwitcher({
   compact?: boolean
   className?: string
 }) {
+  // Controlled so it closes once the new ministry renders; the shell stays mounted
+  // across navigation, and an uncontrolled menu could stay open over the new page.
+  const [open, setOpen] = useState(false)
+  useEffect(() => setOpen(false), [current])
+
   const label = (
     <>
       <MinistryMark ministry={current} size={compact ? 26 : 32} />
@@ -45,7 +51,7 @@ export function MinistrySwitcher({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         className={cn(
           'flex min-w-0 cursor-pointer items-center gap-2.5 rounded-md text-left outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent-ink',
@@ -61,7 +67,7 @@ export function MinistrySwitcher({
           Your ministries
         </DropdownMenuLabel>
         {options.map((option, i) => (
-          <DropdownMenuItem key={option.id} asChild>
+          <DropdownMenuItem key={option.id} asChild onSelect={() => setOpen(false)}>
             <Link href={option.href} className="flex cursor-pointer items-center gap-2.5 py-2">
               <MinistryMark ministry={option.id} size={28} />
               <span className="flex-1 text-[13.5px] font-medium">{option.name}</span>

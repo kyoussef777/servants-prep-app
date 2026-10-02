@@ -7,7 +7,7 @@ export function SearchField({
   value,
   onChange,
   placeholder = 'Search',
-  label = 'Search',
+  label,
   className,
 }: {
   value: string
@@ -24,7 +24,7 @@ export function SearchField({
       )}
     >
       <Search className="size-[15px] shrink-0" aria-hidden />
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{label ?? placeholder}</span>
       <input
         type="search"
         value={value}

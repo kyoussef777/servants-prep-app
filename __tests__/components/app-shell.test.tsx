@@ -89,6 +89,17 @@ describe('AppShell', () => {
     expect(within(menu).getByRole('menuitem', { name: /Servants Prep/ })).toHaveAttribute('href', '/dashboard/admin')
   })
 
+  it('closes the ministry menu once the other ministry renders', async () => {
+    mocks.pathname = '/dashboard/admin'
+    mocks.user = { ...mocks.user, role: UserRole.SUPER_ADMIN }
+    const { rerender } = render(<AppShell>page</AppShell>)
+    await userEvent.click(within(sidebar()).getByRole('button', { name: /Switch ministry/ }))
+    expect(await screen.findByRole('menu')).toBeInTheDocument()
+    mocks.pathname = '/dashboard/servants'
+    rerender(<AppShell>page</AppShell>)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
   it('shows a plain label, not a switcher, with one ministry', () => {
     mocks.user = { ...mocks.user, role: UserRole.SERVANT }
     render(<AppShell>page</AppShell>)
