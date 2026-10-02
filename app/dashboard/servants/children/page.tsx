@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -11,7 +10,12 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { PageLoading } from '@/components/ui/page-loading'
 import { EmptyState } from '@/components/ui/empty-state'
-import { PageHeader } from '@/components/admin/page-header'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { Initials } from '@/components/ds/person'
+import { FilterSelect } from '@/components/ui/filter-select'
 import {
   Dialog,
   DialogContent,
@@ -164,13 +168,14 @@ function SundaySchoolChildrenContent() {
   )
 
   const [selectedClassId, setSelectedClassId] = useState('')
-  const { data, isLoading, mutate } = useSundaySchoolChildren(selectedClassId || undefined)
+  const { data, error: rosterError, isLoading, mutate } = useSundaySchoolChildren(selectedClassId || undefined)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<ChildForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [viewingFamily, setViewingFamily] = useState<SundaySchoolFamily | null>(null)
+  const [rosterSearch, setRosterSearch] = useState('')
 
   // Editing a roster follows from serving that class, which the server decides
   const selectedClass = classes.find(c => c.id === selectedClassId)
@@ -322,196 +327,181 @@ function SundaySchoolChildrenContent() {
   // would just produce a server-side rejection.
   const classesForLevel = classes.filter(cls => cls.level === form.level)
 
+  const visibleChildren = children.filter(
+    (child) => !rosterSearch || getChildFullName(child).toLowerCase().includes(rosterSearch.toLowerCase())
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="flex flex-col gap-5">
         <PageHeader
           title="Roster"
-          description="Roster, family connections, and contact details for the children in your class."
+          meta={['Children, family connections and contact details for your class']}
           actions={
             canManage && classes.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <SundaySchoolRosterImport
-                  classId={selectedClassId}
-                  className={selectedClass?.name ?? 'this class'}
-                  onSuccess={async () => {
-                    await Promise.all([mutate(), mutateFamilies()])
-                  }}
-                />
-                <SundaySchoolRosterLinkDialog
-                  classId={selectedClassId}
-                  className={selectedClass?.name ?? 'this class'}
-                  onSuccess={async () => {
-                    await Promise.all([mutate(), mutateFamilies()])
-                  }}
-                />
-                <Button onClick={openCreate}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add child
-                </Button>
-              </div>
+              <Button onClick={openCreate}>
+                <Plus />
+                Add child
+              </Button>
             ) : undefined
           }
         />
 
         {classes.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <EmptyState message="You are not assigned to any Sunday School class yet." />
-            </CardContent>
-          </Card>
+          <Panel>
+            <EmptyState message="You are not assigned to a Sunday School class yet. Ask your coordinator to add you." />
+          </Panel>
         ) : (
-          <>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-2 max-w-sm">
-                  <Label htmlFor="class-filter">Class</Label>
-                  <select
-                    id="class-filter"
+          <Panel
+            toolbar={
+              <>
+                <label className="flex items-center gap-2 text-xs font-medium text-ink-3">
+                  Class
+                  <FilterSelect
+                    aria-label="Class"
                     value={selectedClassId}
-                    onChange={e => setSelectedClassId(e.target.value)}
-                    className="w-full h-9 rounded-md border px-3 text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
-                  >
-                    {classes.map(cls => (
-                      <option key={cls.id} value={cls.id}>
-                        {cls.name} — {getLevelDisplayName(cls.level)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                {isLoading ? (
-                  <p className="text-center py-8 text-gray-500">Loading roster…</p>
-                ) : children.length === 0 ? (
-                  <EmptyState message="No children on this roster yet." />
-                ) : (
-                  <div className="divide-y dark:divide-gray-800">
-                    {children.map(child => (
-                      <div
-                        key={child.id}
-                        className="grid grid-cols-1 gap-3 py-3 sm:grid-cols-[minmax(16rem,24rem)_minmax(0,1fr)_auto] sm:items-center"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className={`font-medium ${child.isActive ? '' : 'text-gray-400 line-through'}`}>
-                              {getChildFullName(child)}
-                            </p>
-                            <Badge variant="secondary">{getLevelDisplayName(child.level)}</Badge>
-                            {child.gender && (
-                              <Badge variant="outline">{child.gender === 'MALE' ? 'Boy' : 'Girl'}</Badge>
-                            )}
-                          </div>
-                          {child.family ? (
-                            <div className="mt-1 space-y-0.5 text-sm text-gray-600 dark:text-gray-400">
-                              {(child.family.motherName || child.family.motherPhone) && (
-                                <div className="flex flex-wrap items-center gap-x-1">
-                                  <span>Mother: {child.family.motherName ?? '—'}</span>
-                                  {child.family.motherPhone && (
-                                    <>
-                                      <span>·</span>
-                                      <CopyableValue
-                                        value={child.family.motherPhone}
-                                        label="mother's phone number"
-                                        className="py-0.5"
-                                      />
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                              {(child.family.fatherName || child.family.fatherPhone) && (
-                                <div className="flex flex-wrap items-center gap-x-1">
-                                  <span>Father: {child.family.fatherName ?? '—'}</span>
-                                  {child.family.fatherPhone && (
-                                    <>
-                                      <span>·</span>
-                                      <CopyableValue
-                                        value={child.family.fatherPhone}
-                                        label="father's phone number"
-                                        className="py-0.5"
-                                      />
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-1 text-primary hover:underline"
-                                onClick={() => setViewingFamily(child.family ?? null)}
-                              >
-                                <Users className="h-3.5 w-3.5" />
-                                View {getFamilyDisplayName(child.family)}
-                                {child.family.children.length > 1 && (
-                                  <span>
-                                    · {child.family.children.length - 1}{' '}
-                                    {child.family.children.length === 2 ? 'sibling' : 'siblings'}
-                                  </span>
-                                )}
-                              </button>
-                            </div>
-                          ) : (child.guardianName || child.guardianPhone) ? (
-                            <div className="mt-1 flex flex-wrap items-center gap-x-1 text-sm text-gray-600 dark:text-gray-400">
-                              <span>Guardian: {child.guardianName ?? '—'}</span>
-                              {child.guardianPhone && (
-                                <>
-                                  <span>·</span>
-                                  <CopyableValue
-                                    value={child.guardianPhone}
-                                    label="guardian's phone number"
-                                    className="py-0.5"
-                                  />
-                                </>
-                              )}
-                            </div>
-                          ) : null}
-                          {child.user && (
-                            <div className="mt-1 flex flex-wrap items-center gap-x-1 text-sm text-green-700 dark:text-green-400">
-                              <span>Student account:</span>
-                              <CopyableValue value={child.user.email} label="student email" className="py-0.5" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 sm:px-4">
-                          {child.notes ? (
-                            <p
-                              className="truncate text-sm text-gray-600 dark:text-gray-300"
-                              title={child.notes}
-                            >
-                              <span className="font-medium text-gray-500 dark:text-gray-400">Note:</span>{' '}
-                              {child.notes}
-                            </p>
-                          ) : canManage ? (
-                            <button
-                              type="button"
-                              className="text-sm text-gray-400 transition-colors hover:text-primary"
-                              onClick={() => openEdit(child)}
-                            >
-                              Add note
-                            </button>
-                          ) : (
-                            <p className="text-sm text-gray-400">No note</p>
-                          )}
-                        </div>
-                        {canManage && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(child)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDelete(child)}>
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                    onChange={setSelectedClassId}
+                    options={classes.map((cls) => ({ value: cls.id, label: `${cls.name} — ${getLevelDisplayName(cls.level)}` }))}
+                  />
+                </label>
+                <SearchField value={rosterSearch} onChange={setRosterSearch} placeholder="Search by name" />
+                {canManage && (
+                  <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                    <SundaySchoolRosterImport
+                      classId={selectedClassId}
+                      className={selectedClass?.name ?? 'this class'}
+                      onSuccess={async () => {
+                        await Promise.all([mutate(), mutateFamilies()])
+                      }}
+                    />
+                    <SundaySchoolRosterLinkDialog
+                      classId={selectedClassId}
+                      className={selectedClass?.name ?? 'this class'}
+                      onSuccess={async () => {
+                        await Promise.all([mutate(), mutateFamilies()])
+                      }}
+                    />
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </>
+              </>
+            }
+            footer={<span className="tabular">{visibleChildren.length} children</span>}
+          >
+            {isLoading ? (
+              <EmptyState message="Loading roster…" />
+            ) : rosterError ? (
+              // Never show "no children" when the roster failed to load: it invites re-adding them.
+              <EmptyState
+                title="Couldn’t load this roster"
+                message="Something went wrong on our side. Try again in a moment; if it keeps happening, tell a super admin."
+                action={<Button variant="outline" onClick={() => mutate()}>Try again</Button>}
+              />
+            ) : visibleChildren.length === 0 ? (
+              <EmptyState message={children.length === 0 ? (canManage ? 'No children yet. Add one, import a roster, or share the sign-up link.' : 'No children on this roster yet.') : 'No children match.'} />
+            ) : (
+              <ul className="divide-y divide-line">
+                {visibleChildren.map((child) => (
+                  <li
+                    key={child.id}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 px-4 py-3 lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(0,14rem)_auto] lg:items-center"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Initials name={getChildFullName(child)} imageUrl={child.user?.profileImageUrl} />
+                      <div className="flex min-w-0 flex-col leading-tight">
+                        <span className={`truncate text-[13.5px] font-medium ${child.isActive ? 'text-ink' : 'text-ink-3 line-through'}`}>
+                          {getChildFullName(child)}
+                        </span>
+                        <span className="text-xs text-ink-3">
+                          {getLevelDisplayName(child.level)}
+                          {child.gender && ` · ${child.gender === 'MALE' ? 'Boy' : 'Girl'}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="order-3 col-span-2 min-w-0 text-[13px] text-ink-2 lg:order-none lg:col-span-1">
+                      {child.family ? (
+                        <div className="flex flex-col gap-0.5">
+                          {(child.family.motherName || child.family.motherPhone) && (
+                            <span className="flex flex-wrap items-center gap-x-1">
+                              Mother: {child.family.motherName ?? '—'}
+                              {child.family.motherPhone && (
+                                <>
+                                  <span aria-hidden>·</span>
+                                  <CopyableValue value={child.family.motherPhone} label="mother's phone number" className="py-0.5" />
+                                </>
+                              )}
+                            </span>
+                          )}
+                          {(child.family.fatherName || child.family.fatherPhone) && (
+                            <span className="flex flex-wrap items-center gap-x-1">
+                              Father: {child.family.fatherName ?? '—'}
+                              {child.family.fatherPhone && (
+                                <>
+                                  <span aria-hidden>·</span>
+                                  <CopyableValue value={child.family.fatherPhone} label="father's phone number" className="py-0.5" />
+                                </>
+                              )}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="inline-flex w-fit cursor-pointer items-center gap-1 text-accent-ink hover:underline"
+                            onClick={() => setViewingFamily(child.family ?? null)}
+                          >
+                            <House className="size-3.5" aria-hidden />
+                            {getFamilyDisplayName(child.family)}
+                            {child.family.children.length > 1 &&
+                              ` · ${child.family.children.length - 1} ${child.family.children.length === 2 ? 'sibling' : 'siblings'}`}
+                          </button>
+                        </div>
+                      ) : child.guardianName || child.guardianPhone ? (
+                        <span className="flex flex-wrap items-center gap-x-1">
+                          Guardian: {child.guardianName ?? '—'}
+                          {child.guardianPhone && (
+                            <>
+                              <span aria-hidden>·</span>
+                              <CopyableValue value={child.guardianPhone} label="guardian's phone number" className="py-0.5" />
+                            </>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-ink-3">No family on file</span>
+                      )}
+                      {child.notes && (
+                        <p className="mt-0.5 truncate text-xs text-ink-3" title={child.notes}>
+                          Note: {child.notes}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="order-4 col-span-2 min-w-0 lg:order-none lg:col-span-1">
+                      {child.user ? (
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <StatusBadge tone="ok">Linked</StatusBadge>
+                          <CopyableValue value={child.user.email} label="student email" className="py-0.5 text-xs" />
+                        </span>
+                      ) : (
+                        <StatusBadge tone="neutral">No account</StatusBadge>
+                      )}
+                    </div>
+
+                    {canManage ? (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${getChildFullName(child)}`} onClick={() => openEdit(child)}>
+                          <Pencil />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" aria-label={`Remove ${getChildFullName(child)}`} className="hover:text-bad" onClick={() => handleDelete(child)}>
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
         )}
       </div>
 

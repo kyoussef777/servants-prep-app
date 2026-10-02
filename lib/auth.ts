@@ -209,7 +209,7 @@ export const authOptions: NextAuthOptions = {
         const normalizedEmail = normalizeEmail(credentials.email)
 
         // Rate limit check
-        const rateLimit = checkLoginRateLimit(normalizedEmail)
+        const rateLimit = await checkLoginRateLimit(normalizedEmail)
         if (!rateLimit.allowed) {
           throw new Error(`Too many login attempts. Please try again in ${rateLimit.retryAfterSeconds} seconds.`)
         }
@@ -256,7 +256,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Successful login - reset rate limit
-        resetLoginRateLimit(normalizedEmail)
+        await resetLoginRateLimit(normalizedEmail)
 
         const { isAsyncStudent, sundaySchool } = await getUserSessionData(user)
 

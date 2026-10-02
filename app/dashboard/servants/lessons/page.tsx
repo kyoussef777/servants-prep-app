@@ -6,10 +6,12 @@ import { toast } from 'sonner'
 import { useSundaySchoolGuard } from '@/hooks/useSundaySchoolGuard'
 import { useSundaySchoolLessons } from '@/lib/swr'
 import { formatDateUTC } from '@/lib/utils'
-import { PageHeader } from '@/components/admin/page-header'
-import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { Segmented } from '@/components/ds/segmented'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { FilterSelect } from '@/components/ui/filter-select'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
@@ -25,9 +27,9 @@ function dateOnly(date: Date) {
 }
 
 function statusBadge(lesson: SundaySchoolWeeklyLesson) {
-  if (lesson.status === 'READY') return <Badge className="bg-green-600">Ready</Badge>
-  if (lesson.status === 'NEEDS_LINKS') return <Badge variant="outline" className="border-amber-500 text-amber-700">Needs links</Badge>
-  return <Badge variant="secondary">Unassigned</Badge>
+  if (lesson.status === 'READY') return <StatusBadge tone="ok">Ready</StatusBadge>
+  if (lesson.status === 'NEEDS_LINKS') return <StatusBadge tone="warn">Needs links</StatusBadge>
+  return <StatusBadge tone="neutral">Unassigned</StatusBadge>
 }
 
 export default function SundaySchoolLessonsPage() {
@@ -104,102 +106,115 @@ export default function SundaySchoolLessonsPage() {
   if (status === 'loading' || isLoading) return <PageLoading />
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="flex min-w-0 flex-col">
+      <div className="flex flex-col gap-5">
         <PageHeader
           title="Lessons"
-          description="Assign each Sunday lesson and share the slides and resources your class needs."
-          actions={manageableClasses.length > 0 ? (
-            <SundaySchoolLessonImport
-              classes={manageableClasses}
-              initialClassId={classId !== 'all' ? classId : undefined}
-              onSuccess={async () => { await mutate() }}
-            />
-          ) : undefined}
+          meta={['Assign each Sunday lesson and share the slides and resources your class needs']}
+          actions={
+            manageableClasses.length > 0 ? (
+              <SundaySchoolLessonImport
+                classes={manageableClasses}
+                initialClassId={classId !== 'all' ? classId : undefined}
+                onSuccess={async () => {
+                  await mutate()
+                }}
+              />
+            ) : undefined
+          }
         />
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-2">
-            {([
-              ['schedule', 'Year schedule'],
-              ['mine', 'My lessons'],
-              ['past', 'Past lessons'],
-            ] as const).map(([value, label]) => (
-              <Button key={value} variant={scope === value ? 'default' : 'outline'} onClick={() => setScope(value)}>
-                {label}
-              </Button>
-            ))}
-          </div>
-          <select
-            aria-label="Filter lessons by class"
-            value={classId}
-            onChange={event => setClassId(event.target.value)}
-            className="h-9 rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
-          >
-            <option value="all">All classes</option>
-            {classOptions.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
-          </select>
-        </div>
-
-        {error ? (
-          <Card><CardContent className="pt-6"><EmptyState message="Lessons could not be loaded." /></CardContent></Card>
-        ) : visibleLessons.length === 0 ? (
-          <Card><CardContent className="pt-6"><EmptyState message={scope === 'mine' ? 'You have no upcoming lessons assigned.' : scope === 'past' ? 'There are no past lessons yet.' : 'No lessons are available for the active academic year.'} /></CardContent></Card>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {visibleLessons.map(lesson => (
-              <Card key={lesson.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-lg">{lesson.class.name}</CardTitle>
-                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{formatDateUTC(lesson.sundayDate)}</p>
-                    </div>
-                    {statusBadge(lesson)}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="font-medium">{lesson.title || 'Lesson title not added'}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {lesson.owner ? `Owner: ${lesson.owner.name}` : 'No lesson owner assigned yet.'}
-                    </p>
-                  </div>
-
-                  {lesson.resources.length > 0 && (
-                    <div className="space-y-2">
-                      {lesson.resources.map(resource => (
-                        <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-maroon-700 hover:underline dark:text-maroon-300">
-                          <ExternalLink className="h-4 w-4 shrink-0" />
+        <Panel
+          toolbar={
+            <>
+              <Segmented
+                label="Lessons"
+                value={scope}
+                onChange={setScope}
+                options={[
+                  { value: 'schedule', label: 'Year schedule' },
+                  { value: 'mine', label: 'My lessons' },
+                  { value: 'past', label: 'Past' },
+                ]}
+              />
+              <FilterSelect
+                aria-label="Filter lessons by class"
+                value={classId}
+                onChange={setClassId}
+                className="md:ml-auto"
+                options={[{ value: 'all', label: 'All classes' }, ...classOptions.map((cls) => ({ value: cls.id, label: cls.name }))]}
+              />
+            </>
+          }
+          footer={<span className="tabular">{visibleLessons.length} lessons</span>}
+        >
+          {error ? (
+            <EmptyState title="Couldn’t load lessons" message="Something went wrong on our side. Try again in a moment." />
+          ) : visibleLessons.length === 0 ? (
+            <EmptyState
+              message={
+                scope === 'mine' ? 'You have no upcoming lessons assigned.' : scope === 'past' ? 'There are no past lessons yet.' : 'No lessons scheduled. Import a schedule to start.'
+              }
+            />
+          ) : (
+            <ul className="divide-y divide-line">
+              {visibleLessons.map((lesson) => (
+                <li
+                  key={lesson.id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 lg:grid-cols-[110px_minmax(0,1.2fr)_minmax(0,1fr)_110px_auto]"
+                >
+                  <span className="text-[13px] text-ink-2">
+                    {formatDateUTC(lesson.sundayDate, { year: undefined })}
+                    <span className="block text-xs text-ink-3 lg:hidden">{lesson.class.name}</span>
+                  </span>
+                  <span className="order-3 col-span-2 flex min-w-0 flex-col lg:order-none lg:col-span-1">
+                    <span className={`truncate text-[13.5px] font-medium ${lesson.title ? 'text-ink' : 'text-ink-3'}`}>{lesson.title || 'Not assigned'}</span>
+                    <span className="truncate text-xs text-ink-3">
+                      <span className="hidden lg:inline">{lesson.class.name} · </span>
+                      {lesson.owner ? `Owner: ${lesson.owner.name}` : 'No owner yet'}
+                    </span>
+                  </span>
+                  <span className="order-4 col-span-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[13px] lg:order-none lg:col-span-1">
+                    {lesson.resources.length === 0 ? (
+                      <span className="text-ink-3">No links added yet.</span>
+                    ) : (
+                      lesson.resources.map((resource) => (
+                        <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent-ink hover:underline">
+                          <ExternalLink className="size-3.5 shrink-0" aria-hidden />
                           {resource.title}
                         </a>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center dark:border-gray-800">
+                      ))
+                    )}
+                  </span>
+                  <span className="order-2 lg:order-none">{statusBadge(lesson)}</span>
+                  <span className="order-5 col-span-2 flex flex-wrap items-center gap-2 lg:order-none lg:col-span-1 lg:justify-end">
                     {lesson.canAssignOwner && (
                       <select
                         aria-label={`Owner for ${lesson.class.name} on ${formatDateUTC(lesson.sundayDate)}`}
                         value={lesson.ownerId ?? ''}
-                        onChange={event => assignOwner(lesson, event.target.value)}
-                        className="h-9 flex-1 rounded-md border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900"
+                        onChange={(event) => assignOwner(lesson, event.target.value)}
+                        className="h-11 max-w-44 rounded-md border border-line-strong bg-surface px-2 text-base text-ink md:h-8 md:text-[13px]"
                       >
                         <option value="">Unassigned</option>
-                        {lesson.eligibleOwners.map(owner => <option key={owner.id} value={owner.id}>{owner.name}</option>)}
+                        {lesson.eligibleOwners.map((owner) => (
+                          <option key={owner.id} value={owner.id}>
+                            {owner.name}
+                          </option>
+                        ))}
                       </select>
                     )}
                     {lesson.canEdit && (
-                      <Button variant="outline" onClick={() => openEditor(lesson)}>
-                        <Pencil className="mr-1 h-4 w-4" /> Edit lesson
+                      <Button variant="outline" size="sm" onClick={() => openEditor(lesson)}>
+                        <Pencil />
+                        Edit lesson
                       </Button>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
 
       <Dialog open={Boolean(editing)} onOpenChange={open => !open && setEditing(null)}>
@@ -223,11 +238,11 @@ export default function SundaySchoolLessonsPage() {
                 </Button>
               </div>
               {resources.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-4 text-center text-sm text-gray-500">
+                <div className="rounded-md border border-dashed border-line-strong p-4 text-center text-[13px] text-ink-3">
                   <Link2 className="mx-auto mb-2 h-5 w-5" /> No links added yet.
                 </div>
               ) : resources.map((resource, index) => (
-                <div key={index} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1.5fr_auto] dark:border-gray-700">
+                <div key={index} className="grid gap-2 rounded-md border border-line p-3 sm:grid-cols-[1fr_1.5fr_auto]">
                   <Input aria-label={`Link ${index + 1} title`} value={resource.title} onChange={event => setResources(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item))} placeholder="Slides" />
                   <Input aria-label={`Link ${index + 1} URL`} value={resource.url} onChange={event => setResources(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item))} placeholder="https://…" />
                   <Button type="button" variant="ghost" size="icon" onClick={() => setResources(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove link ${index + 1}`}>

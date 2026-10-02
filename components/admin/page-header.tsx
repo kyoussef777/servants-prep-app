@@ -1,4 +1,5 @@
 import { LastSaved } from '@/components/ui/last-saved'
+import { PageHeader as DsPageHeader } from '@/components/ds/page-header'
 
 interface PageHeaderProps {
   title: string
@@ -7,21 +8,10 @@ interface PageHeaderProps {
   actions?: React.ReactNode
 }
 
+/** Legacy signature; renders the design-system header. */
 export function PageHeader({ title, description, lastSaved, actions }: PageHeaderProps) {
-  return (
-    <div className="flex flex-col items-start justify-between gap-2 lg:flex-row lg:items-center">
-      <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {description && (
-          <p className="text-sm text-gray-600">{description}</p>
-        )}
-        {lastSaved !== undefined && <LastSaved date={lastSaved ?? null} />}
-      </div>
-      {actions && (
-        <div className="flex w-full items-center gap-2 lg:w-auto">
-          {actions}
-        </div>
-      )}
-    </div>
-  )
+  const meta: React.ReactNode[] = []
+  if (description) meta.push(description)
+  if (lastSaved) meta.push(<LastSaved key="saved" date={lastSaved} />)
+  return <DsPageHeader title={title} meta={meta} actions={actions} />
 }

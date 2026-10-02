@@ -157,3 +157,16 @@ export function calculateAbsencesAllowed(
 
   return Math.floor(absencesAllowed)
 }
+
+/**
+ * Graduation needs evidence: the per-requirement "met" flags read true while a
+ * student has no attendance or exam data yet (on track, not penalized), but a
+ * student with nothing recorded is not eligible to graduate.
+ */
+export function isGraduationEligible(input: {
+  attendancePercentage: number | null
+  examAverage: number | null
+  requirementsMet: boolean[]
+}): boolean {
+  return input.attendancePercentage !== null && input.examAverage !== null && input.requirementsMet.every(Boolean)
+}

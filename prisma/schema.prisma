@@ -1731,3 +1731,12 @@ model Notification {
   @@index([userId, createdAt])
   @@index([createdAt])
 }
+
+/// Shared fixed-window counters for login and password-reset rate limits (lib/rate-limit.ts).
+model RateLimitBucket {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
