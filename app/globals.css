@@ -524,6 +524,21 @@
   --color-pink-900: var(--ds-info);
   --color-pink-950: var(--ds-info);
 
+
+  /* Maroon utilities follow the brand: tints take the ministry accent, solid shades the
+     theme-correct primary, so legacy maroon markup reads right in both themes and modes. */
+  --color-maroon-50: var(--ds-accent-tint);
+  --color-maroon-100: var(--ds-accent-tint);
+  --color-maroon-200: color-mix(in srgb, var(--ds-accent) 28%, transparent);
+  --color-maroon-300: var(--ds-accent);
+  --color-maroon-400: var(--ds-accent);
+  --color-maroon-500: var(--ds-accent);
+  --color-maroon-600: var(--ds-primary);
+  --color-maroon-700: var(--ds-primary);
+  --color-maroon-800: var(--ds-primary);
+  --color-maroon-900: var(--ds-primary);
+  --color-maroon-950: var(--ds-primary);
+
   --app-canvas: var(--ds-canvas);
   --background: var(--ds-canvas);
   --foreground: var(--ds-text);
