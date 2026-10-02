@@ -292,6 +292,16 @@ export default function EnrollmentsPage() {
   // PRIEST is read-only, only SUPER_ADMIN and SERVANT_PREP can manage enrollments
   const canEdit = session?.user?.role && canManageEnrollments(session.user.role)
 
+  // A mentor's count covers every student they mentor, withdrawn and graduated
+  // included, so picking one shows all statuses; clearing it goes back to Active.
+  // A status the admin chose by hand is left alone.
+  const selectMentor = (mentorId: string) => {
+    setFilterMentor(mentorId)
+    const isMentor = mentorId !== 'all' && mentorId !== 'unassigned'
+    if (isMentor && filterStatus === 'ACTIVE') setFilterStatus('all')
+    if (!isMentor && filterStatus === 'all') setFilterStatus('ACTIVE')
+  }
+
   if (loading || status === 'loading') {
     return <PageLoading />
   }
@@ -398,7 +408,7 @@ export default function EnrollmentsPage() {
           toolbar={
             <>
               <SearchField value={searchTerm} onChange={setSearchTerm} placeholder="Search students" />
-              <MentorFilterCombobox mentors={mentors} workload={mentorWorkload} value={filterMentor} onValueChange={setFilterMentor} />
+              <MentorFilterCombobox mentors={mentors} workload={mentorWorkload} value={filterMentor} onValueChange={selectMentor} />
               <FilterSelect
                 aria-label="Year level"
                 value={filterYear}
@@ -545,7 +555,7 @@ export default function EnrollmentsPage() {
                     <button
                       type="button"
                       aria-pressed={active}
-                      onClick={() => setFilterMentor(active ? 'all' : mentor.id)}
+                      onClick={() => selectMentor(active ? 'all' : mentor.id)}
                       className={`flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-4 py-1.5 text-left md:min-h-9 ${active ? 'bg-accent-tint' : 'hover:bg-hover/60'}`}
                     >
                       <Initials name={mentor.name} imageUrl={mentor.profileImageUrl} size={24} />
