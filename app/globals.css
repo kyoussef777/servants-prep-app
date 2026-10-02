@@ -566,6 +566,7 @@
 [data-ministry="sunday-school"] {
   --ds-accent: var(--ds-gold);
   --ds-accent-tint: var(--ds-gold-tint);
+  --chart-attendance: var(--ds-gold);
 }
 
 .dark {
