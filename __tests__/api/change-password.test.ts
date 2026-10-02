@@ -56,6 +56,15 @@ describe('change password API', () => {
     expect(mocks.emailPasswordChanged).toHaveBeenCalledWith({ email: 'user@example.com', name: 'User One' })
   })
 
+  it('does not send a security warning when replacing a temporary password', async () => {
+    mocks.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com', name: 'User One', password: 'old-hash', mustChangePassword: true })
+
+    const response = await POST(request({ currentPassword: 'Temp-Pass-123', newPassword: 'NewPassword123!' }))
+
+    expect(response.status).toBe(200)
+    expect(mocks.emailPasswordChanged).not.toHaveBeenCalled()
+  })
+
   it('returns the mentor dashboard for a standalone legacy mentor', async () => {
     mocks.requireAuth.mockResolvedValue({ id: 'mentor-1', role: 'MENTOR' })
     mocks.findUnique.mockResolvedValue({ id: 'mentor-1', password: 'old-hash' })

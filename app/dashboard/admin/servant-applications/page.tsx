@@ -153,7 +153,7 @@ function ApplicationDetail({
       if (action === 'approve') {
         const data = await res.json()
         toast.success('Application approved', {
-          description: `We emailed them a link to set their password. If it doesn’t arrive, share this temporary password: ${data.tempPassword}`,
+          description: `A set-password link is being emailed to them. If they don’t receive it, share this temporary password: ${data.tempPassword}`,
           duration: 10000,
         })
       } else {

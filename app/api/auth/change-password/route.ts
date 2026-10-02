@@ -80,7 +80,8 @@ export async function POST(request: Request) {
       entityId: user.id,
       result: AuditEventResult.SUCCESS,
     })
-    emailPasswordChanged({ email: dbUser.email, name: dbUser.name })
+    // Replacing a temporary password is the account's first real password; nothing to warn about.
+    if (!dbUser.mustChangePassword) emailPasswordChanged({ email: dbUser.email, name: dbUser.name })
 
     return NextResponse.json({
       message: "Password updated successfully",
