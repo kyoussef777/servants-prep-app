@@ -306,3 +306,30 @@ Deployed on Vercel at `https://servants-prep-app.vercel.app`. Required env vars
 are the four listed above. `/api/health` checks database connectivity after a
 deploy. Preview and production environments must use different Neon branch
 connection strings.
+
+### Email (Resend)
+
+Account emails (registration, servant applications, parent sign-up, password
+reset/changed) go through `lib/mail/`. Env vars:
+
+| Var | Purpose |
+|---|---|
+| `RESEND_API_KEY` | Send-only Resend key. Without it, emails are skipped and logged. |
+| `APP_URL` | Base URL for links in emails; falls back to `NEXTAUTH_URL`. |
+| `EMAIL_FROM` | Optional; defaults to `St. Mark Ministry <no-reply@stmarkministry.app>`. |
+| `EMAIL_DEV_ALLOWLIST` | Comma list of addresses or `@domains` that non-production may email. |
+
+Only production (`VERCEL_ENV=production`, or `EMAIL_DELIVERY=live`) emails real
+people. Local and preview share the production database, so elsewhere only
+`*@resend.dev` and the allowlist receive mail. Password links are signed with
+`NEXTAUTH_SECRET` and bound to `User.authVersion`, so they work once.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

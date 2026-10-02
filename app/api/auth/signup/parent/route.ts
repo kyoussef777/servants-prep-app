@@ -4,6 +4,7 @@ import { UserRole } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { checkLoginRateLimit, resetLoginRateLimit } from '@/lib/rate-limit'
 import { normalizeEmail } from '@/lib/email'
+import { emailParentWelcome } from '@/lib/mail/notify'
 
 /**
  * POST /api/auth/signup/parent
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest) {
     })
 
     resetLoginRateLimit(normalizedEmail)
+    emailParentWelcome({ email: user.email, name: user.name })
 
     return NextResponse.json(
       { id: user.id, message: 'Account created successfully' },

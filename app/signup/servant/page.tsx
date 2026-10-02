@@ -72,8 +72,7 @@ export default function ServantSignupPage() {
           <p className="mb-1.5 font-semibold text-ink">What happens next</p>
           <ul className="list-inside list-disc space-y-1 text-ink-2">
             <li>A super admin reviews your application.</li>
-            <li>If approved, they share a temporary password with you directly; nothing is emailed automatically.</li>
-            <li>You change the temporary password when you first sign in.</li>
+            <li>We’ve emailed you a confirmation. If approved, you’ll get a link to set your password.</li>
             <li>You’re assigned to a class once staffing is final.</li>
           </ul>
         </div>

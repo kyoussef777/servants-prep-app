@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs"
 import { AuditEventResult } from "@prisma/client"
 import { recordAuditEvent } from "@/lib/audit"
 import { defaultDashboardPath } from "@/lib/dashboard-navigation"
+import { emailPasswordChanged } from "@/lib/mail/notify"
+import { MIN_PASSWORD_LENGTH } from "@/lib/password-reset"
 
 // POST /api/auth/change-password - Change user's own password
 export async function POST(request: Request) {
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (newPassword.length < 8) {
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
       return NextResponse.json(
         { error: "Password must be at least 8 characters" },
         { status: 400 }
@@ -78,6 +80,7 @@ export async function POST(request: Request) {
       entityId: user.id,
       result: AuditEventResult.SUCCESS,
     })
+    emailPasswordChanged({ email: dbUser.email, name: dbUser.name })
 
     return NextResponse.json({
       message: "Password updated successfully",

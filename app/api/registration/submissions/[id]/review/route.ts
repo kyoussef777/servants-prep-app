@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs'
 import { generateTempPassword } from '@/lib/registration-utils'
 import { notifyRegistrationReviewed } from '@/lib/notifications'
 import { backfillAttendanceForStudent } from '@/lib/api-utils'
+import { emailRegistrationApproved, emailRegistrationNotApproved } from '@/lib/mail/notify'
 
 /**
  * POST /api/registration/submissions/[id]/review
@@ -100,6 +101,7 @@ export async function POST(
 
         let userId: string
         let tempPassword: string | null = null
+        let newAccount: { id: string; authVersion: number } | null = null
         let shouldBackfillAttendance = true
 
         if (existingUser) {
@@ -174,6 +176,7 @@ export async function POST(
             },
           })
           userId = newUser.id
+          newAccount = { id: newUser.id, authVersion: newUser.authVersion }
 
           // Create StudentEnrollment
           await tx.studentEnrollment.create({
@@ -260,8 +263,15 @@ export async function POST(
           submission: updatedSubmission,
           tempPassword,
           linkedExistingUser: Boolean(existingUser),
+          newAccount,
         }
       })
+
+      const recipient = { email: result.submission.email, name: result.submission.fullName }
+      emailRegistrationApproved(
+        recipient,
+        result.newAccount ? { ...recipient, id: result.newAccount.id, authVersion: result.newAccount.authVersion } : undefined
+      )
 
       // Notify the newly approved user (non-blocking)
       if (result.submission.createdUser) {
@@ -324,6 +334,8 @@ export async function POST(
           },
         },
       })
+
+      emailRegistrationNotApproved({ email: updatedSubmission.email, name: updatedSubmission.fullName })
 
       return NextResponse.json({
         submission: updatedSubmission,

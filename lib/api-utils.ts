@@ -9,7 +9,9 @@ import { requireAuth } from "./auth-helpers"
  */
 export function handleApiError(error: unknown): NextResponse {
   const requestId = crypto.randomUUID()
-  console.error("API Error:", { requestId, error })
+  // Error properties are non-enumerable, so log them explicitly; an Error inside
+  // an object literal prints as {} in some runtimes.
+  console.error(`API Error [${requestId}]:`, error instanceof Error ? (error.stack ?? error.message) : error)
 
   if (error instanceof Error) {
     if (error.message === "Unauthorized") {

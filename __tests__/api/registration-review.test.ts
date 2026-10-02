@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   hash: vi.fn(),
   backfillAttendance: vi.fn(),
   notifyReviewed: vi.fn(),
+  emailApproved: vi.fn(),
 }))
 
 vi.mock('next-auth', () => ({ getServerSession: mocks.getServerSession }))
@@ -27,6 +28,7 @@ vi.mock('bcryptjs', () => ({ default: { hash: mocks.hash } }))
 vi.mock('@/lib/prisma', () => ({ prisma: { $transaction: mocks.transaction } }))
 vi.mock('@/lib/api-utils', () => ({ backfillAttendanceForStudent: mocks.backfillAttendance }))
 vi.mock('@/lib/notifications', () => ({ notifyRegistrationReviewed: mocks.notifyReviewed }))
+vi.mock('@/lib/mail/notify', () => ({ emailRegistrationApproved: mocks.emailApproved, emailRegistrationNotApproved: vi.fn() }))
 
 import { POST } from '@/app/api/registration/submissions/[id]/review/route'
 
@@ -52,7 +54,7 @@ describe('registration approval follow-up', () => {
       mentorEmail: null,
     })
     mocks.findUser.mockResolvedValue(null)
-    mocks.createUser.mockResolvedValue({ id: 'student-1' })
+    mocks.createUser.mockResolvedValue({ id: 'student-1', authVersion: 0 })
     mocks.findAcademicYear.mockResolvedValue({ id: 'year-1' })
     mocks.findFather.mockResolvedValue({ id: 'father-1' })
     mocks.createEnrollment.mockResolvedValue({ id: 'enrollment-1' })
@@ -60,6 +62,7 @@ describe('registration approval follow-up', () => {
     mocks.backfillAttendance.mockResolvedValue(undefined)
     mocks.updateSubmission.mockResolvedValue({
       id: 'registration-1',
+      email: 'student@example.com',
       fullName: 'Student Name',
       createdUser: { id: 'student-1' },
     })
@@ -113,6 +116,11 @@ describe('registration approval follow-up', () => {
         },
       }),
     })
+    // A new account gets a set-password link bound to its current authVersion.
+    expect(mocks.emailApproved).toHaveBeenCalledWith(
+      { email: 'student@example.com', name: 'Student Name' },
+      { email: 'student@example.com', name: 'Student Name', id: 'student-1', authVersion: 0 }
+    )
   })
 
   it('approves a returning applicant by updating their existing account', async () => {
@@ -139,6 +147,7 @@ describe('registration approval follow-up', () => {
     mocks.findEnrollment.mockResolvedValue({ id: 'enrollment-1', isActive: true })
     mocks.updateSubmission.mockResolvedValue({
       id: 'registration-2',
+      email: 'student@example.com',
       fullName: 'Student Name',
       createdUser: { id: 'student-1' },
     })
@@ -158,6 +167,7 @@ describe('registration approval follow-up', () => {
     expect(mocks.createUser).not.toHaveBeenCalled()
     expect(mocks.hash).not.toHaveBeenCalled()
     expect(mocks.createEnrollment).not.toHaveBeenCalled()
+    expect(mocks.emailApproved).toHaveBeenCalledWith({ email: 'student@example.com', name: 'Student Name' }, undefined)
     expect(mocks.updateUser).toHaveBeenCalledWith({
       where: { id: 'student-1' },
       data: { phone: '555-0101', profileImageUrl: 'https://example.com/new-profile.jpg' },

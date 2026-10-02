@@ -7,7 +7,8 @@ import { handleApiError } from "@/lib/api-utils"
 import {
   countAttendanceStatuses,
   calculateAttendancePercentage,
-  meetsAttendanceRequirement
+  meetsAttendanceRequirement,
+  isGraduationEligible,
 } from "@/lib/attendance-utils"
 import { calculateSSAttendance, getAssignmentWeeks } from "@/lib/sunday-school-utils"
 
@@ -332,7 +333,11 @@ export async function GET(
     }
 
     // Graduation eligibility (includes Sunday School for async students)
-    const graduationEligible = attendanceMet && overallAverageMet && allSectionsPassing && sundaySchoolMet
+    const graduationEligible = isGraduationEligible({
+      attendancePercentage,
+      examAverage: overallAverage,
+      requirementsMet: [attendanceMet, overallAverageMet, allSectionsPassing, sundaySchoolMet],
+    })
 
     return NextResponse.json({
       enrollment,

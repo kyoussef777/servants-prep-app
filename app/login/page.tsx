@@ -155,6 +155,9 @@ function LoginForm() {
             disabled={loading || googleLoading}
           />
         </Field>
+        <Link href="/forgot-password" className="-mt-2.5 self-end text-[13px] font-medium text-accent-ink no-underline hover:underline">
+          Forgot password?
+        </Link>
         {error && (
           <p role="alert" className="rounded-md bg-bad-tint px-3 py-2 text-[13px] text-bad">
             {error}

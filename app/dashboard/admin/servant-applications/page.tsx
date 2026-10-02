@@ -153,7 +153,7 @@ function ApplicationDetail({
       if (action === 'approve') {
         const data = await res.json()
         toast.success('Application approved', {
-          description: `Temporary password to share with the applicant: ${data.tempPassword}`,
+          description: `We emailed them a link to set their password. If it doesn’t arrive, share this temporary password: ${data.tempPassword}`,
           duration: 10000,
         })
       } else {
@@ -210,8 +210,8 @@ function ApplicationDetail({
         {canReview ? (
           <>
             <p className="rounded-md bg-info-tint px-3 py-2 text-[13px] text-info">
-              <strong>Approving creates a Sunday School servant account.</strong> Share the temporary password with them directly;
-              they change it at first sign-in.
+              <strong>Approving creates a Sunday School servant account</strong> and emails the applicant a link to set their
+              password.
             </p>
             <div className="grid gap-1.5">
               <Label htmlFor="reviewNote">Review note</Label>

@@ -22,18 +22,25 @@ setInterval(() => {
 }, 60 * 1000) // Clean every minute
 
 export function checkLoginRateLimit(email: string): { allowed: boolean; retryAfterSeconds?: number } {
-  const key = email.toLowerCase()
+  return checkRateLimit(`login:${email.toLowerCase()}`, MAX_ATTEMPTS, WINDOW_MS)
+}
+
+/**
+ * Fixed-window limiter shared by login and password-reset requests.
+ * In-memory, so it limits per server instance; treat it as a brake, not a guarantee.
+ */
+export function checkRateLimit(key: string, max: number, windowMs: number): { allowed: boolean; retryAfterSeconds?: number } {
   const now = Date.now()
   const entry = loginAttempts.get(key)
 
   // No previous attempts or window expired
   if (!entry || now > entry.resetAt) {
-    loginAttempts.set(key, { count: 1, resetAt: now + WINDOW_MS })
+    loginAttempts.set(key, { count: 1, resetAt: now + windowMs })
     return { allowed: true }
   }
 
   // Within window but under limit
-  if (entry.count < MAX_ATTEMPTS) {
+  if (entry.count < max) {
     entry.count++
     return { allowed: true }
   }
@@ -44,5 +51,5 @@ export function checkLoginRateLimit(email: string): { allowed: boolean; retryAft
 }
 
 export function resetLoginRateLimit(email: string): void {
-  loginAttempts.delete(email.toLowerCase())
+  loginAttempts.delete(`login:${email.toLowerCase()}`)
 }

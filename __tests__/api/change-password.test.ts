@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   compare: vi.fn(),
   hash: vi.fn(),
   recordAuditEvent: vi.fn(),
+  emailPasswordChanged: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-helpers', () => ({ requireAuth: mocks.requireAuth }))
@@ -15,6 +16,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 vi.mock('bcryptjs', () => ({ default: { compare: mocks.compare, hash: mocks.hash } }))
 vi.mock('@/lib/audit', () => ({ recordAuditEvent: mocks.recordAuditEvent }))
+vi.mock('@/lib/mail/notify', () => ({ emailPasswordChanged: mocks.emailPasswordChanged }))
 
 import { POST } from '@/app/api/auth/change-password/route'
 
@@ -30,7 +32,7 @@ describe('change password API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.requireAuth.mockResolvedValue({ id: 'user-1', role: 'SERVANT' })
-    mocks.findUnique.mockResolvedValue({ id: 'user-1', password: 'old-hash' })
+    mocks.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com', name: 'User One', password: 'old-hash' })
     mocks.compare.mockResolvedValue(true)
     mocks.hash.mockResolvedValue('new-hash')
     mocks.update.mockResolvedValue({ id: 'user-1' })
@@ -51,6 +53,7 @@ describe('change password API', () => {
       action: 'AUTH_PASSWORD_CHANGE',
       result: 'SUCCESS',
     }))
+    expect(mocks.emailPasswordChanged).toHaveBeenCalledWith({ email: 'user@example.com', name: 'User One' })
   })
 
   it('returns the mentor dashboard for a standalone legacy mentor', async () => {
@@ -72,6 +75,7 @@ describe('change password API', () => {
 
     expect(response.status).toBe(401)
     expect(mocks.update).not.toHaveBeenCalled()
+    expect(mocks.emailPasswordChanged).not.toHaveBeenCalled()
     expect(mocks.recordAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
       result: 'DENIED',
       reason: 'CURRENT_PASSWORD_INCORRECT',
