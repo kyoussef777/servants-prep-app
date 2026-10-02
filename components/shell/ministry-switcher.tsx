@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import {
@@ -17,7 +17,8 @@ import { cn } from '@/lib/utils'
 
 /**
  * Lists only the ministries this person can open; with one, it is a plain
- * label (design system §05). ⌘1–⌘9 follow menu order (see AppShell).
+ * label (design system §05). Platform-specific shortcuts follow menu order
+ * (see AppShell) and stay hidden on phone layouts.
  */
 export function MinistrySwitcher({
   current,
@@ -34,6 +35,11 @@ export function MinistrySwitcher({
   // Controlled so it closes once the new ministry renders; the shell stays mounted
   // across navigation, and an uncontrolled menu could stay open over the new page.
   const [open, setOpen] = useState(false)
+  const shortcutModifier = useSyncExternalStore(
+    () => () => {},
+    () => (/Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? '⌘' : 'Ctrl+'),
+    () => null
+  )
   useEffect(() => setOpen(false), [current])
 
   const label = (
@@ -73,9 +79,11 @@ export function MinistrySwitcher({
               <span className="flex-1 text-[13.5px] font-medium">{option.name}</span>
               {option.id === current ? (
                 <Check className="size-4 text-accent-ink" aria-label="Current" />
-              ) : (
-                <kbd className="font-mono text-[11px] text-ink-3">⌘{i + 1}</kbd>
-              )}
+              ) : shortcutModifier ? (
+                <kbd className="hidden font-mono text-[11px] text-ink-3 md:inline">
+                  {shortcutModifier}{i + 1}
+                </kbd>
+              ) : null}
             </Link>
           </DropdownMenuItem>
         ))}

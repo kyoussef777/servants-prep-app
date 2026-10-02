@@ -57,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const user = session?.user
   const ministries = useMemo(() => (user ? availableMinistries(user) : []), [user])
 
-  // ⌘1–⌘9 switch ministries in menu order.
+  // Command+1–9 on macOS, Ctrl+1–9 elsewhere, switch ministries in menu order.
   useEffect(() => {
     if (ministries.length < 2) return
     const onKey = (e: KeyboardEvent) => {
