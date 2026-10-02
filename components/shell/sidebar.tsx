@@ -93,14 +93,18 @@ export function Sidebar({
       data-sidebar
       data-rail={rail ? 'true' : 'false'}
       aria-label="Main"
-      className="sticky top-0 hidden h-dvh shrink-0 flex-col gap-3.5 overflow-y-auto border-r border-line bg-sidebar-bg px-3 pt-3.5 pb-3 md:flex print:hidden"
+      className="sticky top-0 hidden h-dvh shrink-0 flex-col gap-3.5 overflow-hidden border-r border-line bg-sidebar-bg px-3 pt-3.5 pb-3 md:flex print:hidden"
     >
-      <MinistrySwitcher current={ministry} options={ministries} className="h-[52px] w-full px-2" />
+      <MinistrySwitcher
+        current={ministry}
+        options={ministries}
+        className="sidebar-switcher h-[52px] w-full shrink-0 rounded-[10px] border border-line bg-surface pr-2.5 pl-2"
+      />
 
       <button
         type="button"
         onClick={openCommandPalette}
-        className="sidebar-search flex h-8 cursor-pointer items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-[13px] text-ink-3 hover:border-line-strong"
+        className="sidebar-search flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-[13px] text-ink-3 hover:border-line-strong"
         aria-label="Search (⌘K)"
       >
         <Search className="size-[15px] shrink-0" strokeWidth={1.75} aria-hidden />
@@ -110,11 +114,15 @@ export function Sidebar({
         </kbd>
       </button>
 
-      <nav aria-label={ministry === 'sunday-school' ? 'Sunday School' : 'Servants Prep'}>
+      {/* Only the nav scrolls, so the account row stays in view on short screens. */}
+      <nav
+        aria-label={ministry === 'sunday-school' ? 'Sunday School' : 'Servants Prep'}
+        className="-mx-3 min-h-0 flex-1 overflow-y-auto overscroll-contain px-3"
+      >
         <NavList groups={groups} pathname={pathname} search={search} />
       </nav>
 
-      <div className="sidebar-user mt-auto flex items-center gap-2.5 border-t border-line px-1.5 pt-2.5">
+      <div className="sidebar-user flex shrink-0 items-center gap-2.5 border-t border-line px-1.5 pt-2.5">
         <DropdownMenu>
           <DropdownMenuTrigger
             className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md text-left outline-none focus-visible:outline-2 focus-visible:outline-accent-ink"

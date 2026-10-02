@@ -81,11 +81,8 @@ describe('ViewAsMode', () => {
   it('keeps the active View as banner readable against its warning background', () => {
     render(<ViewAsMode />)
 
-    expect(screen.getByRole('status')).toHaveClass(
-      'bg-warn',
-      'text-white',
-      'dark:text-canvas'
-    )
+    // Ink text on the warning tint: both tokens swap together in dark mode.
+    expect(screen.getByRole('status')).toHaveClass('bg-warn-tint', 'text-ink')
   })
 
   it('falls back to the restored account dashboard when no return page was saved', async () => {
