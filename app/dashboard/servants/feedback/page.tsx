@@ -143,8 +143,8 @@ function FeedbackVoteRail({ idea, disabled, onVote }: FeedbackVoteRailProps) {
         className={cn(
           'group flex h-9 w-9 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:focus-visible:ring-offset-gray-950',
           hasUpvote
-            ? 'bg-orange-100 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400'
-            : 'text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:text-gray-400 dark:hover:bg-orange-950/60 dark:hover:text-orange-400'
+            ? 'bg-orange-100 text-orange-600 dark:text-orange-400'
+            : 'text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400'
         )}
       >
         <ArrowBigUp
@@ -182,8 +182,8 @@ function FeedbackVoteRail({ idea, disabled, onVote }: FeedbackVoteRailProps) {
         className={cn(
           'group flex h-9 w-9 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:focus-visible:ring-offset-gray-950',
           hasDownvote
-            ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400'
-            : 'text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-blue-950/60 dark:hover:text-blue-400'
+            ? 'bg-blue-100 text-blue-600 dark:text-blue-400'
+            : 'text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400'
         )}
       >
         <ArrowBigDown
