@@ -114,12 +114,13 @@
     animation: top-modal-content-out 150ms ease-in both;
   }
 
-  html.page-transition-out #app-content {
+  /* Page changes animate only the content; the sidebar and top bar stay put. */
+  html.page-transition-out #main {
     animation: page-content-out 120ms ease-in both;
     pointer-events: none;
   }
 
-  html.page-transition-in #app-content {
+  html.page-transition-in #main {
     animation: page-content-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
