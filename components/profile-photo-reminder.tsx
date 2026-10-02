@@ -5,15 +5,45 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { X, Camera } from 'lucide-react'
 
-const DISMISS_KEY = 'profile-photo-reminder-dismissed'
+const LEGACY_DISMISS_KEY = 'profile-photo-reminder-dismissed'
+
+function getDismissKey(userId: string) {
+  return `profile-photo-reminder-dismissed:${userId}`
+}
 
 export function ProfilePhotoReminder() {
   const { data: session, status } = useSession()
   const [dismissed, setDismissed] = useState(true) // default hidden to avoid flash
+  const userId = session?.user?.id
+  const isViewingAs = Boolean(session?.impersonating)
 
   useEffect(() => {
-    setDismissed(localStorage.getItem(DISMISS_KEY) === 'true')
-  }, [])
+    // Dismissals used to be permanent and shared by every account using this
+    // browser. Remove that preference so the reminder returns as intended.
+    try {
+      localStorage.removeItem(LEGACY_DISMISS_KEY)
+    } catch {
+      // Storage can be unavailable in privacy-restricted browsers.
+    }
+
+    if (status !== 'authenticated' || !userId) {
+      setDismissed(true)
+      return
+    }
+
+    // View as is read-only, so an administrator should never be able to hide a
+    // reminder on behalf of the student they are viewing.
+    if (isViewingAs) {
+      setDismissed(false)
+      return
+    }
+
+    try {
+      setDismissed(sessionStorage.getItem(getDismissKey(userId)) === 'true')
+    } catch {
+      setDismissed(false)
+    }
+  }, [isViewingAs, status, userId])
 
   if (status !== 'authenticated') return null
   if (!session?.user) return null
@@ -28,7 +58,13 @@ export function ProfilePhotoReminder() {
   if (dismissed) return null
 
   const handleDismiss = () => {
-    localStorage.setItem(DISMISS_KEY, 'true')
+    if (isViewingAs) return
+
+    try {
+      sessionStorage.setItem(getDismissKey(session.user.id), 'true')
+    } catch {
+      // Still hide it for the current render if storage is unavailable.
+    }
     setDismissed(true)
   }
 
@@ -42,13 +78,15 @@ export function ProfilePhotoReminder() {
             Go to Settings
           </Link>
         </p>
-        <button
-          onClick={handleDismiss}
-          className="p-1 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200 shrink-0"
-          aria-label="Dismiss reminder"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        {!isViewingAs && (
+          <button
+            onClick={handleDismiss}
+            className="p-1 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200 shrink-0"
+            aria-label="Dismiss reminder"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   )
