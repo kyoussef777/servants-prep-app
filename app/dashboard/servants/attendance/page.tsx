@@ -360,7 +360,7 @@ function SundaySchoolAttendanceContent() {
           </Panel>
 
           {canEdit && attendance && attendance.roster.length > 0 && (
-            <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom)+8px)] z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
+            <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
               <p className="tabular text-[13px] text-ink-2" aria-live="polite">
                 <b className="font-semibold text-ok">{presentCount}</b> of {attendance.roster.length} here
                 {unmarkedCount > 0 && <StatusBadge tone="warn" className="ml-2">{unmarkedCount} unmarked</StatusBadge>}

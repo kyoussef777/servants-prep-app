@@ -93,7 +93,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const showYear = ministry === 'prep' && user.role !== 'PARENT'
 
   return (
-    <div data-ministry={ministry} className="flex min-h-dvh">
+    // Phones: a fixed-height column (app bar, scrolling content, tab bar) so neither
+    // bar depends on position: fixed/sticky over a scrolling page, which iOS Home
+    // Screen apps leave stranded mid-screen. Desktop keeps normal page scrolling.
+    <div data-ministry={ministry} className="flex h-dvh overflow-hidden md:h-auto md:min-h-dvh md:overflow-visible">
       <a
         href="#main"
         className="sr-only z-50 rounded-md bg-surface px-3 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
@@ -109,7 +112,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         user={shellUser}
         rail={rail}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <MobileAppBar ministry={ministry} ministries={ministries} />
         <TopBar
           ministry={ministry}
@@ -122,19 +125,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
         <main
           id="main"
-          className="flex min-w-0 flex-1 flex-col px-4 pt-4 pb-[calc(56px+env(safe-area-inset-bottom)+24px)] md:px-7 md:pt-6 md:pb-7 print:p-0"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-4 pb-6 md:overflow-visible md:px-7 md:pt-6 md:pb-7 print:p-0"
         >
           {children}
         </main>
+        <MobileTabBar
+          ministry={ministry}
+          ministries={ministries}
+          groups={groups}
+          pathname={pathname}
+          search=""
+          user={shellUser}
+        />
       </div>
-      <MobileTabBar
-        ministry={ministry}
-        ministries={ministries}
-        groups={groups}
-        pathname={pathname}
-        search=""
-        user={shellUser}
-      />
     </div>
   )
 }

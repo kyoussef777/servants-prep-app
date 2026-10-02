@@ -20,7 +20,7 @@ import { accountLinks } from './user-menu'
 /** 56px phone app bar: ministry pill, search, alerts. */
 export function MobileAppBar({ ministry, ministries }: { ministry: Ministry; ministries: MinistryOption[] }) {
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-1 border-b border-line bg-canvas/95 pr-2 pl-3 backdrop-blur-sm md:hidden print:hidden">
+    <header className="z-40 flex h-14 shrink-0 items-center gap-1 border-b border-line bg-canvas pr-2 pl-3 md:hidden print:hidden">
       <MinistrySwitcher current={ministry} options={ministries} compact className="h-11 px-1.5" />
       <div className="ml-auto flex items-center">
         <Button variant="ghost" size="icon" aria-label="Search" onClick={openCommandPalette}>
@@ -61,7 +61,7 @@ export function MobileTabBar({
     <>
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden print:hidden"
+        className="z-40 shrink-0 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
       >
         <ul className="grid grid-cols-5">
           {tabs.map((item) => {

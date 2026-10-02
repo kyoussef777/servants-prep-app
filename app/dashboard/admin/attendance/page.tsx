@@ -743,7 +743,7 @@ export default function AttendancePage() {
           </Panel>
 
           {/* Save bar: sticks to the bottom of the content column, above the phone tab bar. */}
-          <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom)+8px)] z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
+          <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
             <p className="tabular flex flex-wrap items-center gap-x-1.5 text-[13px] text-ink-2" aria-live="polite">
               <span><b className="font-semibold text-ok">{marked.PRESENT}</b> present</span>·
               <span><b className="font-semibold text-warn">{marked.LATE}</b> late</span>·
