@@ -639,7 +639,7 @@ export default function CurriculumPage() {
       </Panel>
 
       {canEdit && hasUnsavedChanges && (
-        <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom)+8px)] z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
+        <div className="sticky bottom-2 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 shadow-[0_8px_24px_-12px_rgba(27,24,23,0.25)] md:bottom-4">
           <StatusBadge tone="warn">
             {editedLessons.size} unsaved change{editedLessons.size > 1 ? 's' : ''}
           </StatusBadge>
