@@ -1,6 +1,11 @@
-# Servants Prep
+# St. Mark's Ministry
 
-A web application for a Coptic Orthodox church, running two modes that share one
+A unified platform for St. Mark's Ministry, including Servants Prep and Sunday
+School management.
+
+[Open the production application](https://www.stmarkministry.app)
+
+The responsive web application runs two ministry workspaces that share one
 deployment, one database, and one login:
 
 1. **Servants Prep** — the 2-year Servants Preparation Program: student
@@ -9,8 +14,8 @@ deployment, one database, and one login:
    grouped into age-group bands, the children in them, and weekly child
    attendance.
 
-The two are deliberately independent — no Sunday School data references the prep
-program, and vice versa.
+The two workspaces are deliberately independent — no Sunday School data
+references the prep program, and vice versa.
 
 ## Documentation
 
@@ -43,15 +48,27 @@ program, and vice versa.
   set of grades
 - **Classes** per academic year, each with assigned servants
 - **Coordinators** at class or age-group level, with authority scoped accordingly
-- **Children** rosters with guardian contact, visible only to that class's
-  servants and to admins
-- **Weekly attendance** per child, with per-class rates
+- **Children rosters** with profile photos, optional gender, and protected
+  guardian contact visible only to that class's servants and to admins
+- **Flexible attendance rosters** with first- or last-name sorting, optional
+  photos, and optional grouping by gender
+- **Child and servant attendance** with per-class trends; records can be changed
+  only on the session date
+- **Weekly lesson planning** aligned to the active Sunday School year; any
+  servant assigned to the class can update lessons and assign an owner from the
+  class roster
+- **Roster onboarding** through CSV imports, parent registration, and temporary
+  class-specific QR sign-up links
 - **Parent onboarding** with self-service accounts and approval-based child
   registration
 - **Servant onboarding** with a public sign-up form and a Super Admin-only
   review queue under Sunday School's **More** menu
+- **Visitations, feedback, reports, and activity history** within the same
+  assignment-scoped workspace
 
 ### Shared experience and branding
+- **Responsive mobile web experience** using the same features and permissions
+  as the desktop application
 - **Compact SP / SS mode switcher** for eligible users, with an animated
   transition between the two ministry workspaces
 - **In-mode page transitions** with a quick exit and entrance animation when
@@ -127,6 +144,7 @@ bun test:coverage        # with coverage
 bun db:generate          # regenerate Prisma Client (required after schema changes)
 bun db:push              # push schema without migrations
 bun db:migrate           # create and run a migration
+bun db:deploy            # apply committed migrations (production)
 bun db:seed              # seed sample data
 bun db:studio            # Prisma Studio
 
@@ -199,7 +217,9 @@ A student must meet all four:
 
 ## Deployment
 
-Deployed on Vercel. Set `SP_DATABASE_URL`, `SP_DATABASE_URL_UNPOOLED`,
+Production runs on Vercel at
+[www.stmarkministry.app](https://www.stmarkministry.app). Set
+`SP_DATABASE_URL`, `SP_DATABASE_URL_UNPOOLED`,
 `NEXTAUTH_URL`, and `NEXTAUTH_SECRET` in the project settings, then deploy.
 
 Keep Vercel Preview and Production connected to different Neon branches. For a
