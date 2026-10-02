@@ -5,7 +5,6 @@ import { SundaySchoolUserClassDialog } from '@/components/sunday-school-user-cla
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -29,7 +28,15 @@ import {
 } from '@/lib/roles'
 import { RoleTag, UserRole } from '@prisma/client'
 import { toast } from 'sonner'
-import { Camera, Trash2, Pencil, School, X } from 'lucide-react'
+import { Camera, Trash2, Pencil, Plus, School, X } from 'lucide-react'
+import { PageHeader } from '@/components/ds/page-header'
+import { Panel } from '@/components/ds/panel'
+import { SearchField } from '@/components/ds/search-field'
+import { StatusBadge } from '@/components/ds/status-badge'
+import { BulkBar } from '@/components/ds/bulk-bar'
+import { Initials } from '@/components/ds/person'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FilterSelect } from '@/components/ui/filter-select'
 import { ImageCropDialog } from '@/components/image-crop-dialog'
 import { PageLoading } from '@/components/ui/page-loading'
 import { UserRoleTagEditor } from '@/components/user-role-tag-editor'
@@ -508,142 +515,33 @@ export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) 
   const roleOptions: UserRole[] = ['SUPER_ADMIN', 'PRIEST', 'SERVANT_PREP', 'MENTOR', 'SERVANT', 'STUDENT']
   const filterRoleOptions = roleOptions
 
+  const openCreate = () => {
+    setShowCreateForm(true)
+    setEditingUser(null)
+    setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
+  }
+
   return (
     <div className="flex min-w-0 flex-col">
       <div className="space-y-5">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">User Management</h1>
-            <p className="text-gray-600 mt-1">Create and manage all users</p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {/* Bulk Actions (SUPER_ADMIN only) */}
-            {isSuperAdmin && (
-              <>
-                {/* Select All / Clear All button */}
-                <Button
-                  variant="outline"
-                  onClick={toggleSelectAll}
-                  disabled={isBulkProcessing || selectableUsers.length === 0}
-                  className="text-xs md:text-sm"
-                >
-                  {selectedUsers.size === selectableUsers.length && selectableUsers.length > 0
-                    ? `Deselect All`
-                    : `Select All (${selectableUsers.length})`}
-                </Button>
-                {selectedUsers.size > 0 && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleBulkDisable(true)}
-                      disabled={isBulkProcessing}
-                      className="text-red-600 border-red-300 hover:bg-red-50 text-xs md:text-sm"
-                    >
-                      {isBulkProcessing ? 'Processing...' : `Disable (${selectedUsers.size})`}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleBulkDisable(false)}
-                      disabled={isBulkProcessing}
-                      className="text-green-600 border-green-300 hover:bg-green-50 text-xs md:text-sm"
-                    >
-                      {isBulkProcessing ? 'Processing...' : `Enable (${selectedUsers.size})`}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleBulkPasswordReset}
-                      disabled={isBulkProcessing}
-                      className="text-blue-600 border-blue-300 hover:bg-blue-50 text-xs md:text-sm"
-                    >
-                      {isBulkProcessing ? 'Processing...' : `Reset Password (${selectedUsers.size})`}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setSelectedUsers(new Set())}
-                      disabled={isBulkProcessing}
-                      className="text-xs md:text-sm"
-                    >
-                      Clear
-                    </Button>
-                  </>
-                )}
-              </>
-            )}
-            <Button
-              onClick={() => {
-                setShowCreateForm(true)
-                setEditingUser(null)
-                setFormData({ name: '', email: '', phone: '', password: '', role: 'STUDENT', roleTags: [RoleTag.SERVANTS_PREP_STUDENT], roleAuditNote: '' })
-              }}
-              disabled={showCreateForm || editingUser !== null}
-            >
-              + Create User
+        <PageHeader
+          title="Users"
+          meta={[`${users.length} accounts${roleFilter || searchQuery ? ' match' : ''}`, sundaySchoolMode ? 'Sunday School' : 'across both ministries']}
+          actions={
+            <Button onClick={openCreate} disabled={showCreateForm || editingUser !== null}>
+              <Plus />
+              Create user
             </Button>
-          </div>
-        </div>
-
-        {/* Search and Filter */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4 items-center">
-              <div className="flex-1 relative w-full">
-                <Label htmlFor="search" className="sr-only">Search users</Label>
-                <Input
-                  id="search"
-                  type="text"
-                  placeholder="Search by name, email, or phone..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full"
-                />
-                {isFiltering && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="h-4 w-4 border-2 border-maroon-600 border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-              </div>
-              <div className="w-full md:w-48">
-                <Label htmlFor="roleFilter" className="sr-only">Filter by role</Label>
-                <select
-                  id="roleFilter"
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value as UserRole | '')}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">All Roles</option>
-                  {filterRoleOptions.map(role => (
-                    <option key={role} value={role}>
-                      {getRoleDisplayName(role)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {(searchQuery || roleFilter) && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchQuery('')
-                    setRoleFilter('')
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+          }
+        />
 
         {/* Create Form (only for new user) */}
         {showCreateForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Create New User</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <Panel title="Create user">
+            <div className="px-4 py-4">
               <form onSubmit={handleCreateUser} className="space-y-4">
                 {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded text-sm">
+                  <div role="alert" className="rounded-md bg-bad-tint px-3 py-2 text-[13px] text-bad">
                     {formError}
                   </div>
                 )}
@@ -679,28 +577,63 @@ export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) 
                     onChange={(roleTags) => setFormData({ ...formData, roleTags })}
                   />
                 )}
-                <div className="flex gap-2">
-                  <Button type="submit">Create User</Button>
+                <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={cancelForm}>Cancel</Button>
+                  <Button type="submit">Create user</Button>
                 </div>
               </form>
-            </CardContent>
-          </Card>
+            </div>
+          </Panel>
         )}
 
-        {/* Users List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {roleFilter ? `${getRoleDisplayName(roleFilter)}s` : 'All Users'} ({users.length})
-              {searchQuery && <span className="font-normal text-gray-500 ml-2">matching &quot;{searchQuery}&quot;</span>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Panel
+          toolbar={
+            <>
+              <div className="relative w-full md:w-auto">
+                <SearchField value={searchQuery} onChange={setSearchQuery} placeholder="Search name, email, phone" label="Search users" className="md:w-[260px]" />
+                {isFiltering && (
+                  <span className="absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 animate-spin rounded-full border-2 border-brand border-t-transparent" aria-hidden />
+                )}
+              </div>
+              <FilterSelect
+                aria-label="Filter by role"
+                value={roleFilter}
+                onChange={(v) => setRoleFilter(v as UserRole | '')}
+                options={[{ value: '', label: 'All roles' }, ...filterRoleOptions.map((role) => ({ value: role, label: getRoleDisplayName(role) }))]}
+              />
+              {(searchQuery || roleFilter) && (
+                <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setRoleFilter('') }}>
+                  <X />
+                  Clear
+                </Button>
+              )}
+              {isSuperAdmin && selectableUsers.length > 0 && (
+                <Button variant="ghost" size="sm" className="md:ml-auto" onClick={toggleSelectAll} disabled={isBulkProcessing}>
+                  {selectedUsers.size === selectableUsers.length ? 'Deselect all' : `Select all (${selectableUsers.length})`}
+                </Button>
+              )}
+            </>
+          }
+          footer={<span className="tabular">{users.length} users</span>}
+        >
+          {isSuperAdmin && (
+            <BulkBar count={selectedUsers.size} noun={selectedUsers.size === 1 ? 'user selected' : 'users selected'} onClear={() => setSelectedUsers(new Set())}>
+              <Button size="sm" variant="outline" onClick={() => handleBulkDisable(false)} disabled={isBulkProcessing}>
+                Enable
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleBulkPasswordReset} disabled={isBulkProcessing}>
+                Reset password
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => handleBulkDisable(true)} disabled={isBulkProcessing}>
+                {isBulkProcessing ? 'Working…' : 'Disable'}
+              </Button>
+            </BulkBar>
+          )}
+          <div>
             {/* Desktop View */}
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="w-full text-[13px] text-ink">
+                <thead className="bg-raised text-xs text-ink-3 [&_th]:h-9 [&_th]:font-medium">
                   <tr>
                     {isSuperAdmin && (
                       <th className="text-center p-2 w-10">
@@ -708,24 +641,23 @@ export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) 
                           type="checkbox"
                           checked={selectableUsers.length > 0 && selectedUsers.size === selectableUsers.length}
                           onChange={toggleSelectAll}
-                          className="h-4 w-4 rounded border-gray-300"
-                          title="Select all"
+                          className="size-[15px] accent-brand"
+                          aria-label="Select all"
                         />
                       </th>
                     )}
-                    <th className="text-left p-2 w-8">#</th>
                     <th className="text-left p-2">Name</th>
                     <th className="text-left p-2">Email</th>
                     <th className="text-left p-2">Phone</th>
-                    <th className="text-center p-2 w-44">Access tags</th>
-                    <th className="text-center p-2 w-44">Sunday School grades</th>
+                    <th className="p-2 text-left w-44">Access</th>
+                    <th className="p-2 text-left w-44">SS grades</th>
                     <th className="text-center p-2 w-24">Status</th>
                     <th className="text-center p-2 w-24">Mentees</th>
                     <th className="text-center p-2 w-32">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user, index) => {
+                  {users.map((user) => {
                     const isCurrentUser = user.id === session?.user?.id
                     const canSelect = user.role !== 'SUPER_ADMIN' && !isCurrentUser
                     const isEditing = editingUser?.id === user.id
@@ -733,32 +665,25 @@ export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) 
 
                     return (
                       <React.Fragment key={user.id}>
-                        <tr className={`border-b ${isEditing ? 'bg-blue-50 dark:bg-blue-950/20' : user.isDisabled ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                        <tr className={`h-[52px] border-b border-line ${isEditing || selectedUsers.has(user.id) ? 'bg-accent-tint' : user.isDisabled ? 'text-ink-3' : 'hover:bg-hover/60'}`}>
                           {isSuperAdmin && (
                             <td className="p-2 text-center">
                               {canSelect ? (
                                 <input
                                   type="checkbox"
+                                  aria-label={`Select ${user.name}`}
                                   checked={selectedUsers.has(user.id)}
                                   onChange={() => toggleUserSelection(user.id)}
-                                  className="h-4 w-4 rounded border-gray-300"
+                                  className="size-[15px] accent-brand"
                                 />
                               ) : (
                                 <span className="text-gray-300">-</span>
                               )}
                             </td>
                           )}
-                          <td className="p-2 text-gray-500">{index + 1}</td>
-                          <td className="p-2 font-medium">
+                          <td className="p-2 font-medium whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <Avatar className="h-7 w-7 shrink-0">
-                                {user.profileImageUrl && (
-                                  <AvatarImage src={user.profileImageUrl} alt={user.name} />
-                                )}
-                                <AvatarFallback className="bg-maroon-600 text-white text-xs">
-                                  {user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                                </AvatarFallback>
-                              </Avatar>
+                              <Initials name={user.name} imageUrl={user.profileImageUrl} />
                               <span>
                                 {isSuperAdmin && user.role !== 'STUDENT' ? (
                                                                   <button type="button" onClick={() => setOrganizationUser(user)} className="text-left hover:text-indigo-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded" aria-label={`View ${user.name}'s organization`}>{user.name}<span className="ml-1 text-xs text-muted-foreground">↗</span></button>
@@ -785,11 +710,11 @@ export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) 
                           </td>
                           <td className="p-2 text-center">
                             {sundaySchoolLevels.length > 0 ? (
-                              <div className="flex flex-wrap justify-center gap-1">
+                              <div className="flex flex-wrap gap-1">
                                 {sundaySchoolLevels.map(level => (
-                                  <Badge key={level} variant="outline" className="border-blue-300 text-blue-700">
+                                  <StatusBadge key={level} tone="gold" dot={false}>
                                     {getLevelDisplayName(level)}
-                                  </Badge>
+                                  </StatusBadge>
                                 ))}
                               </div>
                             ) : (
@@ -812,11 +737,7 @@ export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) 
                             )}
                           </td>
                           <td className="p-2 text-center">
-                            {user.isDisabled ? (
-                              <Badge className="bg-red-500">Disabled</Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-green-600 border-green-300">Active</Badge>
-                            )}
+                            {user.isDisabled ? <StatusBadge tone="neutral">Disabled</StatusBadge> : <StatusBadge tone="ok">Active</StatusBadge>}
                           </td>
                           <td className="p-2 text-center">
                             {canBeMentor(user.role) ? (
@@ -943,11 +864,7 @@ export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) 
               </table>
 
               {users.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  {searchQuery || roleFilter
-                    ? 'No users match your search criteria'
-                    : 'No users found'}
-                </div>
+                <EmptyState message={searchQuery || roleFilter ? 'No users match your search.' : 'No users yet.'} />
               )}
             </div>
 
@@ -1120,15 +1037,11 @@ export default function UsersPage({ sundaySchoolMode = false }: UsersPageProps) 
               })}
 
               {users.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  {searchQuery || roleFilter
-                    ? 'No users match your search criteria'
-                    : 'No users found'}
-                </div>
+                <EmptyState message={searchQuery || roleFilter ? 'No users match your search.' : 'No users yet.'} />
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
       </div>
 
       {organizationUser && (
