@@ -125,6 +125,6 @@ describe('AppShell', () => {
     mocks.pathname = '/dashboard/admin'
     mocks.user = { ...mocks.user, role: UserRole.SUPER_ADMIN }
     render(<AppShell>page</AppShell>)
-    expect(screen.getByTitle('Active academic year')).toHaveTextContent('2026–2027')
+    expect(screen.getByTitle('Academic year')).toHaveTextContent('Active academic year: 2026–2027')
   })
 })

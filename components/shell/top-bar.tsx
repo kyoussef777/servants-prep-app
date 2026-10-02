@@ -1,10 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { CalendarDays, ChevronRight, PanelLeft } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronRight, PanelLeft, Settings2 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { useAcademicYears } from '@/lib/swr'
 import { MINISTRY_NAMES, type Ministry } from '@/lib/navigation'
+
+const yearLabel = (name: string) => name.replace('-', '–')
 
 /** 52px bar: rail toggle, breadcrumb, active year, alerts (design system §07). */
 export function TopBar({
@@ -26,7 +36,6 @@ export function TopBar({
 }) {
   const { data: years } = useAcademicYears(showYear)
   const active = years?.find((y) => y.isActive)
-  const yearLabel = active?.name.replace('-', '–')
 
   return (
     <div className="sticky top-0 z-40 hidden h-[52px] shrink-0 items-center gap-3 border-b border-line bg-canvas/95 px-7 backdrop-blur-sm md:flex print:hidden">
@@ -53,25 +62,41 @@ export function TopBar({
         )}
       </nav>
       <div className="ml-auto flex items-center gap-2">
-        {showYear && yearLabel && (() => {
-          const pill = 'inline-flex h-[30px] items-center gap-[7px] rounded-md border border-line-strong bg-surface px-2.5 text-[13px] font-medium whitespace-nowrap text-ink no-underline'
-          const content = (
-            <>
+        {showYear && active && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              title="Academic year"
+              className="inline-flex h-[30px] cursor-pointer items-center gap-[7px] rounded-md border border-line-strong bg-surface px-2.5 text-[13px] font-medium whitespace-nowrap text-ink outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent-ink"
+            >
               <CalendarDays className="size-[15px]" strokeWidth={1.75} aria-hidden />
               <span className="sr-only">Active academic year: </span>
-              {yearLabel}
-            </>
-          )
-          return yearHref ? (
-            <Link href={yearHref} title="Active academic year" className={`${pill} hover:bg-hover`}>
-              {content}
-            </Link>
-          ) : (
-            <span title="Active academic year" className={pill}>
-              {content}
-            </span>
-          )
-        })()}
+              {yearLabel(active.name)}
+              <ChevronDown className="size-3.5 text-ink-3" strokeWidth={1.75} aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-[11px] font-medium tracking-[0.06em] text-ink-3 uppercase">
+                Academic years
+              </DropdownMenuLabel>
+              {years!.map((year) => (
+                <DropdownMenuItem key={year.id} disabled className="justify-between data-[disabled]:opacity-100">
+                  <span className={year.isActive ? 'font-medium text-ink' : 'text-ink-3'}>{yearLabel(year.name)}</span>
+                  {year.isActive && <span className="text-[11.5px] text-accent-ink">Active</span>}
+                </DropdownMenuItem>
+              ))}
+              {yearHref && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={yearHref} className="cursor-pointer">
+                      <Settings2 className="size-4" strokeWidth={1.75} aria-hidden />
+                      Manage academic years
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <NotificationBell />
       </div>
     </div>

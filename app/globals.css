@@ -666,12 +666,23 @@
     justify-content: center;
     padding-inline: 0;
   }
+  [data-sidebar] .sidebar-switcher {
+    justify-content: center;
+    padding-inline: 0;
+    border-color: transparent;
+    background: transparent;
+  }
 }
 [data-sidebar][data-rail="true"] .sidebar-item,
 [data-sidebar][data-rail="true"] .sidebar-search,
-[data-sidebar][data-rail="true"] .sidebar-user {
+[data-sidebar][data-rail="true"] .sidebar-user,
+[data-sidebar][data-rail="true"] .sidebar-switcher {
   justify-content: center;
   padding-inline: 0;
+}
+[data-sidebar][data-rail="true"] .sidebar-switcher {
+  border-color: transparent;
+  background: transparent;
 }
 
 @layer base {
