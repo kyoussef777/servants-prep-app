@@ -17,7 +17,7 @@ export function AnnualMentorReminderBanner() {
   if (
     !isStudent ||
     pathname === APPLICATION_PATH ||
-    !data?.annualMentorRequired ||
+    !data ||
     data.complete ||
     !data.missingDetails.includes('mentorInformation')
   ) {
@@ -25,6 +25,7 @@ export function AnnualMentorReminderBanner() {
   }
 
   const yearName = data.academicYear?.name.replace('-', '–') ?? 'the current academic year'
+  const isAnnualConfirmation = data.annualMentorRequired
 
   return (
     <section
@@ -37,14 +38,16 @@ export function AnnualMentorReminderBanner() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id="annual-mentor-reminder-title" className="text-sm font-semibold">
-              Confirm your mentor information
+              {isAnnualConfirmation ? 'Confirm your mentor information' : 'Complete your mentor information'}
             </h2>
             <span className="rounded-sm bg-warn px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.06em] text-white uppercase">
               Required
             </span>
           </div>
           <p className="mt-0.5 text-[13px] leading-5 text-ink-2">
-            Year 2 students must confirm their mentor servant&apos;s contact information for {yearName}.
+            {isAnnualConfirmation
+              ? `Confirm your mentor servant's contact information for ${yearName}.`
+              : 'Add your mentor servant\'s contact information to finish your Servants Prep application.'}
           </p>
         </div>
       </div>
