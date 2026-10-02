@@ -660,6 +660,31 @@
 
 
 /* App shell sidebar: 236px, a 64px rail on tablets or when collapsed (design system §07). */
+/* Its current width, for things that must clear it (toasts in a left corner). */
+:root {
+  --sidebar-width: 0px;
+}
+@media (min-width: 768px) {
+  :root:has([data-sidebar]) {
+    --sidebar-width: 64px;
+  }
+}
+@media (min-width: 1280px) {
+  :root:has([data-sidebar][data-rail="false"]) {
+    --sidebar-width: 236px;
+  }
+}
+/* Toasts can be dragged to a corner on desktop (components/ui/sonner.tsx). */
+@media (min-width: 768px) and (pointer: fine) {
+  [data-sonner-toast] {
+    cursor: grab;
+  }
+  html[data-toast-dragging] [data-sonner-toast],
+  html[data-toast-dragging] {
+    cursor: grabbing;
+    user-select: none;
+  }
+}
 [data-sidebar] {
   width: 236px;
 }
