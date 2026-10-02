@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils'
 function useIsWide(query = '(min-width: 1280px)') {
   const [wide, setWide] = useState(false)
   useEffect(() => {
-    const mq = window.matchMedia(query)
+    const mq = window.matchMedia?.(query)
+    if (!mq) return
     const sync = () => setWide(mq.matches)
     sync()
     mq.addEventListener('change', sync)
