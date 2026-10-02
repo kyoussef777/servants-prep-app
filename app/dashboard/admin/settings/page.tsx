@@ -244,7 +244,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex min-w-0 flex-col">
-      <div className="w-full max-w-4xl space-y-5">
+      <div className="w-full space-y-5">
         <PageHeader title="Settings" meta={['Program configuration']} />
 
         <Panel

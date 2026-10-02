@@ -3,6 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const globalStyles = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8')
+const adminSettingsPage = readFileSync(
+  join(process.cwd(), 'app/dashboard/admin/settings/page.tsx'),
+  'utf8'
+)
 
 describe('global app chrome styles', () => {
   it('keeps the desktop scrollbar gutter stable while overlays are open', () => {
@@ -27,5 +31,10 @@ describe('global app chrome styles', () => {
     expect(globalStyles.match(/--chart-exam:/g)).toHaveLength(2)
     expect(globalStyles.match(/--chart-roster:/g)).toHaveLength(2)
     expect(globalStyles.match(/--chart-target:/g)).toHaveLength(2)
+  })
+
+  it('lets the admin settings page use the full application canvas', () => {
+    expect(adminSettingsPage).toContain('<div className="w-full space-y-5">')
+    expect(adminSettingsPage).not.toContain('max-w-4xl')
   })
 })
