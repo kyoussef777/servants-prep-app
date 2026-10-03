@@ -103,8 +103,8 @@
   --text-color-pink-50: var(--ds-info); --text-color-pink-100: var(--ds-info); --text-color-pink-200: var(--ds-info); --text-color-pink-300: var(--ds-info);
 }
 
-/* Page changes use a short vertical transition while the two ministry modes
-   retain their directional switch. Reduced-motion users keep instant navigation. */
+/* Page changes use a short vertical transition. Reduced-motion users keep
+   instant navigation. */
 @media (prefers-reduced-motion: no-preference) {
   [data-slot="dialog-overlay"][data-state="open"],
   [data-slot="alert-dialog-overlay"][data-state="open"] {
@@ -142,22 +142,6 @@
 
   html.page-transition-in #main {
     animation: page-content-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  html.mode-transition-fallback-out[data-mode-transition="to-sunday-school"] #app-content {
-    animation: mode-content-out-left 160ms ease-in both;
-  }
-
-  html.mode-transition-fallback-in[data-mode-transition="to-sunday-school"] #app-content {
-    animation: mode-content-in-right 220ms ease-out both;
-  }
-
-  html.mode-transition-fallback-out[data-mode-transition="to-servants-prep"] #app-content {
-    animation: mode-content-out-right 160ms ease-in both;
-  }
-
-  html.mode-transition-fallback-in[data-mode-transition="to-servants-prep"] #app-content {
-    animation: mode-content-in-left 220ms ease-out both;
   }
 }
 
@@ -278,34 +262,6 @@
 
   .feedback-score-pop {
     animation: feedback-score-pop 220ms ease-out;
-  }
-}
-
-@keyframes mode-content-out-left {
-  to {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-}
-
-@keyframes mode-content-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-}
-
-@keyframes mode-content-out-right {
-  to {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-}
-
-@keyframes mode-content-in-left {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
   }
 }
 
