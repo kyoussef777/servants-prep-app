@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "./prisma"
 import { requireAuth } from "./auth-helpers"
+import { asyncPeriodStart, isAsyncPeriodLesson } from "./attendance-utils"
 
 /**
  * Standard API error response handler
@@ -194,10 +195,18 @@ export async function backfillAttendanceForStudents(
       isExamDay: false,
       attendanceRecords: { some: {} },
     },
-    select: { id: true },
+    select: { id: true, scheduledDate: true },
   })
 
   if (lessonsWithAttendance.length === 0) return 0
+
+  // Async students get no default absence for lessons from the day they went
+  // async; their attendance is their Sunday School rotation.
+  const asyncEnrollments = await db.studentEnrollment.findMany({
+    where: { studentId: { in: uniqueStudentIds }, isAsyncStudent: true },
+    select: { studentId: true, isAsyncStudent: true, asyncApprovedAt: true },
+  })
+  const asyncStart = new Map(asyncEnrollments.map(e => [e.studentId, asyncPeriodStart(e)]))
 
   // Check which student/lesson pairs already have records.
   const existingRecords = await db.attendanceRecord.findMany({
@@ -215,6 +224,7 @@ export async function backfillAttendanceForStudents(
   const toCreate = uniqueStudentIds.flatMap(studentId =>
     lessonsWithAttendance
       .filter(lesson => !existingRecordKeys.has(`${studentId}:${lesson.id}`))
+      .filter(lesson => !isAsyncPeriodLesson(lesson.scheduledDate, asyncStart.get(studentId) ?? null))
       .map(lesson => ({
         lessonId: lesson.id,
         studentId,

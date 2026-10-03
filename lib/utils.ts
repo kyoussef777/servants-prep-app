@@ -65,13 +65,14 @@ export interface EnrollmentForStudentMap {
   student: { id: string; name: string; [key: string]: unknown }
   yearLevel: string
   isAsyncStudent?: boolean
+  asyncApprovedAt?: string | Date | null
   mentor?: { id: string; [key: string]: unknown } | null
 }
 
 export interface StudentWithEnrollments {
   id: string
   name: string
-  enrollments: Array<{ yearLevel: string; mentorId?: string; isAsyncStudent?: boolean }>
+  enrollments: Array<{ yearLevel: string; mentorId?: string; isAsyncStudent?: boolean; asyncApprovedAt?: string | Date | null }>
   [key: string]: unknown
 }
 
@@ -92,7 +93,8 @@ export function buildStudentMapFromEnrollments(
         studentMap.get(student.id)!.enrollments.push({
           yearLevel: enrollment.yearLevel,
           mentorId: enrollment.mentor?.id,
-          isAsyncStudent: enrollment.isAsyncStudent
+          isAsyncStudent: enrollment.isAsyncStudent,
+          asyncApprovedAt: enrollment.asyncApprovedAt,
         })
       }
     }
