@@ -64,7 +64,7 @@ export async function PATCH(
           { status: 400 }
         )
       }
-      parsed.setHours(0, 0, 0, 0)
+      parsed.setUTCHours(0, 0, 0, 0) // a date-only value is UTC midnight; keep that day
       updateData.startDate = parsed
     }
     if (isActive !== undefined) updateData.isActive = isActive

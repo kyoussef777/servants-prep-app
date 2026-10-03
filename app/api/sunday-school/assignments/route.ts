@@ -220,7 +220,7 @@ export async function POST(request: Request) {
     }
 
     // Normalize startDate to midnight
-    parsedStartDate.setHours(0, 0, 0, 0)
+    parsedStartDate.setUTCHours(0, 0, 0, 0) // a date-only value is UTC midnight; keep that day
 
     const assignment = await prisma.sundaySchoolAssignment.create({
       data: {
