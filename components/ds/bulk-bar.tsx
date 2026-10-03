@@ -20,7 +20,7 @@ export function BulkBar({
     <div
       role="region"
       aria-label="Bulk actions"
-      className="flex flex-wrap items-center gap-2 border-b border-line bg-accent-tint px-3 py-2"
+      className="flex animate-in flex-wrap items-center gap-2 border-b border-line bg-accent-tint px-3 py-2 fade-in-0 slide-in-from-top-1 duration-150 motion-reduce:animate-none"
     >
       <span className="tabular text-[13px] font-medium text-ink">
         {count} {noun}
