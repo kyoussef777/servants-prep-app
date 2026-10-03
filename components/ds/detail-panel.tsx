@@ -61,7 +61,7 @@ export function DetailPanel({ open, onClose, title, label, header, footer, child
     return (
       <aside
         aria-label={label ?? (typeof title === 'string' ? title : 'Details')}
-        className="sticky top-[68px] flex max-h-[calc(100vh-88px)] w-[360px] shrink-0 flex-col self-start overflow-hidden rounded-lg border border-line bg-surface"
+        className="sticky top-[68px] flex max-h-[calc(100vh-88px)] w-[360px] shrink-0 animate-in flex-col self-start overflow-hidden rounded-lg border border-line bg-surface fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none"
       >
         {body}
       </aside>
@@ -71,13 +71,15 @@ export function DetailPanel({ open, onClose, title, label, header, footer, child
   return (
     <DialogPrimitive.Root open onOpenChange={(next) => !next && onClose()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)]" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgba(19,18,17,0.45)] animate-in fade-in-0 duration-200 motion-reduce:animate-none" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           className={cn(
             'fixed z-50 flex flex-col overflow-hidden border-line bg-surface text-ink',
             'inset-x-0 bottom-0 max-h-[88vh] rounded-t-xl border-t pb-[env(safe-area-inset-bottom)]',
-            'md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[400px] md:rounded-none md:border-t-0 md:border-l'
+            'md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[400px] md:rounded-none md:border-t-0 md:border-l',
+            // Bottom sheet on phones, side sheet on tablets
+            'animate-in slide-in-from-bottom duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] md:slide-in-from-right motion-reduce:animate-none'
           )}
         >
           <DialogPrimitive.Title className="sr-only">{label ?? (typeof title === 'string' ? title : 'Details')}</DialogPrimitive.Title>
