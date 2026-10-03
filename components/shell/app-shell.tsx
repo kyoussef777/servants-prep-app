@@ -15,6 +15,7 @@ import { Sidebar } from './sidebar'
 import { TopBar } from './top-bar'
 import { MobileAppBar, MobileTabBar } from './mobile-nav'
 import { AnnualMentorReminderBanner } from '@/components/annual-mentor-reminder-banner'
+import { ProfilePhotoReminder } from '@/components/profile-photo-reminder'
 
 const RAIL_KEY = 'sidebar-rail'
 
@@ -128,7 +129,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           id="main"
           className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-4 pb-6 md:overflow-visible md:px-7 md:pt-6 md:pb-7 print:p-0"
         >
+          {/* Reminders live inside the content area: anything above the shell makes
+              the page taller than the screen and shifts the phone layout. */}
           <AnnualMentorReminderBanner />
+          <ProfilePhotoReminder />
           {children}
         </main>
         <MobileTabBar

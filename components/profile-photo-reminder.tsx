@@ -69,25 +69,24 @@ export function ProfilePhotoReminder() {
   }
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-3">
-        <Camera className="h-4 w-4 text-amber-600 shrink-0" />
-        <p className="text-sm text-amber-800 dark:text-amber-200 flex-1">
-          Add a profile photo so your mentors and servants can recognize you.{' '}
-          <Link href="/settings" className="font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100">
-            Go to Settings
-          </Link>
-        </p>
-        {!isViewingAs && (
-          <button
-            onClick={handleDismiss}
-            className="p-1 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200 shrink-0"
-            aria-label="Dismiss reminder"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+    <div className="mb-5 flex items-center gap-3 rounded-lg border border-warn/35 bg-warn-tint px-4 py-2.5 text-ink print:hidden">
+      <Camera className="size-4 shrink-0 text-warn" strokeWidth={1.75} aria-hidden />
+      <p className="flex-1 text-[13px] leading-5 text-ink-2">
+        Add a profile photo so your mentors and servants can recognize you.{' '}
+        <Link href="/settings" className="font-medium text-ink underline underline-offset-2">
+          Go to Settings
+        </Link>
+      </p>
+      {!isViewingAs && (
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-3 hover:bg-hover hover:text-ink"
+          aria-label="Dismiss reminder"
+        >
+          <X className="size-4" aria-hidden />
+        </button>
+      )}
     </div>
   )
 }
