@@ -67,6 +67,8 @@ interface Analytics {
     }>
     year1Met: boolean
     year2Met: boolean
+    /** No active rotation for the current year yet. */
+    needsRotation?: boolean
     allMet: boolean
   }
 }
@@ -142,9 +144,17 @@ export default function StudentDashboard() {
     { label: 'Attendance ≥ 75%', met: graduation.attendanceMet },
     { label: 'Exam avg ≥ 75%', met: graduation.overallAverageMet },
     { label: 'All sections ≥ 60%', met: graduation.allSectionsPassing },
-    ...(isAsync && graduation.sundaySchoolMet !== undefined ? [{ label: 'Sunday School serving', met: graduation.sundaySchoolMet }] : []),
+    ...(isAsync && graduation.sundaySchoolMet !== undefined
+      ? [{
+          label: analytics.sundaySchool?.needsRotation ? 'Sunday School rotation · not assigned yet' : 'Sunday School rotation ≥ 75%',
+          met: graduation.sundaySchoolMet,
+        }]
+      : []),
   ]
-  const assignment = analytics.sundaySchool?.assignments[0]
+  // The rotation that counts: this year's active one
+  const assignment =
+    analytics.sundaySchool?.assignments.find((a) => a.isActive && a.yearLevel === enrollment.yearLevel) ??
+    analytics.sundaySchool?.assignments[0]
 
   return (
     <div className="flex min-w-0 flex-col gap-5">

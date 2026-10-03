@@ -26,6 +26,8 @@ interface LessonResource {
 
 interface Lesson {
   id: string
+  /** On or after the day the student went async (no roll call). */
+  asyncPeriod?: boolean
   title: string
   subtitle: string | null
   speaker: string | null
@@ -122,6 +124,11 @@ export default function StudentLessonsPage() {
 
   const attendanceBadge = (lesson: Lesson) => {
     const a = lesson.attendance
+    if (lesson.asyncPeriod && !a) {
+      return isUpcoming(lesson)
+        ? <StatusBadge tone="neutral" dot={false}>Async</StatusBadge>
+        : <StatusBadge tone="neutral" dot={false}>Async · rotation</StatusBadge>
+    }
     if (lesson.status === 'SCHEDULED' && !a) return <StatusBadge tone="info">Upcoming</StatusBadge>
     if (!a) return <span className="text-ink-3">—</span>
     if (a.notEnrolledYet) return <StatusBadge tone="neutral" dot={false}>Before you joined</StatusBadge>

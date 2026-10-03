@@ -763,6 +763,9 @@ model SundaySchoolAssignment {
   id             String            @id @default(cuid())
   studentId      String
   grade          SundaySchoolGrade
+  /// The Sunday School class the student serves in; grade is derived from its level.
+  /// Optional: rotations created before classes were linked have only a grade.
+  classId        String?
   academicYearId String
   yearLevel      YearLevel
   totalWeeks     Int               @default(6)
@@ -773,12 +776,14 @@ model SundaySchoolAssignment {
   updatedAt      DateTime          @updatedAt
 
   // Relations
-  student      User              @relation("SundaySchoolAssignments", fields: [studentId], references: [id], onDelete: Cascade)
-  academicYear AcademicYear      @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  assigner     User?             @relation("AssignedSundaySchool", fields: [assignedBy], references: [id], onDelete: SetNull)
+  student      User               @relation("SundaySchoolAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  assigner     User?              @relation("AssignedSundaySchool", fields: [assignedBy], references: [id], onDelete: SetNull)
+  class        SundaySchoolClass? @relation(fields: [classId], references: [id], onDelete: SetNull)
   logs         SundaySchoolLog[]
 
   @@unique([studentId, academicYearId])
+  @@index([classId])
   @@index([studentId])
   @@index([academicYearId])
   @@index([grade])
@@ -896,6 +901,7 @@ model SundaySchoolClass {
   weeklyLessons             SundaySchoolWeeklyLesson[]
   childRegistrationRequests ChildRegistrationRequest[]
   visitations               SundaySchoolVisitation[]
+  asyncRotations            SundaySchoolAssignment[]
 
   @@unique([name, academicYearId])
   @@unique([sundaySchoolYearId, level, sectionName])

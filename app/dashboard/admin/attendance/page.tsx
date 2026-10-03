@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import type { AcademicYear } from '@/lib/types'
+import { asyncPeriodStart, isAsyncPeriodLesson } from '@/lib/attendance-utils'
 
 interface Lesson {
   id: string
@@ -51,6 +52,7 @@ interface Student {
     yearLevel: string
     mentorId: string
     isAsyncStudent?: boolean
+    asyncApprovedAt?: string | null
   }>
 }
 
@@ -352,7 +354,15 @@ export default function AttendancePage() {
     }
   }
 
+  // Async students aren't on the roll call for lessons from the day they went
+  // async: their attendance is their Sunday School rotation (slips still count).
+  const isAsyncForLesson = (student: Student) =>
+    !!selectedLesson &&
+    student.enrollments.some((e) => isAsyncPeriodLesson(selectedLesson.scheduledDate, asyncPeriodStart(e)))
+  const asyncOffRollCall = students.filter(isAsyncForLesson)
+
   const filteredStudents = students.filter(student => {
+    if (isAsyncForLesson(student)) return false
     if (searchTerm && !student.name.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false
     }
@@ -583,7 +593,13 @@ export default function AttendancePage() {
             }
           >
             <div className="border-b border-line px-4 py-2.5">
-              <AttendanceLegend note="Async students are marked from their uploaded slips" />
+              <AttendanceLegend />
+              {asyncOffRollCall.length > 0 && (
+                <p className="mt-1.5 text-xs text-ink-3">
+                  Not on this roll call (async): {asyncOffRollCall.map((s) => s.name).join(', ')}. Their attendance comes from
+                  their Sunday School rotation; an uploaded slip still marks a lesson Present.
+                </p>
+              )}
             </div>
 
             {filteredStudents.length === 0 ? (
