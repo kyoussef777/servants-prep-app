@@ -7,7 +7,6 @@ import { Providers } from "./providers";
 import { AppShell } from "@/components/shell/app-shell";
 import { CommandPalette } from "@/components/command-palette";
 import { ViewAsMode } from "@/components/view-as-mode";
-import { ProfilePhotoReminder } from "@/components/profile-photo-reminder";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationProvider } from "@/components/notifications/notification-provider";
 import { PushNotificationPrompt } from "@/components/notifications/push-prompt";
@@ -75,7 +74,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} ${newsreader.variable} flex min-h-screen flex-col bg-canvas antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} ${newsreader.variable} flex min-h-dvh flex-col bg-canvas antialiased`}
         suppressHydrationWarning
       >
         <Providers>
@@ -85,7 +84,6 @@ export default function RootLayout({
             <NotificationProvider />
             <ViewAsMode />
             <CommandPalette />
-            <ProfilePhotoReminder />
           </div>
           <div id="app-content" className="w-full min-w-0 flex-1 bg-canvas">
             <AppShell>{children}</AppShell>

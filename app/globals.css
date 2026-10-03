@@ -744,6 +744,16 @@
     overflow-y: scroll;
     scrollbar-gutter: stable;
   }
+  /* Phones: the app shell is exactly the visible height (100dvh) and scrolls
+     inside #main, so the page itself must never be taller or scrollable. In
+     Safari 100vh is taller than the area the browser toolbars leave; a taller
+     page shifted the whole shell up and left a gap under the tab bar. */
+  @media (max-width: 767.98px) {
+    html:has([data-ministry]),
+    html:has([data-ministry]) body {
+      overflow: hidden;
+    }
+  }
   body {
     @apply bg-canvas text-ink;
     font-size: 14px;
