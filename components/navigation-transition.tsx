@@ -58,7 +58,6 @@ export function NavigationTransition() {
         !anchor ||
         anchor.hasAttribute('download') ||
         (anchor.target && anchor.target !== '_self') ||
-        anchor.hasAttribute('data-mode-switch') ||
         anchor.hasAttribute('data-no-page-transition')
       ) {
         return
